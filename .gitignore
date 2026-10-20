@@ -1,0 +1,37 @@
+# Betriebssystem und Editoren
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Zugangsdaten und lokale Konfiguration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python und lokale Ausgaben
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Revit und große BIM-Dateien: externe Ablage, bis LFS abgestimmt ist
+*.[rR][vV][tT]
+*.[rR][fF][aA]
+*.[rR][tT][eE]
+*.[rR][fF][tT]
+*.[iI][fF][cC]
+*.[nN][wW][cC]
+*.[nN][wW][dD]
+*_backup/
+*.slog
+*.dmp
+
+# Temporäre Dateien
+*.tmp
+*.bak
+~$*
