@@ -1,11 +1,13 @@
 <div align="center">
 
-# GST · Teamprojekt 1
+# KI TRIFFT GEBÄUDE
+
+GST · Teamprojekt 1
 ### Revit × Künstliche Intelligenz
 
 **Modellieren. Untersuchen. Nachvollziehbar dokumentieren.**
 
-[Projektüberblick](docs/projektsteckbrief.md) · [Aufgabenplan](docs/aufgabenplan.md) · [Zusammenarbeit](CONTRIBUTING.md) · [Ergebnisse](ergebnisse/README.md)
+[Protokolle](docs/protokolle/README.md) · [Projektablauf](docs/projektablauf.md) · [Verantwortlichkeiten](docs/verantwortlichkeiten.md) · [Projektüberblick](docs/projektsteckbrief.md) · [Aufgabenplan](docs/aufgabenplan.md) · [Zusammenarbeit](CONTRIBUTING.md) · [Ergebnisse](ergebnisse/README.md)
 
 </div>
 
@@ -71,3 +73,13 @@ Die vollständige Planung findet ihr im [Aufgabenplan](docs/aufgabenplan.md).
 ---
 
 *Arbeitsstand und Ergebnisse werden transparent dokumentiert. KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
+
+## Projektorganisation und Leistungsnachweise
+
+- [Sitzungsprotokoll anlegen](docs/protokolle/README.md): Vorlage kopieren, Beschlüsse und Aufgaben festhalten, gegenlesen lassen.
+- [Projektablauf](docs/projektablauf.md): Wochenrhythmus, Meilensteinfreigaben und Abschlusskriterien.
+- [Verantwortlichkeiten](docs/verantwortlichkeiten.md): Team, Rollen und Vertretung gemeinsam bestätigen.
+- [Leistungsnachweise](docs/leistungsnachweise.md): eigene Beiträge, Quellen und KI-Nutzung belegen.
+- [Abgabecheckliste](docs/abgabecheckliste.md): Vollständigkeit und reproduzierbaren Abgabestand prüfen.
+
+Die Hochschulvorgaben, verbindlichen Termine und endgültigen Rollen sind noch offen. Vorlagen sind keine bereits erbrachten Leistungen oder abgehaltenen Sitzungen.
