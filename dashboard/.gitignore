@@ -1,0 +1,6 @@
+.env
+access-password
+tunnel-url
+node_modules/
+__pycache__/
+.venv/
