@@ -1,89 +1,110 @@
 <div align="center">
 
 # KI TRIFFT GEBÄUDE
+### D21 Digital Twin · GST-Teamprojekt 1 · Hochschule Darmstadt
 
 ### [🌐 D21-Dashboard öffnen](https://filling-vendor-verification-hop.trycloudflare.com)
 
-Zugang passwortgeschützt · Temporäre Testadresse; kann sich bei einem Tunnel-Neustart ändern.
+Zugang passwortgeschützt · Vorläufige Testadresse; kann sich beim Neustart des Cloudflare-Tunnels ändern.
 
-GST · Teamprojekt 1
-### Revit × Künstliche Intelligenz
+**Gebäudedaten zusammenführen. Revit anbinden. KI nachvollziehbar erproben.**
 
-**Modellieren. Untersuchen. Nachvollziehbar dokumentieren.**
-
-[Protokolle](docs/protokolle/README.md) · [Projektablauf](docs/projektablauf.md) · [Verantwortlichkeiten](docs/verantwortlichkeiten.md) · [Projektüberblick](docs/projektsteckbrief.md) · [Aufgabenplan](docs/aufgabenplan.md) · [Zusammenarbeit](CONTRIBUTING.md) · [Ergebnisse](ergebnisse/README.md)
+[Aufgaben](../../issues) · [Wochenplan](../../issues/13) · [Protokolle](docs/protokolle/README.md) · [Zusammenarbeit](CONTRIBUTING.md)
 
 </div>
 
----
+## Unser Ziel
 
-## Unser Projekt
+Wir entwickeln einen Prototyp für einen digitalen Gebäudepass des **D21**. Eine gemeinsame Weboberfläche soll Gebäudedaten, Pläne und Bilder zugänglich machen und später Informationen aus Revit aufnehmen. Ergänzend untersuchen wir, wie eine lokal betriebene KI bei der Auswertung von Gebäudedaten helfen kann.
 
-Dieses Repository bündelt die Arbeit von **Team 1 am GST-Teamprojekt mit Revit und KI**: Projektplanung, Modellstände, KI-Prompts, Experimente und Ergebnisse erhalten einen gemeinsamen, nachvollziehbaren Platz.
+Wir arbeiten schrittweise: zuerst eine verlässliche Grundlage mit Datenablage und Schnittstellen, danach Revit-Anbindung und abgegrenzte KI-Versuche. Ergebnisse und Grenzen werden dokumentiert; geplante Funktionen sind keine bereits fertigen Leistungen.
 
-> **Stand: Projektstart.** Die Struktur steht. Forschungsfrage, Anwendungsfall, Zuständigkeiten und Termine werden gemeinsam festgelegt. Die folgenden Arbeitsschritte sind ein Vorschlag für die Teamplanung.
+## Aktueller Stand · 27. Oktober 2026
 
-## Was wir untersuchen wollen
+| Bereich | Stand |
+| :--- | :--- |
+| Website und Server | Eine erste Dashboard-Version ist online und passwortgeschützt erreichbar. |
+| Gemeinsamer Code | GitHub ist die einzige Codequelle; die Anwendung liegt unter [`dashboard/`](dashboard/). |
+| Gebäudeverwaltung | Gebäude lassen sich anlegen und in PostgreSQL speichern. |
+| Vollständige App-Oberfläche | Emirs umfangreicherer Stand aus den Screenshots muss noch mit dem gemeinsamen Repository abgeglichen werden: [Aufgabe #21](../../issues/21). |
+| Bilder und PDFs | Eine Upload-Erweiterung wurde zuvor auf dem Server erprobt, ist im aktuellen GitHub-Stand aber noch nicht enthalten. Übernahme und gemeinsamer Test sind offen. |
+| Gaming-PC-Verbindung | Geschützter Tunnel zwischen Benjamins Gaming-PC und dem Server ist noch einzurichten: [Aufgabe #19](../../issues/19). |
+| Revit und KI | Revit-Anbindung, Modellimport und Ollama-Anbindung sind noch nicht als funktionierender Gesamtprozess umgesetzt. |
 
-Als Ausgangspunkt bietet sich an, einen klar begrenzten Arbeitsschritt im Revit-Kontext mit KI zu unterstützen und das Ergebnis mit einer manuellen Bearbeitung zu vergleichen. Welcher Arbeitsschritt dafür geeignet ist, entscheidet das Team.
+Die Seiten für BIM-Viewer, Sensorik, Energie, Analyse und Meldungen aus den Screenshots gehören zum abzugleichenden App-Stand. Ihr Funktionsumfang und ihre Datenquellen müssen geprüft werden.
 
-| Baustein | Leitfrage | Ablage |
+## Geplante Bausteine
+
+Das Projekt verbindet eine Weboberfläche mit zentraler Datenablage, einem Revit-Prototyp und späteren KI-Versuchen. Schnittstellen und Datenübergabe werden schrittweise getestet. Die kurzfristige Verbindungsaufgabe umfasst keine Ollama-Anbindung.
+
+## Team und Verantwortlichkeiten
+
+| Wer | Verantwortung | Arbeitspakete |
 | :--- | :--- | :--- |
-| **Revit** | Welches Modell und welche Informationen benötigen wir? | [`revit/`](revit/README.md) |
-| **KI** | Welche Aufgabe soll die KI unterstützen? | [`ki/`](ki/README.md) |
-| **Bewertung** | Wie prüfen wir Qualität, Fehler und Aufwand? | [`ki/experimente/`](ki/experimente/VORLAGE.md) |
-| **Dokumentation** | Was haben wir gemacht und gelernt? | [`docs/`](docs/projektsteckbrief.md) |
-| **Abgabe** | Welche Ergebnisse können wir belegen? | [`ergebnisse/`](ergebnisse/README.md) |
+| **Felix** | Projektmanagement und Xcode | Pläne, Zugänge und Budget klären; ersten Xcode-Bildschirm erproben · [#6](../../issues/6), [#8](../../issues/8) |
+| **Emir** | App-Entwicklung | Vollständigen App-Code bereitstellen, Oberfläche und Upload-Ablauf abgleichen · [#7](../../issues/7), [#21](../../issues/21) |
+| **Benjamin** | Schnittstellen und Verbindung der Systeme | API-Abstimmung, Gaming-PC-Tunnel und Datenübergabe · [#9](../../issues/9), [#19](../../issues/19) |
+| **Vincent** | Dokumentation und Projektvorstellung | Projektwebsite und verständliche Dokumentation · [#10](../../issues/10) |
+| **Lukas & Josef** | Revit-Prototyp | Kleines Modell und Export prüfen; beide dokumentieren ihren Beitrag · [#11](../../issues/11) |
+| **Josef** | Ollama-Erprobung | Abgegrenzte Versuche mit dokumentierten Prompts, Ergebnissen und Grenzen · [#12](../../issues/12) |
 
-## In drei Schritten starten
+Änderungen an API und Datenbank werden mit Benjamin abgestimmt; die App-Entwicklung liegt bei Emir.
 
-1. **Projekt abstecken:** Im [Projektsteckbrief](docs/projektsteckbrief.md) Ziel, Team und Rahmenbedingungen ergänzen.
-2. **Arbeit verteilen:** Im [Aufgabenplan](docs/aufgabenplan.md) Verantwortliche und Termine festlegen.
-3. **Ersten Versuch dokumentieren:** Einen [Prompt](ki/prompts/VORLAGE.md) und ein [Experimentprotokoll](ki/experimente/VORLAGE.md) kopieren und mit einem kleinen Beispiel beginnen.
+## Nächste Schritte und Termine
 
-## So ist das Repository aufgebaut
+### Bis Mittwoch, 28. Oktober 2026
 
-```text
-GST_Teamprojekt_Team_1/
-├── docs/                  Projektsteckbrief, Aufgaben und Entscheidungen
-├── revit/
-│   ├── modelle/           Hinweise auf freigegebene Modellstände
-│   └── exporte/           Hinweise auf Exporte und ihre Herkunft
-├── ki/
-│   ├── prompts/           Versionierte Prompts
-│   └── experimente/       Versuche, Prüfungen und Vergleichsergebnisse
-├── daten/beispiele/       Kleine, freigegebene Beispieldaten
-├── ergebnisse/            Geprüfte Resultate und Abgabeübersicht
-└── .github/               Vorlagen für Aufgaben und Pull Requests
-```
+- **Benjamin:** Gaming-PC und STRATO-Server über einen geschützten Tunnel verbinden, Erreichbarkeit und Wiederanlauf prüfen sowie Revit-Datenübergabe dokumentieren · [#19](../../issues/19).
+- **Emir:** Vollständigen App-Stand als Pull Request bereitstellen, Demo-/Platzhalterfunktionen kennzeichnen und den Upload-Abgleich mit Benjamin dokumentieren · [#21](../../issues/21).
 
-## Unser Arbeitsablauf
+### Bis Dienstag, 3. November 2026
 
-**Aufgabe festlegen → Änderung im eigenen Branch → Ergebnis prüfen → Pull Request → Teamreview**
+Jede Person arbeitet konkret an ihrem Bereich und bringt ein kleines vorzeigbares Ergebnis oder einen nachvollziehbar dokumentierten Versuch mit. Ergebnisse und Blocker werden in den jeweiligen Aufgaben festgehalten.
 
-Die [Regeln zur Zusammenarbeit](CONTRIBUTING.md) erklären Dateinamen, Reviews und den Umgang mit Revit-Dateien. Große Binärdateien werden zunächst außerhalb von Git verwaltet; die jeweilige Ablage wird im Repository dokumentiert.
+- Gebäudedetailansicht und gemeinsamer Dateiablauf: **Gebäude anlegen → öffnen → Bild/PDF hochladen → neu laden → Datei wieder öffnen**.
+- Revit-Testmodell und erster geprüfter Export.
+- Xcode-Prototyp mit einem ersten Gebäudebildschirm.
+- Projektvorstellung und aktualisierte Dokumentation.
+- Separater Ollama-Test mit kleinen freigegebenen Beispieldaten.
 
-## Nächster Meilenstein
+Der [Wochenplan #13](../../issues/13) bündelt die Arbeitspakete. Für #19 und #21 gilt der frühere Termin am 28. Oktober.
 
-**M1 · Projektumfang abgestimmt**
+### Externe Klärungen
 
-- [ ] Forschungsfrage und konkreten Anwendungsfall auswählen
-- [ ] Bewertungsmaßstäbe festlegen
-- [ ] Rollen und Termine eintragen
-- [ ] Revit-Version und Modellablage abstimmen
+Felix fragt bei Herrn Bürgy nach den **Bauplänen des D21**, möglichen Revit-/IFC-Modellen, Informationen zu technischen Anlagen und Herstellern sowie Budget für einen KI-Pro-Zugang. Der Zugang zu den Bauplänen hat Priorität; Rückmeldungen sind noch offen.
 
-Die vollständige Planung findet ihr im [Aufgabenplan](docs/aufgabenplan.md).
+Zusätzlich offen: Emirs SSH-Zugang, vollständige GitHub-Zuordnung, eine dauerhafte Website-Adresse sowie automatische Datenbanksicherung mit geprüftem Wiederherstellungsweg.
 
----
+## Unser GitHub-Ablauf
 
-*Arbeitsstand und Ergebnisse werden transparent dokumentiert. KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
+**Aufgabe → eigener Branch → Änderung und Prüfung → Pull Request → Review → Merge nach `main` → Deployment**
 
-## Projektorganisation und Leistungsnachweise
+- Nie direkt auf `main` pushen und keinen Anwendungscode direkt auf dem Server ändern.
+- Bestehende Änderungen anderer Teammitglieder erhalten.
+- Eigenen Beitrag, Testergebnis und offene Punkte im Issue bzw. Pull Request dokumentieren.
+- Keine Passwörter, Tokens, privaten Schlüssel oder nicht freigegebenen Baupläne veröffentlichen. Das Repository ist öffentlich.
+- Revit-Dateien und große Binärdateien gemäß [Zusammenarbeitsregeln](CONTRIBUTING.md) verwalten; Modellstand und Ablage nachvollziehbar vermerken.
 
-- [Sitzungsprotokoll anlegen](docs/protokolle/README.md): Vorlage kopieren, Beschlüsse und Aufgaben festhalten, gegenlesen lassen.
-- [Projektablauf](docs/projektablauf.md): Wochenrhythmus, Meilensteinfreigaben und Abschlusskriterien.
-- [Verantwortlichkeiten](docs/verantwortlichkeiten.md): Team, Rollen und Vertretung gemeinsam bestätigen.
-- [Leistungsnachweise](docs/leistungsnachweise.md): eigene Beiträge, Quellen und KI-Nutzung belegen.
-- [Abgabecheckliste](docs/abgabecheckliste.md): Vollständigkeit und reproduzierbaren Abgabestand prüfen.
+## Technischer Aufbau
 
-Die Hochschulvorgaben, verbindlichen Termine und endgültigen Rollen sind noch offen. Vorlagen sind keine bereits erbrachten Leistungen oder abgehaltenen Sitzungen.
+Die Anwendung unter `dashboard/` besteht aus React/Vite mit nginx, Node/Express und PostgreSQL 16 in Docker Compose. Änderungen werden über GitHub geprüft und anschließend über den abgestimmten Deployment-Ablauf veröffentlicht. Zugangsdaten und interne Betriebsunterlagen gehören nicht in das öffentliche Repository.
+
+## Orientierung im Repository
+
+| Ordner | Inhalt |
+| :--- | :--- |
+| [`dashboard/`](dashboard/) | Frontend, Backend und Docker-Konfiguration |
+| [`docs/`](docs/projektsteckbrief.md) | Projektplanung, Entscheidungen und Nachweise |
+| [`revit/`](revit/README.md) | Modellstände und Exporthinweise |
+| [`ki/`](ki/README.md) | Prompts und dokumentierte Experimente |
+| [`daten/beispiele/`](daten/beispiele/) | Kleine freigegebene Beispieldaten |
+| [`ergebnisse/`](ergebnisse/README.md) | Geprüfte Projektergebnisse |
+| [`.github/`](.github/) | Vorlagen für Aufgaben und Pull Requests |
+
+## Dokumentation und Nachweise
+
+[Projektsteckbrief](docs/projektsteckbrief.md) · [Aufgabenplan](docs/aufgabenplan.md) · [Verantwortlichkeiten](docs/verantwortlichkeiten.md) · [Projektablauf](docs/projektablauf.md) · [Sitzungsprotokolle](docs/protokolle/README.md) · [Leistungsnachweise](docs/leistungsnachweise.md) · [Abgabecheckliste](docs/abgabecheckliste.md)
+
+Die bestehenden Gesamtmeilensteine bleiben bestehen: [M1 – Umfang und Vorgaben](../../issues/1), [M2 – Revit und Pilot](../../issues/2), [M3 – Auswertung](../../issues/3), [M4 – Abgabe](../../issues/4). Hochschulvorgaben, Forschungsfrage und Bewertungskriterien müssen noch konkretisiert werden.
+
+*KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
