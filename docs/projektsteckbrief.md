@@ -6,10 +6,10 @@
 
 | Angabe | Stand |
 | :--- | :--- |
-| Projekt | GST-Teamprojekt · Team 1 |
+| Projekt | KI TRIFFT GEBÄUDE · GST-Teamprojekt · Team 1 |
 | Themenbereich | Revit und KI |
 | Hochschule / Modul | Offen |
-| Teammitglieder | Offen |
+| Teammitglieder | felixdoering05-prog, BGrimm101, lukaszimmermann000; Rollen und Zugänge siehe [Verantwortlichkeiten](verantwortlichkeiten.md) |
 | Betreuung | Offen |
 | Abgabetermin | Offen |
 | Revit-Version | Offen |

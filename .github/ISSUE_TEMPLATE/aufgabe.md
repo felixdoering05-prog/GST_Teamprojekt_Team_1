@@ -22,8 +22,16 @@ Woran erkennen wir, dass die Aufgabe fertig ist?
 
 - Verantwortlich:
 - Zieltermin:
+- Meilenstein (M1–M4):
+- Prüfende Person:
 - Abhängigkeiten:
 
 ## Prüfnachweis
 
 Ergebnisdatei, Experiment oder Pull Request verlinken.
+
+## Abschluss
+
+- [ ] Ergebnis verlinkt
+- [ ] Akzeptanzkriterium erfüllt und gegengeprüft
+- [ ] Dokumentation, Quellen und KI-Nachweis aktualisiert

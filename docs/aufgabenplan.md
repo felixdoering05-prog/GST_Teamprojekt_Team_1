@@ -37,3 +37,14 @@ Status: `Offen` → `In Arbeit` → `Im Review` → `Erledigt`. Eine Aufgabe ist
 3. Wer übernimmt welchen nächsten Schritt bis wann?
 
 Wichtige Beschlüsse im [Entscheidungsprotokoll](entscheidungen.md) festhalten. Für einzelne Arbeitspakete kann die GitHub-Issue-Vorlage verwendet werden; dieser Plan bleibt die Meilensteinübersicht.
+
+## Aktive GitHub-Aufgaben
+
+Die operativen Zuständigkeiten, Termine und Nachweise werden in den Issues gepflegt; die Tabelle oben beschreibt den ursprünglichen Planungsstand.
+
+- [M1 · Umfang und Rollen – #1](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/1)
+- [M2 · Pilot – #2](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/2)
+- [M3 · Auswertung – #3](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/3)
+- [M4 · Abgabe – #4](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/4)
+
+Freigabekriterien und Arbeitsrhythmus stehen im [Projektablauf](projektablauf.md). Sitzungen werden im [Protokollverzeichnis](protokolle/README.md) erfasst. GitHub-Milestone-Objekte sind noch nicht eingerichtet.

@@ -42,3 +42,7 @@ Zugangsdaten gehören nicht ins Repository. Nur Daten verwenden, deren Nutzung u
 - [ ] Fachliche Aussagen belegt oder als Annahme markiert
 - [ ] Eingaben und Ergebnis reproduzierbar dokumentiert, soweit möglich
 - [ ] Keine Zugangsdaten oder nicht freigegebenen Daten enthalten
+
+## Projektorganisation pflegen
+
+Sitzungen mit der [Protokollvorlage](docs/protokolle/VORLAGE.md) dokumentieren und im [Verzeichnis](docs/protokolle/README.md) verlinken. Den [Projektablauf](docs/projektablauf.md), die [Rollenvereinbarung](docs/verantwortlichkeiten.md) und [Leistungsnachweise](docs/leistungsnachweise.md) bei der Aufgabenbearbeitung mitführen. Ein Protokoll ist erst nach dokumentierter Gegenprüfung freigegeben.
