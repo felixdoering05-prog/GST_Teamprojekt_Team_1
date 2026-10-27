@@ -2,6 +2,10 @@
 
 # KI TRIFFT GEBÄUDE
 
+### [🌐 D21-Dashboard öffnen](https://filling-vendor-verification-hop.trycloudflare.com)
+
+Zugang passwortgeschützt · Temporäre Testadresse; kann sich bei einem Tunnel-Neustart ändern.
+
 GST · Teamprojekt 1
 ### Revit × Künstliche Intelligenz
 
