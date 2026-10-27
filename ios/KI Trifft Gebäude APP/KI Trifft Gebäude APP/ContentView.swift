@@ -1,317 +1,307 @@
-
 import SwiftUI
-
-// MARK: - Gebäudedaten
+import Combine
+import Security
 
 struct Building: Identifiable, Codable, Equatable {
-    var id = UUID()
-    var name: String
-    var address: String
+    let id: Int
+    let name: String
+    let address: String
+}
+struct Account: Codable { let id: Int; let name: String; let email: String }
+struct LoginSession: Codable { let token: String; let user: Account }
+struct APIMessage: Decodable { let error: String }
+struct LogoutResult: Decodable { let ok: Bool }
+struct APIError: LocalizedError {
+    let status: Int
+    let message: String
+    var errorDescription: String? { message }
 }
 
-// MARK: - Hauptansicht
+// Secrets are stored in the iOS Keychain, never in the source code or UserDefaults.
+enum SecureStore {
+    static func read(_ key: String) -> Data? {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "D21Accounts", kSecAttrAccount as String: key,
+            kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+    static func write(_ data: Data?, key: String) throws {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "D21Accounts", kSecAttrAccount as String: key]
+        if let data {
+            let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+            if status == errSecItemNotFound {
+                var item = query
+                item[kSecValueData as String] = data
+                item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+                guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw APIError(status: 0, message: "Schlüsselbund konnte nicht gespeichert werden.") }
+            } else if status != errSecSuccess { throw APIError(status: 0, message: "Schlüsselbund konnte nicht aktualisiert werden.") }
+        } else {
+            let status = SecItemDelete(query as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else { throw APIError(status: 0, message: "Schlüsselbund konnte nicht gelöscht werden.") }
+        }
+    }
+}
+struct GatewayCredentials: Codable { let username: String; let password: String }
 
+@MainActor final class AccountModel: ObservableObject {
+    @Published var user: Account?
+    @Published var buildings: [Building] = []
+    @Published var busy = false
+    @Published var restoring = true
+    @Published var error: String?
+    @Published var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? "https://filling-vendor-verification-hop.trycloudflare.com"
+    private var token: String?
+    private var credentials: GatewayCredentials? {
+        guard let data = SecureStore.read("gateway") else { return nil }
+        return try? JSONDecoder().decode(GatewayCredentials.self, from: data)
+    }
+    func gateway() -> GatewayCredentials? { credentials }
+    func configure(url: String, username: String, password: String) throws {
+        let cleaned = url.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let parts = URLComponents(string: cleaned), parts.scheme == "https", parts.host != nil,
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              parts.path.isEmpty else { throw APIError(status: 0, message: "Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.") }
+        let changed = cleaned != serverURL
+        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = [] }
+        try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username: username, password: password)), key: "gateway")
+        serverURL = cleaned
+        UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
+    }
+    private func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil) async throws -> T {
+        guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        if let token { request.setValue(token, forHTTPHeaderField: "X-D21-Session") }
+        if let gate = credentials, !gate.username.isEmpty {
+            request.setValue("Basic " + Data("\(gate.username):\(gate.password)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
+        }
+        // Reject redirects so credentials are never forwarded to a different origin.
+        let session = URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
+        guard (200..<300).contains(http.statusCode) else {
+            let message = (try? JSONDecoder().decode(APIMessage.self, from: data))?.error
+                ?? (http.statusCode == 401 ? "Website-Zugang prüfen: Unter Serververbindung die gemeinsamen Zugangsdaten eingeben." : "Server nicht verfügbar (\(http.statusCode)). Bitte Serveradresse und Bereitstellung prüfen.")
+            throw APIError(status: http.statusCode, message: message)
+        }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+    func resume() async {
+        defer { restoring = false }
+        guard let data = SecureStore.read("session"), let stored = try? JSONDecoder().decode(LoginSession.self, from: data) else { return }
+        token = stored.token
+        do {
+            let account: Account = try await request("auth/me")
+            user = account
+            await loadBuildings()
+        } catch {
+            if (error as? APIError)?.status == 401 { try? SecureStore.write(nil, key: "session"); token = nil }
+            self.error = error.localizedDescription
+        }
+    }
+    func authenticate(register: Bool, name: String, email: String, password: String) async {
+        busy = true; defer { busy = false }
+        do {
+            var body = ["email":email.trimmingCharacters(in: .whitespacesAndNewlines), "password":password]
+            if register { body["name"] = name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let session: LoginSession = try await request(register ? "auth/register" : "auth/login", method: "POST", body: body)
+            try SecureStore.write(try JSONEncoder().encode(session), key: "session")
+            token = session.token; user = session.user
+            await loadBuildings()
+        } catch { self.error = error.localizedDescription }
+    }
+    func loadBuildings() async {
+        do { buildings = try await request("buildings") }
+        catch { self.error = error.localizedDescription }
+    }
+    func addBuilding(name: String, address: String) async -> Bool {
+        busy = true; defer { busy = false }
+        do {
+            let building: Building = try await request("buildings", method: "POST", body: ["name":name,"address":address])
+            buildings.append(building); return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+    func logout() async {
+        busy = true; defer { busy = false }
+        do {
+            let _: LogoutResult = try await request("auth/logout", method: "POST")
+            try SecureStore.write(nil, key: "session")
+            token = nil; user = nil; buildings = []
+        } catch { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription }
+    }
+}
+final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) { completionHandler(nil) }
+}
+
+private let d21Accent = Color(red: 0.07, green: 0.49, blue: 0.51)
 struct ContentView: View {
-
-    @State private var buildings: [Building] = [
-        Building(
-            name: "Gebäude D21",
-            address: "Hochschule Darmstadt"
-        )
-    ]
-
-    @AppStorage("d21.localBuildings.v1") private var savedBuildings = Data()
-    @State private var hasLoadedBuildings = false
-    @State private var search = ""
-    @State private var storageError: String?
-    @State private var showAddBuilding = false
-    @State private var newName = ""
-    @State private var newAddress = ""
-
+    @StateObject private var model = AccountModel()
     var body: some View {
-        TabView {
-
-            // MARK: Gebäude
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Willkommen")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            Text("Meine Gebäude")
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
-
-                            Text("Verwalte deine digitalen Gebäude.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.top, 12)
-
-                        // Gebäudeliste
-                        ForEach(buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            NavigationLink {
-                                BuildingDetailView(building: building)
-                            } label: {
-                                HStack(spacing: 15) {
-
-                                    Image(systemName: "building.2")
-                                        .font(.system(size: 30))
-                                        .foregroundStyle(.blue)
-                                        .frame(width: 55, height: 55)
-                                        .background(
-                                            Color.blue.opacity(0.1),
-                                            in: RoundedRectangle(
-                                                cornerRadius: 12
-                                            )
-                                        )
-
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(building.name)
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-
-                                        Text(building.address)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding()
-                                .background(
-                                    Color.gray.opacity(0.1),
-                                    in: RoundedRectangle(
-                                        cornerRadius: 16
-                                    )
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        // Gebäude hinzufügen
-                        Button {
-                            newName = ""
-                            newAddress = ""
-                            showAddBuilding = true
-                        } label: {
-                            Label(
-                                "Gebäude hinzufügen",
-                                systemImage: "plus.circle.fill"
-                            )
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        // Hinweis
-                        HStack(spacing: 10) {
-                            Image(systemName: "info.circle")
-                            Text("Lokaler Prototyp: Gebäude bleiben auf diesem Gerät gespeichert. Keine Server-Synchronisierung.")
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 8)
-                    }
-                    .padding()
-                }
-                .searchable(text: $search, prompt: "Gebäude suchen")
-                .navigationTitle("D21 Gebäude")
-                .navigationBarTitleDisplayMode(.inline)
-                .sheet(isPresented: $showAddBuilding) {
-                    addBuildingSheet
-                }
-            }
-            .tabItem {
-                Label("Gebäude", systemImage: "building.2")
-            }
-
-            // MARK: Meldungen
-            NavigationStack {
-                ContentUnavailableView(
-                    "Keine Meldungen",
-                    systemImage: "bell",
-                    description: Text(
-                        "Hier erscheinen später Gebäudewarnungen."
-                    )
-                )
-                .navigationTitle("Meldungen")
-            }
-            .tabItem {
-                Label("Meldungen", systemImage: "bell")
-            }
-
-            // MARK: Profil
-            NavigationStack {
-                List {
-                    Section("Benutzerkonto") {
-                        Label(
-                            "Anmeldung folgt",
-                            systemImage: "person.crop.circle"
-                        )
-                        Label(
-                            "Gebäudefreigaben folgen",
-                            systemImage: "person.2"
-                        )
-                    }
-
-                    Section("App") {
-                        LabeledContent(
-                            "Version",
-                            value: "0.1 – Prototyp"
-                        )
-                    }
-                }
-                .navigationTitle("Profil")
-            }
-            .tabItem {
-                Label("Profil", systemImage: "person.crop.circle")
-            }
+        Group {
+            if model.restoring { ProgressView("Anmeldung wird geprüft …") }
+            else if model.user != nil { AccountHomeView() }
+            else { WelcomeView() }
         }
-        .tint(Color(red: 0.07, green: 0.49, blue: 0.51))
-        .onAppear {
-            guard !hasLoadedBuildings else { return }
-            if !savedBuildings.isEmpty {
-                do { buildings = try JSONDecoder().decode([Building].self, from: savedBuildings) }
-                catch { storageError = "Die lokal gespeicherten Gebäude konnten nicht geladen werden. Vorhandene Daten wurden nicht überschrieben."; return }
-            }
-            hasLoadedBuildings = true
-        }
-        .onChange(of: buildings) { _, updated in
-            guard hasLoadedBuildings else { return }
-            do { savedBuildings = try JSONEncoder().encode(updated) }
-            catch { storageError = "Die Gebäude konnten nicht gespeichert werden." }
-        }
-        .alert("Lokaler Speicher", isPresented: Binding(get: { storageError != nil }, set: { if !$0 { storageError = nil } })) {
-            Button("OK") { storageError = nil }
-        } message: { Text(storageError ?? "") }
+        .environmentObject(model).tint(d21Accent)
+        .task { await model.resume() }
+        .alert("D21", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+            Button("OK") { model.error = nil }
+        } message: { Text(model.error ?? "") }
     }
-
-    // MARK: - Neues Gebäude
-
-    private var addBuildingSheet: some View {
+}
+struct WelcomeView: View {
+    @EnvironmentObject var model: AccountModel
+    @State private var showConnection = false
+    var body: some View {
         NavigationStack {
-            Form {
-                Section("Gebäudeinformationen") {
-                    TextField(
-                        "Name des Gebäudes",
-                        text: $newName
-                    )
-
-                    TextField(
-                        "Adresse",
-                        text: $newAddress
-                    )
-                }
-            }
-            .navigationTitle("Neues Gebäude")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") {
-                        showAddBuilding = false
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Image(systemName: "building.2.crop.circle.fill").font(.system(size: 72)).foregroundStyle(d21Accent)
+                    Text("KI trifft\nGebäude").font(.system(size: 42, weight: .bold))
+                    Text("Dein digitaler Gebäudepass für das D21.").font(.title3).foregroundStyle(.secondary)
+                    Label("Gebäudedaten zentral speichern", systemImage: "externaldrive.badge.icloud")
+                    Label("Dein Konto auf iPhone und Server", systemImage: "person.crop.circle")
+                    VStack(spacing: 12) {
+                        NavigationLink { AuthenticationView(register: true) } label: { Text("Konto erstellen").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.borderedProminent)
+                        NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
-                        let building = Building(
-                            name: newName.trimmingCharacters(
-                                in: .whitespacesAndNewlines
-                            ),
-                            address: newAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-                        )
-
-                        buildings.append(building)
-
-                        newName = ""
-                        newAddress = ""
-                        showAddBuilding = false
-                    }
-                    .disabled(
-                        newName.trimmingCharacters(
-                            in: .whitespacesAndNewlines
-                        ).isEmpty
-                    )
-                }
+                    Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
+                    Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung oder Passwort-Wiederherstellung.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }.padding(28)
             }
+            .sheet(isPresented: $showConnection) { ConnectionView() }
         }
     }
 }
-
-// MARK: - Gebäudedetails
-
-struct BuildingDetailView: View {
-
-    let building: Building
-
+struct AuthenticationView: View {
+    @EnvironmentObject var model: AccountModel
+    let register: Bool
+    @State private var name = ""
+    @State private var email = ""
+    @State private var password = ""
+    @State private var confirmation = ""
     var body: some View {
-        List {
-
-            Section("Gebäudeinformationen") {
-                LabeledContent(
-                    "Gebäude",
-                    value: building.name
-                )
-
-                LabeledContent(
-                    "Adresse",
-                    value: building.address
-                )
+        Form {
+            Section(register ? "Dein neues Konto" : "Willkommen zurück") {
+                if register { TextField("Name", text: $name).textContentType(.name) }
+                TextField("E-Mail", text: $email).keyboardType(.emailAddress).textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                SecureField("Passwort", text: $password).textContentType(register ? .newPassword : .password)
+                if register { SecureField("Passwort wiederholen", text: $confirmation).textContentType(.newPassword) }
             }
-
-            Section("Digitaler Zwilling") {
-                Label(
-                    "3D-Gebäudemodell",
-                    systemImage: "cube.transparent"
-                )
-
-                Label(
-                    "Baupläne und Dokumente",
-                    systemImage: "doc.text"
-                )
-
-                Label(
-                    "Sensoren und Messwerte",
-                    systemImage: "thermometer"
-                )
-
-                Label(
-                    "KI-Auswertung",
-                    systemImage: "brain.head.profile"
-                )
+            if register {
+                Section { Text("Mindestens 12 Zeichen. Verwende für diesen Prototyp ein eigenes Passwort.").font(.footnote).foregroundStyle(.secondary) }
             }
-
-            Section("Zusammenarbeit") {
-                Label(
-                    "Gebäude teilen",
-                    systemImage: "square.and.arrow.up"
-                )
-            }
-
             Section {
-                Text(
-                    "Diese Funktionen werden in den nächsten Entwicklungsschritten angebunden."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                Button {
+                    Task { await model.authenticate(register: register, name: name, email: email, password: password); password = ""; confirmation = "" }
+                } label: {
+                    HStack { Spacer(); if model.busy { ProgressView() }; Text(register ? "Konto erstellen" : "Anmelden"); Spacer() }
+                }.disabled(model.busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (register && (name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.count < 12 || password != confirmation)))
             }
         }
-        .navigationTitle(building.name)
+        .disabled(model.busy)
+        .navigationTitle(register ? "Konto erstellen" : "Anmelden")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
-
-// MARK: - Vorschau
-
-#Preview {
-    ContentView()
+struct ConnectionView: View {
+    @EnvironmentObject var model: AccountModel
+    @Environment(\.dismiss) var dismiss
+    @State private var url = ""
+    @State private var username = ""
+    @State private var password = ""
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Projektserver") {
+                    TextField("https://…", text: $url).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Text("Die Testadresse kann sich ändern. Hier lässt sie sich aktualisieren.").font(.footnote)
+                }
+                Section("Zusätzlicher Website-Zugang") {
+                    TextField("Website-Benutzername", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    SecureField("Website-Passwort", text: $password)
+                    Text("Das sind die gemeinsamen Zugangsdaten der Website, getrennt von deinem persönlichen Konto. Sie werden im Schlüsselbund gespeichert.").font(.footnote)
+                }
+            }
+            .navigationTitle("Serververbindung")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Speichern") {
+                    do { try model.configure(url: url, username: username, password: password); dismiss() }
+                    catch { model.error = error.localizedDescription }
+                } }
+            }
+            .onAppear { url = model.serverURL; username = model.gateway()?.username ?? ""; password = model.gateway()?.password ?? "" }
+        }
+    }
 }
-
+struct AccountHomeView: View {
+    @EnvironmentObject var model: AccountModel
+    @State private var search = ""
+    @State private var showAdd = false
+    @State private var showConnection = false
+    var body: some View {
+        TabView {
+            NavigationStack {
+                List {
+                    Section { Text("Hallo, \(model.user?.name ?? "")").font(.title2.bold()); Label("Mit dem Projektserver verbunden", systemImage: "checkmark.icloud").font(.footnote).foregroundStyle(.secondary) }
+                    Section("Meine Gebäude") {
+                        ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
+                            NavigationLink { BuildingDetailView(building: building) } label: {
+                                Label { VStack(alignment: .leading) { Text(building.name).font(.headline); Text(building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
+                            }
+                        }
+                        if model.buildings.isEmpty { Text("Noch keine Gebäude. Lege dein erstes Gebäude an.").foregroundStyle(.secondary) }
+                        Button("Gebäude hinzufügen", systemImage: "plus.circle") { showAdd = true }
+                    }
+                }
+                .navigationTitle("D21 Gebäude").searchable(text: $search, prompt: "Gebäude suchen")
+                .refreshable { await model.loadBuildings() }
+                .sheet(isPresented: $showAdd) { AddBuildingView() }
+            }.tabItem { Label("Gebäude", systemImage: "building.2") }
+            NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }
+            NavigationStack {
+                Form {
+                    Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
+                    Section { Button("Serververbindung", systemImage: "network") { showConnection = true }; Button("Abmelden", role: .destructive) { Task { await model.logout() } }.disabled(model.busy) }
+                    Section { Text("Gebäude sind deinem Konto zugeordnet. Das bisherige Demo-Dashboard und lokale Testgebäude werden nicht automatisch übernommen.").font(.footnote) }
+                }.navigationTitle("Profil").sheet(isPresented: $showConnection) { ConnectionView() }
+            }.tabItem { Label("Profil", systemImage: "person.crop.circle") }
+        }
+    }
+}
+struct AddBuildingView: View {
+    @EnvironmentObject var model: AccountModel
+    @Environment(\.dismiss) var dismiss
+    @State private var name = ""
+    @State private var address = ""
+    var body: some View {
+        NavigationStack {
+            Form { TextField("Gebäudename", text: $name); TextField("Adresse", text: $address) }
+                .disabled(model.busy).navigationTitle("Neues Gebäude")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(model.busy) }
+                    ToolbarItem(placement: .confirmationAction) { Button(model.busy ? "Speichert …" : "Speichern") { Task { if await model.addBuilding(name: name, address: address) { dismiss() } } }.disabled(model.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                }
+        }
+    }
+}
+struct BuildingDetailView: View {
+    let building: Building
+    var body: some View {
+        List {
+            Section("Gebäudeinformationen") { LabeledContent("Gebäude", value: building.name); LabeledContent("Adresse", value: building.address); LabeledContent("Datenquelle", value: "Projektserver") }
+            Section("Weitere Funktionen") { Label("Bilder und PDFs · folgen", systemImage: "doc.text.image"); Label("Revit / BIM · folgt", systemImage: "cube.transparent"); Label("Sensorik und Analyse · folgen", systemImage: "waveform.path") }.foregroundStyle(.secondary)
+        }.navigationTitle(building.name).navigationBarTitleDisplayMode(.inline)
+    }
+}
+#Preview { ContentView() }

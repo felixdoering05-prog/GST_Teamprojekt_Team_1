@@ -35,3 +35,11 @@ venv/
 *.tmp
 *.bak
 ~$*
+
+# Node und Xcode
+node_modules/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+access-password
+tunnel-url

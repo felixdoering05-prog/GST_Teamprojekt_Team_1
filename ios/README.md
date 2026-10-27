@@ -1,9 +1,20 @@
-# D21 · iOS-Prototyp
+# D21 · iOS-App
 
-In Xcode `KI Trifft Gebäude APP/KI Trifft Gebäude APP.xcodeproj` öffnen, das gleichnamige Scheme und einen iPhone-Simulator wählen und starten.
+In Xcode `KI Trifft Gebäude APP/KI Trifft Gebäude APP.xcodeproj` öffnen, das gleichnamige Scheme und einen konkreten iPhone-Simulator auswählen und starten.
 
-Enthalten: Gebäudeübersicht, Anlegen und Details, Suche nach Name/Adresse sowie lokale Speicherung der Gebäude über App-Neustarts hinweg. Die vorhandenen Tabs Meldungen und Profil bleiben als Platzhalter erhalten. Die erste Installation startet mit einem als Beispiel gekennzeichneten D21-Datensatz.
+## Enthalten
 
-Die Daten bleiben ausschließlich auf dem Gerät. Es gibt noch keine Server-Synchronisierung, Anmeldung oder Dateiuploads. Löschen der App entfernt auch die lokalen Daten. Vor einer Anbindung die API mit Benjamin abstimmen. Es werden keine Zugangsdaten mitgeliefert.
+- Startseite mit Konto erstellen und Anmelden
+- Persönliches Konto mit Name, E-Mail und Passwort
+- HTTPS-Serververbindung mit getrenntem Website-Zugang
+- Geschützte Speicherung der Sitzung im iOS-Schlüsselbund
+- Gebäude anlegen, vom Server laden, suchen und öffnen
+- Profil und Abmelden; Meldungen bleiben ein Platzhalter
 
-Validierung: Debug-Build für den iPhone-18-Pro-Simulator erfolgreich mit Xcode 27.1. Ausgangspunkt ist Felix’ vorhandenes SwiftUI-Projekt; Quellcode und Projektdatei sind hier gemeinsam versioniert.
+Die zugehörige Konten-API muss auf dem Projektserver veröffentlicht sein. Unter **Serververbindung einrichten** werden aktuelle HTTPS-Adresse und bestehende Website-Zugangsdaten eingegeben; keine Passwörter sind im Quellcode hinterlegt. Anschließend ein persönliches Konto erstellen.
+
+Gebäudedaten liegen in PostgreSQL und sind dem jeweiligen Konto zugeordnet. Demo-Gebäude aus dem Browser-Dashboard sowie frühere lokale iOS-Testdaten werden nicht automatisch übernommen. Alte lokale Daten werden durch diese Änderung nicht gelöscht.
+
+E-Mail-Bestätigung, Passwort-Wiederherstellung, Kontolöschung, Gebäudefreigaben und Datei-Uploads sind noch nicht angebunden. [API-Vertrag und Grenzen](../docs/konten-api.md).
+
+Validierung: Xcode-27.1-Debug-Build für den iPhone-18-Pro-Simulator; Backendtests mit isolierter PostgreSQL-Laufzeit.
