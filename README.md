@@ -85,6 +85,49 @@ Zusätzlich offen: Emirs SSH-Zugang, vollständige GitHub-Zuordnung, eine dauerh
 - Keine Passwörter, Tokens, privaten Schlüssel oder nicht freigegebenen Baupläne veröffentlichen. Das Repository ist öffentlich.
 - Revit-Dateien und große Binärdateien gemäß [Zusammenarbeitsregeln](CONTRIBUTING.md) verwalten; Modellstand und Ablage nachvollziehbar vermerken.
 
+## Serverstruktur auf einen Blick
+
+```mermaid
+flowchart TB
+    user["Nutzer · Browser auf Handy oder Computer"]
+    cloud["Cloudflare · HTTPS-Zugang"]
+
+    subgraph server["Felix’ STRATO-Server · Website und Daten"]
+        web["Web-App · React / Vite<br/>Auslieferung und Weiterleitung: nginx"]
+        api["Backend / API · Node / Express<br/>Gebäude und Datenzugriff"]
+        db[("PostgreSQL 16<br/>Gebäudedaten dauerhaft gespeichert")]
+        web <-->|"API-Anfragen / Antworten"| api
+        api <-->|"Lesen / Speichern"| db
+    end
+
+    user <-->|"Website öffnen"| cloud
+    cloud <-->|"Bestehender Website-Tunnel<br/>Zugang passwortgeschützt"| web
+
+    subgraph pc["Benjamins Gaming-PC · geplante Anbindung"]
+        bridge["Schnittstelle / Datenübergabe<br/>noch festzulegen"]
+        revit["Revit<br/>Modelle und Exporte"]
+        ollama["Ollama<br/>spätere KI-Erprobung"]
+        revit -.->|"Modellinformationen · geplant"| bridge
+        ollama -.->|"KI-Anfragen und Antworten · später"| bridge
+    end
+
+    api -.->|"Geschützter PC-Server-Tunnel · geplant"| bridge
+    mobile["Xcode-App-Prototyp<br/>geplant"]
+    mobile -.->|"Späterer API-Zugriff<br/>Zugangsweg noch festzulegen"| cloud
+
+    github["GitHub · zentrale Codequelle<br/>Branch → Pull Request → Review → main"]
+    github -->|"Deployment der Web-App"| web
+
+    classDef live fill:#e8f5f3,stroke:#137c82,color:#102f36,stroke-width:2px
+    classDef planned fill:#f5f3ff,stroke:#8b75b5,color:#352052,stroke-width:2px,stroke-dasharray:5 5
+    classDef source fill:#eef2f7,stroke:#64748b,color:#17243b
+    class user,cloud,web,api,db live
+    class bridge,revit,ollama,mobile planned
+    class github source
+```
+
+Durchgezogen = vorhanden · Gestrichelt = geplant. [Erklärung und Zuständigkeiten](docs/architektur.md).
+
 ## Technischer Aufbau
 
 Die Anwendung unter `dashboard/` besteht aus React/Vite mit nginx, Node/Express und PostgreSQL 16 in Docker Compose. Änderungen werden über GitHub geprüft und anschließend über den abgestimmten Deployment-Ablauf veröffentlicht. Zugangsdaten und interne Betriebsunterlagen gehören nicht in das öffentliche Repository.
