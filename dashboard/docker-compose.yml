@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: d21
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdevonly}
+      POSTGRES_DB: d21
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U d21"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports: ['127.0.0.1:8088:80']
+    restart: unless-stopped
+volumes:
+  dbdata:
