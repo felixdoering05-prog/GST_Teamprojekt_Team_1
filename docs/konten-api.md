@@ -6,7 +6,7 @@ Die native App erhält eine Startseite mit Registrierung und Anmeldung. Änderun
 
 **iPhone → HTTPS / vorhandener Website-Zugang → Konten-API → PostgreSQL**
 
-Der Browser-Prototyp bleibt unverändert. Die neuen persönlichen Gebäude liegen getrennt von dessen Demo-Gebäuden. Lokale iOS-Testgebäude werden nicht automatisch übertragen.
+Web-Dashboard und iPhone verwenden dieselben persönlichen Konten und Gebäude. Die neuen persönlichen Gebäude liegen getrennt von den bisherigen Demo-Gebäuden. Lokale iOS-Testgebäude werden nicht automatisch übertragen.
 
 ## API-Vertrag
 
@@ -44,7 +44,7 @@ Fehler werden als `{error: "Beschreibung"}` geliefert: 400 ungültige Angaben, 4
 4. Gebäude anlegen; nach App-Neustart bzw. erneuter Anmeldung müssen sie wieder vom Server geladen werden.
 5. Zweites Konto verwenden und prüfen, dass dessen Gebäudeliste getrennt ist.
 
-Die Website-Zugangsdaten und das persönliche Konto erfüllen unterschiedliche Zwecke. E-Mail-Bestätigung, Passwort-Zurücksetzen, Kontolöschung und gemeinsame Gebäudefreigaben sind noch nicht implementiert. Es werden keine Bestätigungsmails verschickt. Bilder-/PDF-Uploads gehören noch nicht zu dieser Konten-API.
+Die Website-Zugangsdaten und das persönliche Konto erfüllen unterschiedliche Zwecke. E-Mail-Bestätigung, Passwort-Zurücksetzen, Kontolöschung und gemeinsame Gebäudefreigaben sind noch nicht implementiert. Es werden keine Bestätigungsmails verschickt. Bilder, PDFs und DWG-Dateien sind über die [Datei-API](dateien.md) angebunden.
 
 ## Validierung und Bereitstellung
 

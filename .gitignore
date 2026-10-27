@@ -43,3 +43,6 @@ xcuserdata/
 *.xcuserstate
 access-password
 tunnel-url
+
+# Web-Build
+dist/

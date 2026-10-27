@@ -1,11 +1,26 @@
 import SwiftUI
 import Combine
 import Security
+import PhotosUI
+import UniformTypeIdentifiers
+import QuickLook
+import UIKit
 
 struct Building: Identifiable, Codable, Equatable {
     let id: Int
     let name: String
     let address: String
+}
+struct BuildingDocument: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let mime_type: String
+    let size: Int
+}
+struct DocumentPreview: Identifiable {
+    let id = UUID()
+    let document: BuildingDocument
+    let url: URL
 }
 struct Account: Codable { let id: Int; let name: String; let email: String }
 struct LoginSession: Codable { let token: String; let user: Account }
@@ -127,6 +142,50 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let building: Building = try await request("buildings", method: "POST", body: ["name":name,"address":address])
             buildings.append(building); return true
         } catch { self.error = error.localizedDescription; return false }
+    }
+    func documents(buildingID: Int) async throws -> [BuildingDocument] {
+        try await request("buildings/\(buildingID)/documents")
+    }
+    private func fileRequest(path: String, data: Data? = nil, name: String? = nil) async throws -> Data {
+        guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = data == nil ? "GET" : "POST"
+        request.timeoutInterval = 120
+        request.httpBody = data
+        if data != nil { request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type") }
+        if let name {
+            var allowed = CharacterSet.urlPathAllowed
+            allowed.remove(charactersIn: "%/?#&+=")
+            request.setValue(name.addingPercentEncoding(withAllowedCharacters: allowed), forHTTPHeaderField: "X-File-Name")
+        }
+        if let token { request.setValue(token, forHTTPHeaderField: "X-D21-Session") }
+        if let gate = credentials, !gate.username.isEmpty {
+            request.setValue("Basic " + Data("\(gate.username):\(gate.password)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
+        }
+        let session = URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let (result, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
+        guard (200..<300).contains(http.statusCode) else {
+            let message = (try? JSONDecoder().decode(APIMessage.self, from: result))?.error ?? "Datei-Anfrage fehlgeschlagen (\(http.statusCode)). Website-Zugang und Dateigröße prüfen."
+            throw APIError(status: http.statusCode, message: message)
+        }
+        return result
+    }
+    func uploadDocument(buildingID: Int, name: String, data: Data) async throws -> BuildingDocument {
+        guard !data.isEmpty, data.count <= 25 * 1024 * 1024 else { throw APIError(status: 0, message: "Bitte eine Datei bis 25 MB auswählen.") }
+        let result = try await fileRequest(path: "buildings/\(buildingID)/documents", data: data, name: name)
+        return try JSONDecoder().decode(BuildingDocument.self, from: result)
+    }
+    func previewDocument(_ document: BuildingDocument) async throws -> DocumentPreview {
+        let data = try await fileRequest(path: "documents/\(document.id)")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("D21Preview-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let safeName = document.name.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "\\", with: "_")
+        let url = directory.appendingPathComponent(safeName)
+        do { try data.write(to: url, options: [.atomic, .completeFileProtection]) }
+        catch { try? FileManager.default.removeItem(at: directory); throw error }
+        return DocumentPreview(document: document, url: url)
     }
     func logout() async {
         busy = true; defer { busy = false }
@@ -273,7 +332,7 @@ struct AccountHomeView: View {
                 Form {
                     Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
                     Section { Button("Serververbindung", systemImage: "network") { showConnection = true }; Button("Abmelden", role: .destructive) { Task { await model.logout() } }.disabled(model.busy) }
-                    Section { Text("Gebäude sind deinem Konto zugeordnet. Das bisherige Demo-Dashboard und lokale Testgebäude werden nicht automatisch übernommen.").font(.footnote) }
+                    Section { Text("Gebäude sind deinem Konto zugeordnet. Das frühere Demo-Dashboard und lokale Testgebäude werden nicht automatisch übernommen.").font(.footnote) }
                 }.navigationTitle("Profil").sheet(isPresented: $showConnection) { ConnectionView() }
             }.tabItem { Label("Profil", systemImage: "person.crop.circle") }
         }
@@ -296,12 +355,143 @@ struct AddBuildingView: View {
     }
 }
 struct BuildingDetailView: View {
+    @EnvironmentObject var model: AccountModel
     let building: Building
+    @State private var documents: [BuildingDocument] = []
+    @State private var loading = false
+    @State private var working = false
+    @State private var filePicker = false
+    @State private var photo: PhotosPickerItem?
+    @State private var preview: DocumentPreview?
+    @State private var fileError: String?
+    @State private var success: String?
+    private var acceptedTypes: [UTType] {
+        [.pdf, .jpeg, .png, .webP, UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")]
+    }
+    func reload() async {
+        loading = true; defer { loading = false }
+        do { documents = try await model.documents(buildingID: building.id) }
+        catch { fileError = error.localizedDescription }
+    }
+    func upload(name: String, data: Data) async {
+        do {
+            let document = try await model.uploadDocument(buildingID: building.id, name: name, data: data)
+            documents.insert(document, at: 0)
+            success = "Datei in der Serverdatenbank gespeichert."
+        } catch { fileError = error.localizedDescription }
+    }
     var body: some View {
         List {
-            Section("Gebäudeinformationen") { LabeledContent("Gebäude", value: building.name); LabeledContent("Adresse", value: building.address); LabeledContent("Datenquelle", value: "Projektserver") }
-            Section("Weitere Funktionen") { Label("Bilder und PDFs · folgen", systemImage: "doc.text.image"); Label("Revit / BIM · folgt", systemImage: "cube.transparent"); Label("Sensorik und Analyse · folgen", systemImage: "waveform.path") }.foregroundStyle(.secondary)
-        }.navigationTitle(building.name).navigationBarTitleDisplayMode(.inline)
+            Section("Gebäudeinformationen") {
+                LabeledContent("Gebäude", value: building.name)
+                LabeledContent("Adresse", value: building.address)
+            }
+            Section {
+                PhotosPicker(selection: $photo, matching: .images) { Label("Bild aus Fotos hochladen", systemImage: "photo.on.rectangle") }
+                Button("Datei auswählen", systemImage: "doc.badge.plus") { filePicker = true }
+                Text("PDF, JPG, PNG, WebP oder DWG · bis 25 MB pro Datei · 250 MB pro Konto. Fotos werden als JPEG übertragen.").font(.footnote).foregroundStyle(.secondary)
+                if working { ProgressView("Datei wird übertragen …") }
+                if let success { Label(success, systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green) }
+            } header: { Text("Bilder und Pläne hochladen") }
+            .disabled(working)
+            Section("Dateien (\(documents.count))") {
+                if loading { ProgressView("Dateien werden geladen …") }
+                else if documents.isEmpty { Text("Noch keine Dateien vorhanden.").foregroundStyle(.secondary) }
+                ForEach(documents) { document in
+                    Button {
+                        working = true; success = nil
+                        Task {
+                            defer { working = false }
+                            do { preview = try await model.previewDocument(document) }
+                            catch { fileError = error.localizedDescription }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: document.mime_type.hasPrefix("image/") ? "photo" : document.mime_type == "application/acad" ? "cube.transparent" : "doc.text").foregroundStyle(d21Accent)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(document.name).foregroundStyle(.primary)
+                                Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file)).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.down.doc").foregroundStyle(.secondary)
+                        }
+                    }.disabled(working)
+                }
+            }
+            Section("Weitere Funktionen") {
+                Label("Revit / BIM · folgt", systemImage: "cube.transparent")
+                Label("Sensorik und Analyse · folgen", systemImage: "waveform.path")
+            }.foregroundStyle(.secondary)
+        }
+        .navigationTitle(building.name).navigationBarTitleDisplayMode(.inline)
+        .task { await reload() }
+        .refreshable { if !working { await reload() } }
+        .fileImporter(isPresented: $filePicker, allowedContentTypes: acceptedTypes) { result in
+            switch result {
+            case .failure(let error): fileError = error.localizedDescription
+            case .success(let url):
+                working = true; success = nil
+                Task {
+                    defer { working = false }
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    do {
+                        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                        guard size <= 25 * 1024 * 1024 else { throw APIError(status: 0, message: "Maximal 25 MB pro Datei.") }
+                        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+                        await upload(name: url.lastPathComponent, data: data)
+                    } catch { fileError = error.localizedDescription }
+                }
+            }
+        }
+        .onChange(of: photo) { _, item in
+            guard let item else { return }
+            working = true; success = nil
+            Task {
+                defer { working = false; photo = nil }
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self), let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.85) else { throw APIError(status: 0, message: "Bild konnte nicht geladen werden.") }
+                    await upload(name: "Foto-" + UUID().uuidString.prefix(8) + ".jpg", data: jpeg)
+                } catch { fileError = error.localizedDescription }
+            }
+        }
+        .alert("Datei", isPresented: Binding(get: { fileError != nil }, set: { if !$0 { fileError = nil } })) {
+            Button("OK") { fileError = nil }
+        } message: { Text(fileError ?? "") }
+        .sheet(item: $preview) { item in DocumentPreviewView(item: item) }
+    }
+}
+struct DocumentPreviewView: View {
+    @Environment(\.dismiss) var dismiss
+    let item: DocumentPreview
+    var body: some View {
+        NavigationStack {
+            Group {
+                if item.document.mime_type == "application/acad" {
+                    ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
+                } else { NativeFilePreview(url: item.url) }
+            }
+            .navigationTitle(item.document.name).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) { ShareLink(item: item.url) { Label("Teilen / Sichern", systemImage: "square.and.arrow.up") } }
+            }
+        }
+        .onDisappear { try? FileManager.default.removeItem(at: item.url.deletingLastPathComponent()) }
+    }
+}
+struct NativeFilePreview: UIViewControllerRepresentable {
+    let url: URL
+    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController(); controller.dataSource = context.coordinator; return controller
+    }
+    func updateUIViewController(_ controller: QLPreviewController, context: Context) {}
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+        init(url: URL) { self.url = url }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { url as NSURL }
     }
 }
 #Preview { ContentView() }

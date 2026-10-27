@@ -25,9 +25,9 @@ Wir arbeiten schrittweise: zuerst eine verlässliche Grundlage mit Datenablage u
 | :--- | :--- |
 | Website und Server | Eine erste Dashboard-Version ist online und passwortgeschützt erreichbar. |
 | Gemeinsamer Code | GitHub ist die einzige Codequelle; die Anwendung liegt unter [`dashboard/`](dashboard/). |
-| Gebäudeverwaltung | Gebäude lassen sich anlegen und in PostgreSQL speichern. |
+| Gebäudeverwaltung | Persönliche Konten und Gebäude werden in PostgreSQL gespeichert. Web und iPhone verwenden dieselben Konten. |
 | Vollständige App-Oberfläche | Emirs umfangreicherer Stand aus den Screenshots muss noch mit dem gemeinsamen Repository abgeglichen werden: [Aufgabe #21](../../issues/21). |
-| Bilder und PDFs | Eine Upload-Erweiterung wurde zuvor auf dem Server erprobt, ist im aktuellen GitHub-Stand aber noch nicht enthalten. Übernahme und gemeinsamer Test sind offen. |
+| Bilder, PDFs und DWG | Persönliche Dateiablage pro Gebäude in PostgreSQL, nutzbar im Web und auf dem iPhone. Bild-/PDF-Vorschau; DWG herunterladen bzw. in CAD-App öffnen. [Details](docs/dateien.md) |
 | Gaming-PC-Verbindung | Geschützter Tunnel zwischen Benjamins Gaming-PC und dem Server ist noch einzurichten: [Aufgabe #19](../../issues/19). |
 | Revit und KI | Revit-Anbindung, Modellimport und Ollama-Anbindung sind noch nicht als funktionierender Gesamtprozess umgesetzt. |
 
