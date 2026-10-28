@@ -1,0 +1,64 @@
+{
+  "name": "Measurement",
+  "type": "object",
+  "properties": {
+    "sensor_id": {
+      "type": "string"
+    },
+    "sensor_code": {
+      "type": "string"
+    },
+    "room_id": {
+      "type": "string"
+    },
+    "building_id": {
+      "type": "string"
+    },
+    "metric": {
+      "type": "string",
+      "enum": [
+        "temperature",
+        "co2",
+        "humidity"
+      ]
+    },
+    "value": {
+      "type": "number",
+      "description": "Messwert"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "measured_at": {
+      "type": "string",
+      "description": "Zeitstempel des Messwerts (ISO 8601)"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "demo = simulierter Beispieldatensatz, real = importierter oder gemessener Wert"
+    },
+    "quality": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "verdaechtig",
+        "fehlend"
+      ],
+      "default": "ok"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "metric",
+    "value",
+    "measured_at",
+    "source"
+  ]
+}

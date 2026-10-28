@@ -1,0 +1,41 @@
+{
+  "name": "ThresholdConfig",
+  "type": "object",
+  "properties": {
+    "metric": {
+      "type": "string",
+      "enum": [
+        "temperature",
+        "co2",
+        "humidity"
+      ],
+      "description": "Messgr\u00f6\u00dfe, auf die sich die Grenzwerte beziehen"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "warning_min": {
+      "type": "number",
+      "description": "Unterer Warn-Grenzwert"
+    },
+    "warning_max": {
+      "type": "number",
+      "description": "Oberer Warn-Grenzwert"
+    },
+    "critical_min": {
+      "type": "number",
+      "description": "Unterer kritischer Grenzwert"
+    },
+    "critical_max": {
+      "type": "number",
+      "description": "Oberer kritischer Grenzwert"
+    },
+    "note": {
+      "type": "string",
+      "description": "Grundlage der Grenzwerte, z. B. DIN EN 16798"
+    }
+  },
+  "required": [
+    "metric"
+  ]
+}

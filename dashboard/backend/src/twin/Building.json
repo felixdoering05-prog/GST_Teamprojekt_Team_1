@@ -1,0 +1,68 @@
+{
+  "name": "Building",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Bezeichnung des Geb\u00e4udes, z. B. D21"
+    },
+    "code": {
+      "type": "string",
+      "description": "Kurzzeichen des Geb\u00e4udes"
+    },
+    "site": {
+      "type": "string",
+      "description": "Standort / Campus"
+    },
+    "address": {
+      "type": "string",
+      "description": "Adresse"
+    },
+    "year_built": {
+      "type": "number",
+      "description": "Baujahr"
+    },
+    "gross_area_m2": {
+      "type": "number",
+      "description": "Bruttogrundfl\u00e4che in m\u00b2"
+    },
+    "floors_count": {
+      "type": "number",
+      "description": "Anzahl Geschosse"
+    },
+    "usage_type": {
+      "type": "string",
+      "description": "Hauptnutzung"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung"
+    },
+    "bim_model_ref": {
+      "type": "string",
+      "description": "Verweis auf das Revit-/IFC-Modell (Datei oder Modell-URL)"
+    },
+    "bim_status": {
+      "type": "string",
+      "enum": [
+        "nicht_verknuepft",
+        "vorbereitet",
+        "verknuepft"
+      ],
+      "default": "vorbereitet",
+      "description": "Stand der Revit-/IFC-Verkn\u00fcpfung"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Kennzeichnung: Demo-Datensatz oder reale Daten"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

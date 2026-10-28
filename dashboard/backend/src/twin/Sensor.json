@@ -1,0 +1,77 @@
+{
+  "name": "Sensor",
+  "type": "object",
+  "properties": {
+    "sensor_code": {
+      "type": "string",
+      "description": "Eindeutige Sensorkennung"
+    },
+    "name": {
+      "type": "string"
+    },
+    "building_id": {
+      "type": "string"
+    },
+    "room_id": {
+      "type": "string",
+      "description": "Zugeordneter Raum"
+    },
+    "metric": {
+      "type": "string",
+      "enum": [
+        "temperature",
+        "co2",
+        "humidity"
+      ],
+      "description": "Messgr\u00f6\u00dfe: Temperatur, CO\u2082 oder Luftfeuchte"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Messeinheit, z. B. \u00b0C, ppm, %"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aktiv",
+        "inaktiv",
+        "defekt"
+      ],
+      "default": "aktiv"
+    },
+    "hardware_type": {
+      "type": "string",
+      "description": "Sensortyp / Ger\u00e4t"
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Vorgesehene Anbindung, z. B. csv, api, bacnet"
+    },
+    "position_note": {
+      "type": "string",
+      "description": "Einbauort / Position im Raum"
+    },
+    "installed_date": {
+      "type": "string",
+      "description": "Inbetriebnahme"
+    },
+    "last_calibration": {
+      "type": "string",
+      "description": "Letzte Kalibrierung"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo"
+    }
+  },
+  "required": [
+    "sensor_code",
+    "metric"
+  ]
+}

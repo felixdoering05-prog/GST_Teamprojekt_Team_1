@@ -1,0 +1,64 @@
+{
+  "name": "Room",
+  "type": "object",
+  "properties": {
+    "room_code": {
+      "type": "string",
+      "description": "Eindeutige Raum-ID, z. B. EG.02"
+    },
+    "name": {
+      "type": "string",
+      "description": "Raumname"
+    },
+    "building_id": {
+      "type": "string",
+      "description": "Zugeh\u00f6riges Geb\u00e4ude"
+    },
+    "floor_id": {
+      "type": "string",
+      "description": "Zugeh\u00f6riges Geschoss"
+    },
+    "usage": {
+      "type": "string",
+      "description": "Nutzung, z. B. B\u00fcro, Seminarraum, Labor"
+    },
+    "area_m2": {
+      "type": "number",
+      "description": "Raumfl\u00e4che in m\u00b2"
+    },
+    "sensor_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Sensoren, die diesem Raum zugeordnet sind"
+    },
+    "revit_room_id": {
+      "type": "string",
+      "description": "Reserviert f\u00fcr die Revit-Raum-ID aus dem IFC-Modell"
+    },
+    "ifc_global_id": {
+      "type": "string",
+      "description": "Reserviert f\u00fcr den IFC-GlobalId"
+    },
+    "occupants_max": {
+      "type": "number",
+      "description": "Maximale Personenzahl"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo"
+    }
+  },
+  "required": [
+    "room_code",
+    "name"
+  ]
+}
