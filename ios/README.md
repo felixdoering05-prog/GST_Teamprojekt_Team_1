@@ -30,3 +30,7 @@ Den Simulator mit regulärer Xcode-Signierung bauen. `CODE_SIGNING_ALLOWED=NO` v
 Bei einem vollständigen App-Neustart erscheint das bereitgestellte Projektlogo mit „GST TEAMPROJEKT“, „KI trifft Gebäude“ und „Ein Projekt der Hochschule Darmstadt“. Nach rund 1,8 Sekunden folgt die vorhandene Anmeldung bzw. Sitzungswiederherstellung. Beim Wechsel aus dem Hintergrund erscheint der Bildschirm nicht erneut; sein Zustand gilt nur für den laufenden App-Prozess. Reduzierte Bewegung wird beim Übergang berücksichtigt.
 
 Die originale transparente PNG-Datei liegt in `Assets.xcassets/ProjectLogo.imageset`. Für eine stabile Simulator-Vorschau kann ein Debug-Build einmal mit `-D21SplashPreview` gestartet werden. Diese Vorschau-Option ist in Release-Builds nicht enthalten.
+
+## Persönlicher Start und geführte Anlage
+
+Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsymbol oben rechts öffnet Kontodaten und die servergespeicherte Profilbild-Auswahl. „Neues Gebäude“ führt durch Name, optionale Adresse und Bild-Upload. [Ablauf und API](../docs/profil-gebaeudeassistent.md).

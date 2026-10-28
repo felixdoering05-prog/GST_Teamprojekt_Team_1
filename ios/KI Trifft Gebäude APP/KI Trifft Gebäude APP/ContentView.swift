@@ -5,8 +5,9 @@ import PhotosUI
 import UniformTypeIdentifiers
 import QuickLook
 import UIKit
+import ImageIO
 
-struct Building: Identifiable, Codable, Equatable {
+struct Building: Identifiable, Codable, Equatable, Hashable {
     let id: Int
     let name: String
     let address: String
@@ -63,6 +64,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
 
 @MainActor final class AccountModel: ObservableObject {
     @Published var user: Account?
+    @Published var avatarData: Data?
     @Published var buildings: [Building] = []
     @Published var busy = false
     @Published var restoring = true
@@ -80,7 +82,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
               parts.path.isEmpty else { throw APIError(status: 0, message: "Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.") }
         let changed = cleaned != serverURL
-        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = [] }
+        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil }
         try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username: username, password: password)), key: "gateway")
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
@@ -116,6 +118,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let account: Account = try await request("auth/me")
             user = account
             await loadBuildings()
+            await loadAvatar()
         } catch {
             if (error as? APIError)?.status == 401 { try? SecureStore.write(nil, key: "session"); token = nil }
             self.error = error.localizedDescription
@@ -128,28 +131,29 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             if register { body["name"] = name.trimmingCharacters(in: .whitespacesAndNewlines) }
             let session: LoginSession = try await request(register ? "auth/register" : "auth/login", method: "POST", body: body)
             try SecureStore.write(try JSONEncoder().encode(session), key: "session")
-            token = session.token; user = session.user
+            token = session.token; user = session.user; avatarData = nil
             await loadBuildings()
+            await loadAvatar()
         } catch { self.error = error.localizedDescription }
     }
     func loadBuildings() async {
         do { buildings = try await request("buildings") }
         catch { self.error = error.localizedDescription }
     }
-    func addBuilding(name: String, address: String) async -> Bool {
+    func addBuilding(name: String, address: String) async -> Building? {
         busy = true; defer { busy = false }
         do {
             let building: Building = try await request("buildings", method: "POST", body: ["name":name,"address":address])
-            buildings.append(building); return true
-        } catch { self.error = error.localizedDescription; return false }
+            buildings.append(building); return building
+        } catch { self.error = error.localizedDescription; return nil }
     }
     func documents(buildingID: Int) async throws -> [BuildingDocument] {
         try await request("buildings/\(buildingID)/documents")
     }
-    private func fileRequest(path: String, data: Data? = nil, name: String? = nil) async throws -> Data {
+    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil) async throws -> Data {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
         var request = URLRequest(url: url)
-        request.httpMethod = data == nil ? "GET" : "POST"
+        request.httpMethod = method ?? (data == nil ? "GET" : "POST")
         request.timeoutInterval = 120
         request.httpBody = data
         if data != nil { request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type") }
@@ -187,12 +191,21 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         catch { try? FileManager.default.removeItem(at: directory); throw error }
         return DocumentPreview(document: document, url: url)
     }
+    func loadAvatar() async {
+        do { avatarData = try await fileRequest(path: "profile/avatar") }
+        catch { avatarData = nil }
+    }
+    func saveAvatar(_ data: Data) async throws {
+        guard !data.isEmpty, data.count <= 2 * 1024 * 1024 else { throw APIError(status: 0, message: "Das Profilbild darf maximal 2 MB groß sein.") }
+        _ = try await fileRequest(path: "profile/avatar", data: data, method: "PUT")
+        avatarData = data
+    }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
             try SecureStore.write(nil, key: "session")
-            token = nil; user = nil; buildings = []
+            token = nil; user = nil; buildings = []; avatarData = nil
         } catch { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription }
     }
 }
@@ -307,50 +320,251 @@ struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var search = ""
     @State private var showAdd = false
-    @State private var showConnection = false
+    @State private var showProfile = false
+    @State private var path: [Building] = []
     var body: some View {
         TabView {
-            NavigationStack {
+            NavigationStack(path: $path) {
                 List {
-                    Section { Text("Hallo, \(model.user?.name ?? "")").font(.title2.bold()); Label("Mit dem Projektserver verbunden", systemImage: "checkmark.icloud").font(.footnote).foregroundStyle(.secondary) }
+                    Section {
+                        Text("Deine Gebäude. Alles an einem Ort.").foregroundStyle(.secondary)
+                        Button { showAdd = true } label: {
+                            Label("Neues Gebäude Schritt für Schritt anlegen", systemImage: "plus.circle.fill")
+                                .font(.headline).padding(.vertical, 8)
+                        }
+                    }
                     Section("Meine Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            NavigationLink { BuildingDetailView(building: building) } label: {
-                                Label { VStack(alignment: .leading) { Text(building.name).font(.headline); Text(building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
+                            NavigationLink(value: building) {
+                                Label { VStack(alignment: .leading, spacing: 5) { Text(building.name).font(.headline); Text(building.address.isEmpty ? "Adresse noch offen" : building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
                             }
                         }
-                        if model.buildings.isEmpty { Text("Noch keine Gebäude. Lege dein erstes Gebäude an.").foregroundStyle(.secondary) }
-                        Button("Gebäude hinzufügen", systemImage: "plus.circle") { showAdd = true }
+                        if model.buildings.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Hier beginnt dein erster Gebäudepass.").font(.headline)
+                                Text("Wir führen dich durch Name, Adresse und Bilder.").foregroundStyle(.secondary)
+                            }.padding(.vertical, 8)
+                        }
                     }
                 }
-                .navigationTitle("D21 Gebäude").searchable(text: $search, prompt: "Gebäude suchen")
-                .refreshable { await model.loadBuildings() }
-                .sheet(isPresented: $showAdd) { AddBuildingView() }
+                .navigationTitle("Hallo, \(model.user?.name ?? "")")
+                .searchable(text: $search, prompt: "Gebäude suchen")
+                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0) }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showProfile = true } label: { AvatarBadge(data: model.avatarData, size: 38) }
+                            .accessibilityLabel("Mein Profil öffnen")
+                            .contextMenu { Button("Profil und Profilbild", systemImage: "person.crop.circle") { showProfile = true } }
+                    }
+                }
+                .refreshable { await model.loadBuildings(); await model.loadAvatar() }
+                .sheet(isPresented: $showAdd) { AddBuildingView { building in showAdd = false; path.append(building) } }
+                .sheet(isPresented: $showProfile) { ProfileView() }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }
             NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }
-            NavigationStack {
-                Form {
-                    Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
-                    Section { Button("Serververbindung", systemImage: "network") { showConnection = true }; Button("Abmelden", role: .destructive) { Task { await model.logout() } }.disabled(model.busy) }
-                    Section { Text("Gebäude sind deinem Konto zugeordnet. Das frühere Demo-Dashboard und lokale Testgebäude werden nicht automatisch übernommen.").font(.footnote) }
-                }.navigationTitle("Profil").sheet(isPresented: $showConnection) { ConnectionView() }
-            }.tabItem { Label("Profil", systemImage: "person.crop.circle") }
         }
     }
 }
+struct AvatarBadge: View {
+    let data: Data?
+    let size: CGFloat
+    var body: some View {
+        Group {
+            if let data, let image = UIImage(data: data) { Image(uiImage: image).resizable().scaledToFill() }
+            else { Image(systemName: "person.crop.circle.fill").resizable().scaledToFit().foregroundStyle(d21Accent).padding(size * 0.05) }
+        }
+        .frame(width: size, height: size).background(d21Accent.opacity(0.1)).clipShape(Circle())
+        .overlay(Circle().strokeBorder(d21Accent.opacity(0.2), lineWidth: 1))
+    }
+}
+enum PhotoPreparation {
+    static func jpeg(_ data: Data, dimension: Int = 2048) throws -> Data {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: dimension, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary),
+              let result = UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.85)
+        else { throw APIError(status: 0, message: "Dieses Bild konnte nicht gelesen werden.") }
+        return result
+    }
+}
+struct ProfileView: View {
+    @EnvironmentObject var model: AccountModel
+    @Environment(\.dismiss) var dismiss
+    @State private var photo: PhotosPickerItem?
+    @State private var uploading = false
+    @State private var showConnection = false
+    @State private var problem: String?
+    @State private var saved = false
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(spacing: 16) {
+                        AvatarBadge(data: model.avatarData, size: 112)
+                        Text(model.user?.name ?? "").font(.title2.bold())
+                        PhotosPicker(selection: $photo, matching: .images) { Label(model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern", systemImage: "camera") }.disabled(uploading)
+                        if uploading { ProgressView("Profilbild wird gespeichert …") }
+                        if saved { Label("Auf dem Projektserver gespeichert", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green) }
+                    }.frame(maxWidth: .infinity).padding(.vertical, 16)
+                }
+                Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
+                Section { Button("Serververbindung", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
+            }
+            .navigationTitle("Mein Profil").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() }.disabled(uploading) } }
+            .interactiveDismissDisabled(uploading)
+            .sheet(isPresented: $showConnection) { ConnectionView() }
+            .onChange(of: photo) { _, item in
+                guard let item else { return }; uploading = true; saved = false
+                Task {
+                    defer { uploading = false; photo = nil }
+                    do {
+                        guard let data = try await item.loadTransferable(type: Data.self) else { throw APIError(status: 0, message: "Bild konnte nicht geladen werden.") }
+                        try await model.saveAvatar(PhotoPreparation.jpeg(data, dimension: 512)); saved = true
+                    } catch { problem = error.localizedDescription }
+                }
+            }
+            .alert("Profilbild", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) { Button("OK") { problem = nil } } message: { Text(problem ?? "") }
+        }
+    }
+}
+struct WizardImage: Identifiable { let id: Int; let data: Data; let name: String }
 struct AddBuildingView: View {
     @EnvironmentObject var model: AccountModel
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    let onComplete: (Building) -> Void
+    @State private var step = 1
     @State private var name = ""
     @State private var address = ""
+    @State private var created: Building?
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var images: [WizardImage] = []
+    @State private var importing = false
+    @State private var working = false
+    @State private var workingText = ""
+    @State private var problem: String?
+    @State private var confirmClose = false
+    @FocusState private var focus: Int?
+    private var locked: Bool { working || model.busy }
+    private var titles: [String] { ["", "Wie heißt dein Gebäude?", "Wo steht dein Gebäude?", "Zeig uns dein Gebäude"] }
+    private func advance(_ newStep: Int) { focus = nil; withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { step = newStep } }
+    private func finish() { if let created { onComplete(created) } else { dismiss() } }
+    private func storeImage(_ data: Data, name: String) async throws {
+        guard let created else { return }
+        let jpeg = try PhotoPreparation.jpeg(data)
+        let doc = try await model.uploadDocument(buildingID: created.id, name: name, data: jpeg)
+        images.append(WizardImage(id: doc.id, data: jpeg, name: doc.name))
+    }
     var body: some View {
         NavigationStack {
-            Form { TextField("Gebäudename", text: $name); TextField("Adresse", text: $address) }
-                .disabled(model.busy).navigationTitle("Neues Gebäude")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(model.busy) }
-                    ToolbarItem(placement: .confirmationAction) { Button(model.busy ? "Speichert …" : "Speichern") { Task { if await model.addBuilding(name: name, address: address) { dismiss() } } }.disabled(model.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("SCHRITT \(step) VON 3").font(.caption.weight(.semibold)).tracking(2).foregroundStyle(d21Accent)
+                        HStack(spacing: 7) { ForEach(1...3, id: \.self) { index in Capsule().fill(index <= step ? d21Accent : d21Accent.opacity(0.12)).frame(height: 5) } }
+                            .accessibilityLabel("Schritt \(step) von 3")
+                        HStack { Text("Name"); Spacer(); Text("Adresse"); Spacer(); Text("Bilder") }.font(.caption).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 18) {
+                        Image(systemName: step == 1 ? "building.2.crop.circle.fill" : step == 2 ? "mappin.circle.fill" : "photo.circle.fill")
+                            .font(.system(size: 62)).foregroundStyle(d21Accent).contentTransition(.symbolEffect(.replace))
+                        Text(titles[step]).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                        if step == 1 {
+                            Text("Gib deinem Gebäude einen Namen, den du später leicht wiedererkennst.").foregroundStyle(.secondary)
+                            TextField("Zum Beispiel: Gebäude D21", text: $name).textFieldStyle(.roundedBorder).focused($focus, equals: 1).submitLabel(.next)
+                                .onSubmit { if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 200 { advance(2) } }
+                            Text("Du kannst den Namen frei wählen.").font(.footnote).foregroundStyle(.secondary)
+                        } else if step == 2 {
+                            Text("Ergänze die Adresse zu „\(name)“. Wenn du sie noch nicht weißt, kannst du diesen Schritt ohne Adresse fortsetzen.").foregroundStyle(.secondary)
+                            TextField("Straße, Hausnummer und Ort (optional)", text: $address, axis: .vertical).lineLimit(2...4).textFieldStyle(.roundedBorder).focused($focus, equals: 2)
+                            Label("Mit Weiter wird dein Gebäude auf dem Projektserver angelegt.", systemImage: "lock.icloud").font(.footnote).foregroundStyle(.secondary)
+                        } else {
+                            Label("„\(created?.name ?? name)“ ist angelegt.", systemImage: "checkmark.circle.fill").foregroundStyle(d21Accent)
+                            Text("Ein Foto von außen oder vom Eingang hilft dir, das Gebäude wiederzuerkennen. Wähle jetzt bis zu sechs Bilder aus.").foregroundStyle(.secondary)
+                            PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 6, matching: .images) {
+                                Label(images.isEmpty ? "Bilder aus Fotos auswählen" : "Weitere Bilder auswählen", systemImage: "photo.on.rectangle.angled")
+                                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)
+                            }.buttonStyle(.borderedProminent).disabled(locked)
+                            Button("Bild aus Dateien auswählen", systemImage: "folder") { importing = true }.disabled(locked)
+                            if !images.isEmpty {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 105))], spacing: 12) {
+                                    ForEach(images) { image in
+                                        VStack(spacing: 8) {
+                                            if let uiImage = UIImage(data: image.data) { Image(uiImage: uiImage).resizable().scaledToFill().frame(height: 100).clipped().clipShape(RoundedRectangle(cornerRadius: 12)) }
+                                            Label("Gespeichert", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(d21Accent)
+                                        }
+                                    }
+                                }
+                            }
+                            Text("Bilder werden erst nach erfolgreichem Upload als gespeichert angezeigt. PDF- und DWG-Pläne kannst du anschließend im Gebäudepass ergänzen.").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    .id(step)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    if locked { ProgressView(workingText.isEmpty ? "Gebäude wird gespeichert …" : workingText).frame(maxWidth: .infinity) }
+                }.padding(24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Neues Gebäude").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(created == nil ? "Abbrechen" : "Später fortsetzen") {
+                    if created != nil { finish() } else if name.isEmpty && address.isEmpty { dismiss() } else { confirmClose = true }
+                }.disabled(locked) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12) {
+                    Button {
+                        if step == 1 { advance(2) }
+                        else if step == 2 {
+                            Task {
+                                if let existing = created { created = existing; advance(3); return }
+                                if let building = await model.addBuilding(name: name.trimmingCharacters(in: .whitespacesAndNewlines), address: address.trimmingCharacters(in: .whitespacesAndNewlines)) { created = building; advance(3) }
+                                else { problem = model.error; model.error = nil }
+                            }
+                        } else { finish() }
+                    } label: {
+                        HStack { Text(step == 3 ? (images.isEmpty ? "Bilder später hinzufügen" : "Fertig · Gebäudepass öffnen") : step == 2 ? "Weiter zu den Bildern" : "Weiter zur Adresse"); if step < 3 { Image(systemName: "arrow.right") } }
+                            .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
+                    }.buttonStyle(.borderedProminent)
+                        .disabled(locked || (step == 1 && (name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 200)) || (step == 2 && address.count > 500))
+                    if step == 2 { Button("Zurück zum Namen") { advance(1) }.disabled(locked) }
+                }.padding().background(.regularMaterial)
+            }
+            .interactiveDismissDisabled()
+            .confirmationDialog("Eingaben verwerfen?", isPresented: $confirmClose, titleVisibility: .visible) { Button("Verwerfen", role: .destructive) { dismiss() }; Button("Weiter bearbeiten", role: .cancel) {} }
+            .alert("Gebäude anlegen", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) { Button("OK") { problem = nil } } message: { Text(problem ?? "") }
+            .onChange(of: selectedPhotos) { _, items in
+                guard !items.isEmpty else { return }; working = true
+                Task {
+                    defer { working = false; selectedPhotos = []; workingText = "" }
+                    var failures = 0
+                    var lastFailure = ""
+                    for (index, item) in items.enumerated() {
+                        workingText = "Bild \(index + 1) von \(items.count) wird hochgeladen …"
+                        do {
+                            guard let data = try await item.loadTransferable(type: Data.self) else { throw APIError(status: 0, message: "Bild konnte nicht geladen werden.") }
+                            try await storeImage(data, name: "Gebaeude-" + UUID().uuidString.prefix(8) + ".jpg")
+                        } catch { failures += 1; lastFailure = error.localizedDescription }
+                    }
+                    if failures > 0 { problem = "\(failures) Bild(er) konnten nicht hochgeladen werden. Erfolgreiche Uploads bleiben gespeichert. Bitte die fehlenden Bilder erneut auswählen.\n\(lastFailure)" }
                 }
+            }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.jpeg, .png, .webP]) { result in
+                switch result {
+                case .failure(let error): problem = error.localizedDescription
+                case .success(let url):
+                    working = true; workingText = "Bild wird hochgeladen …"
+                    Task {
+                        defer { working = false; workingText = "" }
+                        let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
+                        do {
+                            guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 25 * 1024 * 1024 else { throw APIError(status: 0, message: "Maximal 25 MB pro Datei.") }
+                            try await storeImage(Data(contentsOf: url, options: .mappedIfSafe), name: "Gebaeude-" + UUID().uuidString.prefix(8) + ".jpg")
+                        } catch { problem = error.localizedDescription }
+                    }
+                }
+            }
         }
     }
 }
