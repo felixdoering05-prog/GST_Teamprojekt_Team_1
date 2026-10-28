@@ -41,7 +41,7 @@ oder hochgeladenen Dateien. Diese Ausgabe übernimmt deshalb nicht automatisch d
 oder Konten eines bereits betriebenen Base44-Projekts. Dafür wäre ein separater, geprüfter
 Datenexport mit Zuordnung der Konten/IDs und Dateien nötig.
 
-Google-Login, E-Mail-Bestätigung und Passwort-Wiederherstellung sind auf dem Projektserver
+Google-Login und E-Mail-Bestätigung sind auf dem Projektserver
 noch nicht eingerichtet; die Oberfläche bietet dafür keine vorgetäuschten Abläufe an.
 Demo-Seeding und Grenzwertprüfung laufen im eigenen Backend und bleiben ausdrücklich
 simulierte Daten bzw. regelbasierte Auswertungen. Keine Revit-, Ollama- oder Live-Sensor-Anbindung.
@@ -66,3 +66,5 @@ unter `frontend/` im Repository; eine Rückkehr erfolgt ebenfalls über einen Pu
 Das Backend ergänzt die neuen Tabellen/Spalten beim Start additiv. Alte API, Konten,
 Dateien und iOS-App bleiben kompatibel. Vor Produktionsdeployment einen Datenbank-Backup
 nach dem vorhandenen Betriebsverfahren erstellen. Niemals `down -v` verwenden.
+
+Passwort-Wiederherstellung per E-Mail-Code ist vorbereitet und ohne SMTP-Absender deaktiviert. [Mail-Einrichtung](../../docs/passwort-mail.md).

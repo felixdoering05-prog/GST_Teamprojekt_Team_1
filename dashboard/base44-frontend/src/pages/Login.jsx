@@ -16,6 +16,6 @@ export default function Login(){
  <div><Label htmlFor="email">E-Mail</Label><Input id="email" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)}/></div>
  <div><Label htmlFor="password">Passwort</Label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></div>
  <Button className="w-full" disabled={busy}>{busy?'Anmelden …':'Anmelden'}</Button>
- <p className="text-xs text-muted-foreground">Eine Passwort-Wiederherstellung per E-Mail ist im Prototyp noch nicht eingerichtet.</p>
+ <Link className="block text-sm text-primary" to="/forgot-password">Passwort vergessen?</Link>
  </form></AuthLayout>;
 }

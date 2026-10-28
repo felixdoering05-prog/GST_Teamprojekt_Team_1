@@ -15,7 +15,7 @@ Die zugehörige Konten-API muss auf dem Projektserver veröffentlicht sein. Unte
 
 Gebäudedaten liegen in PostgreSQL und sind dem jeweiligen Konto zugeordnet. Demo-Gebäude aus dem Browser-Dashboard sowie frühere lokale iOS-Testdaten werden nicht automatisch übernommen. Alte lokale Daten werden durch diese Änderung nicht gelöscht.
 
-E-Mail-Bestätigung, Passwort-Wiederherstellung, Kontolöschung, Gebäudefreigaben sind noch nicht angebunden. [API-Vertrag und Grenzen](../docs/konten-api.md).
+E-Mail-Bestätigung, Kontolöschung und Gebäudefreigaben sind noch nicht angebunden. Die Passwort-Wiederherstellung ist vorbereitet und benötigt ein eingerichtetes Absenderkonto. [API-Vertrag und Grenzen](../docs/konten-api.md).
 
 Validierung: Xcode-27.1-Debug-Build für den iPhone-18-Pro-Simulator; Backendtests mit isolierter PostgreSQL-Laufzeit.
 
@@ -34,3 +34,7 @@ Die originale transparente PNG-Datei liegt in `Assets.xcassets/ProjectLogo.image
 ## Persönlicher Start und geführte Anlage
 
 Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsymbol oben rechts öffnet Kontodaten und die servergespeicherte Profilbild-Auswahl. „Neues Gebäude“ führt durch Name, optionale Adresse, Fotos, PDF-/DWG-Pläne und Abschlussübersicht. Ein lokaler Zwischenstand lässt sich nach einem App-Neustart fortsetzen. Die Gebäudemappe bietet Dateisuche, Vorschau, Umbenennen, bestätigtes Löschen und wiederholbare Uploads. [Gebäudemappe, lokale Entwürfe und API](../docs/gebaeudemappe-ios.md).
+
+## Passwort vergessen
+
+Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne eingerichteten SMTP-Absender zeigt die Ansicht den ausstehenden Mailversand an und verschickt keine Mail. [Einrichtung und Grenzen](../docs/passwort-mail.md).

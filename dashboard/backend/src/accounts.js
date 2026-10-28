@@ -1,4 +1,5 @@
 const express = require('express');
+const {initPasswordResets,passwordResetRouter}=require('./password-reset');
 const {initTwin,twinRouter}=require('./twin');
 const {initDocuments,documentRouter}=require('./documents');
 const {initProfile,profileRouter}=require('./profile');
@@ -29,12 +30,13 @@ async function initAccounts(db) {
  await db.query('CREATE INDEX IF NOT EXISTS app_buildings_user_idx ON app_buildings(user_id)');
  await db.query('ALTER TABLE app_buildings ADD COLUMN IF NOT EXISTS creation_key TEXT');
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_buildings_creation_key_idx ON app_buildings(user_id,creation_key) WHERE creation_key IS NOT NULL');
+ await initPasswordResets(db);
  await initTwin(db);
  await initDocuments(db);
  await initProfile(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
-function accountRouter(db) {
+function accountRouter(db,options={}) {
  const router = express.Router();
  const attempts = new Map();
  let activePasswords = 0;
@@ -49,10 +51,10 @@ function accountRouter(db) {
   res.once('finish',()=>activePasswords--);next();
  };
  const publicUser = u => ({id:u.id,name:u.name,email:u.email});
- const session = async user => {
+ const session = async (user,connection=db) => {
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now()+SESSION_DAYS*86400000);
-  await db.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[hashToken(token),user.id,expiresAt]);
+  await connection.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[hashToken(token),user.id,expiresAt]);
   return {token,expires_at:expiresAt.toISOString(),user:publicUser(user)};
  };
  // Middleware wrapper explicitly continues only after successful authentication.
@@ -85,8 +87,15 @@ function accountRouter(db) {
   const dummy='00000000000000000000000000000000:'+ '0'.repeat(128);
   const matches=await verifyPassword(password,user?.password_hash||dummy);
   if(!user||!matches)return res.status(401).json({error:'E-Mail oder Passwort ist falsch.'});
-  res.json(await session(user));
+  const client=await db.connect();
+  try {
+   await client.query('BEGIN');
+   const current=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+   if(!current||current.password_hash!==user.password_hash){await client.query('ROLLBACK');return res.status(401).json({error:'E-Mail oder Passwort ist falsch.'});}
+   const result=await session(user,client);await client.query('COMMIT');res.json(result);
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ router.use(passwordResetRouter(db,{passwordHash,throttle,...options}));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
  router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query('SELECT id,name,address,created_at FROM app_buildings WHERE user_id=$1 ORDER BY id',[req.account.id])).rows)));

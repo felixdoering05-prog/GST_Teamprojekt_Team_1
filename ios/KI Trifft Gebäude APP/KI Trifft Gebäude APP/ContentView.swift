@@ -16,6 +16,8 @@ struct Account: Codable { let id: Int; let name: String; let email: String }
 struct LoginSession: Codable { let token: String; let user: Account }
 struct APIMessage: Decodable { let error: String }
 struct LogoutResult: Decodable { let ok: Bool }
+struct ResetStatus: Decodable { let enabled: Bool }
+struct ResetMessage: Decodable { let message: String }
 struct APIError: LocalizedError {
     let status: Int
     let message: String
@@ -97,7 +99,9 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
         guard (200..<300).contains(http.statusCode) else {
-            let message = (try? JSONDecoder().decode(APIMessage.self, from: data))?.error
+            let accountError = try? JSONDecoder().decode(APIMessage.self, from: data)
+            if http.statusCode == 401 && accountError != nil { invalidateSession() }
+            let message = accountError?.error
                 ?? (http.statusCode == 401 ? "Website-Zugang prüfen: Unter Serververbindung die gemeinsamen Zugangsdaten eingeben." : "Server nicht verfügbar (\(http.statusCode)). Bitte Serveradresse und Bereitstellung prüfen.")
             throw APIError(status: http.statusCode, message: message)
         }
@@ -143,6 +147,18 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             await loadAvatar()
         } catch { self.error = error.localizedDescription }
     }
+    func passwordResetStatus() async throws -> Bool {
+        let status: ResetStatus = try await request("auth/password-reset/status")
+        return status.enabled
+    }
+    func requestPasswordReset(email: String) async throws -> String {
+        let response: ResetMessage = try await request("auth/password-reset/request", method: "POST", body: ["email":email])
+        return response.message
+    }
+    func confirmPasswordReset(email: String, code: String, password: String) async throws -> String {
+        let response: ResetMessage = try await request("auth/password-reset/confirm", method: "POST", body: ["email":email,"code":code,"password":password])
+        return response.message
+    }
     func loadBuildings() async {
         do { buildings = try await request("buildings") }
         catch { self.error = error.localizedDescription }
@@ -181,7 +197,9 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         else { (result, response) = try await session.data(for: request) }
         guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
         guard (200..<300).contains(http.statusCode) else {
-            let message = (try? JSONDecoder().decode(APIMessage.self, from: result))?.error ?? "Datei-Anfrage fehlgeschlagen (\(http.statusCode)). Website-Zugang und Dateigröße prüfen."
+            let accountError = try? JSONDecoder().decode(APIMessage.self, from: result)
+            if http.statusCode == 401 && accountError != nil { invalidateSession() }
+            let message = accountError?.error ?? "Datei-Anfrage fehlgeschlagen (\(http.statusCode)). Website-Zugang und Dateigröße prüfen."
             throw APIError(status: http.statusCode, message: message)
         }
         return result
@@ -221,13 +239,17 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         _ = try await fileRequest(path: "profile/avatar", data: data, method: "PUT")
         avatarData = data
     }
+    private func invalidateSession() {
+        try? SecureStore.write(nil, key: "session")
+        token = nil; user = nil; buildings = []; avatarData = nil
+    }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
             try SecureStore.write(nil, key: "session")
             token = nil; user = nil; buildings = []; avatarData = nil
-        } catch { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription }
+        } catch { if user != nil { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription } }
     }
 }
 final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
@@ -274,7 +296,7 @@ struct WelcomeView: View {
                         NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
                     Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
-                    Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung oder Passwort-Wiederherstellung.")
+                    Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(28)
             }
@@ -299,6 +321,9 @@ struct AuthenticationView: View {
             }
             if register {
                 Section { Text("Mindestens 12 Zeichen. Verwende für diesen Prototyp ein eigenes Passwort.").font(.footnote).foregroundStyle(.secondary) }
+            }
+            if !register {
+                Section { NavigationLink("Passwort vergessen?") { PasswordResetView() } }
             }
             Section {
                 Button {

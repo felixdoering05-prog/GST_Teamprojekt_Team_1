@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
+    "nodemailer": "^10.2.1",
     "pg": "^8.13.1"
   },
   "devDependencies": {

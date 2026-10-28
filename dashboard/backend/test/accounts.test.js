@@ -8,6 +8,7 @@ let db,server,url;
 before(async()=>{
  const postgres=new PGlite();await postgres.waitReady;
  db={query:(sql,params)=>postgres.query(sql,params),end:()=>postgres.close()};
+ db.connect=async()=>({query:db.query,release(){}});
  await initAccounts(db);
  const app=express();app.use(express.json({limit:'16kb'}));app.use('/api/v1',accountRouter(db));
  server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));url=`http://127.0.0.1:${server.address().port}/api/v1`;
