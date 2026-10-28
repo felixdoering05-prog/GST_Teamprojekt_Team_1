@@ -123,7 +123,7 @@ export default function Rooms() {
         onEdit={() => {setNewBuilding(false);setBuildingOpen(true)}}
       />
 
-      {data.building && <BuildingFiles building={data.building} />}
+      {data.building && <BuildingFiles key={data.building.id} building={data.building} />}
 
       {floors.length === 0 ? (
         <EmptyState

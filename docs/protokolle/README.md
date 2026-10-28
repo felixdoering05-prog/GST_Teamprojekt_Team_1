@@ -26,3 +26,5 @@ Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzun
 Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermine.
 
 - [28.10.2026 · iOS-Startbildschirm mit Projektlogo](2026-10-28-entwicklung-startbildschirm.md) – Umsetzung veröffentlicht; visuelle Abnahme offen.
+
+- [28.10.2026 · Geführte Gebäudeanlage und Gebäudemappe](2026-10-28-gebaeudemappe.md) – Implementierung und lokale Prüfung.
