@@ -24,3 +24,9 @@ Validierung: Xcode-27.1-Debug-Build für den iPhone-18-Pro-Simulator; Backendtes
 In den Gebäudedetails lassen sich Fotos aus der Mediathek und Dateien aus der Dateien-App hochladen. Die Dateiablage ist dieselbe wie im Web-Dashboard. Bilder und PDFs haben eine Vorschau; DWG kann in eine CAD-App geteilt oder gesichert werden. Grenzen: 25 MB je Datei, 250 MB je Konto. [Dateiablage und API](../docs/dateien.md).
 
 Den Simulator mit regulärer Xcode-Signierung bauen. `CODE_SIGNING_ALLOWED=NO` verhindert die nötige App-Kennung für den Schlüsselbund und ist für diese App kein geeigneter Laufzeit-Build.
+
+## Startbildschirm
+
+Bei einem vollständigen App-Neustart erscheint das bereitgestellte Projektlogo mit „GST TEAMPROJEKT“, „KI trifft Gebäude“ und „Ein Projekt der Hochschule Darmstadt“. Nach rund 1,8 Sekunden folgt die vorhandene Anmeldung bzw. Sitzungswiederherstellung. Beim Wechsel aus dem Hintergrund erscheint der Bildschirm nicht erneut; sein Zustand gilt nur für den laufenden App-Prozess. Reduzierte Bewegung wird beim Übergang berücksichtigt.
+
+Die originale transparente PNG-Datei liegt in `Assets.xcassets/ProjectLogo.imageset`. Für eine stabile Simulator-Vorschau kann ein Debug-Build einmal mit `-D21SplashPreview` gestartet werden. Diese Vorschau-Option ist in Release-Builds nicht enthalten.
