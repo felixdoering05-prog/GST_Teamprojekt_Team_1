@@ -1,11 +1,18 @@
 const express = require('express');
 const path = require('node:path');
 const MAX_FILE = 25 * 1024 * 1024;
+const MAX_IFC = 20 * 1024 * 1024;
 const MAX_ACCOUNT = 250 * 1024 * 1024;
 const wrap = fn => (req,res,next) => Promise.resolve(fn(req,res)).catch(next);
 const idOK = value => /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647;
 function fileType(buffer, name) {
  const extension=path.extname(name).toLowerCase();
+ if(extension==='.ifc') {
+  const header=buffer.subarray(0,4096).toString('utf8');
+  const tail=buffer.subarray(Math.max(0,buffer.length-512)).toString('utf8');
+  if(/^\s*ISO-10303-21;/i.test(header) && /FILE_SCHEMA\s*\(\s*\(\s*'(IFC2X3|IFC4)'\s*\)\s*\)\s*;/i.test(header) && /END-ISO-10303-21;\s*$/i.test(tail)) return 'application/x-step';
+  return null;
+ }
  if(extension==='.pdf' && buffer.subarray(0,5).toString()==='%PDF-')return 'application/pdf';
  if(['.jpg','.jpeg'].includes(extension) && buffer.length>=3 && buffer[0]===255 && buffer[1]===216 && buffer[2]===255)return 'image/jpeg';
  if(extension==='.png' && buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'image/png';
@@ -43,7 +50,8 @@ function documentRouter(db,requireAccount) {
   name=name.replace(/[\x00-\x1f\x7f/\\]/g,'_').trim();
   if(!name||name.length>200)return res.status(400).json({error:'Dateiname erforderlich (maximal 200 Zeichen).'});
   const mime=fileType(req.body,name);
-  if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP und DWG mit passender Dateikennung.'});
+  if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP, DWG und unkomprimierte IFC2x3-/IFC4-Dateien mit passender Dateikennung.'});
+  if(mime==='application/x-step' && req.body.length>MAX_IFC)return res.status(413).json({error:'Maximal 20 MB pro IFC-Modell. Bitte einen kleineren Ausschnitt exportieren.'});
   const uploadKey=req.get('X-Upload-ID')||null;
   if(uploadKey&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(uploadKey))return res.status(400).json({error:'Ungültige Upload-Kennung.'});
   const client=await db.connect();
@@ -74,7 +82,7 @@ function documentRouter(db,requireAccount) {
    await client.query('BEGIN');await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
    const doc=(await client.query('SELECT d.id,d.mime_type FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND b.user_id=$2',[req.params.documentId,req.account.id])).rows[0];
    if(!doc){await client.query('ROLLBACK');return res.status(404).json({error:'Datei nicht gefunden.'});}
-   const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg']};
+   const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg'],'application/x-step':['.ifc']};
    if(!extensions[doc.mime_type]?.includes(path.extname(name).toLowerCase())){await client.query('ROLLBACK');return res.status(400).json({error:'Die passende Dateiendung muss erhalten bleiben.'});}
    const updated=(await client.query('UPDATE app_documents SET name=$1 WHERE id=$2 RETURNING id,building_id,name,mime_type,size,created_at',[name,doc.id])).rows[0];
    await client.query('COMMIT');res.json(updated);
@@ -94,7 +102,7 @@ function documentRouter(db,requireAccount) {
   const doc=(await db.query('SELECT d.* FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND b.user_id=$2',[req.params.documentId,req.account.id])).rows[0];
   if(!doc)return res.status(404).json({error:'Datei nicht gefunden.'});
   const encoded=encodeURIComponent(doc.name).replace(/['()*]/g,c=>'%'+c.charCodeAt(0).toString(16));
-  const disposition=doc.mime_type==='application/acad'?'attachment':'inline';
+  const disposition=['application/acad','application/x-step'].includes(doc.mime_type)?'attachment':'inline';
   res.set({'Content-Type':doc.mime_type,'Content-Length':String(doc.size),'Content-Disposition':`${disposition}; filename="document-${doc.id}${path.extname(doc.name).toLowerCase()}"; filename*=UTF-8''${encoded}`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"});
   res.send(Buffer.from(doc.content));
  }));
@@ -104,4 +112,4 @@ function documentRouter(db,requireAccount) {
  });
  return router;
 }
-module.exports={initDocuments,documentRouter,fileType,MAX_FILE};
+module.exports={initDocuments,documentRouter,fileType,MAX_FILE,MAX_IFC};

@@ -58,6 +58,7 @@ import UniformTypeIdentifiers
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 25 * 1024 * 1024 else { throw DraftStorageError.tooLarge }
+        if url.pathExtension.lowercased() == "ifc", (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 20 * 1024 * 1024 { throw APIError(status: 0, message: "IFC-Modelle dürfen maximal 20 MB groß sein.") }
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         if UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true {
             let stem = url.deletingPathExtension().lastPathComponent
@@ -159,7 +160,7 @@ struct AddBuildingView: View {
     }
     private var step: BuildingStep { flow.draft.step }
     private var locked: Bool { flow.busy || preparing || flow.account.busy || flow.loadFailed }
-    private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
+    private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
     private func advance(_ next: BuildingStep) { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flow.advance(next) } }
     private var titles: [BuildingStep: String] { [.name:"Wie heißt dein Gebäude?", .address:"Wo steht dein Gebäude?", .photos:"Zeig uns dein Gebäude", .plans:"Hast du schon einen Plan?", .overview:"Deine Gebäudemappe ist bereit"] }
     var body: some View {
@@ -191,9 +192,9 @@ struct AddBuildingView: View {
                             #endif
                             UploadQueueView(flow: flow)
                         case .plans:
-                            Text("Wähle einen Grundriss oder Bauplan als PDF oder DWG. Noch keinen Plan? Überspringe den Schritt einfach.").foregroundStyle(.secondary)
-                            Button("PDF oder DWG auswählen", systemImage: "doc.badge.plus") { importing = true }.buttonStyle(.borderedProminent).disabled(locked)
-                            Text("Bis 25 MB pro Datei. DWG-Dateien werden gespeichert und lassen sich später an eine CAD-App weitergeben.").font(.footnote).foregroundStyle(.secondary)
+                            Text("Wähle einen Grundriss oder Bauplan als IFC, PDF oder DWG. Noch keinen Plan? Überspringe den Schritt einfach.").foregroundStyle(.secondary)
+                            Button("IFC, PDF oder DWG auswählen", systemImage: "doc.badge.plus") { importing = true }.buttonStyle(.borderedProminent).disabled(locked)
+                            Text("Bis 25 MB pro Datei (IFC: 20 MB). IFC-Modelle öffnen sich nach dem Upload in 3D. DWG-Dateien werden gespeichert und lassen sich später an eine CAD-App weitergeben.").font(.footnote).foregroundStyle(.secondary)
                             #if DEBUG
                             if WorkflowPreview.enabled { Button("Testplan hinzufügen") { Task { do { try flow.stage(WorkflowPreview.pdf, name: "Grundriss.pdf", photo: false); await flow.uploadPending() } catch { flow.problem = error.localizedDescription } } } }
                             #endif

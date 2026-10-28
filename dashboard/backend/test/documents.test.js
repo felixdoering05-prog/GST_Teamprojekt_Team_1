@@ -98,3 +98,36 @@ test('resuming a building draft creates one building per account and request ID'
  assert.notEqual((await create(bob.token,key)).body.id,first.body.id);
  assert.equal((await create(alice.token,'bad')).status,400);
 });
+
+test('IFC models persist per building with authorized download, retries, rename and deletion',async()=>{
+ const {readFileSync}=require('node:fs');const {randomUUID}=require('node:crypto');
+ const bytes=readFileSync(require('node:path').join(__dirname,'../../../ios/ifc-viewer/tests/wall.ifc.txt'));
+ const key=randomUUID();
+ const first=await upload('D21.ifc',bytes,alice.token,building.id,key);
+ assert.equal(first.status,201);assert.equal(first.body.mime_type,'application/x-step');
+ assert.equal((await upload('D21.ifc',bytes,alice.token,building.id,key)).body.id,first.body.id);
+ await initAccounts(db);
+ const listed=await request(`/buildings/${building.id}/documents`,null,alice.token);
+ assert.ok(listed.body.some(file=>file.id===first.body.id&&file.mime_type==='application/x-step'));
+ const response=await fetch(url+'/documents/'+first.body.id,{headers:{'X-D21-Session':alice.token}});
+ assert.equal(response.headers.get('content-type'),'application/x-step');
+ assert.ok(response.headers.get('content-disposition').startsWith('attachment'));
+ assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);
+ assert.equal((await request('/documents/'+first.body.id,null,bob.token)).status,404);
+ assert.equal((await mutateDocument(first.body.id,'PATCH',{name:'Fremd.ifc'},bob.token)).status,404);
+ assert.equal((await mutateDocument(first.body.id,'DELETE',undefined,bob.token)).status,404);
+ assert.equal((await mutateDocument(first.body.id,'PATCH',{name:'Modell.pdf'})).status,400);
+ assert.equal((await mutateDocument(first.body.id,'PATCH',{name:'Modell.IFC'})).status,200);
+ assert.equal((await mutateDocument(first.body.id,'DELETE')).status,200);
+ assert.equal((await request('/documents/'+first.body.id,null,alice.token)).status,404);
+});
+test('IFC signature, schema and 20 MiB limit are checked before storing bytes',async()=>{
+ const {readFileSync}=require('node:fs');
+ const bytes=readFileSync(require('node:path').join(__dirname,'../../../ios/ifc-viewer/tests/wall.ifc.txt'));
+ assert.equal((await upload('fake.ifc',Buffer.from('%PDF-1.4'))).status,415);
+ assert.equal((await upload('wrong.pdf',bytes)).status,415);
+ assert.equal((await upload('broken.ifc',bytes.subarray(0,bytes.length-50))).status,415);
+ assert.equal((await upload('schema.ifc',Buffer.from(bytes.toString().replace("'IFC4'","'NOTIFC'")))).status,415);
+ const huge=Buffer.alloc(20*1024*1024+1,32);bytes.copy(huge);Buffer.from('END-ISO-10303-21;').copy(huge,huge.length-17);
+ assert.equal((await upload('huge.ifc',huge)).status,413);
+});

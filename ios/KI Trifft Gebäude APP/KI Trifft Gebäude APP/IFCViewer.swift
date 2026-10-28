@@ -3,7 +3,84 @@ import Combine
 import WebKit
 import UniformTypeIdentifiers
 
-/// Version 1: deliberate local-only preview; does not change the server's upload contract.
+struct IFCLibraryView: View {
+    @ObservedObject var model: AccountModel
+    @State private var models: [Int: [BuildingDocument]] = [:]
+    @State private var loading = false
+    @State private var opening = false
+    @State private var problem: String?
+    @State private var preview: DocumentPreview?
+    private func reload() async {
+        guard !loading else { return }
+        loading = true; defer { loading = false }
+        let server = model.serverURL, user = model.user?.id
+        await model.loadBuildings()
+        var loaded: [Int: [BuildingDocument]] = [:]
+        do {
+            for building in model.buildings {
+                let documents = try await model.documents(buildingID: building.id)
+                guard model.serverURL == server, model.user?.id == user else { return }
+                loaded[building.id] = documents.filter { $0.mime_type == "application/x-step" }
+            }
+            models = loaded
+        } catch { problem = error.localizedDescription }
+    }
+    var body: some View {
+        List {
+            Section {
+                Label("Deine Modelle auf dem Projektserver", systemImage: "cloud.fill").font(.headline)
+                Text("Lade ein IFC-Modell zu einem Gebäude hoch. Danach kannst du es hier auf deinen Geräten öffnen. Die 3D-Ansicht wird auf diesem Gerät berechnet.").font(.footnote).foregroundStyle(.secondary)
+            }
+            if loading { ProgressView("Server-Modelle werden geladen …") }
+            if model.buildings.isEmpty && !loading {
+                ContentUnavailableView("Noch kein Gebäude", systemImage: "building.2", description: Text("Lege im Gebäude-Tab zuerst ein Gebäude an. Im Schritt Pläne kannst du dein IFC-Modell hochladen."))
+            }
+            ForEach(model.buildings) { building in
+                Section(building.name) {
+                    ForEach(models[building.id] ?? []) { document in
+                        Button {
+                            opening = true
+                            Task {
+                                defer { opening = false }
+                                do { preview = try await model.previewDocument(document) }
+                                catch { problem = error.localizedDescription }
+                            }
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(document.name)
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file) + " · Auf dem Server").font(.caption).foregroundStyle(.secondary)
+                                }
+                            } icon: { Image(systemName: "cube.transparent") }
+                        }.disabled(opening)
+                    }
+                    NavigationLink { BuildingDetailView(building: building, model: model) } label: {
+                        Label("IFC hochladen / Dateien verwalten", systemImage: "icloud.and.arrow.up")
+                    }
+                }
+            }
+            Section("Ohne Upload testen") {
+                NavigationLink { IFCViewer() } label: { Label("Lokale IFC-Datei öffnen", systemImage: "folder") }
+                Text("IFC2x3 / IFC4 · maximal 20 MB pro Modell · 250 MB Speicher pro Konto.").font(.footnote).foregroundStyle(.secondary)
+            }
+            if opening { ProgressView("Modell wird vom Server geladen …") }
+        }
+        .navigationTitle("IFC-Modelle")
+        .task { await reload() }
+        .refreshable { await reload() }
+        .sheet(item: $preview) { DocumentPreviewView(item: $0) }
+        .alert("IFC-Modelle", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
+            Button("OK", role: .cancel) { problem = nil }
+        } message: { Text(problem ?? "") }
+    }
+}
+
+struct IFCStoredModelView: View {
+    let url: URL
+    var body: some View { IFCWebView(modelURL: url) }
+}
+
+/// Optional local preview; server-stored models are opened through IFCLibraryView.
 struct IFCViewer: View {
     @StateObject private var files = IFCTemporaryFiles()
     @State private var importing = false

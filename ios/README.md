@@ -41,4 +41,4 @@ Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne einge
 
 ## IFC-Viewer (erste Version)
 
-Der neue Tab **IFC-Viewer** und der Einstieg in der Gebäudemappe öffnen lokale IFC-Dateien als interaktives 3D-Modell mit Bauteilauswahl. Offline, maximal 20 MiB; noch kein IFC-Upload auf den Server. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).
+Der Tab **IFC-Viewer** zeigt die auf dem Projektserver gespeicherten Modelle pro Gebäude. IFC-Dateien können beim Anlegen, in der Gebäudemappe oder auf der Website hochgeladen und in der App als interaktives 3D-Modell mit Bauteilauswahl geöffnet werden. Maximal 20 MiB je IFC-Datei, 250 MiB pro Konto; die Anzeige wird auf dem iPhone berechnet. Eine lokale Vorschau ohne Upload bleibt verfügbar. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).

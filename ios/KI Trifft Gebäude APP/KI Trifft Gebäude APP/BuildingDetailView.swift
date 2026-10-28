@@ -27,7 +27,7 @@ struct BuildingDetailView: View {
     }
     private var locked: Bool { flow.busy || preparing || fileAction }
     private var filtered: [BuildingDocument] { documents.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
-    private var acceptedTypes: [UTType] { [.pdf, .image, UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
+    private var acceptedTypes: [UTType] { [.pdf, .image, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
     private func reload() async {
         loading = true; defer { loading = false }
         do { documents = try await model.documents(buildingID: building.id) }
@@ -43,12 +43,12 @@ struct BuildingDetailView: View {
                 }.padding(.vertical, 10)
             } header: { Text("Deine Gebäudemappe") }
             Section("3D-Modell") {
-                NavigationLink { IFCViewer() } label: { Label("IFC-Modell lokal öffnen", systemImage: "cube.transparent") }
+                Text("IFC-Datei unten hochladen. Gespeicherte Modelle lassen sich hier und im IFC-Tab in 3D öffnen.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Bilder und Pläne ergänzen") {
                 PhotosPicker(selection: $photos, maxSelectionCount: 6, matching: .images) { Label("Fotos auswählen", systemImage: "photo.on.rectangle") }.disabled(locked || flow.loadFailed)
-                Button("PDF, DWG oder Bild auswählen", systemImage: "doc.badge.plus") { filePicker = true }.disabled(locked || flow.loadFailed)
-                Text("Bis 25 MB pro Datei · 250 MB pro Konto. Bestätigte Uploads erscheinen auch auf der Website.").font(.footnote).foregroundStyle(.secondary)
+                Button("IFC, PDF, DWG oder Bild hochladen", systemImage: "doc.badge.plus") { filePicker = true }.disabled(locked || flow.loadFailed)
+                Text("Bis 25 MB pro Datei (IFC: 20 MB) · 250 MB pro Konto. Bestätigte Uploads erscheinen auch auf der Website.").font(.footnote).foregroundStyle(.secondary)
                 if preparing { ProgressView("Dateien werden vorbereitet …") }
                 if let success { Label(success, systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green) }
             }
@@ -59,9 +59,10 @@ struct BuildingDetailView: View {
             else if documents.isEmpty { Section { ContentUnavailableView("Deine Mappe wartet auf die erste Datei", systemImage: "folder", description: Text("Füge ein Foto oder einen Plan hinzu. Du kannst jederzeit später weitermachen.")) } }
             else if filtered.isEmpty { Section { Text("Keine Datei mit diesem Namen gefunden.").foregroundStyle(.secondary) } }
             fileSection("Fotos", items: filtered.filter { $0.mime_type.hasPrefix("image/") })
-            fileSection("Pläne & Dokumente", items: filtered.filter { !$0.mime_type.hasPrefix("image/") })
+            fileSection("IFC-Modelle auf dem Server", items: filtered.filter { $0.mime_type == "application/x-step" })
+            fileSection("Pläne & Dokumente", items: filtered.filter { !$0.mime_type.hasPrefix("image/") && $0.mime_type != "application/x-step" })
             Section {
-                Text("Bilder und PDFs öffnen sich als Vorschau. DWG-Pläne kannst du über Teilen in einer passenden CAD-App öffnen.").font(.footnote).foregroundStyle(.secondary)
+                Text("IFC-Modelle öffnen sich in 3D. Bilder und PDFs öffnen sich als Vorschau. DWG-Pläne kannst du über Teilen in einer passenden CAD-App öffnen.").font(.footnote).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Gebäudemappe").navigationBarTitleDisplayMode(.inline)
@@ -139,7 +140,7 @@ struct BuildingDetailView: View {
                             }
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: document.mime_type.hasPrefix("image/") ? "photo.fill" : document.mime_type == "application/acad" ? "cube.transparent" : "doc.text.fill").font(.title3).foregroundStyle(d21Accent)
+                                Image(systemName: document.mime_type.hasPrefix("image/") ? "photo.fill" : ["application/acad", "application/x-step"].contains(document.mime_type) ? "cube.transparent" : "doc.text.fill").font(.title3).foregroundStyle(d21Accent)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(document.name).foregroundStyle(.primary)
                                     Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file)).font(.caption).foregroundStyle(.secondary)

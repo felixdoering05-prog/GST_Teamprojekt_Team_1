@@ -18,6 +18,7 @@ export default function BuildingFiles({building}) {
  }
  function choose(e){
   const file=e.target.files?.[0];e.target.value='';if(!file)return;
+  if(file.name.toLowerCase().endsWith('.ifc')&&file.size>20*1024*1024){setError('IFC-Modelle dürfen maximal 20 MB groß sein.');return}
   if(file.size===0||file.size>25*1024*1024){setError('Bitte eine nicht leere Datei bis 25 MB auswählen.');return}
   const item={file,id:crypto.randomUUID()};setPending(item);upload(item);
  }
@@ -25,7 +26,7 @@ export default function BuildingFiles({building}) {
   setError('');setBusy(true);
   try{
    const blob=await request(`/documents/${file.id}`,{raw:true});const url=URL.createObjectURL(blob);
-   if(download||file.mime_type==='application/acad'){const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+   if(download||['application/acad','application/x-step'].includes(file.mime_type)){const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000)}
    else setPreview({file,url});
   }catch(e){setError(e.message)}finally{setBusy(false)}
  }
@@ -41,9 +42,9 @@ export default function BuildingFiles({building}) {
  }
  return <section className="surface space-y-4 p-5">
   <h2 className="font-semibold">Bilder & Pläne · {building.name}</h2>
-  <p className="text-sm text-muted-foreground">PDF, JPG, PNG, WebP und DWG · maximal 25 MB pro Datei und 250 MB pro Konto. Die Gebäudemappe ist auch in der iPhone-App verfügbar.</p>
+  <p className="text-sm text-muted-foreground">PDF, JPG, PNG, WebP, DWG und IFC · maximal 25 MB pro Datei (IFC: 20 MB) und 250 MB pro Konto. IFC-Modelle werden auf dem Server gespeichert und können in der iPhone-App als 3D-Modell geöffnet werden. Im Browser ist der Download verfügbar.</p>
   <label className="block text-sm font-medium" htmlFor="building-file">Datei hochladen</label>
-  <input id="building-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg" disabled={busy||!!pending} onChange={choose}/>
+  <input id="building-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg,.ifc" disabled={busy||!!pending} onChange={choose}/>
   {pending&&<div className="space-y-2 rounded-lg border p-3"><p className="break-all text-sm">{pending.file.name}</p>
    {busy?<><progress className="w-full" value={Math.min(progress,0.99)} max="1" aria-label="Upload-Fortschritt"/><p className="text-sm">{progress>=1?'Warte auf Bestätigung vom Server …':`Wird hochgeladen … ${Math.round(progress*100)} %`}</p></>:<>
     <p className="text-sm">Noch nicht als gespeichert bestätigt. Die Auswahl bleibt bis zum Verlassen dieser Seite erhalten.</p>
@@ -56,7 +57,7 @@ export default function BuildingFiles({building}) {
   <ul>{files.map(f=><li key={f.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
    <span className="min-w-0 break-all text-sm">{f.name} · {Math.ceil(f.size/1024)} KB</span>
    <div className="flex flex-wrap gap-2">
-    {f.mime_type!=='application/acad'&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>open(f)}>Ansehen</Button>}
+    {!['application/acad','application/x-step'].includes(f.mime_type)&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>open(f)}>Ansehen</Button>}
     <Button size="sm" variant="outline" disabled={busy} onClick={()=>open(f,true)}>Herunterladen</Button>
     <Button size="sm" variant="outline" disabled={busy} onClick={()=>{setNewName(f.name.slice(0,f.name.lastIndexOf('.')));setRename(f)}}>Umbenennen</Button>
     <Button size="sm" variant="outline" disabled={busy} onClick={()=>setRemove(f)}>Löschen</Button>
