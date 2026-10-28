@@ -56,11 +56,12 @@ GitHub bleibt die Quelle der Serverversion. Keine unkontrollierte Synchronisieru
 
 ## Bereitstellung
 
-Diese Ausgabe ist im Standard-Compose **noch nicht aktiviert**. `compose.base44.yml`
-zeigt den alternativen Build-Kontext. Vor der Produktivumschaltung muss die Auswahl
-nach Review im Standard-Compose übernommen werden (`web.build: ./base44-frontend`),
-anschließend ausschließlich `d21-deploy` verwenden. Nicht parallel ein zweites Compose-Projekt
-mit eigener leerer Datenbank starten. Projektname `d21` und Volume `d21_dbdata` erhalten.
+Diese Ausgabe ist der Web-Build im Standard-Compose (`web.build: ./base44-frontend`).
+Veröffentlichung nach Review über GitHub und ausschließlich mit `d21-deploy`.
+`compose.base44.yml` ist ein gleichwertiger expliziter Build-Override.
+Nicht parallel ein zweites Compose-Projekt mit eigener leerer Datenbank starten.
+Projektname `d21` und Volume `d21_dbdata` erhalten. Die bisherige Oberfläche bleibt
+unter `frontend/` im Repository; eine Rückkehr erfolgt ebenfalls über einen Pull Request.
 
 Das Backend ergänzt die neuen Tabellen/Spalten beim Start additiv. Alte API, Konten,
 Dateien und iOS-App bleiben kompatibel. Vor Produktionsdeployment einen Datenbank-Backup

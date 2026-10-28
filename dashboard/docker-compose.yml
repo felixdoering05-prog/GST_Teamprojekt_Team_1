@@ -21,7 +21,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   web:
-    build: ./frontend
+    build: ./base44-frontend
     depends_on: [api]
     ports: ['127.0.0.1:8088:80']
     restart: unless-stopped
