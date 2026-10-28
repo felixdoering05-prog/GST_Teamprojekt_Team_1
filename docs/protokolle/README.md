@@ -28,3 +28,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [28.10.2026 · iOS-Startbildschirm mit Projektlogo](2026-10-28-entwicklung-startbildschirm.md) – Umsetzung veröffentlicht; visuelle Abnahme offen.
 
 - [28.10.2026 · Geführte Gebäudeanlage und Gebäudemappe](2026-10-28-gebaeudemappe.md) – Implementierung und lokale Prüfung.
+
+- [28.10.2026 · Passwort-Wiederherstellung und Mail](2026-10-28-passwort-mail.md) – technische Vorbereitung; Absenderkonto fehlt.

@@ -46,3 +46,6 @@ tunnel-url
 
 # Web-Build
 dist/
+
+# Private SMTP credentials (server only)
+private-mail/

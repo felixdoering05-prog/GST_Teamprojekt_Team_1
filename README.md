@@ -153,3 +153,5 @@ Die bestehenden Gesamtmeilensteine bleiben bestehen: [M1 – Umfang und Vorgaben
 *KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
 
 Die iPhone-App führt durch Name, Adresse, Fotos, Pläne und Übersicht. Lokale Entwürfe, wiederholbare Uploads und Dateiaktionen sind in der [Gebäudemappen-Dokumentation](docs/gebaeudemappe-ios.md) beschrieben.
+
+[Passwort vergessen und Mailversand](docs/passwort-mail.md): technisch vorbereitet; Aktivierung nach Einrichtung eines Projekt-Absenderkontos.

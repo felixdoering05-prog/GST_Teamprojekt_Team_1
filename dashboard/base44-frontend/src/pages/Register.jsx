@@ -13,6 +13,6 @@ export default function Register(){
  <form onSubmit={submit} className="space-y-4">{error&&<p role="alert" className="text-destructive">{error}</p>}
  {Object.entries({name:'Dein Name',email:'E-Mail',password:'Passwort (mindestens 12 Zeichen)',confirm:'Passwort wiederholen'}).map(([key,label])=><div key={key}><Label htmlFor={key}>{label}</Label><Input id={key} type={key==='email'?'email':['password','confirm'].includes(key)?'password':'text'} autoComplete={key==='name'?'name':key==='email'?'email':'new-password'} minLength={['password','confirm'].includes(key)?12:undefined} maxLength={key==='name'?100:undefined} required value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></div>)}
  <Button className="w-full" disabled={busy}>{busy?'Wird angelegt …':'Konto anlegen'}</Button>
- <p className="text-xs text-muted-foreground">Projektprototyp: noch keine E-Mail-Bestätigung oder Passwort-Wiederherstellung.</p>
+ <p className="text-xs text-muted-foreground">Projektprototyp: noch keine E-Mail-Bestätigung.</p>
  </form></AuthLayout>;
 }
