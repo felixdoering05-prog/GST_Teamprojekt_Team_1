@@ -1,0 +1,1 @@
+{"name":"d21-ios-ifc-viewer","private":true,"type":"module","scripts":{"build":"node build.mjs"},"dependencies":{"three":"0.186.1","web-ifc":"0.0.78"},"devDependencies":{"esbuild":"0.28.2"}}

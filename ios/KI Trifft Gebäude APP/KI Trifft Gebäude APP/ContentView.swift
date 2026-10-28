@@ -221,7 +221,10 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         return BuildingDraftStore(scope: serverURL + "#\(user.id)#" + kind)
     }
     func previewDocument(_ document: BuildingDocument) async throws -> DocumentPreview {
+        let originalServer = serverURL, originalUser = user?.id
+        if document.mime_type == "application/x-step", document.size > 20 * 1024 * 1024 { throw APIError(status: 0, message: "Dieses IFC-Modell ist größer als 20 MB. Bitte einen kleineren Ausschnitt verwenden.") }
         let data = try await fileRequest(path: "documents/\(document.id)")
+        guard serverURL == originalServer, user?.id == originalUser, originalUser != nil else { throw APIError(status: 0, message: "Konto oder Server wurde gewechselt. Bitte die Datei erneut öffnen.") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("D21Preview-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let safeName = document.name.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "\\", with: "_")
@@ -440,6 +443,7 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }
+            NavigationStack { IFCLibraryView(model: model) }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }
             NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }
         }
     }
@@ -513,7 +517,9 @@ struct DocumentPreviewView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if item.document.mime_type == "application/acad" {
+                if item.document.mime_type == "application/x-step" {
+                    IFCStoredModelView(url: item.url)
+                } else if item.document.mime_type == "application/acad" {
                     ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
                 } else { NativeFilePreview(url: item.url) }
             }
