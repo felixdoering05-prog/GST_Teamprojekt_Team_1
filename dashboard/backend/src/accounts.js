@@ -27,6 +27,8 @@ async function initAccounts(db) {
   id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
   name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query('CREATE INDEX IF NOT EXISTS app_buildings_user_idx ON app_buildings(user_id)');
+ await db.query('ALTER TABLE app_buildings ADD COLUMN IF NOT EXISTS creation_key TEXT');
+ await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_buildings_creation_key_idx ON app_buildings(user_id,creation_key) WHERE creation_key IS NOT NULL');
  await initTwin(db);
  await initDocuments(db);
  await initProfile(db);
@@ -92,7 +94,17 @@ function accountRouter(db) {
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const address=typeof req.body?.address==='string'?req.body.address.trim():'';
   if(!name||name.length>200||address.length>500)return res.status(400).json({error:'Gebäudename erforderlich (max. 200 Zeichen); Adresse max. 500 Zeichen.'});
-  res.status(201).json((await db.query('INSERT INTO app_buildings(user_id,name,address) VALUES($1,$2,$3) RETURNING id,name,address,created_at',[req.account.id,name,address])).rows[0]);
+  const key=req.get('X-Request-ID')||null;
+  if(key&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return res.status(400).json({error:'Ungültige Anfrage-Kennung.'});
+  if(!key)return res.status(201).json((await db.query('INSERT INTO app_buildings(user_id,name,address) VALUES($1,$2,$3) RETURNING id,name,address,created_at',[req.account.id,name,address])).rows[0]);
+  const client=await db.connect();
+  try {
+   await client.query('BEGIN');await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
+   const existing=(await client.query('SELECT id,name,address,created_at FROM app_buildings WHERE user_id=$1 AND creation_key=$2',[req.account.id,key])).rows[0];
+   if(existing){await client.query('COMMIT');return res.json(existing);}
+   const created=(await client.query('INSERT INTO app_buildings(user_id,name,address,creation_key) VALUES($1,$2,$3,$4) RETURNING id,name,address,created_at',[req.account.id,name,address,key])).rows[0];
+   await client.query('COMMIT');res.status(201).json(created);
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  router.use(twinRouter(db,requireAccount));
  router.use(profileRouter(db,requireAccount));

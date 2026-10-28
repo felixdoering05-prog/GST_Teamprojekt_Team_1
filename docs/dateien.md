@@ -19,7 +19,7 @@ Web-Dashboard und iPhone verwenden dieselben persönlichen Gebäude und dieselbe
 - Gleichzeitige Uploads desselben Kontos werden für die Quotenprüfung über eine Datenbanksperre koordiniert.
 - Bestehende Demo-Gebäude und frühere Testdateien werden nicht automatisch auf persönliche Konten übertragen. Keine vorhandene Tabelle wird gelöscht.
 - Die iPhone-Vorschau erstellt kurzzeitig eine geschützte lokale Datei; diese wird nach Schließen der Vorschau entfernt. Dauerhafte Quelle bleibt PostgreSQL.
-- Dateilöschen, geteilte Gebäude und Dateiversionen folgen später. Für den Prototyp nur freigegebene Dateien verwenden.
+- Umbenennen und bestätigtes Löschen eigener Dateien sind möglich; geteilte Gebäude und Dateiversionen folgen später. Für den Prototyp nur freigegebene Dateien verwenden.
 
 ## API für Benjamin
 
@@ -30,6 +30,8 @@ Alle Pfade unter `/api/v1`, Sitzung über `X-D21-Session`, bestehender Website-Z
 | GET | `/buildings/:buildingId/documents` | Dateiliste des eigenen Gebäudes |
 | POST | `/buildings/:buildingId/documents` | Binärdaten mit `Content-Type: application/octet-stream` und URL-kodiertem `X-File-Name` |
 | GET | `/documents/:documentId` | Authentifizierter Download; DWG als Anhang |
+| PATCH | `/documents/:documentId` | Eigenen Dateinamen ändern; passende Endung erhalten |
+| DELETE | `/documents/:documentId` | Eigene Datei nach Bestätigung endgültig löschen |
 
 Upload liefert `201` mit `{id,building_id,name,mime_type,size,created_at}`. Fehler: `400` ungültige Eingabe, `401` Anmeldung fehlt, `404` nicht vorhanden/kein Zugriff, `413` Größe/Quote überschritten, `415` nicht unterstützter Dateityp.
 
@@ -38,3 +40,5 @@ Upload liefert `201` mit `{id,building_id,name,mime_type,size,created_at}`. Fehl
 Änderungen per Branch und Pull Request; Deployment wie vereinbart mit `d21-deploy`. Nach dem Deployment kann die versionierte Datei `dashboard/ops/configure-file-uploads.py` einmal auf dem Server ausgeführt werden, um die vorhandenen vorgeschalteten Upload-Limits von 11 auf 26 MB anzuheben. Sie erhält Routen und Zugangsschutz, sichert die ursprüngliche Konfiguration und prüft nginx vor dem Neuladen. Die API begrenzt weiterhin auf 25 MB.
 
 Backendtests unter `dashboard/backend/test/documents.test.js` verwenden isoliertes PostgreSQL (PGlite), einschließlich Kontentrennung, Datei-Roundtrip, Quoten und ungültiger Dateien. DWG-Testdaten prüfen ausschließlich Kennung und unveränderte Bytes; sie sind kein vollständiges CAD-Modell.
+
+Geführte iPhone-Anlage, lokale Entwürfe und wiederholbare Uploads: [Gebäudemappe](gebaeudemappe-ios.md).

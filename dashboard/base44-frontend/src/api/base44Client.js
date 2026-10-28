@@ -32,3 +32,25 @@ export const base44={
  entities:Object.fromEntries(['Building','Floor','Room','Sensor','Measurement','EnergyReading','Alert','ThresholdConfig'].map(name=>[name,entity(name)])),
  functions:{invoke:async(name,body)=>({data:await request(`/twin-functions/${name}`,{method:'POST',body})})},
 };
+
+/** Binary upload with byte progress and an idempotency key for safe retries. */
+export function uploadFile(buildingID, file, uploadID, onProgress) {
+ return new Promise((resolve,reject)=>{
+  const xhr=new XMLHttpRequest();
+  xhr.open('POST',`/api/v1/buildings/${buildingID}/documents`);
+  xhr.timeout=120000;
+  xhr.setRequestHeader('X-D21-Session',sessionStorage.getItem(TOKEN_KEY)||'');
+  xhr.setRequestHeader('Content-Type','application/octet-stream');
+  xhr.setRequestHeader('X-File-Name',encodeURIComponent(file.name));
+  xhr.setRequestHeader('X-Upload-ID',uploadID);
+  xhr.upload.onprogress=event=>{if(event.lengthComputable)onProgress(event.loaded/event.total)};
+  xhr.onerror=()=>reject(new Error('Keine Verbindung. Deine Dateiauswahl bleibt für einen neuen Versuch erhalten.'));
+  xhr.ontimeout=()=>reject(new Error('Die Verbindung hat zu lange gebraucht. Bitte erneut versuchen.'));
+  xhr.onload=()=>{
+   let data={};try{data=JSON.parse(xhr.responseText)}catch{}
+   if(xhr.status>=200&&xhr.status<300)resolve(data);
+   else {if(xhr.status===401)sessionStorage.removeItem(TOKEN_KEY);reject(new Error(data.error||`Upload fehlgeschlagen (${xhr.status}).`))}
+  };
+  xhr.send(file);
+ });
+}

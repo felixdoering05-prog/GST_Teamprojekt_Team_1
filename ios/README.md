@@ -33,4 +33,4 @@ Die originale transparente PNG-Datei liegt in `Assets.xcassets/ProjectLogo.image
 
 ## Persönlicher Start und geführte Anlage
 
-Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsymbol oben rechts öffnet Kontodaten und die servergespeicherte Profilbild-Auswahl. „Neues Gebäude“ führt durch Name, optionale Adresse und Bild-Upload. [Ablauf und API](../docs/profil-gebaeudeassistent.md).
+Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsymbol oben rechts öffnet Kontodaten und die servergespeicherte Profilbild-Auswahl. „Neues Gebäude“ führt durch Name, optionale Adresse, Fotos, PDF-/DWG-Pläne und Abschlussübersicht. Ein lokaler Zwischenstand lässt sich nach einem App-Neustart fortsetzen. Die Gebäudemappe bietet Dateisuche, Vorschau, Umbenennen, bestätigtes Löschen und wiederholbare Uploads. [Gebäudemappe, lokale Entwürfe und API](../docs/gebaeudemappe-ios.md).

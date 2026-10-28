@@ -151,3 +151,5 @@ Die Anwendung unter `dashboard/` besteht aus React/Vite mit nginx, Node/Express 
 Die bestehenden Gesamtmeilensteine bleiben bestehen: [M1 – Umfang und Vorgaben](../../issues/1), [M2 – Revit und Pilot](../../issues/2), [M3 – Auswertung](../../issues/3), [M4 – Abgabe](../../issues/4). Hochschulvorgaben, Forschungsfrage und Bewertungskriterien müssen noch konkretisiert werden.
 
 *KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
+
+Die iPhone-App führt durch Name, Adresse, Fotos, Pläne und Übersicht. Lokale Entwürfe, wiederholbare Uploads und Dateiaktionen sind in der [Gebäudemappen-Dokumentation](docs/gebaeudemappe-ios.md) beschrieben.

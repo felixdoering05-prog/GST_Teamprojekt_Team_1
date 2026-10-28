@@ -19,6 +19,8 @@ async function initDocuments(db) {
   name TEXT NOT NULL, mime_type TEXT NOT NULL, size INTEGER NOT NULL CHECK(size>0),
   content BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query('CREATE INDEX IF NOT EXISTS app_documents_building_idx ON app_documents(building_id)');
+ await db.query('ALTER TABLE app_documents ADD COLUMN IF NOT EXISTS upload_key TEXT');
+ await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_documents_upload_key_idx ON app_documents(building_id,upload_key) WHERE upload_key IS NOT NULL');
 }
 function documentRouter(db,requireAccount) {
  const router=express.Router();
@@ -42,16 +44,51 @@ function documentRouter(db,requireAccount) {
   if(!name||name.length>200)return res.status(400).json({error:'Dateiname erforderlich (maximal 200 Zeichen).'});
   const mime=fileType(req.body,name);
   if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP und DWG mit passender Dateikennung.'});
+  const uploadKey=req.get('X-Upload-ID')||null;
+  if(uploadKey&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(uploadKey))return res.status(400).json({error:'Ungültige Upload-Kennung.'});
   const client=await db.connect();
   try {
    await client.query('BEGIN');
    // Serialize quota checks for the same account, including simultaneous phone/browser uploads.
    await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
+   if(uploadKey) {
+    const existing=(await client.query('SELECT * FROM app_documents WHERE building_id=$1 AND upload_key=$2',[req.params.buildingId,uploadKey])).rows[0];
+    if(existing) {
+     if(!Buffer.from(existing.content).equals(req.body)){await client.query('ROLLBACK');return res.status(409).json({error:'Diese Upload-Kennung wurde bereits für eine andere Datei verwendet.'});}
+     const {content,upload_key,...metadata}=existing;
+     await client.query('COMMIT');return res.json(metadata);
+    }
+   }
    const usage=(await client.query('SELECT COALESCE(SUM(d.size),0) AS total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[req.account.id])).rows[0];
    if(Number(usage.total)+req.body.length>MAX_ACCOUNT){await client.query('ROLLBACK');return res.status(413).json({error:'Speicherlimit erreicht: maximal 250 MB pro Konto.'});}
-   const doc=(await client.query('INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,$2,$3,$4,$5) RETURNING id,building_id,name,mime_type,size,created_at',[req.params.buildingId,name,mime,req.body.length,req.body])).rows[0];
+   const doc=(await client.query('INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,building_id,name,mime_type,size,created_at',[req.params.buildingId,name,mime,req.body.length,req.body,uploadKey])).rows[0];
    await client.query('COMMIT');res.status(201).json(doc);
   } catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }));
+ // Mutations use the same account lock as uploads to keep quota and delete/retry ordering consistent.
+ router.patch('/documents/:documentId',wrap(async(req,res)=>{
+  let name=typeof req.body?.name==='string'?req.body.name.trim():'';
+  if(!name||name.length>200||/[\x00-\x1f\x7f/\\]/.test(name))return res.status(400).json({error:'Bitte einen Dateinamen ohne Pfad oder Steuerzeichen eingeben (maximal 200 Zeichen).'});
+  const client=await db.connect();
+  try {
+   await client.query('BEGIN');await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
+   const doc=(await client.query('SELECT d.id,d.mime_type FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND b.user_id=$2',[req.params.documentId,req.account.id])).rows[0];
+   if(!doc){await client.query('ROLLBACK');return res.status(404).json({error:'Datei nicht gefunden.'});}
+   const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg']};
+   if(!extensions[doc.mime_type]?.includes(path.extname(name).toLowerCase())){await client.query('ROLLBACK');return res.status(400).json({error:'Die passende Dateiendung muss erhalten bleiben.'});}
+   const updated=(await client.query('UPDATE app_documents SET name=$1 WHERE id=$2 RETURNING id,building_id,name,mime_type,size,created_at',[name,doc.id])).rows[0];
+   await client.query('COMMIT');res.json(updated);
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }));
+ router.delete('/documents/:documentId',wrap(async(req,res)=>{
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
+   const removed=await client.query('DELETE FROM app_documents d USING app_buildings b WHERE d.building_id=b.id AND d.id=$1 AND b.user_id=$2 RETURNING d.id',[req.params.documentId,req.account.id]);
+   await client.query('COMMIT');
+   if(!removed.rows.length)return res.status(404).json({error:'Datei nicht gefunden.'});
+   res.json({ok:true});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  router.get('/documents/:documentId',wrap(async(req,res)=>{
   const doc=(await db.query('SELECT d.* FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND b.user_id=$2',[req.params.documentId,req.account.id])).rows[0];
