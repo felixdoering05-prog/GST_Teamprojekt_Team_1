@@ -1,4 +1,5 @@
 const express = require('express');
+const {initTwin,twinRouter}=require('./twin');
 const {initDocuments,documentRouter}=require('./documents');
 const {initProfile,profileRouter}=require('./profile');
 const {randomBytes, scrypt, timingSafeEqual, createHash} = require('node:crypto');
@@ -26,6 +27,7 @@ async function initAccounts(db) {
   id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
   name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query('CREATE INDEX IF NOT EXISTS app_buildings_user_idx ON app_buildings(user_id)');
+ await initTwin(db);
  await initDocuments(db);
  await initProfile(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
@@ -92,6 +94,7 @@ function accountRouter(db) {
   if(!name||name.length>200||address.length>500)return res.status(400).json({error:'Gebäudename erforderlich (max. 200 Zeichen); Adresse max. 500 Zeichen.'});
   res.status(201).json((await db.query('INSERT INTO app_buildings(user_id,name,address) VALUES($1,$2,$3) RETURNING id,name,address,created_at',[req.account.id,name,address])).rows[0]);
  }));
+ router.use(twinRouter(db,requireAccount));
  router.use(profileRouter(db,requireAccount));
  router.use(documentRouter(db,requireAccount));
  router.use((err,req,res,next)=>{console.error('Account API error:',err.code||err.name);res.status(500).json({error:'Serverfehler. Bitte später erneut versuchen.'})});

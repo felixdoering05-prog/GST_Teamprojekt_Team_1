@@ -1,0 +1,57 @@
+{
+  "name": "EnergyReading",
+  "type": "object",
+  "properties": {
+    "building_id": {
+      "type": "string"
+    },
+    "meter_code": {
+      "type": "string",
+      "description": "Z\u00e4hlerkennung"
+    },
+    "medium": {
+      "type": "string",
+      "enum": [
+        "strom",
+        "waerme",
+        "kaltwasser",
+        "warmwasser"
+      ],
+      "description": "Energieart"
+    },
+    "value": {
+      "type": "number",
+      "description": "Verbrauch im Zeitraum"
+    },
+    "unit": {
+      "type": "string",
+      "description": "z. B. kWh, m\u00b3"
+    },
+    "period_start": {
+      "type": "string",
+      "description": "Beginn des Ablesezeitraums (ISO 8601)"
+    },
+    "period_end": {
+      "type": "string",
+      "description": "Ende des Ablesezeitraums (ISO 8601)"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "medium",
+    "value",
+    "period_start",
+    "period_end",
+    "source"
+  ]
+}

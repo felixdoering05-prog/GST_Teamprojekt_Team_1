@@ -1,0 +1,97 @@
+{
+  "name": "Alert",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Kurztitel der Meldung"
+    },
+    "message": {
+      "type": "string",
+      "description": "Beschreibung der Grenzwert\u00fcberschreitung"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "default": "warning"
+    },
+    "metric": {
+      "type": "string",
+      "enum": [
+        "temperature",
+        "co2",
+        "humidity",
+        "system"
+      ]
+    },
+    "value": {
+      "type": "number",
+      "description": "Ausl\u00f6sender Messwert"
+    },
+    "threshold": {
+      "type": "number",
+      "description": "\u00dcberschrittener Grenzwert"
+    },
+    "room_id": {
+      "type": "string"
+    },
+    "room_label": {
+      "type": "string"
+    },
+    "sensor_id": {
+      "type": "string"
+    },
+    "sensor_code": {
+      "type": "string"
+    },
+    "building_id": {
+      "type": "string"
+    },
+    "triggered_at": {
+      "type": "string",
+      "description": "Zeitpunkt der Ausl\u00f6sung (ISO 8601)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "offen",
+        "quittiert",
+        "erledigt"
+      ],
+      "default": "offen"
+    },
+    "detection": {
+      "type": "string",
+      "enum": [
+        "regelbasiert",
+        "manuell"
+      ],
+      "default": "regelbasiert"
+    },
+    "acknowledged_by": {
+      "type": "string"
+    },
+    "acknowledged_at": {
+      "type": "string"
+    },
+    "resolution_note": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo"
+    }
+  },
+  "required": [
+    "message",
+    "severity"
+  ]
+}

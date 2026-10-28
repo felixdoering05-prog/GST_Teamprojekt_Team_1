@@ -1,0 +1,5 @@
+# Optional server edition of the Base44 export. Database and ports stay unchanged.
+# Review first; production deployment must still use d21-deploy.
+services:
+  web:
+    build: ./base44-frontend

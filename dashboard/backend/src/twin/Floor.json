@@ -1,0 +1,44 @@
+{
+  "name": "Floor",
+  "type": "object",
+  "properties": {
+    "building_id": {
+      "type": "string",
+      "description": "Zugeh\u00f6riges Geb\u00e4ude"
+    },
+    "name": {
+      "type": "string",
+      "description": "Bezeichnung des Geschosses, z. B. EG oder 1. OG"
+    },
+    "level": {
+      "type": "number",
+      "description": "Geschosswert, z. B. -1, 0, 1, 2"
+    },
+    "area_m2": {
+      "type": "number",
+      "description": "Geschossfl\u00e4che in m\u00b2"
+    },
+    "height_m": {
+      "type": "number",
+      "description": "Lichte H\u00f6he in m"
+    },
+    "revit_level_id": {
+      "type": "string",
+      "description": "Reserviert f\u00fcr die Revit-Ebene (Level) des IFC-Modells"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
