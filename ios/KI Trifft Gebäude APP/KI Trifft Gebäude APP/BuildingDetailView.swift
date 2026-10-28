@@ -42,6 +42,9 @@ struct BuildingDetailView: View {
                     Label("\(documents.count) Dateien auf dem Projektserver", systemImage: "checkmark.icloud").font(.caption).foregroundStyle(.secondary)
                 }.padding(.vertical, 10)
             } header: { Text("Deine Gebäudemappe") }
+            Section("3D-Modell") {
+                NavigationLink { IFCViewer() } label: { Label("IFC-Modell lokal öffnen", systemImage: "cube.transparent") }
+            }
             Section("Bilder und Pläne ergänzen") {
                 PhotosPicker(selection: $photos, maxSelectionCount: 6, matching: .images) { Label("Fotos auswählen", systemImage: "photo.on.rectangle") }.disabled(locked || flow.loadFailed)
                 Button("PDF, DWG oder Bild auswählen", systemImage: "doc.badge.plus") { filePicker = true }.disabled(locked || flow.loadFailed)

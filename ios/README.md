@@ -38,3 +38,7 @@ Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsy
 ## Passwort vergessen
 
 Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne eingerichteten SMTP-Absender zeigt die Ansicht den ausstehenden Mailversand an und verschickt keine Mail. [Einrichtung und Grenzen](../docs/passwort-mail.md).
+
+## IFC-Viewer (erste Version)
+
+Der neue Tab **IFC-Viewer** und der Einstieg in der Gebäudemappe öffnen lokale IFC-Dateien als interaktives 3D-Modell mit Bauteilauswahl. Offline, maximal 20 MiB; noch kein IFC-Upload auf den Server. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).

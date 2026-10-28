@@ -440,6 +440,7 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }
+            NavigationStack { IFCViewer() }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }
             NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }
         }
     }
