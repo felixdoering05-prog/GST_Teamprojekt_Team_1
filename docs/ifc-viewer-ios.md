@@ -58,3 +58,35 @@ swiftc "ios/KI Trifft Gebäude APP/KI Trifft Gebäude APP/IFCResource.swift" ios
 Der Test schreibt eine Vorschau nach `/tmp/d21-ifc-viewer.png`. Echte D21-Revit-Exporte und das physische iPhone müssen zusätzlich getestet werden; der WebKit-Test auf dem Mac ersetzt diese Prüfung nicht.
 
 Die Backendtests prüfen zusätzlich IFC-Upload, Listen/Download bytegleich, erneute Initialisierung ohne Datenverlust, wiederholbare Uploads, fremde Konten, Umbenennen/Löschen sowie ungültige Signaturen, Schema und die 20-MiB-Grenze.
+
+## Modellbibliothek mit Suche und Wiederholungen
+
+Der IFC-Tab zeigt Modellkarten mit Dateiname, zugehörigem Gebäude, Dateigröße und „In 3D öffnen“. Die Suche berücksichtigt Datei- und Gebäudenamen sowie Groß-/Kleinschreibung und Akzente. Die Anzeige unterscheidet zwischen fehlenden Gebäuden, einer leeren Modellliste und fehlenden Suchergebnissen.
+
+Beim Aktualisieren bleiben erfolgreiche bisherige Ergebnisse sichtbar. Jedes Gebäude wird unabhängig behandelt: Fällt eine Abfrage aus, erscheint eine Meldung mit gezieltem „Erneut versuchen“; die übrigen Gebäude werden trotzdem geladen. Ein fehlgeschlagener Abruf der Gebäudeliste löscht den bisherigen Stand nicht. Gelöschte Gebäude werden nach einem erfolgreichen Abruf aus dem lokalen Anzeigecache entfernt. Konto- und Serverwechsel leeren diesen Cache; verspätete Antworten eines alten Kontos/Servers werden verworfen. Der Cache liegt ausschließlich im Arbeitsspeicher und ist keine Offline-Ablage der Modelle.
+
+Beim Modell-Download sind weitere Öffnen-Aktionen gesperrt. Fehler erscheinen mit einer erneuten Öffnen-Aktion. Beim Verlassen der Übersicht wird ein laufender Download abgebrochen. Datei-Uploads, Kontorechte, API-Verträge und der eigentliche 3D-Viewer bleiben unverändert.
+
+Automatisierte Prüfung der Listenlogik auf dem Mac:
+
+```sh
+swiftc -parse-as-library \
+  'ios/KI Trifft Gebäude APP/KI Trifft Gebäude APP/WorkflowModels.swift' \
+  'ios/KI Trifft Gebäude APP/KI Trifft Gebäude APP/IFCLibraryState.swift' \
+  ios/tests/IFCLibraryChecks.swift -o /tmp/d21-ifc-library-checks
+/tmp/d21-ifc-library-checks
+```
+
+### Lokale Vorschau für Entwicklung
+
+Nur Debug-Builds: `-D21WorkflowPreview -D21IFCPreview` verwendet lokale Mock-Antworten und startet im IFC-Tab. Der sichtbare Hinweis „VORSCHAU · Lokale Testdaten“ kennzeichnet die Daten. Die drei Beispielmodelle verwenden dieselbe selbst erstellte Testwand und bewusst synthetische Dateigrößen, keine echten D21-Modelle.
+
+Zusätzliche Startargumente:
+
+- `-D21IFCEmpty`: Gebäude ohne Modelle.
+- `-D21IFCNoBuildings`: kein Gebäude vorhanden.
+- `-D21IFCBuildingFail`: ein Gebäude kann nicht geladen werden.
+- `-D21IFCListFail`: die Gebäudeliste kann nicht geladen werden.
+- `-D21IFCFailPreview`: der Download des zweiten Modells schlägt fehl.
+
+Ohne den expliziten Workflow-Vorschau-Modus sind diese Optionen inaktiv; der gesamte Mock-Code ist aus Release-Builds ausgeschlossen. Für Tests einen separaten Simulator-Bundle-Identifier verwenden, damit persönliche Testinstallationen und deren Schlüsselbund unberührt bleiben.

@@ -5,73 +5,150 @@ import UniformTypeIdentifiers
 
 struct IFCLibraryView: View {
     @ObservedObject var model: AccountModel
-    @State private var models: [Int: [BuildingDocument]] = [:]
-    @State private var loading = false
-    @State private var opening = false
-    @State private var problem: String?
+    @StateObject private var library: IFCLibraryState
+    @State private var search = ""
+    @State private var openingID: Int?
+    @State private var downloadTask: Task<Void, Never>?
+    @State private var downloadOperation = UUID()
+    @State private var downloadFailure: BuildingDocument?
+    @State private var downloadMessage = ""
     @State private var preview: DocumentPreview?
-    private func reload() async {
-        guard !loading else { return }
-        loading = true; defer { loading = false }
-        let server = model.serverURL, user = model.user?.id
-        await model.loadBuildings()
-        var loaded: [Int: [BuildingDocument]] = [:]
-        do {
-            for building in model.buildings {
-                let documents = try await model.documents(buildingID: building.id)
-                guard model.serverURL == server, model.user?.id == user else { return }
-                loaded[building.id] = documents.filter { $0.mime_type == "application/x-step" }
+    private var scope: String { model.serverURL + "#" + String(model.user?.id ?? -1) }
+    init(model: AccountModel) {
+        self.model = model
+        _library = StateObject(wrappedValue: IFCLibraryState(source: IFCLibrarySource(
+            scope: { model.user.map { model.serverURL + "#" + String($0.id) } },
+            buildings: { try await model.fetchBuildings() },
+            documents: { try await model.documents(buildingID: $0) }
+        )))
+    }
+    private func open(_ document: BuildingDocument) {
+        guard openingID == nil else { return }
+        let originalScope = scope, operation = UUID()
+        downloadOperation = operation
+        openingID = document.id; downloadFailure = nil
+        downloadTask = Task {
+            defer { if scope == originalScope && downloadOperation == operation { openingID = nil; downloadTask = nil } }
+            do {
+                let item = try await model.previewDocument(document)
+                guard !Task.isCancelled, scope == originalScope, downloadOperation == operation else {
+                    try? FileManager.default.removeItem(at: item.url.deletingLastPathComponent()); return
+                }
+                preview = item
+            } catch {
+                guard !Task.isCancelled, scope == originalScope, downloadOperation == operation else { return }
+                downloadFailure = document; downloadMessage = error.localizedDescription
             }
-            models = loaded
-        } catch { problem = error.localizedDescription }
+        }
+    }
+    private func cancelDownload() {
+        downloadOperation = UUID()
+        downloadTask?.cancel(); downloadTask = nil; openingID = nil; downloadFailure = nil
     }
     var body: some View {
-        List {
-            Section {
-                Label("Deine Modelle auf dem Projektserver", systemImage: "cloud.fill").font(.headline)
-                Text("Lade ein IFC-Modell zu einem Gebäude hoch. Danach kannst du es hier auf deinen Geräten öffnen. Die 3D-Ansicht wird auf diesem Gerät berechnet.").font(.footnote).foregroundStyle(.secondary)
-            }
-            if loading { ProgressView("Server-Modelle werden geladen …") }
-            if model.buildings.isEmpty && !loading {
-                ContentUnavailableView("Noch kein Gebäude", systemImage: "building.2", description: Text("Lege im Gebäude-Tab zuerst ein Gebäude an. Im Schritt Pläne kannst du dein IFC-Modell hochladen."))
-            }
-            ForEach(model.buildings) { building in
-                Section(building.name) {
-                    ForEach(models[building.id] ?? []) { document in
-                        Button {
-                            opening = true
-                            Task {
-                                defer { opening = false }
-                                do { preview = try await model.previewDocument(document) }
-                                catch { problem = error.localizedDescription }
-                            }
-                        } label: {
-                            Label {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(document.name)
-                                    Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file) + " · Auf dem Server").font(.caption).foregroundStyle(.secondary)
-                                }
-                            } icon: { Image(systemName: "cube.transparent") }
-                        }.disabled(opening)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Deine Gebäude in 3D", systemImage: "cube.transparent").font(.title2.bold())
+                    Text("Gespeichert auf dem Projektserver. Öffne dein Modell und entdecke die Bauteile.").foregroundStyle(.secondary)
+                    if !library.entries.isEmpty {
+                        Text("\(library.entries.count) Modell(e) · \(library.buildings.count) Gebäude").font(.caption).foregroundStyle(.secondary)
                     }
-                    NavigationLink { BuildingDetailView(building: building, model: model) } label: {
-                        Label("IFC hochladen / Dateien verwalten", systemImage: "icloud.and.arrow.up")
+                    #if DEBUG
+                    if WorkflowPreview.enabled { Label("VORSCHAU · Lokale Testdaten", systemImage: "testtube.2").font(.caption.bold()).foregroundStyle(.orange) }
+                    #endif
+                }
+                if library.refreshing {
+                    ProgressView(library.entries.isEmpty ? "Modelle werden geladen …" : "Modelle werden aktualisiert …")
+                        .frame(maxWidth: .infinity, alignment: .leading).accessibilityLabel("IFC-Modelle werden vom Server geladen")
+                }
+                if let message = library.listError {
+                    notice(title: "Verbindung zum Projektserver fehlt", message: message + " Bereits geladene Modelle bleiben sichtbar.", busy: library.refreshing) {
+                        Task { await library.refresh() }
                     }
                 }
-            }
-            Section("Ohne Upload testen") {
-                NavigationLink { IFCViewer() } label: { Label("Lokale IFC-Datei öffnen", systemImage: "folder") }
-                Text("IFC2x3 / IFC4 · maximal 20 MB pro Modell · 250 MB Speicher pro Konto.").font(.footnote).foregroundStyle(.secondary)
-            }
-            if opening { ProgressView("Modell wird vom Server geladen …") }
+                ForEach(library.buildings.filter { library.buildingErrors[$0.id] != nil }) { building in
+                    notice(title: "\(building.name) konnte nicht aktualisiert werden", message: (library.buildingErrors[building.id] ?? "") + (library.documents[building.id] == nil ? "" : " Der zuletzt geladene Stand bleibt sichtbar."), busy: library.refreshing || library.loadingBuildings.contains(building.id)) {
+                        Task { await library.retry(building) }
+                    }
+                }
+                if let document = downloadFailure {
+                    notice(title: "„\(document.name)“ konnte nicht geöffnet werden", message: downloadMessage, busy: openingID != nil) { open(document) }
+                }
+                let matches = library.matching(search)
+                if !matches.isEmpty {
+                    LazyVStack(spacing: 14) {
+                        ForEach(matches) { entry in modelCard(entry) }
+                    }
+                } else if !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ContentUnavailableView("Keine Suchergebnisse", systemImage: "magnifyingglass", description: Text("Für „\(search)“ wurde in den geladenen Modellen kein Datei- oder Gebäudename gefunden."))
+                } else if library.hasLoaded && !library.refreshing && library.listError == nil && library.buildingErrors.isEmpty {
+                    ContentUnavailableView {
+                        Label(library.buildings.isEmpty ? "Dein erstes Gebäude wartet" : "Noch keine IFC-Modelle", systemImage: "cube.transparent")
+                    } description: {
+                        Text(library.buildings.isEmpty ? "Lege im Gebäude-Tab ein Gebäude an. Im Schritt Pläne kannst du ein IFC-Modell hochladen." : "Öffne unten eine Gebäudemappe und lade deine IFC-Datei hoch. Danach erscheint dein Modell hier.")
+                    }
+                }
+                if !library.buildings.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Modell hochladen").font(.headline)
+                        Text("Wähle das Gebäude für deine IFC-Datei.").font(.subheadline).foregroundStyle(.secondary)
+                        ForEach(library.buildings) { building in
+                            NavigationLink { BuildingDetailView(building: building, model: model) } label: {
+                                Label(building.name, systemImage: "icloud.and.arrow.up").frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+                            }.accessibilityLabel("IFC-Modell für \(building.name) hochladen oder Dateien verwalten")
+                            if building.id != library.buildings.last?.id { Divider() }
+                        }
+                    }.padding(18).background(.background, in: RoundedRectangle(cornerRadius: 20))
+                }
+                NavigationLink { IFCViewer() } label: { Label("Lokale IFC-Datei ohne Upload öffnen", systemImage: "folder").padding(.vertical, 8) }
+                Text("IFC2x3 / IFC4 · bis 20 MB pro Modell · 250 MB pro Konto. Zum Öffnen gespeicherter Modelle brauchst du eine Internetverbindung.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }.padding(20).frame(maxWidth: 720)
+                .frame(maxWidth: .infinity)
         }
-        .navigationTitle("IFC-Modelle")
-        .task { await reload() }
-        .refreshable { await reload() }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("IFC-Modelle").navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $search, prompt: "Modell oder Gebäude suchen")
+        .task(id: scope) { await library.refresh() }
+        .refreshable { await library.refresh() }
+        .onChange(of: scope) { _, _ in cancelDownload(); preview = nil; search = "" }
+        .onDisappear { cancelDownload() }
         .sheet(item: $preview) { DocumentPreviewView(item: $0) }
-        .alert("IFC-Modelle", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
-            Button("OK", role: .cancel) { problem = nil }
-        } message: { Text(problem ?? "") }
+    }
+    private func modelCard(_ entry: IFCModelEntry) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Image(systemName: "cube.transparent").font(.title).foregroundStyle(d21Accent)
+                .frame(width: 56, height: 56).background(d21Accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 14)).accessibilityHidden(true)
+            Text(entry.document.name).font(.headline).fixedSize(horizontal: false, vertical: true)
+            Label(entry.building.name, systemImage: "building.2").font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(ByteCountFormatter.string(fromByteCount: Int64(entry.document.size), countStyle: .file) + " · Auf dem Server")
+                .font(.caption).foregroundStyle(.secondary)
+            Button { open(entry.document) } label: {
+                HStack(spacing: 10) {
+                    if openingID == entry.id { ProgressView().tint(.white) }
+                    Text(openingID == entry.id ? "Modell wird geladen …" : "In 3D öffnen").fixedSize(horizontal: false, vertical: true)
+                    if openingID != entry.id { Image(systemName: "arrow.up.right") }
+                }.frame(maxWidth: .infinity).padding(.vertical, 8)
+            }.buttonStyle(.borderedProminent).tint(d21Accent).disabled(openingID != nil)
+                .accessibilityLabel("\(entry.document.name) für \(entry.building.name) in 3D öffnen")
+                .accessibilityValue(openingID == entry.id ? "Download läuft" : "")
+                .accessibilityHint("Lädt das Modell vom Projektserver herunter")
+        }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(d21Accent.opacity(0.12)))
+            .accessibilityElement(children: .contain)
+    }
+    private func notice(title: String, message: String, busy: Bool, retry: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: "exclamationmark.icloud").font(.headline).fixedSize(horizontal: false, vertical: true)
+            Text(message).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Button(action: retry) { Label(busy ? "Wird erneut geladen …" : "Erneut versuchen", systemImage: "arrow.clockwise") }
+                .buttonStyle(.bordered).disabled(busy)
+                .accessibilityLabel("Erneut versuchen: \(title)")
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+            .accessibilityElement(children: .contain)
     }
 }
 

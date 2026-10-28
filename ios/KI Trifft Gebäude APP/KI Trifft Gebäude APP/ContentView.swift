@@ -159,6 +159,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         let response: ResetMessage = try await request("auth/password-reset/confirm", method: "POST", body: ["email":email,"code":code,"password":password])
         return response.message
     }
+    func fetchBuildings() async throws -> [Building] { try await request("buildings") }
     func loadBuildings() async {
         do { buildings = try await request("buildings") }
         catch { self.error = error.localizedDescription }
@@ -374,6 +375,13 @@ struct ConnectionView: View {
 }
 struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
+    @State private var selectedTab: Int = {
+        #if DEBUG
+        return WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21IFCPreview") ? 1 : 0
+        #else
+        return 0
+        #endif
+    }()
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProfile = false
@@ -386,7 +394,7 @@ struct AccountHomeView: View {
         catch { model.error = "Der gespeicherte Entwurf konnte nicht gelesen werden. Er bleibt erhalten. " + error.localizedDescription }
     }
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack(path: $path) {
                 List {
                     Section {
@@ -442,9 +450,9 @@ struct AccountHomeView: View {
                     }
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
-            }.tabItem { Label("Gebäude", systemImage: "building.2") }
-            NavigationStack { IFCLibraryView(model: model) }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }
-            NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }
+            }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
+            NavigationStack { IFCLibraryView(model: model) }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }.tag(1)
+            NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }.tag(2)
         }
     }
 }
