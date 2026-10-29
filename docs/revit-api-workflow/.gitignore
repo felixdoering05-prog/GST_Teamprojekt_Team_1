@@ -6,3 +6,9 @@ obj/
 *.ifc
 *.pdf
 pruefung.json
+ifc-pruefung.json
+*-input.json
+*.dyn
+*.csv
+expansion-bin/
+reviewed-bin/

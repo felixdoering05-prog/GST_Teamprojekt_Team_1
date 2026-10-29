@@ -1,58 +1,61 @@
-# Planrekonstruktion und Raumgeometrie: Arbeitsstand 29.10.2026
+# Revit-Rekonstruktion: EG-Arbeitsstand 29.10.2026
 
-**Status: Quellen lokal gesichtet, Revit-Verbindung geprüft, API-Ergänzung kompiliert. Gebäudemodell noch nicht erstellt. Keine RVT-/IFC-Ausgabe und keine fachliche Modellabnahme.**
+**Tatsächlich erzeugt: neue lokale RVT und IFC4 mit 50 nativen Wänden und 28 geschlossenen Räumen. Der Arbeitsstand ist unvollständig und fachlich nicht abgenommen.**
 
-## Auftrag und Arbeitsregeln
+## Ergebnis
 
-Für „KI trifft Gebäude“ soll aus Grundrissen, Schnitten und Ansichten ein neues natives Revit-Projekt entstehen: zuerst ein prüfbares Geschoss, danach weitere ausreichend dokumentierte Geschosse. Erforderlich sind Ebenen, Wände, Geschossdecken, gehostete Türen/Fenster, Dach und geschlossene Räume mit Originalnummern/-namen. Ziel sind eine geprüfte RVT und ein IFC-Export mit `IfcSpace` einschließlich Raumgeometrie für eine spätere raumweise Lichtsimulation.
+Der erste Teilprototyp umfasste drei Räume; ihre Flächen weichen jeweils weniger als 0,002 m² vom Planstempel ab. Nach dieser Kontrolle wurden weitere EG-Wandkonturen und Räume ergänzt. Der gespeicherte EG-Arbeitsstand enthält 50 native Wände und 28 Räume mit Originalnummern/-namen.
 
-Es werden keine Maße, Geschosshöhen oder Schichtaufbauten erfunden. Ein vorhandenes IFC darf nur zusätzliche Referenz sein. Originaldateien werden nicht überschrieben. Diese Dokumentation ist ein Entwicklungsstand und kein freigegebenes Teamprotokoll.
+Bei 11 Räumen liegt die Flächendifferenz innerhalb des technischen Prüfwerts von 0,03 m². Bei 17 bestehen Abweichungen, teilweise deutlich, besonders in Flur-, Treppen- und Sanitärbereichen. Nischen, Stützen und Raumunterteilungen sind noch nicht vollständig rekonstruiert. Die Abweichungen stehen lokal je Raum im Prüfbericht und in Revit-Raumkommentaren. Eine native Raumliste und ein deutlicher Hinweistext sind im RVT gespeichert. Fünf Planräume fehlen: vier wurden noch nicht bearbeitet, ein weiterer Beschriftungspunkt konnte nicht als gültiger geschlossener Raum übernommen werden.
 
-Arbeitsbranch: `revit/planpruefung-api-workflow-2026-10-29`. Der vollständige Repositorybaum wurde auf `AGENTS.md` geprüft; keine solche Datei war auf dem geprüften Ausgangsstand enthalten. `CONTRIBUTING.md`, Revit-Register und PR-Vorlage wurden gelesen. Ausgangsstand: `e4897d24ba96750e542ace411eaef48433c0df15`. Der Git-Transport war aus der lokalen Shell nicht erreichbar; Branch und PR werden über den verfügbaren GitHub-Connector erstellt.
+**Noch nicht modelliert:** Türen, Fenster, Geschossdecken, Dach, Anbauten und weitere Geschosse. Die Wände haben noch keine eingesetzten Öffnungen. Dies ist weder ein vollständiges Geschoss noch ein freigegebenes Lichtsimulationsmodell. Die offenen Konturfehler werden nicht auf weitere Geschosse fortgeschrieben.
 
-## Tatsächlich durchgeführt
+## Freigaben und Annahmen
 
-| Schritt | Ergebnis | Grenze |
+- Der Auftraggeber hat die Kombination der Planstände und die grafische Ableitung fehlender Zwischenhöhen aus den Nord-/Südansichten ausdrücklich erlaubt.
+- Die aktuelle EG-Raumobergrenze von 3,80 m ist aus dem Fassadenraster grafisch abgeleitet und im Modell ausdrücklich vorläufig gekennzeichnet. Sie ist keine bestätigte OKFF des nächsten Geschosses und keine gesicherte lichte Raumhöhe. Deckenunterkanten und Bauteilstärken bleiben offen.
+- Wandtypen bilden nur die belegte geometrische Gesamtdicke ab und heißen ausdrücklich „Aufbau unbekannt“. Materialien und physische Schichtfolgen werden nicht behauptet.
+- 0,03 m² ist ein technischer Prüfwert dieses Versuchs, keine vereinbarte Bautoleranz. Planstempel werden nicht durch willkürliches Verschieben passend gemacht.
+- Die Freigabe zur Kombination der Pläne und grafischen Höhenermittlung ist keine Uploadfreigabe. Baupläne und Modelle bleiben lokal.
+
+## Quellen und Ausführung
+
+Sechs lokale PDFs wurden gefunden, gerendert und visuell geprüft: UG, EG, 1.–3. OG und Nord-/Südansicht. EG/1. OG: Ausführungsplanung vom 20.11.2025, 1:50; B-Grundrisse: 26.02.2025, 1:100; B-04: 1:100. Quellenhashes, Prüfbilder und detaillierte Raum-/Maßtranskriptionen bleiben lokal. Die Originaldateien wurden nicht verändert. Ein älterer, nicht zu diesen Quellen gehörender Hausmodellversuch wurde nicht übernommen.
+
+Die PDFs enthalten Vektordaten. Raumstempel und Wandkanten wurden lokal aus den Inhaltsströmen gelesen und mit bemaßten Raumbreiten kontrolliert. Eine vollständige Transkription aller Maßketten und Bauteile steht aus.
+
+Revit 2027.3, Build 27.3.0.28, Deutsch, antwortet über MCP. Über die Revit-Oberfläche wurde ein separates Projekt aus der installierten Architekturvorlage erstellt; das vorher ungespeicherte „Projekt2“ wurde nicht verändert. Vorlagenebenen sind keine bestätigten Gebäudehöhen; das EG und seine vorläufige Raumobergrenze haben eigene GST-Ebenen.
+
+Die native Modellierung, SaveAs, Raumprüfung und IFC-Ausgabe wurden mit selbst verfasstem C#-Code aus dem vorhandenen Dynamo/PythonNet3 ausgeführt. Ein zusätzliches Add-in oder Revit-Neustart war nicht erforderlich. Die allgemeinen ExternalCommands bleiben als alternativer Ausführungsweg vorbereitet.
+
+## Dateien und Prüfnachweise
+
+| Stand | Lokale Dateien | Tatsächliche Prüfung |
 | --- | --- | --- |
-| Quellen finden | Zunächst mehrdeutiges „c“ beim Auftraggeber erfragt; anschließend sechs konkrete lokale PDF-Pfade erhalten und alle Dateien gefunden | Kein maßgebliches zusätzliches IFC benannt |
-| Pläne sichten | Je eine Seite: UG, EG, 1. OG, 2. OG, 3. OG sowie Süd-/Nordansicht; sämtliche Seiten lokal gerendert und visuell geprüft | Vollständige Maß- und Raumtranskription noch offen |
-| Planstände prüfen | EG/1. OG: Ausführungsplanung, 20.11.2025, 1:50. B-Grundrisse: 26.02.2025, 1:100. Ansicht B-04 ebenfalls 1:100 | Unterschiedliche Planverfasser und Stände; gemeinsame Verwendung vom Auftraggeber ausdrücklich bestätigt |
-| Revit prüfen | Installierte `Revit.exe`, laufender Prozess, erfolgreiches MCP-Ping und Versionsabfrage: Revit 2027.3, Build 27.3.0.28, Deutsch | Lesen erfolgreich; Modelländerungen in dieser Sitzung nicht ausgeführt |
-| Aktiven Arbeitsstand schützen | Aktives Dokument „Projekt2“, kein gespeicherter Pfad, `isModified=true`; keine Modellmutation ausgeführt | Es ist kein nachweislich neues Projekt für diesen Auftrag |
-| Bedienweg prüfen | Revit-Fenster ermittelt und visuell eingesehen; native Erstellungsbefehle im Connector vorhanden | UI-Barrierefreiheit liefert keinen Elementbaum; neue Datei, SaveAs und IFC-Export fehlen als Connectorbefehle |
-| API-Lücke vorbereiten | [Quellcode und Ausführungsanleitung](revit-api-workflow/README.md) für neues Projekt, Raumprüfung, SaveAs, IFC und Wiederöffnungsprüfung | Kompiliert, nicht installiert oder in Revit ausgeführt |
-| Quellen schützen | Prüfbilder und SHA256-Quellenregister ausschließlich lokal gehalten | Keine Freigabe für Upload von Plänen, Auszügen, Detailtranskriptionen oder Modellen geklärt |
+| Dreiraum-Teilprototyp | `GST-EG-Teilprototyp.rvt`, `.ifc`, `pruefung.json`, `ifc-pruefung.json` | Native Wände/Räume; Flächenabgleich; positive Raumkörper; RVT-Prüfkopie geöffnet; drei IFC-Raumkörper analytisch gegen Revit geprüft |
+| EG-Arbeitsstand | `GST-EG-Arbeitsstand.rvt`, `.ifc`, `pruefung.json`, `ifc-pruefung.json`, `raum-flaechenpruefung.csv` | 50 native Wände, 28 Räume; RVT-Prüfkopie geöffnet und Raumzahl abgeglichen; positive Raumkörper; IFC-Geometrieprüfung bestanden; 17 Planflächenabweichungen offen |
 
-Zum Rendern wurde die vorhandene Windows-PDF-API verwendet. Python/Poppler waren nicht über die verfügbaren Befehle erreichbar; die Quell-PDFs wurden nicht verändert oder an einen PDF-Clouddienst übertragen. Ein zunächst gefundener älterer Hausmodell-Zwischenstand gehört nicht nachweislich zu diesen Quellen und wird nicht übernommen.
+Beide Stände liegen in getrennten, zeitgestempelten lokalen Ordnern außerhalb des Repositorys. Kein früherer Modellstand wurde überschrieben. Nach Ergänzung von Hinweistext und Raumliste wurde das aktuelle RVT erneut gespeichert; Revit meldet `isModified=false`. Die zuletzt hinzugefügten Hinweise und die Bauteilliste verändern die exportierte Modellgeometrie nicht.
 
-## Wesentliche offene Punkte und Rückfragen
+Der [unabhängige IFC-Prüfer](revit-api-workflow/check-ifc-spaces.mjs) hat alle 28 `IfcSpace`-Instanzen dieses Exports geprüft: eindeutige GlobalIds, Geschosszuordnung, zugewiesene Body-Geometrie, Meter als Längeneinheit, positive vertikale Extrusionskörper und Flächen-/Volumenübereinstimmung mit dem Revit-Bericht. Rechteck- und geschlossene Polygonprofile werden analytisch ausgewertet. Nicht unterstützte Geometrie führt zum Fehler. Dies ist kein universeller IFC-Validator; technische Übereinstimmung zwischen RVT und IFC beweist keine fachlich korrekte Planrekonstruktion. Der Ziel-App-Test steht aus.
 
-1. **Höhen genauer geprüft:** Der Auftraggeber verweist ausdrücklich auf die vorhandenen Nord-/Südansichten als Höhenquelle. Diese wurden erneut hochauflösend gerendert und die Höhenpfeile ihren gezeichneten Bauteilkanten zugeordnet. EG-OKFFB, Dachkanten und Anbauhöhen sind dort belegt. Noch nicht belegt sind die dazwischenliegenden OKFF-/OKRD-Koten aller Geschosse und die Deckenstärken; Dachkanten dürfen nicht als diese Geschosshöhen umgedeutet werden. Fehlende Schnitte sind daher keine pauschale Voraussetzung für alle Arbeitsschritte; es bleiben nur die konkret nicht ablesbaren Höhen-/Aufbauangaben offen.
-2. **Planpriorität geklärt:** Der Auftraggeber hat die Kombination der neueren EG-/1.-OG-Ausführungspläne mit den älteren B-Plänen für die übrigen Geschosse ausdrücklich erlaubt. Unterschiedliche Außenkonturen zwischen Geschossen sind nicht automatisch ein Widerspruch; Rücksprünge, Anbauten und Dachaufkantungen müssen anhand der jeweiligen Bezugskanten abgeglichen werden.
-3. **Bauteildefinitionen:** Gesamtdicken, Rohbau-/Fertigkanten, Deckenhöhen, Öffnungsmaße, Brüstungen und Dachanschlüsse belegen. Bei unbekannten Schichten keine erfundenen Materialien oder Schichtdicken anlegen. Unbemaßte Öffnungen bleiben offen.
-4. **Räume:** Originalraumliste je abgestimmtem Geschoss erstellen, mit Nummer, Bezeichnung, planlicher Fläche als Kontrollwert und Quellenverweis. Fehlende Nummern nicht automatisch vergeben. Raumobergrenzen und Raumphase ausdrücklich prüfen.
-5. **Modellablage und Abnahme:** Lokale Arbeitsablage ist vorbereitet; gemeinsame Teamablage und Maßtoleranzen sind noch festzulegen. [Projektsteckbrief](projektsteckbrief.md), [Modellregister](../revit/modelle/README.md) und [Exportregister](../revit/exporte/README.md) erst mit einem tatsächlich erzeugten, eindeutig bezeichneten Stand aktualisieren.
-6. **Freigabe:** Das Repository ist öffentlich. Für Baupläne, Modellgeometrie, Screenshots oder abgeleitete detaillierte Raum-/Maßtabellen ist die Weitergabe nicht geklärt. Dieser Branch enthält ausschließlich allgemeine Dokumentation und selbst verfassten Workflow-Quellcode.
+## Technische Befunde
 
-## Nächste Schritte nach Klärung
+Die angebotenen MCP-Befehle haben keine eigenen Werkzeuge für neues Dokument, SaveAs und IFC-Export. Diese Lücken wurden über Dynamo/Revit-API geschlossen. Die Dateidialoge reagierten teilweise verzögert; erfolgreiche Aktionen wurden über Dokumentabfragen und vorhandene Dateien kontrolliert.
 
-1. Quellenregister und vollständige Maß-/Raumliste lokal fertigstellen; Planstände priorisieren. Unklarheiten je Blatt/Bezugskante erfassen.
-2. Neues Projekt aus geprüfter RTE erstellen, eigener eindeutiger lokaler Dateiname. Vorlagenebenen nicht als Gebäudehöhen übernehmen.
-3. EG als vorgeschlagenes Prototypgeschoss verwenden, sobald seine Höhen- und Bauteilbezüge belegt sind. Native Elemente in kleinen Paketen erzeugen und direkt zurücklesen. Tür-/Fensterfamilien müssen passende Wandhosts und belegte Öffnungsabmessungen besitzen.
-4. Räume anlegen, originale Nummern/Namen zuordnen und geschlossene Begrenzungen sowie positive 3D-Körper prüfen. Jede Planraumposition muss genau einem gültigen Revit-Raum entsprechen.
-5. Prototyp anhand von Außenmaßen, Innenmaßketten, Wanddicken, Öffnungen, Höhen und Raumliste gegenprüfen. Kein automatisches Fortschreiben bei offenen Abweichungen.
-6. Weitere ausreichend dokumentierte Geschosse und Dach ergänzen. Keine pauschale Kopie von EG-Geometrie oder angenommenen Regelgeschosshöhen.
-7. Neue RVT speichern; gespeicherten Stand wieder öffnen und native Kategorien/Raumdaten prüfen. IFC4 mit Raumbegrenzungen exportieren und unabhängig jede `IfcSpace`-Instanz samt 3D-Body, positivem Volumen, Nummer/Name und Geschosszuordnung prüfen.
-8. IFC in der Ziel-App raumweise auswählen und Geometrie gegenprüfen. Erst dann Modell-/Exportregister mit realen Dateien und Prüfbericht ergänzen.
+Ein erster Modellierungslauf scheiterte an einem schreibgeschützten Raumparameter und wurde zurückgerollt. Die Raumhöhe wird nun über obere Ebene und oberen Versatz gesteuert. Beim folgenden erfolgreichen Modell-/Exportlauf war ein anschließender Ansichtwechsel während der Dynamo-Auswertung unzulässig; Dateien und Prüfberichte waren bereits geschrieben. Die Ansicht wurde danach per Connector geöffnet. Der Quellcode enthält diesen unzulässigen Ansichtwechsel nicht mehr.
 
-## Prüfnachweis dieses Branches
+Der abschließende Review-Build gegen die installierte Revit-API 2027 und .NET SDK 10.0.402 ist mit **0 Warnungen und 0 Fehlern** durchgelaufen. Ein Zwischenbuild unter geändertem Assemblynamen hatte eine Dateisperr-Warnung für eine ältere, noch geladene DLL; der abschließende Build nutzt einen getrennten Ausgabeordner.
 
-- Sechs lokale PDFs gefunden; jeweils eine Seite gerendert, Gesamtseiten und Schriftfelder visuell gesichtet; Quellenhashes lokal gesichert.
-- Revit-Version, aktives Dokument und Connectorantworten gelesen. Kein schreibender Modellbefehl ausgeführt.
-- API-Ergänzung gegen die installierte Revit-API 2027.3 mit .NET SDK 10.0.402 gebaut: **0 Warnungen, 0 Fehler**. Manifestvorbereitung erfolgreich. DLL und generiertes Manifest bleiben lokal.
-- Laufzeitprüfung des Add-ins, vollständiger Planabgleich, neue RVT, Modellvollständigkeit, IFCSPACE-Geometrieprüfung und Ziel-App-Test: **noch offen**.
-- Pull Request zur technischen Durchsicht; keine Zusammenführung und keine Veröffentlichung von Plänen oder Modellen.
+## Fortsetzung und fachliche Lücken
 
-## Nachtrag: Rückmeldung des Auftraggebers
+1. Die 17 abweichenden Konturen anhand der Nischen, Stützen, Sanitärbereiche und Treppen-/Flurzusammenhänge korrigieren; unterschiedliche Flächendefinitionen gegebenenfalls belegen. Die fünf fehlenden Planräume korrekt platzieren und begrenzen.
+2. Türen/Fenster mit belegten Öffnungsmaßen ergänzen. Unbekannte Innen-Türhöhen nicht durch eine erfundene Normhöhe ersetzen. Deckenstärken, lichte Höhen und Dachaufbau sind durch die Erlaubnis zur grafischen Zwischenhöhenableitung nicht festgelegt.
+3. Nach bestandenem EG-Planabgleich weitere ausreichend dokumentierte Geschosse und Dach ergänzen. Keine pauschale Geometrie- oder Höhenkopie.
+4. Vollständigen Stand erneut speichern, wieder öffnen, exportieren und in der Ziel-App prüfen. Erst danach fachliche Freigabe für die Lichtsimulation.
 
-Die Planstände dürfen kombiniert werden. Die Nord-/Südansichten sind ausdrücklich als vorhandene Höhenquelle zu verwenden. Höhenmarken wurden deshalb erneut im Detail geprüft; die lokale Quellenzuordnung wurde ergänzt. Diese Freigabe betrifft die Kombination zur Rekonstruktion, nicht den Upload der Baupläne oder Modelle. Keine neue RVT/IFC erzeugt.
+## Repository
+
+Arbeitsbranch `revit/eg-arbeitsstand-2026-10-29`, [Entwurfs-PR #44](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/44). Der frühere Vorbereitungs-PR #43 wurde während der Modellierung bereits zusammengeführt; die tatsächlichen Modellierungs-/Exportprüfungen sind deshalb in diesem Folge-PR dokumentiert. Der vollständige Repositorybaum des Ausgangsstands wurde auf `AGENTS.md` geprüft; keine solche Datei war enthalten. `CONTRIBUTING.md` und PR-Vorlage wurden berücksichtigt. Der lokale Git-Transport war nicht erreichbar; Änderungen erfolgen über den GitHub-Connector.
+
+Der PR enthält ausschließlich allgemeine Dokumentation und selbst verfassten, datengetrennten Workflow-Code. Eingabe-JSONs, Dynamo-Dateien mit Modellpfaden, Quellenbilder, DLLs, RVTs, IFCs und detaillierte Raumprüfberichte werden nicht hochgeladen. Keine automatische Zusammenführung; fachlicher Review steht aus.
