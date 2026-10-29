@@ -1,6 +1,22 @@
 # Revit-API-Ergänzung für die Planrekonstruktion
 
-Stand 29.10.2026. Quellcode gegen die lokal installierte Revit-API 2027.3 und .NET SDK 10.0.402 erfolgreich kompiliert: 0 Warnungen, 0 Fehler. Noch nicht in Revit geladen oder ausgeführt. Es wurde damit noch keine RVT- oder IFC-Datei erzeugt.
+Stand 29.10.2026. Abschließender Review-Build gegen die lokal installierte Revit-API 2027.3 und .NET SDK 10.0.402: 0 Warnungen, 0 Fehler. Die ExternalCommands in `Commands.cs` wurden noch nicht installiert oder als Befehle ausgeführt. Die zusätzlichen Klassen in `Prototype.cs` und `Expand.cs` wurden aus Dynamo aufgerufen und haben tatsächlich lokale RVT-/IFC-Arbeitsstände erzeugt. Ergebnis und Grenzen stehen in der [Arbeitsdokumentation](../revit-planrekonstruktion.md).
+
+## Tatsächlich ausgeführter Dynamo-Weg
+
+`GstRevitWorkflowV2.Prototype.Run(UIApplication, inputPath)` erstellt den initialen Teilprototyp mit nativem Flächenvergleich. `GstRevitExpansion.Expand.Run(UIApplication, inputPath)` ergänzt den vorhandenen Prototyp, protokolliert Flächenabweichungen und speichert einen neuen Arbeitsstand. Beide Methoden benötigen lokale, quellengeprüfte Eingabe-JSONs; Gebäudekoordinaten und Raumlisten sind bewusst nicht im Repository enthalten. Die aktuelle Raumobergrenze ist grafisch abgeleitet und bleibt vorläufig. Die Ergänzung erzeugt bislang Wände und Räume; Türen, Fenster, Decken und Dach fehlen.
+
+Für den Lauf wurde das bereits installierte Dynamo/PythonNet3 verwendet: `TransactionManager.Instance.ForceCloseTransaction()`, DLL über `clr.AddReference` laden und die jeweilige statische Methode mit `DocumentManager.Instance.CurrentUIApplication` aufrufen. Die lokal vorbereiteten `.dyn`-Dateien enthalten die passenden Pfade und bleiben außerhalb des Repositorys. Ohne diese lokalen Quelldaten ist der Code ein ausführbarer Importer, keine automatisch vollständige Rekonstruktion aus beliebigen PDFs.
+
+Der initiale Lauf wurde wegen eines schreibgeschützten Raumparameters zurückgerollt. Der korrigierte Code nutzt `ROOM_UPPER_LEVEL` und `ROOM_UPPER_OFFSET`. Aktive Revit-Ansichten müssen nach der Dynamo-Auswertung über die Oberfläche oder den Connector gewechselt werden.
+
+Die tatsächlichen IFC-Ausgaben wurden anschließend unabhängig geprüft:
+
+```powershell
+node .\check-ifc-spaces.mjs "<lokale IFC>" "<lokaler Revit-Prüfbericht pruefung.json>" "<lokaler Ausgabebericht ifc-pruefung.json>"
+```
+
+Der Prüfer akzeptiert hier verwendete vertikale Rechteck-/Polygonextrusionen, kontrolliert positive Geometrie, Geschosszuordnung und Flächen-/Volumenübereinstimmung mit Revit und verweigert unbekannte Geometrietypen. Er beweist keine Vollständigkeit oder fachliche Planrichtigkeit.
 
 Die erreichbaren MCP-Werkzeuge erzeugen native Ebenen, Wände, Geschossdecken, Räume, gehostete Türen/Fenster und rechteckige Dächer. Eigene Werkzeuge für neues Projekt, SaveAs und IFC-Export fehlen im angebotenen Werkzeugbestand. Diese Ergänzung schließt diese drei Lücken. Sie rekonstruiert keine Geometrie aus PDF und enthält keine Gebäudemaße. Modellierung und fachlicher Planabgleich bleiben separate Arbeitsschritte; die vollständige Gebäuderekonstruktion ist noch offen.
 
