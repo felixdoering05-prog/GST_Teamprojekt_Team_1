@@ -1,4 +1,6 @@
-# Bilder, PDFs und DWG-Pläne
+# Bilder, PDFs, DWG-Pläne und IFC-Modelle
+
+Stand: 29. Oktober 2026.
 
 Web-Dashboard und iPhone verwenden dieselben persönlichen Gebäude und dieselbe PostgreSQL-Dateiablage. Auf beiden Geräten mit demselben Konto anmelden.
 
@@ -7,13 +9,14 @@ Web-Dashboard und iPhone verwenden dieselben persönlichen Gebäude und dieselbe
 - **Web:** Anmelden → Gebäude öffnen → Datei auswählen → Datei hochladen. Gespeicherte Dateien lassen sich als Bild/PDF ansehen und herunterladen.
 - **iPhone:** Gebäude öffnen → Bild aus Fotos hochladen oder Datei auswählen. Bilder/PDFs über die Dateiliste ansehen, über Teilen/Sichern exportieren.
 - **DWG:** Datei auswählen, hochladen und herunterladen bzw. in eine CAD-App teilen. Ein eigener DWG-Viewer, Modellimport oder eine Geometrieprüfung ist nicht enthalten.
+- **IFC:** Modell zu einem Gebäude hochladen; in der iPhone-App über die IFC-Bibliothek in 3D öffnen. Auf der Website steht der Download zur Verfügung. [Viewer, Formate und Grenzen](ifc-viewer-ios.md)
 - Fotos aus der iPhone-Fotomediathek werden als JPEG übertragen. Dateien aus der Dateiauswahl bleiben unverändert.
 
 ## Grenzen und Ablage
 
-- PDF, JPG/JPEG, PNG, WebP und DWG; maximal **25 MB je Datei**, **250 MB je Konto**.
+- PDF, JPG/JPEG, PNG, WebP und DWG: maximal **25 MiB je Datei**. Unkomprimierte IFC2x3-/IFC4-Dateien: maximal **20 MiB je Datei**. Gemeinsam maximal **250 MiB je Konto**.
 - Der Server prüft Erweiterung und Dateikennung. Dies ersetzt keine vollständige PDF-/CAD-Inhaltsprüfung.
-- Neue Tabelle `app_documents`: Dateiname, Typ, Größe, Zeitstempel, Gebäude-ID und vollständige Datei als `BYTEA`.
+- Bestehende Tabelle `app_documents`: Dateiname, Typ, Größe, Zeitstempel, Gebäude-ID und vollständige Datei als `BYTEA`.
 - Metadatenlisten enthalten keine Datei-Binärdaten. Der Inhalt wird erst beim Öffnen heruntergeladen.
 - Jeder Aufruf prüft Konto und Gebäudezuordnung. Andere Konten erhalten keinen Zugriff; öffentliche Dateilinks gibt es nicht.
 - Gleichzeitige Uploads desselben Kontos werden für die Quotenprüfung über eine Datenbanksperre koordiniert.
@@ -29,15 +32,17 @@ Alle Pfade unter `/api/v1`, Sitzung über `X-D21-Session`, bestehender Website-Z
 | --- | --- | --- |
 | GET | `/buildings/:buildingId/documents` | Dateiliste des eigenen Gebäudes |
 | POST | `/buildings/:buildingId/documents` | Binärdaten mit `Content-Type: application/octet-stream` und URL-kodiertem `X-File-Name` |
-| GET | `/documents/:documentId` | Authentifizierter Download; DWG als Anhang |
+| GET | `/documents/:documentId` | Authentifizierter Download; DWG und IFC als Anhang |
 | PATCH | `/documents/:documentId` | Eigenen Dateinamen ändern; passende Endung erhalten |
 | DELETE | `/documents/:documentId` | Eigene Datei nach Bestätigung endgültig löschen |
+
+IFC verwendet den MIME-Typ `application/x-step`. Eine optionale UUID in `X-Upload-ID` ermöglicht wiederholbare Uploads.
 
 Upload liefert `201` mit `{id,building_id,name,mime_type,size,created_at}`. Fehler: `400` ungültige Eingabe, `401` Anmeldung fehlt, `404` nicht vorhanden/kein Zugriff, `413` Größe/Quote überschritten, `415` nicht unterstützter Dateityp.
 
 ## Bereitstellung und Prüfung
 
-Änderungen per Branch und Pull Request; Deployment wie vereinbart mit `d21-deploy`. Nach dem Deployment kann die versionierte Datei `dashboard/ops/configure-file-uploads.py` einmal auf dem Server ausgeführt werden, um die vorhandenen vorgeschalteten Upload-Limits von 11 auf 26 MB anzuheben. Sie erhält Routen und Zugangsschutz, sichert die ursprüngliche Konfiguration und prüft nginx vor dem Neuladen. Die API begrenzt weiterhin auf 25 MB.
+Änderungen per Branch und Pull Request; Deployment wie vereinbart mit `d21-deploy`. Nach dem Deployment kann die versionierte Datei `dashboard/ops/configure-file-uploads.py` einmal auf dem Server ausgeführt werden, um die vorhandenen vorgeschalteten Upload-Limits von 11 auf 26 MB anzuheben. Sie erhält Routen und Zugangsschutz, sichert die ursprüngliche Konfiguration und prüft nginx vor dem Neuladen. Die API begrenzt auf 25 MiB beziehungsweise 20 MiB für IFC.
 
 Backendtests unter `dashboard/backend/test/documents.test.js` verwenden isoliertes PostgreSQL (PGlite), einschließlich Kontentrennung, Datei-Roundtrip, Quoten und ungültiger Dateien. DWG-Testdaten prüfen ausschließlich Kennung und unveränderte Bytes; sie sind kein vollständiges CAD-Modell.
 
