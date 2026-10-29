@@ -1,65 +1,57 @@
 # D21 · Architekturübersicht
 
-Stand: 27. Oktober 2026 · Übersicht des bestätigten Projektstands und der geplanten Erweiterungen.
+Stand: **29. Oktober 2026**. Website und iPhone-App verwenden eine gemeinsame Server-API und PostgreSQL. Die PC-Verbindung ist weiterhin als geplant gekennzeichnet.
 
 ```mermaid
 flowchart TB
-    user["Nutzer · Browser auf Handy oder Computer"]
-    cloud["Cloudflare · HTTPS-Zugang"]
-
-    subgraph server["Felix’ STRATO-Server · Website und Daten"]
-        web["Web-App · React / Vite<br/>Auslieferung und Weiterleitung: nginx"]
-        api["Backend / API · Node / Express<br/>Gebäude und Datenzugriff"]
-        db[("PostgreSQL 16<br/>Gebäudedaten dauerhaft gespeichert")]
-        web <-->|"API-Anfragen / Antworten"| api
-        api <-->|"Lesen / Speichern"| db
+    browser["Browser · Weboberfläche"]
+    iphone["iPhone-App · SwiftUI<br/>IFC-Bibliothek und 3D-Viewer"]
+    cloud["Cloudflare · HTTPS und Website-Zugang"]
+    subgraph server["Felix’ Server · zentrale Anwendung und Daten"]
+        web["nginx / React-Vite<br/>Base44-Serveroberfläche"]
+        api["Node / Express API<br/>Anmeldung und Kontorechte"]
+        db[("PostgreSQL 16<br/>Konten, Gebäude, Bilder, Pläne, IFC")]
+        web <--> api
+        api <--> db
     end
-
-    user <-->|"Website öffnen"| cloud
-    cloud <-->|"Bestehender Website-Tunnel<br/>Zugang passwortgeschützt"| web
-
+    browser <--> cloud
+    iphone <-->|"Geschützte API-Anfragen und Datei-Downloads"| cloud
+    cloud <--> web
     subgraph pc["Benjamins Gaming-PC · geplante Anbindung"]
-        bridge["Schnittstelle / Datenübergabe<br/>noch festzulegen"]
-        revit["Revit<br/>Modelle und Exporte"]
-        ollama["Ollama<br/>spätere KI-Erprobung"]
-        revit -.->|"Modellinformationen · geplant"| bridge
-        ollama -.->|"KI-Anfragen und Antworten · später"| bridge
+        bridge["Revit-Datenübergabe / Tunnel<br/>noch zu prüfen"]
+        revit["Revit · Modelle und Exporte"]
+        ollama["Ollama · separater KI-Versuch"]
+        revit -.-> bridge
+        ollama -.-> bridge
     end
-
     api -.->|"Geschützter PC-Server-Tunnel · geplant"| bridge
-    mobile["Xcode-App-Prototyp<br/>geplant"]
-    mobile -.->|"Späterer API-Zugriff<br/>Zugangsweg noch festzulegen"| cloud
-
-    github["GitHub · zentrale Codequelle<br/>Branch → Pull Request → Review → main"]
-    github -->|"Deployment der Web-App"| web
-
-    classDef live fill:#e8f5f3,stroke:#137c82,color:#102f36,stroke-width:2px
-    classDef planned fill:#f5f3ff,stroke:#8b75b5,color:#352052,stroke-width:2px,stroke-dasharray:5 5
-    classDef source fill:#eef2f7,stroke:#64748b,color:#17243b
-    class user,cloud,web,api,db live
-    class bridge,revit,ollama,mobile planned
-    class github source
+    github["GitHub · Branch → Pull Request → main"]
+    github -->|"d21-deploy für Website/API"| web
+    github -->|"Xcode-Build und Installation"| iphone
 ```
 
-## So liest sich die Grafik
+## Bestehender Datenweg
 
-- **Durchgezogene Verbindungen:** bestehender Website-Zugang, API-/Datenbankzugriff und GitHub-Deployment.
-- **Gestrichelte Verbindungen:** geplante Schnittstellen; noch kein bestätigter durchgängiger Betrieb.
-- Die Web-App wird vom Server geladen und läuft im Browser. Das Backend verarbeitet Anfragen und greift auf PostgreSQL zu. Der Browser greift nicht direkt auf die Datenbank zu.
-- Die Datenbank bleibt auf dem Server. Revit und perspektivisch Ollama sind für Benjamins Gaming-PC vorgesehen; eine direkte Datenbankfreigabe an den PC ist nicht eingeplant.
-- Der vorhandene Cloudflare-Tunnel für die Website und der geplante PC-Server-Tunnel sind zwei getrennte Verbindungen.
-- Ollama ist eine spätere Erweiterung und nicht Bestandteil der kurzfristigen Tunnel-Aufgabe.
-- Bilder/PDFs: Die zuvor erprobte Upload-Erweiterung muss noch mit dem aktuellen GitHub-Stand abgeglichen werden; deshalb zeigt die Datenbank hier nur den bestätigten Gebäudedaten-Stand.
+- Die aus Base44 übernommene React-/Vite-Oberfläche wird über nginx ausgeliefert. Browser und native SwiftUI-App erreichen die API über den passwortgeschützten HTTPS-/Cloudflare-Zugang.
+- Die API verarbeitet persönliche Anmeldung und Eigentümerrechte. PostgreSQL speichert Konten, Gebäude, Profilbilder und Gebäudedokumente einschließlich IFC-Dateien. Clients greifen über die API darauf zu, nicht direkt auf die Datenbank.
+- Die iPhone-App bietet geführte Gebäudeanlage, Profilbild, Dateiverwaltung und IFC-Modellbibliothek mit Suche und Fehlerwiederholung. Nach dem geschützten Modell-Download wird die 3D-Geometrie auf dem Gerät berechnet; der VPS speichert und liefert die Datei.
+- Auf der Website können IFC-Dateien hoch- und heruntergeladen werden. Die neue 3D-Ansicht ist zunächst in der iOS-App verfügbar. [IFC-Viewer und Grenzen](ifc-viewer-ios.md)
+- Website und API werden nach dem Merge mit `d21-deploy` aktualisiert. Die iOS-App wird separat über Xcode gebaut und installiert.
 
-## Zuständigkeiten und nächste Schritte
+## Geplante Anbindungen
 
-| Bereich | Verantwortung | Aufgabe |
-| :--- | :--- | :--- |
-| App-Oberfläche | Emir | Vollständigen Stand übernehmen und Upload abgleichen · [#21](../../../issues/21) |
-| Schnittstellen und PC-Server-Tunnel | Benjamin | Verbindung einrichten und testen · [#19](../../../issues/19) |
-| Revit-Prototyp | Lukas & Josef | Modell und Datenexport prüfen · [#11](../../../issues/11) |
-| KI-Erprobung | Josef | Ollama separat erproben · [#12](../../../issues/12) |
-| Organisation / Xcode-Prototyp | Felix | Projektkoordination und erster App-Bildschirm · [#6](../../../issues/6), [#8](../../../issues/8) |
-| Dokumentation / Projektvorstellung | Vincent | Projektstand verständlich dokumentieren · [#10](../../../issues/10) |
+Revit und Ollama sind für Benjamins Gaming-PC vorgesehen. Der geschützte Tunnel und ein vollständiger Revit-Datenweg sind noch nicht als eingerichtet bestätigt. Ein manuell hochgeladenes IFC-Modell belegt noch keine automatische Revit-Schnittstelle.
 
-Die Grafik enthält bewusst keine Server-IP, internen Pfade, Ports oder Zugangsdaten. Sie beschreibt die Projektarchitektur und ist für das öffentliche Repository bestimmt.
+Der bestehende Website-Tunnel und die geplante Verbindung zum Gaming-PC sind zwei unterschiedliche Verbindungen. Ollama bleibt ein gesonderter Versuch und ist nicht Teil der kurzfristigen Tunnel-Aufgabe. [Tunnel #19](../../../issues/19), [Schnittstellen #9](../../../issues/9), [Revit #11](../../../issues/11), [Ollama #12](../../../issues/12)
+
+## KI-Werkzeuge und Campus-Heatmap
+
+Die zwei geplanten Claude-Arbeitsbereiche sind **Josef/Lukas** für Revit und KI sowie **Benjamin/Felix** für Schnittstellen und App. Einladung und Abrechnung sind noch zu klären. Diese Werkzeuge sind noch kein integrierter KI-Endpunkt in der Anwendung.
+
+Die von Herrn Bürgy erwähnte Campus-Heatmap ist eine mögliche Erweiterung nach weiterer Abstimmung. Datenquelle, Zugriff und Schnittstelle sind offen; deshalb ist sie nicht als bestehender Datenweg eingezeichnet. [Rückmeldung und Zugangsplanung](claude-zugaenge-und-campus-heatmap.md)
+
+## Betrieb und Verantwortlichkeiten
+
+Website, API und Datenbank bleiben auf Felix’ Server; bestehende Daten und das Volume `d21_dbdata` werden erhalten. Benjamin verantwortet die Komponenten-Schnittstellen, Felix die Server-/iOS-Arbeit, Emir den App-/Webabgleich und die geplante ChatGPT-Integration. Lukas/Josef bearbeiten Revit-/KI-Versuche, Vincent die Gesamt-/Projektdokumentation. [Rollen und Aufgaben](verantwortlichkeiten.md)
+
+Die öffentliche Grafik enthält keine internen Zugangsdaten. Sie unterscheidet den vorhandenen Datenweg (durchgezogen) von der noch nicht bestätigten PC-Anbindung (gestrichelt).

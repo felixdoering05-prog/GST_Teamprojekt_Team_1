@@ -1,4 +1,4 @@
-# Base44 → eigener Projektserver · Zwischenstand 28.10.2026
+# Base44 → eigener Projektserver · Stand 29.10.2026
 
 Felix übernimmt vorübergehend die Serveranbindung. Die hochgeladene ZIP enthält die
 vollständige Oberfläche mit Dashboard, Gebäuden/Räumen, Sensorik, Energie und Analyse.
@@ -14,11 +14,11 @@ Standard-Compose zeigt deshalb auf diese Serverausgabe.
 1. Anmeldung/Registrierung an vorhandene Serverkonten angeschlossen.
 2. Gebäude an bestehende Tabelle angeschlossen, Zusatzfelder additiv gespeichert.
 3. Konto-getrennte Ablage und validierte CRUD-/Import-Endpunkte für weitere Datentypen.
-4. Bild-, PDF- und DWG-Upload sowie Download im Gebäudebereich ergänzt.
+4. Bild-, PDF- und DWG-Upload sowie Download im Gebäudebereich ergänzt; seit #36 auch IFC-Upload und Download. Die 3D-IFC-Ansicht liegt in der nativen iOS-App.
 5. Demo-Daten und regelbasierte Grenzwertprüfung aus dem Export auf Node übertragen.
 6. Standard-Compose auf die neue Oberfläche umgestellt; alte Oberfläche im Repository erhalten.
 
-## Prüfstand
+## Prüfstand der ursprünglichen Umstellung (28.10.2026)
 
 - Alle 24 Backend-Tests bestanden (einschließlich fünf neuer Integrationstests).
 - Gemeinsame Gebäude und Dokumente zwischen bisheriger/iOS-API und neuer Oberfläche geprüft.
@@ -28,11 +28,11 @@ Standard-Compose zeigt deshalb auf diese Serverausgabe.
 - Frontend-Produktionsbuild und ESLint bestanden.
 - Registrierung und Gebäudeanlage in einer lokalen Browser-Vorschau mit separater Testdatenbank geprüft.
 - Die zusätzliche Typprüfung meldet noch Fehler in der JavaScript-/React-Typisierung des übernommenen UI-Codes.
-- Noch kein produktiver Ende-zu-Ende-Test auf dem Server, keine Produktivumschaltung.
+- Die ursprüngliche lokale Prüfung wurde anschließend durch die Produktivumschaltung über #32 und das Deployment-Skript ergänzt. Die aktive Serveroberfläche ist `dashboard/base44-frontend/`. Mit #36 wurden IFC-Upload, PostgreSQL-Ablage und bytegleicher Download zusätzlich auf dem Server mit einem anschließend entfernten Testkonto geprüft. Diese Prüfungen sind keine neue vollständige Abnahme aller Webmodule.
 
 ## Veröffentlichung
 
-Nach Review dieses Pull Requests ausschließlich `d21-deploy` verwenden. Zuvor eine
+Für künftige Änderungen nach dem Merge ausschließlich `d21-deploy` verwenden. Zuvor eine
 Datenbanksicherung auf dem Server erstellen; danach API, gemeinsame Gebäude/Dateien
 und den öffentlichen Zugriff prüfen. Ein bestehender Base44-Datenbestand ist nicht
 Teil der ZIP und wurde nicht migriert. Die Serverausgabe nutzt die vorhandenen

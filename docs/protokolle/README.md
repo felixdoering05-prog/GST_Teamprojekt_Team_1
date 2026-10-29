@@ -30,3 +30,13 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [28.10.2026 · Geführte Gebäudeanlage und Gebäudemappe](2026-10-28-gebaeudemappe.md) – Implementierung und lokale Prüfung.
 
 - [28.10.2026 · Passwort-Wiederherstellung und Mail](2026-10-28-passwort-mail.md) – technische Vorbereitung; Absenderkonto fehlt.
+
+- [28.10.2026 · IFC-Viewer und Serverablage](2026-10-28-ifc-viewer.md) – lokale 3D-Ansicht und zentrale Dokumentablage.
+
+- [28.10.2026 · IFC-Modellbibliothek](2026-10-28-ifc-modellbibliothek.md) – Modellkarten, Suche und Fehlerwiederholung; Tests und Screenshots.
+
+- [28.10.2026 · App-Symbol](2026-10-28-app-symbol.md) – Entwurf und Überarbeitung mit Glasoptik.
+
+## Projektstands-Updates
+
+- [29.10.2026 · Claude-Zugänge, Baupläne und Campus-Heatmap](2026-10-29-projektstand-claude-heatmap.md) – Rückmeldung und Zuordnung dokumentiert; Einladung und Abrechnung offen.
