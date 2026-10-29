@@ -1,0 +1,8 @@
+bin/
+obj/
+*.addin
+*.rvt
+*.rfa
+*.ifc
+*.pdf
+pruefung.json
