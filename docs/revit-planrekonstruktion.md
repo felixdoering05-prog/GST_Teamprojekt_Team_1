@@ -16,7 +16,7 @@ Arbeitsbranch: `revit/planpruefung-api-workflow-2026-10-29`. Der vollständige R
 | --- | --- | --- |
 | Quellen finden | Zunächst mehrdeutiges „c“ beim Auftraggeber erfragt; anschließend sechs konkrete lokale PDF-Pfade erhalten und alle Dateien gefunden | Kein maßgebliches zusätzliches IFC benannt |
 | Pläne sichten | Je eine Seite: UG, EG, 1. OG, 2. OG, 3. OG sowie Süd-/Nordansicht; sämtliche Seiten lokal gerendert und visuell geprüft | Vollständige Maß- und Raumtranskription noch offen |
-| Planstände prüfen | EG/1. OG: Ausführungsplanung, 20.11.2025, 1:50. B-Grundrisse: 26.02.2025, 1:100. Ansicht B-04 ebenfalls 1:100 | Unterschiedliche Planverfasser und Stände; gemeinsame Verwendung noch nicht bestätigt |
+| Planstände prüfen | EG/1. OG: Ausführungsplanung, 20.11.2025, 1:50. B-Grundrisse: 26.02.2025, 1:100. Ansicht B-04 ebenfalls 1:100 | Unterschiedliche Planverfasser und Stände; gemeinsame Verwendung vom Auftraggeber ausdrücklich bestätigt |
 | Revit prüfen | Installierte `Revit.exe`, laufender Prozess, erfolgreiches MCP-Ping und Versionsabfrage: Revit 2027.3, Build 27.3.0.28, Deutsch | Lesen erfolgreich; Modelländerungen in dieser Sitzung nicht ausgeführt |
 | Aktiven Arbeitsstand schützen | Aktives Dokument „Projekt2“, kein gespeicherter Pfad, `isModified=true`; keine Modellmutation ausgeführt | Es ist kein nachweislich neues Projekt für diesen Auftrag |
 | Bedienweg prüfen | Revit-Fenster ermittelt und visuell eingesehen; native Erstellungsbefehle im Connector vorhanden | UI-Barrierefreiheit liefert keinen Elementbaum; neue Datei, SaveAs und IFC-Export fehlen als Connectorbefehle |
@@ -27,8 +27,8 @@ Zum Rendern wurde die vorhandene Windows-PDF-API verwendet. Python/Poppler waren
 
 ## Wesentliche offene Punkte und Rückfragen
 
-1. **Schnitte und Höhen:** Die Grundrisse verweisen auf Schnitte A–D; diese liegen nicht in den sechs gelieferten Dateien. Dateipfade oder eine belegte Tabelle mit OKFF/OKRD je Geschoss, lichten Höhen, Deckenstärken und Dachhöhen/-aufbau wurden angefragt. Einzelne Höhenmarken der Ansichten ersetzen diese Zuordnung nicht.
-2. **Planpriorität:** Bestätigen, ob die neueren EG-/1.-OG-Ausführungspläne mit den älteren B-Plänen für die übrigen Geschosse kombiniert werden dürfen. Unterschiedliche Außenkonturen zwischen Geschossen sind nicht automatisch ein Widerspruch; Rücksprünge, Anbauten und Dachaufkantungen müssen anhand der jeweiligen Bezugskanten abgeglichen werden.
+1. **Höhen genauer geprüft:** Der Auftraggeber verweist ausdrücklich auf die vorhandenen Nord-/Südansichten als Höhenquelle. Diese wurden erneut hochauflösend gerendert und die Höhenpfeile ihren gezeichneten Bauteilkanten zugeordnet. EG-OKFFB, Dachkanten und Anbauhöhen sind dort belegt. Noch nicht belegt sind die dazwischenliegenden OKFF-/OKRD-Koten aller Geschosse und die Deckenstärken; Dachkanten dürfen nicht als diese Geschosshöhen umgedeutet werden. Fehlende Schnitte sind daher keine pauschale Voraussetzung für alle Arbeitsschritte; es bleiben nur die konkret nicht ablesbaren Höhen-/Aufbauangaben offen.
+2. **Planpriorität geklärt:** Der Auftraggeber hat die Kombination der neueren EG-/1.-OG-Ausführungspläne mit den älteren B-Plänen für die übrigen Geschosse ausdrücklich erlaubt. Unterschiedliche Außenkonturen zwischen Geschossen sind nicht automatisch ein Widerspruch; Rücksprünge, Anbauten und Dachaufkantungen müssen anhand der jeweiligen Bezugskanten abgeglichen werden.
 3. **Bauteildefinitionen:** Gesamtdicken, Rohbau-/Fertigkanten, Deckenhöhen, Öffnungsmaße, Brüstungen und Dachanschlüsse belegen. Bei unbekannten Schichten keine erfundenen Materialien oder Schichtdicken anlegen. Unbemaßte Öffnungen bleiben offen.
 4. **Räume:** Originalraumliste je abgestimmtem Geschoss erstellen, mit Nummer, Bezeichnung, planlicher Fläche als Kontrollwert und Quellenverweis. Fehlende Nummern nicht automatisch vergeben. Raumobergrenzen und Raumphase ausdrücklich prüfen.
 5. **Modellablage und Abnahme:** Lokale Arbeitsablage ist vorbereitet; gemeinsame Teamablage und Maßtoleranzen sind noch festzulegen. [Projektsteckbrief](projektsteckbrief.md), [Modellregister](../revit/modelle/README.md) und [Exportregister](../revit/exporte/README.md) erst mit einem tatsächlich erzeugten, eindeutig bezeichneten Stand aktualisieren.
@@ -52,3 +52,7 @@ Zum Rendern wurde die vorhandene Windows-PDF-API verwendet. Python/Poppler waren
 - API-Ergänzung gegen die installierte Revit-API 2027.3 mit .NET SDK 10.0.402 gebaut: **0 Warnungen, 0 Fehler**. Manifestvorbereitung erfolgreich. DLL und generiertes Manifest bleiben lokal.
 - Laufzeitprüfung des Add-ins, vollständiger Planabgleich, neue RVT, Modellvollständigkeit, IFCSPACE-Geometrieprüfung und Ziel-App-Test: **noch offen**.
 - Pull Request zur technischen Durchsicht; keine Zusammenführung und keine Veröffentlichung von Plänen oder Modellen.
+
+## Nachtrag: Rückmeldung des Auftraggebers
+
+Die Planstände dürfen kombiniert werden. Die Nord-/Südansichten sind ausdrücklich als vorhandene Höhenquelle zu verwenden. Höhenmarken wurden deshalb erneut im Detail geprüft; die lokale Quellenzuordnung wurde ergänzt. Diese Freigabe betrifft die Kombination zur Rekonstruktion, nicht den Upload der Baupläne oder Modelle. Keine neue RVT/IFC erzeugt.
