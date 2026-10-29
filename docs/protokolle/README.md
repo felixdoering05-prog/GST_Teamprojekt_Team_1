@@ -40,3 +40,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 ## Projektstands-Updates
 
 - [29.10.2026 · Claude-Zugänge, Baupläne und Campus-Heatmap](2026-10-29-projektstand-claude-heatmap.md) – Rückmeldung und Zuordnung dokumentiert; Einladung und Abrechnung offen.
+
+- [IFC-Interaktion und Smart Home, 29.10.2026](2026-10-29-ifc-interaktion-smart-home.md)

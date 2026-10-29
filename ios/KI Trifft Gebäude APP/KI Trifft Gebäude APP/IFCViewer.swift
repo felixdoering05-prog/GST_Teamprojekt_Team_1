@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct IFCLibraryView: View {
     @ObservedObject var model: AccountModel
+    let smartHome: Bool
     @StateObject private var library: IFCLibraryState
     @State private var search = ""
     @State private var openingID: Int?
@@ -14,8 +15,9 @@ struct IFCLibraryView: View {
     @State private var downloadMessage = ""
     @State private var preview: DocumentPreview?
     private var scope: String { model.serverURL + "#" + String(model.user?.id ?? -1) }
-    init(model: AccountModel) {
+    init(model: AccountModel, smartHome: Bool = false) {
         self.model = model
+        self.smartHome = smartHome
         _library = StateObject(wrappedValue: IFCLibraryState(source: IFCLibrarySource(
             scope: { model.user.map { model.serverURL + "#" + String($0.id) } },
             buildings: { try await model.fetchBuildings() },
@@ -49,8 +51,8 @@ struct IFCLibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Deine Gebäude in 3D", systemImage: "cube.transparent").font(.title2.bold())
-                    Text("Gespeichert auf dem Projektserver. Öffne dein Modell und entdecke die Bauteile.").foregroundStyle(.secondary)
+                    Label(smartHome ? "Licht im Modell simulieren" : "Deine Gebäude in 3D", systemImage: smartHome ? "lightbulb" : "cube.transparent").font(.title2.bold())
+                    Text(smartHome ? "Öffne ein IFC-Modell mit exportierten Räumen. Schalte das simulierte Licht pro Raum und sieh die Markierung im Modell. Keine Verbindung zu echten Lampen." : "Gespeichert auf dem Projektserver. Öffne dein Modell und entdecke die Bauteile.").foregroundStyle(.secondary)
                     if !library.entries.isEmpty {
                         Text("\(library.entries.count) Modell(e) · \(library.buildings.count) Gebäude").font(.caption).foregroundStyle(.secondary)
                     }
@@ -101,20 +103,20 @@ struct IFCLibraryView: View {
                         }
                     }.padding(18).background(.background, in: RoundedRectangle(cornerRadius: 20))
                 }
-                NavigationLink { IFCViewer() } label: { Label("Lokale IFC-Datei ohne Upload öffnen", systemImage: "folder").padding(.vertical, 8) }
+                NavigationLink { IFCViewer(smartHome: smartHome) } label: { Label("Lokale IFC-Datei ohne Upload öffnen", systemImage: "folder").padding(.vertical, 8) }
                 Text("IFC2x3 / IFC4 · bis 20 MB pro Modell · 250 MB pro Konto. Zum Öffnen gespeicherter Modelle brauchst du eine Internetverbindung.")
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding(20).frame(maxWidth: 720)
                 .frame(maxWidth: .infinity)
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("IFC-Modelle").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(smartHome ? "Smart Home" : "IFC-Modelle").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Modell oder Gebäude suchen")
         .task(id: scope) { await library.refresh() }
         .refreshable { await library.refresh() }
         .onChange(of: scope) { _, _ in cancelDownload(); preview = nil; search = "" }
         .onDisappear { cancelDownload() }
-        .sheet(item: $preview) { DocumentPreviewView(item: $0) }
+        .sheet(item: $preview) { DocumentPreviewView(item: $0, smartHome: smartHome) }
     }
     private func modelCard(_ entry: IFCModelEntry) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -127,7 +129,7 @@ struct IFCLibraryView: View {
             Button { open(entry.document) } label: {
                 HStack(spacing: 10) {
                     if openingID == entry.id { ProgressView().tint(.white) }
-                    Text(openingID == entry.id ? "Modell wird geladen …" : "In 3D öffnen").fixedSize(horizontal: false, vertical: true)
+                    Text(openingID == entry.id ? "Modell wird geladen …" : (smartHome ? "Lichtsimulation öffnen" : "In 3D öffnen")).fixedSize(horizontal: false, vertical: true)
                     if openingID != entry.id { Image(systemName: "arrow.up.right") }
                 }.frame(maxWidth: .infinity).padding(.vertical, 8)
             }.buttonStyle(.borderedProminent).tint(d21Accent).disabled(openingID != nil)
@@ -154,11 +156,13 @@ struct IFCLibraryView: View {
 
 struct IFCStoredModelView: View {
     let url: URL
-    var body: some View { IFCWebView(modelURL: url) }
+    var smartHome = false
+    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome) }
 }
 
 /// Optional local preview; server-stored models are opened through IFCLibraryView.
 struct IFCViewer: View {
+    var smartHome = false
     @StateObject private var files = IFCTemporaryFiles()
     @State private var importing = false
     @State private var modelURL: URL?
@@ -168,7 +172,7 @@ struct IFCViewer: View {
     var body: some View {
         VStack(spacing: 0) {
             if let modelURL {
-                IFCWebView(modelURL: modelURL).id(modelURL)
+                IFCWebView(modelURL: modelURL, smartHome: smartHome).id(modelURL)
                 Text(modelName).font(.caption).lineLimit(1).padding(8)
             } else {
                 ContentUnavailableView {
@@ -228,6 +232,7 @@ private enum IFCError: LocalizedError {
 
 private struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
+    var smartHome = false
     func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -237,7 +242,7 @@ private struct IFCWebView: UIViewRepresentable {
         web.navigationDelegate = context.coordinator
         web.isOpaque = false
         web.scrollView.isScrollEnabled = false
-        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html")!))
+        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html" + (smartHome ? "?mode=smart-home" : ""))!))
         return web
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}

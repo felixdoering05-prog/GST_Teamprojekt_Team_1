@@ -452,6 +452,7 @@ struct AccountHomeView: View {
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
             NavigationStack { IFCLibraryView(model: model) }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }.tag(1)
+            NavigationStack { IFCLibraryView(model: model, smartHome: true) }.tabItem { Label("Smart Home", systemImage: "lightbulb") }.tag(3)
             NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }.tag(2)
         }
     }
@@ -522,11 +523,12 @@ struct ProfileView: View {
 struct DocumentPreviewView: View {
     @Environment(\.dismiss) var dismiss
     let item: DocumentPreview
+    var smartHome = false
     var body: some View {
         NavigationStack {
             Group {
                 if item.document.mime_type == "application/x-step" {
-                    IFCStoredModelView(url: item.url)
+                    IFCStoredModelView(url: item.url, smartHome: smartHome)
                 } else if item.document.mime_type == "application/acad" {
                     ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
                 } else { NativeFilePreview(url: item.url) }
