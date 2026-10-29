@@ -56,6 +56,6 @@ Der abschließende Review-Build gegen die installierte Revit-API 2027 und .NET S
 
 ## Repository
 
-Arbeitsbranch `revit/planpruefung-api-workflow-2026-10-29`, [Entwurfs-PR #43](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/43). Der vollständige Repositorybaum des Ausgangsstands wurde auf `AGENTS.md` geprüft; keine solche Datei war enthalten. `CONTRIBUTING.md` und PR-Vorlage wurden berücksichtigt. Der lokale Git-Transport war nicht erreichbar; Änderungen erfolgen über den GitHub-Connector.
+Arbeitsbranch `revit/eg-arbeitsstand-2026-10-29`, [Entwurfs-PR #44](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/44). Der frühere Vorbereitungs-PR #43 wurde während der Modellierung bereits zusammengeführt; die tatsächlichen Modellierungs-/Exportprüfungen sind deshalb in diesem Folge-PR dokumentiert. Der vollständige Repositorybaum des Ausgangsstands wurde auf `AGENTS.md` geprüft; keine solche Datei war enthalten. `CONTRIBUTING.md` und PR-Vorlage wurden berücksichtigt. Der lokale Git-Transport war nicht erreichbar; Änderungen erfolgen über den GitHub-Connector.
 
 Der PR enthält ausschließlich allgemeine Dokumentation und selbst verfassten, datengetrennten Workflow-Code. Eingabe-JSONs, Dynamo-Dateien mit Modellpfaden, Quellenbilder, DLLs, RVTs, IFCs und detaillierte Raumprüfberichte werden nicht hochgeladen. Keine automatische Zusammenführung; fachlicher Review steht aus.
