@@ -90,3 +90,15 @@ Zusätzliche Startargumente:
 - `-D21IFCFailPreview`: der Download des zweiten Modells schlägt fehl.
 
 Ohne den expliziten Workflow-Vorschau-Modus sind diese Optionen inaktiv; der gesamte Mock-Code ist aus Release-Builds ausgeschlossen. Für Tests einen separaten Simulator-Bundle-Identifier verwenden, damit persönliche Testinstallationen und deren Schlüsselbund unberührt bleiben.
+
+
+## Bauteilaktionen und Smart Home (29. Oktober 2026)
+
+- Antippen oder 550 ms gedrückt halten markiert ein vollständiges IFC-Bauteil. Drehen, Mehrfinger-Gesten und abgebrochene Berührungen lösen keine Auswahl aus.
+- Farbwahl und Ausblenden wirken auf alle Geometrieteile derselben IFC-ID. Ausgeblendete Teile werden nicht erneut getroffen. „Alles anzeigen“ und „Farben zurücksetzen“ ermöglichen die Rückkehr.
+- Der neue App-Tab **Smart Home** öffnet dieselbe Modellbibliothek direkt in der Lichtsimulation. Im Modell kann zwischen „Modell“ und „Smart Home“ gewechselt werden.
+- Räume werden ausschließlich aus exportierten `IFCSPACE`-Objekten gelesen. Ein Schalter aktiviert eine warme transparente Darstellung der Raumgeometrie. Das ist eine Zustandssimulation, keine physikalische Beleuchtungsberechnung oder Steuerung echter Geräte.
+- Räume ohne darstellbare Geometrie bekommen einen deaktivierten Schalter. Ohne Raumobjekte zeigt die App einen Hinweis, Räume samt Geometrie aus Revit zu exportieren.
+- Farben, Sichtbarkeit und Lichtzustände gelten nur für die aktuell geöffnete Modellansicht. Die IFC-Datei bleibt unverändert; kein Schreiben von Ansichtsänderungen in die Serverdatenbank.
+- Felix' bereitgestelltes Modell wurde lokal geprüft, aber nicht ins Repository oder auf den Server hochgeladen: IFC2X3, 117 Wände, 57 Türen, 135 Fenster, 0 Räume. Der Parser erzeugte 1.528 Geometrieteile mit 300.352 Punkten; zwei BREP-Flächen meldete er als nicht triangulierbar.
+- Eigene künstliche Raum-Testdatei: `ios/tests/fixtures/light-room.ifc`. Funktionstest: `npm --prefix ios/ifc-viewer test`.
