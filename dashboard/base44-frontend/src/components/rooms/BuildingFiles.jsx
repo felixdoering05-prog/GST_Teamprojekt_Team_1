@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {Link} from 'react-router-dom';
 import {request,uploadFile} from '@/api/base44Client';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -42,7 +43,7 @@ export default function BuildingFiles({building}) {
  }
  return <section className="surface space-y-4 p-5">
   <h2 className="font-semibold">Bilder & Pläne · {building.name}</h2>
-  <p className="text-sm text-muted-foreground">PDF, JPG, PNG, WebP, DWG und IFC · maximal 25 MB pro Datei (IFC: 20 MB) und 250 MB pro Konto. IFC-Modelle werden auf dem Server gespeichert und können in der iPhone-App als 3D-Modell geöffnet werden. Im Browser ist der Download verfügbar.</p>
+  <p className="text-sm text-muted-foreground">PDF, JPG, PNG, WebP, DWG und IFC · maximal 25 MB pro Datei (IFC: 20 MB) und 250 MB pro Konto. IFC-Modelle werden auf dem Server gespeichert und können in der iPhone-App als 3D-Modell geöffnet werden. Im Browser lassen sich IFC-Modelle ebenfalls in 3D öffnen.</p>
   <label className="block text-sm font-medium" htmlFor="building-file">Datei hochladen</label>
   <input id="building-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg,.ifc" disabled={busy||!!pending} onChange={choose}/>
   {pending&&<div className="space-y-2 rounded-lg border p-3"><p className="break-all text-sm">{pending.file.name}</p>
@@ -57,6 +58,7 @@ export default function BuildingFiles({building}) {
   <ul>{files.map(f=><li key={f.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
    <span className="min-w-0 break-all text-sm">{f.name} · {Math.ceil(f.size/1024)} KB</span>
    <div className="flex flex-wrap gap-2">
+    {f.mime_type==='application/x-step'&&<Button size="sm" variant="outline" asChild><Link to={`/bim-viewer?model=${f.id}`}>In 3D öffnen</Link></Button>}
     {!['application/acad','application/x-step'].includes(f.mime_type)&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>open(f)}>Ansehen</Button>}
     <Button size="sm" variant="outline" disabled={busy} onClick={()=>open(f,true)}>Herunterladen</Button>
     <Button size="sm" variant="outline" disabled={busy} onClick={()=>{setNewName(f.name.slice(0,f.name.lastIndexOf('.')));setRename(f)}}>Umbenennen</Button>
