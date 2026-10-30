@@ -2,7 +2,7 @@
 
 [← Startseite](../../README.md)
 
-Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. Noch keine Sitzung erfasst.
+Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. **Bis zum 30.10.2026 ist in diesem Verzeichnis noch kein freigegebenes Team-Sitzungsprotokoll erfasst.** Entwicklungsprotokolle und technische Arbeitsnachweise unten sind keine Teamtermine. Fehlende Termine und Beschlüsse dürfen nur anhand tatsächlicher Aufzeichnungen nachgetragen werden.
 
 ## Neues Protokoll erstellen
 
@@ -25,6 +25,8 @@ Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzun
 
 Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermine.
 
+- [27.10.2026 · Einrichtung der gemeinsamen GitHub-/Server-Codeverwaltung](../protokoll-2026-10-27.md) – vorhandener technischer Arbeitsbericht von Benni; kein belegtes Team-Sitzungsprotokoll.
+
 - [28.10.2026 · iOS-Startbildschirm mit Projektlogo](2026-10-28-entwicklung-startbildschirm.md) – Umsetzung veröffentlicht; visuelle Abnahme offen.
 
 - [28.10.2026 · Geführte Gebäudeanlage und Gebäudemappe](2026-10-28-gebaeudemappe.md) – Implementierung und lokale Prüfung.
@@ -42,3 +44,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [29.10.2026 · Claude-Zugänge, Baupläne und Campus-Heatmap](2026-10-29-projektstand-claude-heatmap.md) – Rückmeldung und Zuordnung dokumentiert; Einladung und Abrechnung offen.
 
 - [IFC-Interaktion und Smart Home, 29.10.2026](2026-10-29-ifc-interaktion-smart-home.md)
+
+- [29.10.2026 · Revit-EG-Arbeitsstand und IFC4-Prüfung](../revit-planrekonstruktion.md) – technischer Arbeitsnachweis mit 50 Wänden, 28 IFC-Räumen und dokumentierten offenen Abweichungen; kein freigegebenes Gebäudemodell.

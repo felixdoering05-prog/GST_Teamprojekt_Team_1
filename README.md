@@ -17,7 +17,7 @@ Passwortgeschützter Projektzugang · Vorläufige Cloudflare-Testadresse; sie ka
 
 Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone-App nutzen eine gemeinsame Datenablage für persönliche Konten, Gebäude, Bilder, Pläne und IFC-Modelle. Darauf aufbauend erproben wir die Anbindung von Revit und abgegrenzte KI-Anwendungen mit nachvollziehbaren Ergebnissen.
 
-**Stand: 29. Oktober 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
+**Stand: 30. Oktober 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
 
 ## Aktueller Entwicklungsstand
 
@@ -30,13 +30,15 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 | Bilder, PDF und DWG | Upload und Download pro Gebäude, Bild-/PDF-Vorschau; DWG-Dateien können in einer geeigneten CAD-App geöffnet werden. [Dateiablage](docs/dateien.md) |
 | IFC-Modelle | Zentrale Ablage pro Gebäude auf dem Server; Upload auch über die Website. In der iPhone-App: 3D-Ansicht mit Drehen, Zoomen, Draufsicht und Bauteilauswahl. Die Modellberechnung läuft auf dem Gerät, nicht auf dem VPS. [IFC-Anleitung](docs/ifc-viewer-ios.md) |
 | IFC-Bibliothek | Modellkarten mit Gebäude und Größe, Suche nach Datei-/Gebäudenamen, Ladeanzeigen, gezielte Wiederholungen und verständliche leere Ansichten. Vorhandene Ergebnisse bleiben bei Aktualisierungsfehlern sichtbar. [Stand und Screenshots](docs/protokolle/2026-10-28-ifc-modellbibliothek.md) |
+| IFC-Interaktion / Smart Home | Bauteile im iOS-Viewer auswählen, einfärben und ausblenden; simuliertes Raumlicht für `IFCSPACE`-Räume mit Geometrie. **Nur visuelle Simulation**, keine reale KNX-/Lampensteuerung und keine physikalische Lichtberechnung. [Dokumentation](docs/ifc-viewer-ios.md) · [PR #42](../../pull/42) |
 | Passwort vergessen | Technisch vorbereitet; echter Mailversand benötigt weiterhin ein eingerichtetes Projekt-Absenderkonto. [Einrichtung](docs/passwort-mail.md) |
-| Revit / Gaming-PC | Revit und Ollama sind für Benjamins Gaming-PC vorgesehen. Ein geschützter PC-Server-Tunnel und der durchgängige Revit-Datenweg sind noch nicht als eingerichtet bestätigt. [#9](../../issues/9), [#19](../../issues/19) |
+| Revit-EG-Arbeitsstand | In Revit 2027.3 wurde lokal ein unvollständiges EG-Modell mit **50 nativen Wänden und 28 geschlossenen Räumen** erstellt; RVT und IFC4 wurden gespeichert und technisch geprüft. **11 Räume** liegen innerhalb des technischen Prüfwerts von 0,03 m², **17** haben noch Flächenabweichungen und **5 Planräume** fehlen. Türen, Fenster, Decken, Dach und weitere Geschosse sind noch offen. Keine fachliche Abnahme und keine Freigabe zum Hochladen. [Arbeitsnachweis](docs/revit-planrekonstruktion.md) · [PR #44](../../pull/44) |
+| Gaming-PC / Revit-Datenweg | Der geschützte Tunnel zu Benjamins Gaming-PC und die durchgängige automatische Revit-Übergabe sind weiterhin nicht als funktionsfähig nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
 | KI im Produkt | Die Web-Auswertung ist zunächst regelbasiert. Ein echter ChatGPT-/KI-Ablauf und eine Ollama-Anbindung sind noch offen; vorbereitete Oberflächen oder Demo-Daten sind keine produktive KI. [Emirs Aufgabe #33](../../issues/33) |
 
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
-Zuletzt umgesetzt: [#36 · IFC-Viewer und Serverablage](../../pull/36), [#38 · App-Symbol](../../pull/38), [#39 · IFC-Modellbibliothek](../../pull/39). Die frühere Startaufgabe für den Xcode-Prototyp [#8](../../issues/8) ist geschlossen.
+Zuletzt umgesetzt: [#39 · IFC-Modellbibliothek](../../pull/39), [#41 · Dokumentation und Claude-Zuordnung](../../pull/41), [#42 · IFC-Bauteilaktionen und Raumlichtsimulation](../../pull/42), [#43 · Revit-API-Vorbereitung](../../pull/43), [#44 · lokaler Revit-EG-Arbeitsstand](../../pull/44). Die frühere Startaufgabe für den Xcode-Prototyp [#8](../../issues/8) ist geschlossen.
 
 ## Neue Rückmeldung: Claude-Zugänge und Campus-Heatmap
 
@@ -74,7 +76,7 @@ Die neue Zugangszuordnung ändert diese fachlichen Rollen nicht. API- und Datenb
 
 - **Felix:** zwei Einladungsempfänger mit Bürgy abstimmen; Bereitstellung und Nutzungsfreigabe der D21-Pläne nachhalten. Abrechnung und Budget bleiben offen, bis sie bestätigt sind.
 - **Benjamin & Felix:** Stand der PC-Verbindung dokumentieren, Verbindungsweg testen und Revit-/IFC-Übergabe abstimmen. Der frühere Termin für [#19](../../issues/19) war der 28. Oktober; ein Abschlussnachweis steht noch aus.
-- **Lukas & Josef:** kleines Revit-Modell und Export mit eigener Gegenprüfung vorlegen. Bei fehlenden Plänen ein eigenes freigegebenes Testmodell verwenden; beide halten ihren Beitrag fest.
+- **Lukas & Josef:** den bereits dokumentierten lokalen EG-Modellstand aus [PR #44](../../pull/44) als Ausgangspunkt fachlich gegenprüfen; **17 Raumkonturen korrigieren und 5 fehlende Räume klären**, bevor weitere Geschosse oder Lichtsimulationen freigegeben werden. Eigene Beiträge beider Teammitglieder und die tatsächliche Übergabe separat nachweisen; die bisherigen technischen Prüfungen ersetzen keinen solchen Teamnachweis. [#11](../../issues/11)
 - **Emir:** Base44-Serverstand abgleichen, ChatGPT-Anwendungsfall und benötigte Zugänge mit Felix klären, ersten prüfbaren Ablauf und technische Dokumentation liefern · [#33](../../issues/33). Der ältere Export-/Abgleichauftrag [#21](../../issues/21) muss anhand des inzwischen importierten Stands abgeglichen werden.
 - **Vincent:** Teamvorstellung und Projektdokumentation aktualisieren; echte und geplante Funktionen unterscheiden.
 - **Alle:** mindestens einen nachvollziehbaren Beitrag, Prüfergebnisse und offene Blocker im jeweiligen Issue festhalten.
@@ -130,7 +132,7 @@ Durchgezogen = vorhandener Datenweg · Gestrichelt = noch nicht bestätigte Anbi
 | Website und Backend | [`dashboard/`](dashboard/), [Base44-Serveranbindung](docs/base44-serveranbindung.md) |
 | iPhone-App / Xcode | [`ios/README.md`](ios/README.md) |
 | Konten und Dateien | [Konten-API](docs/konten-api.md), [Dateiablage](docs/dateien.md), [Gebäudemappe](docs/gebaeudemappe-ios.md) |
-| IFC / BIM | [IFC-Viewer und Modellbibliothek](docs/ifc-viewer-ios.md), [`revit/`](revit/README.md) |
+| IFC / BIM | [IFC-Viewer, Modellbibliothek und Smart-Home-Simulation](docs/ifc-viewer-ios.md), [Revit-EG-Arbeitsstand](docs/revit-planrekonstruktion.md), [`revit/`](revit/README.md) |
 | KI und geplante Claude-Zugänge | [Zugangsplanung und Heatmap](docs/claude-zugaenge-und-campus-heatmap.md), [`ki/`](ki/README.md) |
 | Organisation | [Projektsteckbrief](docs/projektsteckbrief.md), [Aufgabenplan](docs/aufgabenplan.md), [Verantwortlichkeiten](docs/verantwortlichkeiten.md) |
 | Nachweise | [Protokolle](docs/protokolle/README.md), [Leistungsnachweise](docs/leistungsnachweise.md), [`ergebnisse/`](ergebnisse/README.md) |
