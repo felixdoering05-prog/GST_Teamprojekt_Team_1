@@ -18,7 +18,7 @@ import { base44 } from '@/api/base44Client';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
-  { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'Schematische Gebäudeansicht als Platzhalter für das Revit-/IFC-Modell' },
+  { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
   { path: '/gebaeude', label: 'Gebäude & Räume', icon: Building2, hint: 'Geschosse und Räume anlegen, bearbeiten und verwalten' },
   { path: '/sensorik', label: 'Sensorik', icon: Radio, hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
   { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },

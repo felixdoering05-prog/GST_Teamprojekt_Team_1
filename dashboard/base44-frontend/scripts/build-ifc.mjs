@@ -1,0 +1,11 @@
+import { build } from 'esbuild';
+import { mkdir, copyFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+const root = new URL('../', import.meta.url);
+const output = new URL('public/ifc-viewer/', root);
+await mkdir(output, { recursive: true });
+await build({ entryPoints: [fileURLToPath(new URL('ifc-viewer/viewer.js', root))], bundle: true, format: 'iife', target: 'safari17', minify: true, legalComments: 'eof', outfile: fileURLToPath(new URL('viewer.js', output)) });
+for (const name of ['index.html', 'style.css']) await copyFile(new URL('ifc-viewer/' + name, root), new URL(name, output));
+await copyFile(new URL('node_modules/web-ifc/web-ifc.wasm', root), new URL('web-ifc.wasm', output));
+await copyFile(new URL('node_modules/web-ifc/LICENSE.md', root), new URL('web-ifc-LICENSE.txt', output));
+await copyFile(new URL('node_modules/three/LICENSE', root), new URL('three-LICENSE.txt', output));

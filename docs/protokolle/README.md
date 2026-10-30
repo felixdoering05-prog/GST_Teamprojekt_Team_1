@@ -46,3 +46,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [IFC-Interaktion und Smart Home, 29.10.2026](2026-10-29-ifc-interaktion-smart-home.md)
 
 - [29.10.2026 · Revit-EG-Arbeitsstand und IFC4-Prüfung](../revit-planrekonstruktion.md) – technischer Arbeitsnachweis mit 50 Wänden, 28 IFC-Räumen und dokumentierten offenen Abweichungen; kein freigegebenes Gebäudemodell.
+
+- [Web-BIM-Viewer mit iPhone-Anbindung, 30.10.2026](2026-10-30-web-bim-viewer.md)

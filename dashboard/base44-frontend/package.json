@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/build-ifc.mjs && vite",
+    "build": "node scripts/build-ifc.mjs && vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
@@ -72,8 +72,9 @@
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
-    "three": "^0.171.0",
+    "three": "0.186.1",
     "vaul": "^1.1.2",
+    "web-ifc": "0.0.78",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -84,6 +85,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.8.32",
+    "esbuild": "0.28.2",
     "eslint": "^9.19.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.0.0",
