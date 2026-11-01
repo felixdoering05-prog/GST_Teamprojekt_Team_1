@@ -17,7 +17,7 @@ Passwortgeschützter Projektzugang · Vorläufige Cloudflare-Testadresse; sie ka
 
 Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone-App nutzen eine gemeinsame Datenablage für persönliche Konten, Gebäude, Bilder, Pläne und IFC-Modelle. Darauf aufbauend erproben wir die Anbindung von Revit und abgegrenzte KI-Anwendungen mit nachvollziehbaren Ergebnissen.
 
-**Stand: 30. Oktober 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
+**Stand: 31. Oktober 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
 
 ## Aktueller Entwicklungsstand
 
@@ -39,6 +39,12 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
 Zuletzt umgesetzt: [#39 · IFC-Modellbibliothek](../../pull/39), [#41 · Dokumentation und Claude-Zuordnung](../../pull/41), [#42 · IFC-Bauteilaktionen und Raumlichtsimulation](../../pull/42), [#43 · Revit-API-Vorbereitung](../../pull/43), [#44 · lokaler Revit-EG-Arbeitsstand](../../pull/44). Die frühere Startaufgabe für den Xcode-Prototyp [#8](../../issues/8) ist geschlossen.
+
+## Neuer Stand · 30. Oktober 2026: Web-BIM-Viewer
+
+Mit [PR #47](../../pull/47) wurde ein IFC-BIM-Viewer für die **Website** in `main` übernommen. Er nutzt die zentrale, auch vom iPhone verwendete IFC-Modellbibliothek; BIM-Ansicht und Bauteilinteraktionen sind im Web-Frontend implementiert. [Technische Anleitung](docs/web-bim-viewer.md) · [Entwicklungsprotokoll](docs/protokolle/2026-10-30-web-bim-viewer.md).
+
+**Prüfgrenze:** Der Merge bestätigt den implementierten Code, nicht einen erfolgreich absolvierten Ende-zu-Ende-Test auf dem Produktivserver oder mit einem vollständigen D21-Modell. Revit-Liveanbindung, Sensorik/KNX und reale Lichtsteuerung sind dadurch weiterhin nicht nachgewiesen. Für die Projektabnahme sind ein Test mit freigegebenem IFC-Modell, Web-/iPhone-Vergleich und nachvollziehbare Testergebnisse erforderlich.
 
 ## Neue Rückmeldung: Claude-Zugänge und Campus-Heatmap
 
