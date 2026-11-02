@@ -47,7 +47,7 @@ test('generated n8n Code nodes run the actual tested functions with n8n item int
     assert.equal(workflow.active, false);
     const state = {};
     const responses = {
-      'Aufgaben lesen': { body: [issue({})] }, 'Pull Requests lesen': { body: [] },
+      'Prüfung starten': { checkedAt: first }, 'Aufgaben lesen': { body: [issue({})] }, 'Pull Requests lesen': { body: [] },
       'App intern prüfen': { statusCode: 200, body: { status: 'ok' } }, 'Öffentlichen Zugang prüfen': { statusCode: 401 },
     };
     const context = { $getWorkflowStaticData: () => state, $: name => ({ first: () => ({ json: responses[name] }) }) };
