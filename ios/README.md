@@ -42,3 +42,7 @@ Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne einge
 ## IFC-Viewer (erste Version)
 
 Der Tab **IFC-Viewer** zeigt die auf dem Projektserver gespeicherten Modelle pro Gebäude. IFC-Dateien können beim Anlegen, in der Gebäudemappe oder auf der Website hochgeladen und in der App als interaktives 3D-Modell mit Bauteilauswahl geöffnet werden. Maximal 20 MiB je IFC-Datei, 250 MiB pro Konto; die Anzeige wird auf dem iPhone berechnet. Eine lokale Vorschau ohne Upload bleibt verfügbar. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).
+
+## Gebäude-Assistent
+
+Gebäude → Übersicht → Gebäude-Assistent öffnet Gemini-Hilfe zu hinterlegten Gebäudedaten und Dateimetadaten. Vor dem Senden Datenvorschau prüfen und Übertragung aktiv bestätigen. Keine automatische Plan-/IFC-Auswertung und kein Teamchat-Export. [Bedienung, Datenumfang und Limits](../docs/gemini-gebaeudeassistent.md).

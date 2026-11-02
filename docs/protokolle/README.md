@@ -54,3 +54,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [n8n: GitHub-Meldungen und Erreichbarkeit, 02.11.2026](2026-11-02-n8n-automatisierungen.md)
 
 - [Kontakte, Gebäudefreigaben und Chat, 02.11.2026](2026-11-02-kontakte-freigaben-chat.md)
+
+- [Gemini-Gebäude-Assistent, 02.11.2026](2026-11-02-gemini-gebaeudeassistent.md)

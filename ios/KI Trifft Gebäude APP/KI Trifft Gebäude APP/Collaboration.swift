@@ -155,6 +155,7 @@ struct BuildingDetailView: View {
     @State private var section: String
     @Environment(\.dismiss) private var dismiss
     @State private var sharing = false
+    @State private var showAssistant = false
     @State private var name = ""
     @State private var address = ""
     @State private var problem: String?
@@ -175,6 +176,7 @@ struct BuildingDetailView: View {
                     Section { Label(building.is_owner == false ? "Mit dir geteilt" : "Dein Gebäude", systemImage: "building.2.fill").foregroundStyle(d21Accent); Text("Fotos, Pläne und Gespräche gemeinsam an einem Ort.").foregroundStyle(.secondary) }
                     Section("Gebäudedaten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) }
                     Section("Nächster Schritt") { Button("Fotos und Pläne ergänzen", systemImage: "doc.badge.plus") { section = "Dateien" }; Button("3D-Modell ansehen", systemImage: "cube.transparent") { section = "3D" }; Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Chat" } }
+                    Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { showAssistant = true }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }
                     Section { Button("Mitglieder und Freigaben", systemImage: "person.2") { sharing = true } }
                     if let problem { Section { Text(problem).foregroundStyle(.red) } }
                 }
@@ -184,6 +186,7 @@ struct BuildingDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .onChange(of: model.buildings) { _, all in if !all.contains(where: { $0.id == building.id }) { dismiss() } }
         .sheet(isPresented: $sharing) { BuildingSharingView(building: building, account: model) }
+        .sheet(isPresented: $showAssistant) { BuildingAssistantView(building: building, account: model) }
     }
     private func save() async {
         saving = true; defer { saving = false }

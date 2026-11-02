@@ -81,11 +81,11 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
     }
-    func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil, headers: [String:String] = [:]) async throws -> T {
+    func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil, headers: [String:String] = [:], timeout: TimeInterval = 20) async throws -> T {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         if let token { request.setValue(token, forHTTPHeaderField: "X-D21-Session") }
