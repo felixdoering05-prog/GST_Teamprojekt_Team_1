@@ -526,6 +526,7 @@ struct ProfileView: View {
     }
 }
 struct DocumentPreviewView: View {
+    @EnvironmentObject private var account: AccountModel
     @Environment(\.dismiss) var dismiss
     let item: DocumentPreview
     var smartHome = false
@@ -533,7 +534,7 @@ struct DocumentPreviewView: View {
         NavigationStack {
             Group {
                 if item.document.mime_type == "application/x-step" {
-                    IFCStoredModelView(url: item.url, smartHome: smartHome)
+                    IFCStoredModelView(url: item.url, smartHome: smartHome, account: account, buildingID: item.document.building_id)
                 } else if item.document.mime_type == "application/acad" {
                     ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
                 } else { NativeFilePreview(url: item.url) }

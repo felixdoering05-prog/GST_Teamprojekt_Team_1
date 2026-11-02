@@ -46,3 +46,7 @@ Der Tab **IFC-Viewer** zeigt die auf dem Projektserver gespeicherten Modelle pro
 ## Gebäude-Assistent
 
 Gebäude → Übersicht → Gebäude-Assistent öffnet Gemini-Hilfe zu hinterlegten Gebäudedaten und Dateimetadaten. Vor dem Senden Datenvorschau prüfen und Übertragung aktiv bestätigen. Keine automatische Plan-/IFC-Auswertung und kein Teamchat-Export. [Bedienung, Datenumfang und Limits](../docs/gemini-gebaeudeassistent.md).
+
+## Modellbefehle
+
+Im geöffneten Modell unter **Modellbefehle** lassen sich Bauteile nach Vorschau und Bestätigung ausblenden, einfärben und auf Originalfarben/Sichtbarkeit zurücksetzen. Gemini übersetzt in der iPhone-App nur den Befehlstext; der Viewer prüft Ziele und führt lokal aus. [Bedienung und Grenzen](../docs/ifc-modellbefehle.md).
