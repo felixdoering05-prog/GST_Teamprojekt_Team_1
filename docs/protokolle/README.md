@@ -50,3 +50,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [Web-BIM-Viewer mit iPhone-Anbindung, 30.10.2026](2026-10-30-web-bim-viewer.md)
 
 - [WhatsApp-Projekt-Bot vorbereiten, 02.11.2026](2026-11-02-whatsapp-bot-prototyp.md)
+
+- [n8n: GitHub-Meldungen und Erreichbarkeit, 02.11.2026](2026-11-02-n8n-automatisierungen.md)
