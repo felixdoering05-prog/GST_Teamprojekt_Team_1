@@ -20,4 +20,10 @@ Fünf lokale Tests prüfen Ausgangsstand, Zuweisung, neue Aufgaben, PR-Merge, Wi
 
 Der n8n-Verlauf ist kein dauerhaftes Archiv. Ein kompletter VPS-Ausfall benötigt eine unabhängige externe Überwachung für sofortige Warnungen. Der wechselnde Cloudflare-Testlink muss gepflegt werden. Kein Revit/Ollama-Tunnel, keine KI-Verarbeitung und keine neue App-API/Datenbanktabelle eingerichtet.
 
-Deployment- und Laufzeitnachweise werden nach dem ersten produktiven Start ergänzt. [Einrichtung und Bedienung](../../dashboard/n8n/README.md)
+## Laufzeitprüfung vor Deployment
+
+In einem separaten, vorübergehenden Testcontainer ohne veröffentlichten Port wurden beide Workflows erfolgreich importiert und veröffentlicht. Der automatische GitHub-Lauf am 02.11. um 13:07 UTC las 17 Aufgaben und 37 Pull Requests und speicherte den Ausgangsstand. Zwei zeitgesteuerte Erreichbarkeitsprüfungen waren erfolgreich: intern HTTP 200 mit `status: ok`, öffentlich erwartetes HTTP 401. Der tatsächliche Code lief dabei im n8n-JavaScript-Runner, nicht nur in den lokalen Tests.
+
+Der Testdienst nutzte etwa 175 MiB RAM. Das offizielle Image meldet den internen Task-Runner als künftig abzulösend; bei einem Versionsupgrade ist die Umstellung auf einen externen Runner einzuplanen. Der fehlende optionale Python-Runner betrifft diese ausschließlich in JavaScript geschriebenen Abläufe nicht.
+
+Produktive Laufzeitnachweise werden nach dem ersten Start ergänzt. [Einrichtung und Bedienung](../../dashboard/n8n/README.md)

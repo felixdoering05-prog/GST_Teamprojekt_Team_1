@@ -14,9 +14,10 @@ function workflow(id, name, nodes, description) {
 const base = 'https://api.github.com/repos/felixdoering05-prog/GST_Teamprojekt_Team_1';
 const github = workflow('D21GithubMonitor1', 'D21 · GitHub-Meldungen', [
   schedule(5),
+  node('started', 'Prüfung starten', 'code', { jsCode: "return [{ json: { checkedAt: new Date().toISOString() } }];" }, 120),
   http('issues', 'Aufgaben lesen', `${base}/issues?state=all&sort=updated&direction=desc&per_page=100`, 240),
   http('pulls', 'Pull Requests lesen', `${base}/pulls?state=all&sort=updated&direction=desc&per_page=100`, 480),
-  node('events', 'GitHub-Meldungen speichern', 'code', { jsCode: `${source}\nconst result = githubEvents($getWorkflowStaticData('global'), $('Aufgaben lesen').first().json.body, $('Pull Requests lesen').first().json.body, new Date().toISOString());\nreturn result.map(json => ({ json }));` }, 720),
+  node('events', 'GitHub-Meldungen speichern', 'code', { jsCode: `${source}\nconst result = githubEvents($getWorkflowStaticData('global'), $('Aufgaben lesen').first().json.body, $('Pull Requests lesen').first().json.body, $('Prüfung starten').first().json.checkedAt);\nreturn result.map(json => ({ json }));` }, 720),
 ], 'Öffentliche Metadaten, nur lesend; Ausgangsstand ohne historische Meldungsflut. Ergebnisse unter Executions.');
 const health = workflow('D21HealthMonitor1', 'D21 · Website-Erreichbarkeit', [
   schedule(2),
