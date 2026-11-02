@@ -9,9 +9,19 @@ Passwortgeschützter Projektzugang · Vorläufige Cloudflare-Testadresse; sie ka
 
 **Gebäudedaten zusammenführen. IFC-Modelle ansehen. Revit anbinden. KI nachvollziehbar erproben.**
 
-[Aufgaben](../../issues) · [Wochenplan](../../issues/13) · [Protokolle](docs/protokolle/README.md) · [Zusammenarbeit](CONTRIBUTING.md)
+[Aufgaben](../../issues) · [Wochenplan](../../issues/13) · [Protokolle](docs/protokolle/README.md) · [Zusammenarbeit](CONTRIBUTING.md) · [🔒 Interne Projektdateien](https://github.com/felixdoering05-prog/D21-Projektdateien/releases/latest)
 
 </div>
+
+## Modelle und Baupläne für das Team
+
+**[🔒 D21-Projektdateien herunterladen](https://github.com/felixdoering05-prog/D21-Projektdateien/releases/latest)** · [Privates Datei-Repository](https://github.com/felixdoering05-prog/D21-Projektdateien)
+
+Seit dem **2. November 2026** liegen das bereitgestellte Revit-Modell, die IFC-Datei und sechs PDF-Baupläne als Download unter **Releases → Assets** im separaten privaten Repository. Die Prüfsummen-Datei `SHA256SUMS-Downloads.txt` ermöglicht den Abgleich der heruntergeladenen Originaldateien.
+
+Mit dem eingeladenen GitHub-Konto anmelden und die Einladung zuerst annehmen. Ohne Zugriff kann GitHub eine 404-Seite anzeigen. Der Link hier erteilt keine Freigabe und macht die Dateien nicht öffentlich. Projektcode und gemeinsame Aufgaben bleiben in **diesem Hauptrepository**; interne Modelle und Pläne bleiben im privaten Dateibereich.
+
+Die private Teamablage ist von der persönlichen Gebäudemappe der Website/iPhone-App getrennt: Ein GitHub-Upload stellt ein Modell noch nicht automatisch in der App bereit.
 
 ## Unser Ziel
 
