@@ -155,7 +155,6 @@ struct BuildingDetailView: View {
     @State private var section: String
     @Environment(\.dismiss) private var dismiss
     @State private var sharing = false
-    @State private var showAssistant = false
     @State private var name = ""
     @State private var address = ""
     @State private var problem: String?
@@ -166,17 +165,18 @@ struct BuildingDetailView: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Bereich", selection: $section) { ForEach(["Übersicht", "Dateien", "3D", "Chat"], id: \.self) { Text($0).tag($0) } }.pickerStyle(.segmented).padding()
+            Picker("Bereich", selection: $section) { ForEach(["Übersicht", "Dateien", "3D", "KI", "Team"], id: \.self) { Text($0).tag($0) } }.pickerStyle(.segmented).padding()
             switch section {
             case "Dateien": BuildingFilesView(building: building, model: model)
-            case "3D": IFCLibraryView(model: model, buildingID: building.id)
-            case "Chat": BuildingChatView(building: building, account: model)
+            case "3D": BuildingModelView(building: building, account: model)
+            case "KI": BuildingAssistantView(building: building, account: model)
+            case "Team": BuildingChatView(building: building, account: model)
             default:
                 Form {
                     Section { Label(building.is_owner == false ? "Mit dir geteilt" : "Dein Gebäude", systemImage: "building.2.fill").foregroundStyle(d21Accent); Text("Fotos, Pläne und Gespräche gemeinsam an einem Ort.").foregroundStyle(.secondary) }
                     Section("Gebäudedaten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) }
-                    Section("Nächster Schritt") { Button("Fotos und Pläne ergänzen", systemImage: "doc.badge.plus") { section = "Dateien" }; Button("3D-Modell ansehen", systemImage: "cube.transparent") { section = "3D" }; Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Chat" } }
-                    Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { showAssistant = true }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }
+                    Section("Nächster Schritt") { Button("Fotos und Pläne ergänzen", systemImage: "doc.badge.plus") { section = "Dateien" }; Button("3D-Modell ansehen", systemImage: "cube.transparent") { section = "3D" }; Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Team" } }
+                    Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { section = "KI" }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }
                     Section { Button("Mitglieder und Freigaben", systemImage: "person.2") { sharing = true } }
                     if let problem { Section { Text(problem).foregroundStyle(.red) } }
                 }
@@ -186,7 +186,6 @@ struct BuildingDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .onChange(of: model.buildings) { _, all in if !all.contains(where: { $0.id == building.id }) { dismiss() } }
         .sheet(isPresented: $sharing) { BuildingSharingView(building: building, account: model) }
-        .sheet(isPresented: $showAssistant) { BuildingAssistantView(building: building, account: model) }
     }
     private func save() async {
         saving = true; defer { saving = false }

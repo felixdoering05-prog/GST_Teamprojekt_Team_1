@@ -1,3 +1,4 @@
+import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR, IFCWINDOW, IFCROOF, IFCSLAB } from 'web-ifc';
@@ -136,7 +137,9 @@ async function open() {
     document.querySelector('#show-all').textContent = appearance.hiddenCount ? `Alles anzeigen (${appearance.hiddenCount})` : 'Alles anzeigen';
     render();
   }
-  const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, destroyed: () => destroyed });
+  let synchronization; const roomLights = new Map();
+  const changed = operation => synchronization?.change(operation);
+  const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, changed, destroyed: () => destroyed });
   const ray = new THREE.Raycaster();
   function pick(x, y) {
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
@@ -166,10 +169,11 @@ async function open() {
   renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
   window.addEventListener('pagehide', cancelHold, { once: true });
   document.querySelector('#color').addEventListener('input', event => { appearance.color(event.target.value); render(); });
-  document.querySelector('#hide').onclick = () => { appearance.hide(); updateSelection(); };
+  document.querySelector('#color').addEventListener('change', event => { if (appearance.selectedID !== undefined) changed({action:'color',ids:[appearance.selectedID],color:event.target.value}); });
+  document.querySelector('#hide').onclick = () => { const id=appearance.selectedID; appearance.hide(); updateSelection(); if(id!==undefined) changed({action:'hide',ids:[id]}); };
   document.querySelector('#close-selection').onclick = () => { appearance.select(undefined); updateSelection(); };
-  document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); };
-  document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); };
+  document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); changed({action:'show',ids:[...appearance.elements.keys()]}); };
+  document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); changed({action:'reset-colors',ids:[...appearance.elements.keys()]}); };
   function mode(smart) {
     cancelCommand(); document.querySelector('#commands').hidden = true;
     home.hidden = !smart;
@@ -214,10 +218,12 @@ async function open() {
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
     toggle.textContent = meshes.length ? 'Licht aus' : 'Ohne Raumgeometrie'; toggle.disabled = !meshes.length;
+    toggle.dataset.noGeometry=String(!meshes.length);
+    roomLights.set(id,on=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=meshes.length?(on?'Licht an':'Licht aus'):'Ohne Raumgeometrie';meshes.forEach(mesh=>mesh.visible=on);});
     toggle.onclick = () => {
       const on = toggle.getAttribute('aria-checked') !== 'true';
       toggle.setAttribute('aria-checked', String(on)); toggle.textContent = on ? 'Licht an' : 'Licht aus';
-      meshes.forEach(mesh => mesh.visible = on); render();
+      meshes.forEach(mesh => mesh.visible = on); render(); changed({action:'light',ids:[id],on});
     };
     row.append(toggle); roomsPanel.append(row);
   }
@@ -225,6 +231,7 @@ async function open() {
   buttons.forEach(button => button.disabled = false);
   document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
+  synchronization = mountSynchronization({appearance,roomLights,update:updateSelection});
   status.hidden = true;
   renderer.render(scene, camera);
   report(`ready:${meshes}`);

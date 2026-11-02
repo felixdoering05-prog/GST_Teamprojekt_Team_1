@@ -41,12 +41,12 @@ Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne einge
 
 ## IFC-Viewer (erste Version)
 
-Der Tab **IFC-Viewer** zeigt die auf dem Projektserver gespeicherten Modelle pro Gebäude. IFC-Dateien können beim Anlegen, in der Gebäudemappe oder auf der Website hochgeladen und in der App als interaktives 3D-Modell mit Bauteilauswahl geöffnet werden. Maximal 20 MiB je IFC-Datei, 250 MiB pro Konto; die Anzeige wird auf dem iPhone berechnet. Eine lokale Vorschau ohne Upload bleibt verfügbar. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).
+Der Gebäude-Reiter **3D** lädt das zuletzt ausgewählte IFC-Modell automatisch. IFC-Dateien können beim Anlegen, in der Gebäudemappe oder auf der Website hochgeladen und in der App als interaktives 3D-Modell mit Bauteilauswahl geöffnet werden. Maximal 20 MiB je IFC-Datei, 250 MiB pro Konto; die Anzeige wird auf dem iPhone berechnet. Eine lokale Vorschau ohne Upload bleibt verfügbar. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).
 
 ## Gebäude-Assistent
 
-Gebäude → Übersicht → Gebäude-Assistent öffnet Gemini-Hilfe zu hinterlegten Gebäudedaten und Dateimetadaten. Vor dem Senden Datenvorschau prüfen und Übertragung aktiv bestätigen. Keine automatische Plan-/IFC-Auswertung und kein Teamchat-Export. [Bedienung, Datenumfang und Limits](../docs/gemini-gebaeudeassistent.md).
+Gebäude → **KI** öffnet einen privaten Gemini-Chat mit serverseitigem Verlauf, IFC-Typzahlen und bestätigbaren Modellvorschlägen. Vor dem Senden Datenvorschau prüfen und Übertragung aktiv bestätigen. Keine automatische Plan-/IFC-Auswertung und kein Teamchat-Export. [Bedienung, Datenumfang und Limits](../docs/gemini-gebaeudeassistent.md).
 
 ## Modellbefehle
 
-Im geöffneten Modell unter **Modellbefehle** lassen sich Bauteile nach Vorschau und Bestätigung ausblenden, einfärben und auf Originalfarben/Sichtbarkeit zurücksetzen. Gemini übersetzt in der iPhone-App nur den Befehlstext; der Viewer prüft Ziele und führt lokal aus. [Bedienung und Grenzen](../docs/ifc-modellbefehle.md).
+Im geöffneten Modell unter **Modellbefehle** lassen sich Bauteile nach Vorschau und Bestätigung ausblenden, einfärben und auf Originalfarben/Sichtbarkeit zurücksetzen. Gemini übersetzt in der iPhone-App nur den Befehlstext; der Viewer prüft Ziele. Gespeicherte Modelle teilen Farben, Sichtbarkeit und simuliertes Licht über den Server mit der Website. [Neuer Ablauf und API](../docs/gemeinsames-modell-und-ki-chat.md). [Bedienung und Grenzen](../docs/ifc-modellbefehle.md).

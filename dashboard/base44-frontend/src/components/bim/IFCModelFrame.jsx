@@ -14,9 +14,16 @@ export default function IFCModelFrame({ document }) {
       frame.current.contentWindow.postMessage({ type: 'd21-ifc-model', buffer }, window.location.origin, [buffer]);
       buffer = undefined; setLoading(false);
     }
-    function receive(event) {
-      if (event.source !== frame.current?.contentWindow || event.origin !== window.location.origin || event.data?.type !== 'd21-ifc-ready') return;
-      ready = true; send();
+    async function receive(event) {
+      if (event.source !== frame.current?.contentWindow || event.origin !== window.location.origin) return;
+      if (event.data?.type === 'd21-ifc-ready') { ready = true; send(); return; }
+      if (event.data?.type !== 'd21-scene-request' || typeof event.data.id !== 'string' || event.data.id.length > 100) return;
+      const {id,operation,revision} = event.data;
+      const target = event.source;
+      try {
+        const result = await request(`/documents/${document.id}/model-state`, operation ? {method:'POST',body:{operation,revision}} : {});
+        if(active) target.postMessage({type:'d21-scene-reply',id,result}, window.location.origin);
+      } catch(e) { if(active) target.postMessage({type:'d21-scene-reply',id,error:e.message}, window.location.origin); }
     }
     window.addEventListener('message', receive);
     request(`/documents/${document.id}`, { raw: true }).then(async blob => {
@@ -30,6 +37,6 @@ export default function IFCModelFrame({ document }) {
     {loading && <p role="status">Modell wird aus deiner Gebäudemappe geladen …</p>}
     {error && <div role="alert"><p>{error}</p><button className="mt-2 underline" onClick={() => setAttempt(n => n + 1)}>Erneut versuchen</button></div>}
     <iframe onLoad={() => frame.current?.contentWindow?.postMessage({ type: 'd21-ifc-request' }, window.location.origin)} ref={frame} key={`${document.id}-${attempt}`} src="/ifc-viewer/index.html" title={`3D-Modell: ${document.name}`} className={`h-[72vh] min-h-[440px] w-full rounded-xl border ${error ? 'hidden' : ''}`} />
-    <p className="text-xs text-muted-foreground">Drehen, zoomen, Bauteile einfärben und ausblenden. Unter Smart Home kannst du Licht für exportierte IFC-Räume simulieren. Ansichtsänderungen gelten nur hier; die Originaldatei bleibt erhalten.</p>
+    <p className="text-xs text-muted-foreground">Drehen, zoomen, Bauteile einfärben und ausblenden. Unter Smart Home kannst du Licht für exportierte IFC-Räume simulieren. Farben, ausgeblendete Bauteile und simuliertes Licht werden gemeinsam auf dem Projektserver gespeichert und mit der iPhone-App abgeglichen. Die Originaldatei bleibt erhalten.</p>
   </div>;
 }

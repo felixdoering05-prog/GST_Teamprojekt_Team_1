@@ -81,7 +81,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
     }
-    func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil, headers: [String:String] = [:], timeout: TimeInterval = 20) async throws -> T {
+    func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:Any]? = nil, headers: [String:String] = [:], timeout: TimeInterval = 20) async throws -> T {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -534,7 +534,7 @@ struct DocumentPreviewView: View {
         NavigationStack {
             Group {
                 if item.document.mime_type == "application/x-step" {
-                    IFCStoredModelView(url: item.url, smartHome: smartHome, account: account, buildingID: item.document.building_id)
+                    IFCStoredModelView(url: item.url, smartHome: smartHome, account: account, buildingID: item.document.building_id, documentID: item.document.id)
                 } else if item.document.mime_type == "application/acad" {
                     ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
                 } else { NativeFilePreview(url: item.url) }

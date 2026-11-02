@@ -4,7 +4,7 @@ Stand: 02.11.2026. Erste kontrollierte Befehle für die **3D-Ansicht**, keine Be
 
 ## Bedienung
 
-Gebäude → **3D** → Modell öffnen → **Modellbefehle**. Alternativ im Gebäude-Assistenten auf **IFC-Modell mit Befehlen öffnen** tippen.
+Gebäude → **3D** lädt das Modell direkt → **Modellbefehle**. Alternativ im eigenen **KI**-Reiter den Modus **Modellbefehl** wählen, Vorschlag prüfen und für das Team speichern. [Gemeinsamer Modellstand und KI-Chat](gemeinsames-modell-und-ki-chat.md).
 
 1. Beispiel wählen oder einen einzelnen Befehl eingeben, etwa „Blende alle Wände aus“, „Färbe alle Wände blau“ oder „Alles zurücksetzen“.
 2. Bei gespeicherten Modellen in der iPhone-App Übertragung des **Befehlstextes** an Google bestätigen und **Befehl prüfen** tippen. Keine IFC-Datei, Bauteilnamen, IDs, Geometrie oder Gebäudestammdaten werden dafür übertragen. Es gelten dieselben Gemini-Kontingente wie beim Text-Assistenten.
@@ -21,7 +21,7 @@ Erlaubt sind nur `hide`, `color`, `reset`, mit Ziel `selected`, `walls`, `doors`
 
 Mehrfachbefehle, unklare/negierte Wünsche, Dateibearbeitung, Löschen des Modells, Räume/Geschosse und Lichtsteuerung sind nicht Teil dieser ersten Befehlsversion. Die manuelle Smart-Home-Simulation bleibt unabhängig verfügbar. KI kann Absichten falsch deuten; deshalb die konkret angezeigte Aktion und Trefferzahl prüfen.
 
-Keine Serverdatei wird geschrieben, kein Revit geändert, keine Ansicht mit anderen Mitgliedern synchronisiert. Farben/Sichtbarkeit gelten bis zum Schließen dieses Viewers.
+Die IFC-Originaldatei und Revit bleiben unverändert. Bei gespeicherten Modellen werden Farben/Sichtbarkeit und manuelles simuliertes Licht zentral gespeichert und mit anderen Mitgliedern sowie der Website synchronisiert. Lokale Dateien ohne Upload behalten nur lokale Änderungen.
 
 ## API und Sicherheitsgrenzen
 
@@ -29,9 +29,9 @@ Bestehende authentifizierte Gebäude-Assistenten-API, zusätzliche Variante:
 
 - GET `/api/v1/buildings/:id/assistant?mode=ifc-command`: statischer erlaubter Befehlsumfang und dessen `context_hash`, keine Modell-/Gebäudedaten für Google.
 - POST gleicher Pfad, `X-Request-ID` UUID und `{mode:"ifc-command",question,consent:"yes",context_hash}`: Antwort enthält `command:{action,target,color,summary}`. `unsupported/none` beschreibt abgewiesene Wünsche, nie eine ausführbare Aktion.
-- Serverseitige Mitgliedschaft, Quota, Wiederholschutz und Nachprüfung bleiben erhalten. Ungültige/zusätzliche Felder oder unzulässige Aktion/Farbe werden abgewiesen. Keine neue Datenbanktabelle.
+- Serverseitige Mitgliedschaft, Quota, Wiederholschutz und Nachprüfung bleiben erhalten. Ungültige/zusätzliche Felder oder unzulässige Aktion/Farbe werden abgewiesen. Gemeinsame Modellzustände und private KI-Verläufe nutzen additive Tabellen; siehe neue Schnittstellendokumentation.
 - Modellbefehle werden nicht als Code ausgeführt: kein `eval`, kein Modellskript. WebKit nimmt nur Hauptframe-Nachrichten aus `d21ifc://viewer` an, begrenzt den Text und übergibt JSON über feste JavaScript-Aufrufe mit Datenargumenten. API- und Website-Schlüssel bleiben ausschließlich auf der nativen/Server-Seite.
-- Die ermittelte IFC-ID-Liste bleibt lokal. Vorschlag und tatsächliche Ausführung sind getrennt; kein automatisches Ausführen einer Gemini-Antwort.
+- Ermittelte IFC-IDs werden bei gespeicherten Modellen an die eigene Server-API übergeben, nicht an Google. Vorschlag und tatsächliche Ausführung sind getrennt; kein automatisches Ausführen einer Gemini-Antwort.
 
 ## Prüfungen
 
