@@ -26,4 +26,15 @@ In einem separaten, vorübergehenden Testcontainer ohne veröffentlichten Port w
 
 Der Testdienst nutzte etwa 175 MiB RAM. Das offizielle Image meldet den internen Task-Runner als künftig abzulösend; bei einem Versionsupgrade ist die Umstellung auf einen externen Runner einzuplanen. Der fehlende optionale Python-Runner betrifft diese ausschließlich in JavaScript geschriebenen Abläufe nicht.
 
-Produktive Laufzeitnachweise werden nach dem ersten Start ergänzt. [Einrichtung und Bedienung](../../dashboard/n8n/README.md)
+## Produktive Inbetriebnahme
+
+Die Implementierung wurde über PR #54 und die Cursor-Absicherung über PR #55 nach `main` übernommen. `d21-deploy` lief erfolgreich durch; produktiver Code-Stand ist `92a2854355244be7efb0553dfaa7d55d11234658`.
+
+- `d21_n8n_1` läuft mit Portbindung ausschließlich `127.0.0.1:5678`, 805.306.368 Byte RAM-Limit und 0,75 CPU.
+- Beide Workflows sind produktiv importiert und veröffentlicht. Die ersten produktiven Zeitplanläufe folgen nach dem Start automatisch; die oben beschriebenen vollständigen Testläufe fanden im getrennten Testdienst statt.
+- App-API antwortet intern mit `status: ok`, öffentlicher Zugang mit dem erwarteten HTTP 401. n8n antwortet über die SSH-Portweiterleitung auf `/healthz` mit `status: ok`.
+- Der App-Datenbank-Container hat unverändert die ID `5a4382348d6bd26d54690a773fa8ef14a910bfa68930e15d5b3687bf877e723a` und den Startzeitpunkt 27.10.2026, 10:10:32 UTC. Weder App-Datenbank noch App-Volume wurden gelöscht oder ersetzt.
+- Der Testcontainer und ausschließlich sein eigenes temporäres Test-Volume wurden entfernt.
+- Der n8n-Ersteinrichtungsbildschirm ist erreichbar. Felix legt seinen eigenen Administrator und das Passwort selbst an; es wurden keine Zugangsdaten erfunden, veröffentlicht oder in GitHub gespeichert. Die Workflows benötigen dafür keine App-Anmeldedaten.
+
+Die abschließende Dokumentation benötigt kein erneutes App-Deployment. [Einrichtung und Bedienung](../../dashboard/n8n/README.md)
