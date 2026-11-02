@@ -11,6 +11,9 @@ enum WorkflowPreview {
     static var payloads: [Int: Data] = [:]
     static var buildings: [[String: Any]] = [["id":901,"name":"Gebäude D21","address":"Hochschule Darmstadt"]]
     static var keys: [String: Int] = [:]
+    static var assistantTurns: [[String:Any]] = []
+    static var sceneRevision = 0
+    static var sceneState: [String:Any] = ["hidden":[],"colors":[:],"lights":[]]
     static let photo: Data = {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 320, height: 200))
         return renderer.jpegData(withCompressionQuality: 0.8) { ctx in
@@ -90,7 +93,8 @@ final class WorkflowPreviewProtocol: URLProtocol {
             while true { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; data.append(contentsOf: buffer.prefix(count)) }
             body = data
         }
-        let json = body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String:String] ?? [:]
+        let object = body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String:Any] ?? [:]
+        let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
         else if path.hasSuffix("/contacts") && method == "GET" { result = [["id":1,"user_id":2,"name":"Benjamin","status":"accepted"],["id":2,"user_id":3,"name":"Emir","status":"pending"]] }
@@ -99,10 +103,32 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.hasSuffix("/notifications") { result = [["id":1,"kind":"chat","title":"Benjamin: Der neue Plan ist da.","building_id":901,"created_at":"2026-11-02T12:00:00.000Z","read_at":NSNull()]] }
         else if path.hasSuffix("/members") { result = [["id":999999,"name":"Felix","status":"owner"],["id":2,"name":"Benjamin","status":"accepted"]] }
         else if path.hasSuffix("/messages") { result = [["id":1,"user_id":2,"name":"Benjamin","text":"Der neue Plan ist da.","created_at":"2026-11-02T12:00:00.000Z"]] }
+        else if path.hasSuffix("/assistant/history") { result = WorkflowPreview.assistantTurns }
+        else if path.hasSuffix("/model-state") {
+            if method == "POST", let operation = object["operation"] as? [String:Any], let ids = operation["ids"] as? [Int] {
+                WorkflowPreview.sceneRevision += 1
+                if operation["action"] as? String == "hide" { WorkflowPreview.sceneState["hidden"] = ids }
+                if operation["action"] as? String == "color", let color = operation["color"] as? String { WorkflowPreview.sceneState["colors"] = Dictionary(uniqueKeysWithValues: ids.map { (String($0),color) }) }
+            }
+            result = ["revision":WorkflowPreview.sceneRevision,"state":WorkflowPreview.sceneState]
+        }
+        else if path.hasSuffix("/model-command") {
+            if object["confirm"] as? Bool == true { WorkflowPreview.sceneRevision += 1; result = ["revision":WorkflowPreview.sceneRevision,"state":WorkflowPreview.sceneState] }
+            else { result = ["count":1,"description":"Eine Wand blau einfärben (lokale Vorschau)"] }
+        }
         else if path.hasSuffix("/assistant") {
             if method == "POST" && json["mode"] == "ifc-command" { result = ["command":["action":"color","target":"walls","color":"#2563eb","summary":"Alle Wände blau einfärben (lokale Vorschau)"]] }
             else if method == "POST" { result = ["answer":"Für dieses Testgebäude sind ein Name und eine Adresse hinterlegt. Dateiinhalte wurden nicht ausgewertet. Als nächsten Schritt könnt ihr Fotos und freigegebene Pläne ergänzen.","model":"Lokale Vorschau – keine Gemini-Anfrage","notice":"Lokale Testantwort, keine echten Gebäudedaten übertragen.","cached":false] }
             else { result = ["enabled":true,"model":"Lokale Vorschau","notice":"Testdaten","context_hash":"preview-only","context":["building":["name":"Gebäude D21","address":"Hochschule Darmstadt"],"files":["count":0,"bytes":0,"latest":[],"shown":0]]] }
+            if method == "POST", object["chat"] as? Bool == true {
+                let response = result as? [String:Any] ?? [:]
+                let key = request.value(forHTTPHeaderField:"X-Request-ID") ?? UUID().uuidString
+                if WorkflowPreview.keys[key] == nil {
+                    let id = WorkflowPreview.assistantTurns.count + 1; WorkflowPreview.keys[key] = id
+                    WorkflowPreview.assistantTurns.append(["id":id,"document_id":object["document_id"] ?? NSNull(),"question":json["question"] ?? "Testfrage","answer":response["answer"] ?? "Alle Wände blau einfärben (lokale Vorschau)","command":response["command"] ?? NSNull()])
+                }
+                if response["command"] != nil { result = ["command":response["command"]!,"answer":"Alle Wände blau einfärben (lokale Vorschau)","model":"Lokale Vorschau","notice":"Testdaten","cached":false] }
+            }
         }
         else if path.hasSuffix("profile/avatar") { status = 404 }
         else if path == "/api/v1/buildings" {

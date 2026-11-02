@@ -44,7 +44,7 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 | Passwort vergessen | Technisch vorbereitet; echter Mailversand benötigt weiterhin ein eingerichtetes Projekt-Absenderkonto. [Einrichtung](docs/passwort-mail.md) |
 | Revit-EG-Arbeitsstand | In Revit 2027.3 wurde lokal ein unvollständiges EG-Modell mit **50 nativen Wänden und 28 geschlossenen Räumen** erstellt; RVT und IFC4 wurden gespeichert und technisch geprüft. **11 Räume** liegen innerhalb des technischen Prüfwerts von 0,03 m², **17** haben noch Flächenabweichungen und **5 Planräume** fehlen. Türen, Fenster, Decken, Dach und weitere Geschosse sind noch offen. Keine fachliche Abnahme und keine Freigabe zum Hochladen. [Arbeitsnachweis](docs/revit-planrekonstruktion.md) · [PR #44](../../pull/44) |
 | Revit-Rechner / Datenweg | Benjamins Gaming-PC entfällt. Ein Uni- oder Cloud-Rechner und dessen sichere Anbindung sind noch auszuwählen; eine automatische Revit-Übergabe ist nicht nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
-| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API, nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. Keine automatische Plan-/IFC-Auswertung. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
+| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API, nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. IFC-Typzahlen, privater KI-Verlauf und bestätigte Ansichts-Befehle; keine automatische Plan-/Geometrieanalyse. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
 
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
@@ -58,7 +58,7 @@ Mit [PR #47](../../pull/47) wurde ein IFC-BIM-Viewer für die **Website** in `ma
 
 ## Gebäude-Assistent mit Gemini
 
-In der Gebäudeübersicht unterstützt ein eigener Assistent mit Gemini. Vor dem Senden zeigt die App die übertragenen Angaben; Pläne, Fotos, IFC-Inhalte und Teamchat werden nicht automatisch an Google gesendet. [Bedienung, Datenumfang und Limits](docs/gemini-gebaeudeassistent.md).
+Im Gebäude-Reiter **KI** unterstützt ein privater Chat mit Gemini und gespeichertem Verlauf. Das ausgewählte IFC wird auf dem Server nach Typen gezählt. Modellbefehle lassen sich nach Vorschau und Bestätigung gemeinsam speichern. **3D** öffnet das Modell direkt; Farben, Sichtbarkeit und simuliertes Licht werden mit der Website abgeglichen. Keine IFC-Dateien oder Teamnachrichten werden an Google übertragen. [Bedienung und Schnittstellen](docs/gemeinsames-modell-und-ki-chat.md). [Bedienung, Datenumfang und Limits](docs/gemini-gebaeudeassistent.md).
 
 ## Gemeinsam in der iPhone-App arbeiten
 

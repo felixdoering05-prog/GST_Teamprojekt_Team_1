@@ -37,7 +37,7 @@ final class Bridge: NSObject, WKURLSchemeHandler, WKScriptMessageHandler, WKNavi
           input.value = phrase; input.dispatchEvent(new Event('input')); preview.click();
           if (execute.disabled || !result.textContent.includes('Betroffen: 1')) throw new Error('Preview failed: '+result.textContent);
           execute.click();
-          if (!execute.disabled || !result.textContent.includes('1 Bauteil(e) in dieser Ansicht geändert')) throw new Error('Execution failed');
+          if (!execute.disabled || !result.textContent.includes('1 Bauteil(e) geändert')) throw new Error('Execution failed');
         }
         input.value = 'Lösche das Modell'; input.dispatchEvent(new Event('input')); preview.click();
         if (!execute.disabled) throw new Error('Unsafe command enabled');

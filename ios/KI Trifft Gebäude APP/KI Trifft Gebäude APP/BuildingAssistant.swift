@@ -4,106 +4,140 @@ struct AssistantFileInfo: Decodable { let name: String; let mime_type: String; l
 struct AssistantContext: Decodable {
     struct Facts: Decodable { let name: String; let address: String }
     struct Files: Decodable { let count: Int; let bytes: Int; let latest: [AssistantFileInfo]; let shown: Int }
-    let building: Facts; let files: Files
+    struct Model: Decodable { let document_id: Int; let name: String; let counts: [String:Int] }
+    let building: Facts; let files: Files; let model: Model?
 }
 struct AssistantStatus: Decodable { let enabled: Bool; let model: String; let notice: String; let context: AssistantContext; let context_hash: String }
+struct ModelCommand: Codable { let action: String; let target: String; let color: String?; let summary: String
+    var json: [String:Any] { ["action":action,"target":target,"color":color.map { $0 as Any } ?? NSNull(),"summary":summary] }
+}
 struct AssistantAnswer: Decodable { let answer: String; let model: String; let notice: String; let cached: Bool }
+struct AssistantTurn: Decodable, Identifiable { let id: Int; let document_id: Int?; let question: String; let answer: String; let command: ModelCommand? }
+private struct CommandPreview: Decodable { let count: Int; let description: String }
+private struct SceneVersion: Decodable { let revision: Int }
+private struct PendingModelCommand: Identifiable { let id = UUID(); let document: Int; let command: ModelCommand; let revision: Int; let description: String }
 
 struct BuildingAssistantView: View {
     let building: Building
     @ObservedObject var account: AccountModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var info: AssistantStatus?
-    @State private var loading = false
+    @State private var documents: [BuildingDocument] = []
+    @State private var selectedID: Int?
+    @State private var turns: [AssistantTurn] = []
     @State private var question = ""
+    @State private var commandMode = false
     @State private var consent = false
     @State private var sending = false
-    @State private var answer: AssistantAnswer?
+    @State private var loading = false
     @State private var problem: String?
-    @State private var sentQuestion: String?
+    @State private var notice: String?
+    @State private var pending: PendingModelCommand?
     @State private var requestID = UUID()
-    @State private var retryAsNew = false
-    @State private var sendTask: Task<Void, Never>?
-    private let suggestions = ["Fasse den hinterlegten Gebäudestand zusammen.", "Welche Unterlagen sind schon hinterlegt?", "Was sind sinnvolle nächste Schritte für unseren Gebäudepass?"]
+    @State private var lastFingerprint = ""
+    @State private var retryNew = false
+    @State private var sendTask: Task<Void,Never>?
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Label("Dein Gebäude-Assistent", systemImage: "sparkles").font(.title3.bold()).foregroundStyle(d21Accent)
-                    Text("Fragen zu \(building.name) – mit den Angaben aus eurer Gebäudemappe.").foregroundStyle(.secondary)
-                    Text("Jede Frage wird einzeln beantwortet. Der Teamchat bleibt privat und wird nicht mitgesendet.").font(.footnote).foregroundStyle(.secondary)
-                }
-                Section("Modell steuern") {
-                    NavigationLink { IFCLibraryView(model: account, buildingID: building.id) } label: { Label("IFC-Modell mit Befehlen öffnen", systemImage: "cube.transparent") }
-                    Text("Im geöffneten Modell auf „Modellbefehle“ tippen: ausblenden, einfärben oder zurücksetzen. Hier im Text-Assistenten wird keine Modelländerung ausgeführt.").font(.footnote).foregroundStyle(.secondary)
-                }
-                if loading { Section { ProgressView("Gebäudestand wird geladen …") } }
-                if let info {
-                    if !info.enabled { Section { Label("Der Assistent ist vorübergehend nicht verfügbar.", systemImage: "cloud.slash"); Button("Verfügbarkeit erneut prüfen") { Task { await load() } } } }
-                    Section("Grundlage der Antwort") {
-                        DisclosureGroup("Diese Angaben werden an Google gesendet") {
-                            LabeledContent("Gebäude", value: info.context.building.name)
-                            LabeledContent("Adresse", value: info.context.building.address.isEmpty ? "Nicht hinterlegt" : info.context.building.address)
-                            LabeledContent("Dateien", value: String(info.context.files.count))
-                            LabeledContent("Gesamtgröße", value: ByteCountFormatter.string(fromByteCount: Int64(info.context.files.bytes), countStyle: .file))
-                            ForEach(Array(info.context.files.latest.enumerated()), id: \.offset) { _, file in
-                                VStack(alignment: .leading, spacing: 3) { Text(file.name); Text("\(file.mime_type) · \(ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file))").font(.caption).foregroundStyle(.secondary) }
-                            }
-                            if info.context.files.count > info.context.files.shown { Text("Nur die letzten \(info.context.files.shown) Dateinamen, Dateitypen und Größen werden mitgesendet.").font(.footnote) }
-                            Text("Zusätzlich wird deine unten eingegebene Frage übertragen. Keine Dateiinhalte, Fotos, PDF-Pläne, IFC-Bauteile, Kontakte oder Chatnachrichten.").font(.footnote).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        Label("Dein KI-Assistent für \(building.name)", systemImage: "sparkles").font(.headline)
+                        Text("Dein privater Gesprächsverlauf wird auf dem Projektserver gespeichert. Bestätigte Modelländerungen sieht das Gebäudeteam.").font(.footnote).foregroundStyle(.secondary)
+                        if loading { ProgressView("Gespräch wird geladen …") }
+                        if turns.isEmpty && !loading {
+                            Text("Was möchtest du über dein Gebäude wissen?").font(.title3)
+                            ForEach(["Welche Unterlagen sind hinterlegt?", "Wie viele Wände enthält das ausgewählte IFC-Modell?"], id: \.self) { suggestion in Button(suggestion) { question = suggestion; commandMode = false }.buttonStyle(.bordered).disabled(sending) }
                         }
-                        Text("Der Assistent kann noch keine Räume zählen oder Pläne auswerten. Fehlende Daten sollte er ausdrücklich benennen.").font(.footnote).foregroundStyle(.secondary)
-                    }
-                    Section("Wobei brauchst du Hilfe?") {
-                        ForEach(suggestions, id: \.self) { text in Button(text) { question = text }.disabled(sending) }
-                        TextField("Deine Frage zum Gebäude", text: $question, axis: .vertical).lineLimit(3...8).disabled(sending)
-                        if question.utf16.count > 2000 { Text("Bitte kürze die Frage auf maximal 2000 Zeichen.").font(.footnote).foregroundStyle(.red) }
-                    }
-                    Section {
-                        Toggle("Frage und angezeigte Gebäudedaten an Google senden", isOn: $consent).disabled(sending)
-                        Text("Google verarbeitet diese Angaben. Teile nur Informationen, die du dafür freigeben darfst, und keine Zugangsdaten.").font(.footnote).foregroundStyle(.secondary)
-                        Button {
-                            sendTask = Task { await send() }
-                        } label: {
-                            HStack { if sending { ProgressView() }; Label(sending ? "Antwort wird erstellt …" : retryAsNew ? "Neue Anfrage versuchen" : problem != nil && sentQuestion == question.trimmingCharacters(in: .whitespacesAndNewlines) ? "Ergebnis erneut abrufen" : "Frage senden", systemImage: "sparkles") }
-                        }.disabled(!info.enabled || sending || !consent || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000)
-                        Text("Bis 20 Anfragen pro Konto und 100 für das Projekt innerhalb von 24 Stunden. Gemini kann zusätzlich eigene Limits haben.").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                if let problem {
-                    Section("Gerade nicht möglich") { Text(problem).foregroundStyle(.red); Button(info == nil ? "Erneut laden" : "Gebäudestand aktualisieren") { Task { consent = false; sentQuestion = nil; await load() } }.disabled(sending) }
-                }
-                if let answer {
-                    Section("Antwort des Assistenten") {
-                        Text(answer.answer).textSelection(.enabled)
-                        Label(answer.model.contains("Vorschau") ? "Lokale Vorschau" : "Gemini", systemImage: "sparkles").font(.caption).foregroundStyle(.secondary)
-                        Text(answer.notice).font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
+                        ForEach(turns) { turn in
+                            VStack(alignment: .trailing, spacing: 8) {
+                                Text(turn.question).padding(12).background(d21Accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 18)).frame(maxWidth: .infinity, alignment: .trailing)
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Label("Gebäude-Assistent", systemImage: "sparkles").font(.caption.bold()).foregroundStyle(d21Accent)
+                                    Text(turn.answer).textSelection(.enabled)
+                                    if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
+                                        Button("Änderung prüfen", systemImage: "checkmark.circle") { Task { await prepare(command, document: document) } }.buttonStyle(.bordered).disabled(sending)
+                                        Text("Vorschlag · Änderung erfordert Bestätigung").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+                            }.id(turn.id)
+                        }
+                        if sending { ProgressView("Der Assistent arbeitet …") }
+                        if let notice { Text(notice).font(.footnote).foregroundStyle(d21Accent) }
+                        if let problem { Text(problem).font(.footnote).foregroundStyle(.red); Button("Gespräch neu laden") { Task { await load() } }.disabled(sending) }
+                        Color.clear.frame(height: 1).id("bottom")
+                    }.padding()
+                }.onChange(of: turns.count) { _,_ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
             }
-            .navigationTitle("Assistent").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Fertig") { dismiss() } } }
-            .task { await load() }
-            .onDisappear { sendTask?.cancel() }
+            Divider()
+            VStack(spacing: 10) {
+                if !documents.isEmpty {
+                    Picker("IFC-Modell", selection: $selectedID) {
+                        Text("Ohne Modell").tag(Optional<Int>.none)
+                        ForEach(documents) { Text($0.name).tag(Optional($0.id)) }
+                    }.pickerStyle(.menu).disabled(sending)
+                }
+                Picker("Anfrage", selection: $commandMode) { Text("Frage").tag(false); Text("Modellbefehl").tag(true) }.pickerStyle(.segmented).disabled(sending)
+                DisclosureGroup("Was wird an Google gesendet?") {
+                    Text(commandMode ? "Nur dein Befehlstext und feste erlaubte Aktionen. Keine IFC-Datei oder Gesprächshistorie." : "Deine Frage, bis zu sechs bisherige Frage-Antwort-Paare dieses KI-Chats, Gebäudename, Adresse, die letzten 20 Dateinamen mit Typ/Größe und bei Modellauswahl dessen Name und IFC-Typzahlen. Keine Dateiinhalte, Geometrie, Teamnachrichten oder Kontakte.").font(.caption).foregroundStyle(.secondary)
+                }
+                Toggle("Übertragung an Google erlauben", isOn: $consent).font(.footnote).disabled(sending)
+                HStack(alignment: .bottom) {
+                    TextField(commandMode ? "Zum Beispiel: Färbe alle Wände blau" : "Nachricht an deinen Assistenten", text: $question, axis: .vertical).lineLimit(1...4).textFieldStyle(.roundedBorder).disabled(sending)
+                    Button { sendTask = Task { await send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.largeTitle) }.accessibilityLabel("Nachricht senden").disabled(sending || !consent || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000 || commandMode && selectedID == nil)
+                }
+                Text("KI kann irren · 20 Anfragen je Konto / 24 h · Modelländerungen erst nach Bestätigung").font(.caption2).foregroundStyle(.secondary)
+            }.padding().background(.regularMaterial)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .task { await load() }
+        .onDisappear { sendTask?.cancel() }
+        .onChange(of: selectedID) { _,_ in consent = false }
+        .onChange(of: commandMode) { _,_ in consent = false }
+        .confirmationDialog("Gemeinsamen Modellstand ändern?", isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }), titleVisibility: .visible) {
+            if let pending { Button("Für das Gebäudeteam speichern") { Task { await apply(pending) } } }
+            Button("Abbrechen", role: .cancel) { pending = nil }
+        } message: { Text((pending?.description ?? "") + "\nDie IFC-Originaldatei bleibt erhalten.") }
     }
     private func load() async {
         guard !loading else { return }; loading = true; defer { loading = false }
-        do { info = try await account.request("buildings/\(building.id)/assistant"); problem = nil }
-        catch { problem = error.localizedDescription }
+        do {
+            let history: [AssistantTurn] = try await account.request("buildings/\(building.id)/assistant/history")
+            let docs = try await account.documents(buildingID: building.id).filter { $0.mime_type == "application/x-step" }.sorted { $0.id > $1.id }
+            guard !Task.isCancelled else { return }; turns = history; documents = docs
+            if selectedID == nil { selectedID = docs.first?.id }
+            problem = nil
+        } catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func send() async {
-        guard !sending, consent, let info else { return }; sending = true; defer { sending = false }
+        guard !sending,consent else { return }; sending = true; defer { sending = false }
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        if sentQuestion != text || retryAsNew { requestID = UUID() }
-        sentQuestion = text; retryAsNew = false; problem = nil; answer = nil
+        let fingerprint = "\(commandMode)#\(selectedID ?? -1)#\(text)"
+        if fingerprint != lastFingerprint || retryNew { requestID = UUID() }
+        lastFingerprint = fingerprint; retryNew = false; problem = nil; notice = nil
         do {
-            let result: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: ["question":text,"consent":"yes","context_hash":info.context_hash], headers: ["X-Request-ID":requestID.uuidString], timeout: 45)
-            guard !Task.isCancelled else { return }; answer = result; sentQuestion = nil
-        } catch {
-            guard !Task.isCancelled else { return }
-            problem = error.localizedDescription
-            if let api = error as? APIError { retryAsNew = api.status != 409 && api.status != 0 }
-        }
+            let query = commandMode ? "?mode=ifc-command" : selectedID.map { "?document_id=\($0)" } ?? ""
+            struct Status: Decodable { let enabled: Bool; let context_hash: String }
+            let info: Status = try await account.request("buildings/\(building.id)/assistant" + query)
+            guard info.enabled else { throw APIError(status: 503, message: "Der Assistent ist gerade nicht verfügbar.") }
+            var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true]
+            if commandMode { body["mode"] = "ifc-command" }
+            if let selectedID { body["document_id"] = selectedID }
+            let _: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers:["X-Request-ID":requestID.uuidString], timeout:45)
+            guard !Task.isCancelled else { return }; question = ""; lastFingerprint = ""; await load()
+        } catch { guard !Task.isCancelled else { return }; problem = error.localizedDescription; if let api = error as? APIError { retryNew = api.status != 0 && (api.status != 409 || !api.message.contains("noch bearbeitet")) } }
+    }
+    private func prepare(_ command: ModelCommand, document: Int) async {
+        guard !sending else { return }; sending = true; defer { sending = false }
+        do {
+            let state: SceneVersion = try await account.request("documents/\(document)/model-state")
+            let preview: CommandPreview = try await account.request("documents/\(document)/model-command", method:"POST", body:["command":command.json,"confirm":false])
+            pending = PendingModelCommand(document:document,command:command,revision:state.revision,description:preview.description); problem = nil
+        } catch { problem = error.localizedDescription }
+    }
+    private func apply(_ proposal: PendingModelCommand) async {
+        pending = nil; guard !sending else { return }; sending = true; defer { sending = false }
+        do {
+            let _: SceneVersion = try await account.request("documents/\(proposal.document)/model-command", method:"POST", body:["command":proposal.command.json,"confirm":true,"revision":proposal.revision])
+            notice = "Gespeichert. Im 3D-Reiter wird der gemeinsame Modellstand geladen."; problem = nil
+        } catch { problem = error.localizedDescription }
     }
 }

@@ -46,7 +46,7 @@ function commandRequestID() {
   const h = [...bytes].map(n => n.toString(16).padStart(2, '0')).join('');
   return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
 }
-export function mountCommands({ appearance, types, update, destroyed }) {
+export function mountCommands({ appearance, types, update, changed = () => {}, destroyed }) {
   const panel = document.querySelector('#commands');
   const input = document.querySelector('#command-input');
   const output = document.querySelector('#command-result');
@@ -59,7 +59,7 @@ export function mountCommands({ appearance, types, update, destroyed }) {
   function cancel() { ticket = undefined; busy = false; preview.disabled = false; clear(); }
   document.querySelector('#command-open').onclick = () => { panel.hidden = false; };
   document.querySelector('#command-close').onclick = () => { cancel(); panel.hidden = true; };
-  document.querySelector('#command-mode-note').textContent = remote ? 'Gemini übersetzt nur deinen Befehlstext. Keine IFC-Datei, Bauteildaten oder Gebäudemetadaten werden gesendet. Änderungen bleiben in dieser Ansicht.' : 'Vier feste Beispielbefehle, vollständig lokal. Keine Google-Anfrage. Änderungen bleiben in dieser Ansicht.';
+  document.querySelector('#command-mode-note').textContent = remote ? 'Gemini übersetzt nur deinen Befehlstext. Keine IFC-Datei, Bauteildaten oder Gebäudemetadaten werden gesendet. Bei gespeicherten Modellen werden bestätigte Änderungen gemeinsam auf dem Server gespeichert.' : 'Vier feste Beispielbefehle, vollständig lokal. Keine Google-Anfrage. Bei gespeicherten Modellen werden bestätigte Änderungen gemeinsam auf dem Server gespeichert.';
   document.querySelector('#command-consent-label').hidden = !remote;
   document.querySelectorAll('[data-command]').forEach(button => button.onclick = () => { cancel(); input.value = button.dataset.command; });
   input.oninput = cancel;
@@ -89,7 +89,7 @@ export function mountCommands({ appearance, types, update, destroyed }) {
   };
   execute.onclick = () => {
     if (!plan || destroyed()) return;
-    try { const count = applyCommand(plan, appearance); clear(); update(); output.textContent = `${count} Bauteil(e) in dieser Ansicht geändert. Die IFC-Datei bleibt unverändert.`; }
+    try { const operation={action:plan.command.action,ids:plan.ids,color:plan.command.color}; const count = applyCommand(plan, appearance); changed(operation); clear(); update(); output.textContent = `${count} Bauteil(e) geändert. Bei Servermodellen läuft die Speicherung. Die IFC-Datei bleibt unverändert.`; }
     catch (e) { clear(); output.textContent = e.message; }
   };
   window.addEventListener('pagehide', () => { cancel(); delete window.d21CommandReply; }, { once: true });

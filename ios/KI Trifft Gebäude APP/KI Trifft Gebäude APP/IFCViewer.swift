@@ -159,7 +159,8 @@ struct IFCStoredModelView: View {
     var smartHome = false
     var account: AccountModel? = nil
     var buildingID: Int? = nil
-    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID) }
+    var documentID: Int? = nil
+    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID, documentID: documentID) }
 }
 
 /// Optional local preview; server-stored models are opened through IFCLibraryView.
@@ -237,10 +238,12 @@ private struct IFCWebView: UIViewRepresentable {
     var smartHome = false
     var account: AccountModel? = nil
     var buildingID: Int? = nil
-    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID) }
+    var documentID: Int? = nil
+    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        if account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
         if account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
@@ -252,6 +255,7 @@ private struct IFCWebView: UIViewRepresentable {
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
 
@@ -260,12 +264,15 @@ private struct IFCWebView: UIViewRepresentable {
         let modelURL: URL
         weak var account: AccountModel?
         let buildingID: Int?
+        let documentID: Int?
+        var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
-        init(modelURL: URL, account: AccountModel?, buildingID: Int?) { self.modelURL = modelURL; self.account = account; self.buildingID = buildingID }
+        init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?) { self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
         struct CommandInfo: Decodable { let enabled: Bool; let context_hash: String }
         struct CommandProposal: Codable { let action: String; let target: String; let color: String?; let summary: String }
         struct CommandReply: Decodable { let command: CommandProposal }
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "ifcSceneRequest" { sceneRequest(message); return }
             guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
                   web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],
                   let id = body["id"], UUID(uuidString: id) != nil, let question = body["question"],
@@ -286,6 +293,29 @@ private struct IFCWebView: UIViewRepresentable {
                 } catch {
                     guard !Task.isCancelled else { return }
                     _ = try? await web.callAsyncJavaScript("window.d21CommandReply(id, null, error)", arguments: ["id":id,"error":error.localizedDescription], in: nil, contentWorld: .page)
+                }
+            }
+        }
+        struct SceneReply: Codable {
+            struct State: Codable { let hidden: [Int]; let colors: [String:String]; let lights: [Int] }
+            let revision: Int; let state: State
+        }
+        func sceneRequest(_ message: WKScriptMessage) {
+            guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
+                  let body = message.body as? [String:Any], let id = body["id"] as? String, id.count <= 100,
+                  let account, let documentID else { return }
+            sceneTask?.cancel()
+            sceneTask = Task { @MainActor [weak web] in
+                guard let web else { return }
+                do {
+                    let operation = body["operation"] as? [String:Any]
+                    let result: SceneReply = try await account.request("documents/\(documentID)/model-state", method: operation == nil ? "GET" : "POST", body: operation.map { ["operation":$0,"revision":body["revision"] ?? -1] })
+                    guard !Task.isCancelled else { return }
+                    let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result))
+                    _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, result, null)", arguments:["id":id,"result":json], in:nil, contentWorld:.page)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, null, error)", arguments:["id":id,"error":error.localizedDescription], in:nil, contentWorld:.page)
                 }
             }
         }
@@ -315,7 +345,7 @@ private struct IFCWebView: UIViewRepresentable {
             decisionHandler(navigationAction.request.url?.scheme == "d21ifc" ? .allow : .cancel)
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            activeTask?.cancel()
+            activeTask?.cancel(); sceneTask?.cancel()
             webView.loadHTMLString("<meta name='viewport' content='width=device-width'><p style='font:18px -apple-system;padding:24px'>Das Modell benötigt zu viel Speicher. Bitte über „Datei öffnen“ einen kleineren IFC-Ausschnitt auswählen.</p>", baseURL: nil)
         }
     }

@@ -1,3 +1,4 @@
+const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
 const express = require('express');
@@ -34,7 +35,7 @@ async function initAccounts(db) {
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_buildings_creation_key_idx ON app_buildings(user_id,creation_key) WHERE creation_key IS NOT NULL');
  await initPasswordResets(db);
  await initTwin(db);
- await initDocuments(db);
+ await initDocuments(db);await initModelState(db);
  await initProfile(db);
  await initCollaboration(db);
  await initAssistant(db);
@@ -120,6 +121,7 @@ function accountRouter(db,options={}) {
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  router.use(collaborationRouter(db,requireAccount));
+ router.use(modelStateRouter(db,requireAccount));
  router.use(assistantRouter(db,requireAccount,options.assistant));
  router.use(twinRouter(db,requireAccount));
  router.use(profileRouter(db,requireAccount));

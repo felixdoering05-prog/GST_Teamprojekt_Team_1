@@ -58,3 +58,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [Gemini-Gebäude-Assistent, 02.11.2026](2026-11-02-gemini-gebaeudeassistent.md)
 
 - [IFC-Modellbefehle, 02.11.2026](2026-11-02-ifc-modellbefehle.md)
+
+- [Gemeinsame Modellansicht und KI-Chat, 02.11.2026](2026-11-02-gemeinsame-modellansicht-ki-chat.md)
