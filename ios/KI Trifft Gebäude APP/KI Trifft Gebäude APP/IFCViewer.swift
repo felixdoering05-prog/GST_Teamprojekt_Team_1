@@ -15,12 +15,12 @@ struct IFCLibraryView: View {
     @State private var downloadMessage = ""
     @State private var preview: DocumentPreview?
     private var scope: String { model.serverURL + "#" + String(model.user?.id ?? -1) }
-    init(model: AccountModel, smartHome: Bool = false) {
+    init(model: AccountModel, smartHome: Bool = false, buildingID: Int? = nil) {
         self.model = model
         self.smartHome = smartHome
         _library = StateObject(wrappedValue: IFCLibraryState(source: IFCLibrarySource(
             scope: { model.user.map { model.serverURL + "#" + String($0.id) } },
-            buildings: { try await model.fetchBuildings() },
+            buildings: { let all = try await model.fetchBuildings(); return all.filter { buildingID == nil || $0.id == buildingID } },
             documents: { try await model.documents(buildingID: $0) }
         )))
     }

@@ -1,3 +1,4 @@
+const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
 const express = require('express');
 const {initPasswordResets,passwordResetRouter}=require('./password-reset');
 const {initTwin,twinRouter}=require('./twin');
@@ -34,6 +35,7 @@ async function initAccounts(db) {
  await initTwin(db);
  await initDocuments(db);
  await initProfile(db);
+ await initCollaboration(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -98,7 +100,7 @@ function accountRouter(db,options={}) {
  router.use(passwordResetRouter(db,{passwordHash,throttle,...options}));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
- router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query('SELECT id,name,address,created_at FROM app_buildings WHERE user_id=$1 ORDER BY id',[req.account.id])).rows)));
+ router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
  router.post('/buildings',requireAccount,wrap(async(req,res)=>{
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const address=typeof req.body?.address==='string'?req.body.address.trim():'';
@@ -115,6 +117,7 @@ function accountRouter(db,options={}) {
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ router.use(collaborationRouter(db,requireAccount));
  router.use(twinRouter(db,requireAccount));
  router.use(profileRouter(db,requireAccount));
  router.use(documentRouter(db,requireAccount));

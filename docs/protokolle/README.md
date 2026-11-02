@@ -52,3 +52,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [WhatsApp-Projekt-Bot vorbereiten, 02.11.2026](2026-11-02-whatsapp-bot-prototyp.md)
 
 - [n8n: GitHub-Meldungen und Erreichbarkeit, 02.11.2026](2026-11-02-n8n-automatisierungen.md)
+
+- [Kontakte, Gebäudefreigaben und Chat, 02.11.2026](2026-11-02-kontakte-freigaben-chat.md)

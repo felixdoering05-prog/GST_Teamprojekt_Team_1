@@ -3,7 +3,7 @@ import Combine
 import PhotosUI
 import UniformTypeIdentifiers
 
-struct BuildingDetailView: View {
+struct BuildingFilesView: View {
     let building: Building
     @ObservedObject var model: AccountModel
     @StateObject private var flow: BuildingWorkflowModel
