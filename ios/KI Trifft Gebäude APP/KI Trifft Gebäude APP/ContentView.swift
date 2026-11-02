@@ -81,7 +81,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
     }
-    private func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil, headers: [String:String] = [:]) async throws -> T {
+    func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:String]? = nil, headers: [String:String] = [:]) async throws -> T {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -377,11 +377,14 @@ struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var selectedTab: Int = {
         #if DEBUG
-        return WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21IFCPreview") ? 1 : 0
+        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
+        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NoticesPreview") { return 2 }
+        return 0
         #else
         return 0
         #endif
     }()
+    @StateObject private var social = CollaborationModel()
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProfile = false
@@ -415,10 +418,10 @@ struct AccountHomeView: View {
                             Button("Lokalen Entwurf verwerfen", role: .destructive) { discardDraft = true }
                         }
                     }
-                    Section("Meine Gebäude") {
+                    Section("Meine und geteilte Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
                             NavigationLink(value: building) {
-                                Label { VStack(alignment: .leading, spacing: 5) { Text(building.name).font(.headline); Text(building.address.isEmpty ? "Adresse noch offen" : building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
+                                Label { VStack(alignment: .leading, spacing: 5) { Text(building.name).font(.headline); if building.is_owner == false { Text("Mit dir geteilt").font(.caption).foregroundStyle(d21Accent) }; Text(building.address.isEmpty ? "Adresse noch offen" : building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
                             }
                         }
                         if model.buildings.isEmpty {
@@ -451,9 +454,11 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
-            NavigationStack { IFCLibraryView(model: model) }.tabItem { Label("IFC-Viewer", systemImage: "cube.transparent") }.tag(1)
-            NavigationStack { IFCLibraryView(model: model, smartHome: true) }.tabItem { Label("Smart Home", systemImage: "lightbulb") }.tag(3)
-            NavigationStack { ContentUnavailableView("Noch keine Meldungen", systemImage: "bell", description: Text("Gebäudewarnungen werden später angebunden.")).navigationTitle("Meldungen") }.tabItem { Label("Meldungen", systemImage: "bell") }.tag(2)
+            NavigationStack { ContactsView(account: model, social: social) }.tabItem { Label("Kontakte", systemImage: "person.2") }.tag(1)
+            NavigationStack { NotificationsView(account: model, social: social, openContacts: { selectedTab = 1 }) }.tabItem { Label("Mitteilungen", systemImage: "bell") }.badge(social.unread).tag(2)
+        }.task {
+            await social.reload(model)
+            while !Task.isCancelled { do { try await Task.sleep(for: .seconds(20)) } catch { return }; if scenePhase == .active { await social.reload(model) } }
         }
     }
 }

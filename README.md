@@ -56,6 +56,10 @@ Mit [PR #47](../../pull/47) wurde ein IFC-BIM-Viewer für die **Website** in `ma
 
 **Prüfgrenze:** Der Merge bestätigt den implementierten Code, nicht einen erfolgreich absolvierten Ende-zu-Ende-Test auf dem Produktivserver oder mit einem vollständigen D21-Modell. Revit-Liveanbindung, Sensorik/KNX und reale Lichtsteuerung sind dadurch weiterhin nicht nachgewiesen. Für die Projektabnahme sind ein Test mit freigegebenem IFC-Modell, Web-/iPhone-Vergleich und nachvollziehbare Testergebnisse erforderlich.
 
+## Gemeinsam in der iPhone-App arbeiten
+
+Kontakte über E-Mail mit Bestätigung, Gebäudeeinladungen, gemeinsame Dateien/IFC, In-App-Mitteilungen und ein Textchat pro Gebäude. Neue Navigation: **Gebäude · Kontakte · Mitteilungen**. [Bedienung und Schnittstellenvertrag](docs/zusammenarbeit-app.md). Noch keine Push-Mitteilungen oder gemeinsame Sensor-/KI-Datensätze.
+
 ## Automatisierungen mit n8n
 
 Zwei nur lesende Abläufe protokollieren GitHub-Aufgaben/PR-Änderungen und die Erreichbarkeit der Website im n8n-Ausführungsverlauf. Der Verwaltungszugang bleibt privat über SSH; noch kein WhatsApp- oder Mailversand. [Zugang, Bedienung und Grenzen](dashboard/n8n/README.md) · [Protokoll](docs/protokolle/2026-11-02-n8n-automatisierungen.md)

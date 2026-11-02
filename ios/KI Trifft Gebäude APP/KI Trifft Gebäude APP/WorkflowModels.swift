@@ -5,6 +5,7 @@ struct Building: Identifiable, Codable, Equatable, Hashable {
     let id: Int
     let name: String
     let address: String
+    var is_owner: Bool? = nil
 }
 struct BuildingDocument: Identifiable, Codable {
     let id: Int

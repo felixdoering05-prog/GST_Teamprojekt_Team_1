@@ -93,6 +93,12 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let json = body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String:String] ?? [:]
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
+        else if path.hasSuffix("/contacts") && method == "GET" { result = [["id":1,"user_id":2,"name":"Benjamin","status":"accepted"],["id":2,"user_id":3,"name":"Emir","status":"pending"]] }
+        else if path.hasSuffix("/building-invitations") { result = [] }
+        else if path.contains("/notifications/") && path.hasSuffix("/read") { result = ["ok":true] }
+        else if path.hasSuffix("/notifications") { result = [["id":1,"kind":"chat","title":"Benjamin: Der neue Plan ist da.","building_id":901,"created_at":"2026-11-02T12:00:00.000Z","read_at":NSNull()]] }
+        else if path.hasSuffix("/members") { result = [["id":999999,"name":"Felix","status":"owner"],["id":2,"name":"Benjamin","status":"accepted"]] }
+        else if path.hasSuffix("/messages") { result = [["id":1,"user_id":2,"name":"Benjamin","text":"Der neue Plan ist da.","created_at":"2026-11-02T12:00:00.000Z"]] }
         else if path.hasSuffix("profile/avatar") { status = 404 }
         else if path == "/api/v1/buildings" {
             if method == "POST" {
