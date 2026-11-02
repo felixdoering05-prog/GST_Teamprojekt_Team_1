@@ -27,7 +27,7 @@ Die private Teamablage ist von der persönlichen Gebäudemappe der Website/iPhon
 
 Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone-App nutzen eine gemeinsame Datenablage für persönliche Konten, Gebäude, Bilder, Pläne und IFC-Modelle. Darauf aufbauend erproben wir die Anbindung von Revit und abgegrenzte KI-Anwendungen mit nachvollziehbaren Ergebnissen.
 
-**Stand: 31. Oktober 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
+**Stand: 2. November 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
 
 ## Aktueller Entwicklungsstand
 
@@ -43,8 +43,8 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 | IFC-Interaktion / Smart Home | Bauteile im iOS-Viewer auswählen, einfärben und ausblenden; simuliertes Raumlicht für `IFCSPACE`-Räume mit Geometrie. **Nur visuelle Simulation**, keine reale KNX-/Lampensteuerung und keine physikalische Lichtberechnung. [Dokumentation](docs/ifc-viewer-ios.md) · [PR #42](../../pull/42) |
 | Passwort vergessen | Technisch vorbereitet; echter Mailversand benötigt weiterhin ein eingerichtetes Projekt-Absenderkonto. [Einrichtung](docs/passwort-mail.md) |
 | Revit-EG-Arbeitsstand | In Revit 2027.3 wurde lokal ein unvollständiges EG-Modell mit **50 nativen Wänden und 28 geschlossenen Räumen** erstellt; RVT und IFC4 wurden gespeichert und technisch geprüft. **11 Räume** liegen innerhalb des technischen Prüfwerts von 0,03 m², **17** haben noch Flächenabweichungen und **5 Planräume** fehlen. Türen, Fenster, Decken, Dach und weitere Geschosse sind noch offen. Keine fachliche Abnahme und keine Freigabe zum Hochladen. [Arbeitsnachweis](docs/revit-planrekonstruktion.md) · [PR #44](../../pull/44) |
-| Gaming-PC / Revit-Datenweg | Der geschützte Tunnel zu Benjamins Gaming-PC und die durchgängige automatische Revit-Übergabe sind weiterhin nicht als funktionsfähig nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
-| KI im Produkt | Die Web-Auswertung ist zunächst regelbasiert. Ein echter ChatGPT-/KI-Ablauf und eine Ollama-Anbindung sind noch offen; vorbereitete Oberflächen oder Demo-Daten sind keine produktive KI. [Emirs Aufgabe #33](../../issues/33) |
+| Revit-Rechner / Datenweg | Benjamins Gaming-PC entfällt. Ein Uni- oder Cloud-Rechner und dessen sichere Anbindung sind noch auszuwählen; eine automatische Revit-Übergabe ist nicht nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
+| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API, nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. Keine automatische Plan-/IFC-Auswertung. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
 
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
@@ -55,6 +55,10 @@ Zuletzt umgesetzt: [#39 · IFC-Modellbibliothek](../../pull/39), [#41 · Dokumen
 Mit [PR #47](../../pull/47) wurde ein IFC-BIM-Viewer für die **Website** in `main` übernommen. Er nutzt die zentrale, auch vom iPhone verwendete IFC-Modellbibliothek; BIM-Ansicht und Bauteilinteraktionen sind im Web-Frontend implementiert. [Technische Anleitung](docs/web-bim-viewer.md) · [Entwicklungsprotokoll](docs/protokolle/2026-10-30-web-bim-viewer.md).
 
 **Prüfgrenze:** Der Merge bestätigt den implementierten Code, nicht einen erfolgreich absolvierten Ende-zu-Ende-Test auf dem Produktivserver oder mit einem vollständigen D21-Modell. Revit-Liveanbindung, Sensorik/KNX und reale Lichtsteuerung sind dadurch weiterhin nicht nachgewiesen. Für die Projektabnahme sind ein Test mit freigegebenem IFC-Modell, Web-/iPhone-Vergleich und nachvollziehbare Testergebnisse erforderlich.
+
+## Gebäude-Assistent mit Gemini
+
+In der Gebäudeübersicht unterstützt ein eigener Assistent mit Gemini. Vor dem Senden zeigt die App die übertragenen Angaben; Pläne, Fotos, IFC-Inhalte und Teamchat werden nicht automatisch an Google gesendet. [Bedienung, Datenumfang und Limits](docs/gemini-gebaeudeassistent.md).
 
 ## Gemeinsam in der iPhone-App arbeiten
 
@@ -89,7 +93,7 @@ Zusätzlich nennt Herr Bürgy eine geplante **Campus-Heatmap**, aus der aktuelle
 | :--- | :--- | :--- |
 | **Felix** | Projektmanagement, Server und native iOS-App | Einladungsadressen, Pläne und Budget klären; App weiterentwickeln und auf Geräten prüfen · [#6](../../issues/6) |
 | **Emir** | App-/Weboberfläche und Base44-Abgleich | Gemeinsame Datenablage erhalten, ersten echten ChatGPT-Ablauf umsetzen und Einrichtung/KI-Einsatz protokollieren · [#7](../../issues/7), [#21](../../issues/21), [#33](../../issues/33) |
-| **Benjamin** | Schnittstellen und Systemverbindung | Gaming-PC-Tunnel, API-/Datenvertrag und Revit-Datenübergabe mit Felix und Emir abstimmen · [#9](../../issues/9), [#19](../../issues/19) |
+| **Benjamin** | Schnittstellen und Systemverbindung | Sichere Uni-/Cloud-Anbindung, API-/Datenvertrag und Revit-Datenübergabe mit Felix und Emir abstimmen · [#9](../../issues/9), [#19](../../issues/19) |
 | **Lukas & Josef** | Revit-Prototyp und KI-Versuche | Kleines Testmodell und geprüften Export erstellen; geplanten Claude-Arbeitsbereich für Revit/KI nutzen, sobald der Zugang eingerichtet ist · [#11](../../issues/11) |
 | **Josef** | Ollama-Erprobung | Separaten Versuch auf geeigneter Hardware mit Prompts, Ergebnissen und Grenzen dokumentieren · [#12](../../issues/12) |
 | **Vincent** | Dokumentation und Projektvorstellung | Projektwebsite, Gesamtstand und Teamvorstellung pflegen · [#10](../../issues/10), [#40](../../issues/40) |
@@ -99,7 +103,7 @@ Die neue Zugangszuordnung ändert diese fachlichen Rollen nicht. API- und Datenb
 ## Nächste Schritte bis Dienstag, 3. November 2026
 
 - **Felix:** zwei Einladungsempfänger mit Bürgy abstimmen; Bereitstellung und Nutzungsfreigabe der D21-Pläne nachhalten. Abrechnung und Budget bleiben offen, bis sie bestätigt sind.
-- **Benjamin & Felix:** Stand der PC-Verbindung dokumentieren, Verbindungsweg testen und Revit-/IFC-Übergabe abstimmen. Der frühere Termin für [#19](../../issues/19) war der 28. Oktober; ein Abschlussnachweis steht noch aus.
+- **Benjamin & Felix:** Uni-/Cloud-Rechner auswählen und sicheren Verbindungsweg planen und Revit-/IFC-Übergabe abstimmen. Der frühere Termin für [#19](../../issues/19) war der 28. Oktober; ein Abschlussnachweis steht noch aus.
 - **Lukas & Josef:** den bereits dokumentierten lokalen EG-Modellstand aus [PR #44](../../pull/44) als Ausgangspunkt fachlich gegenprüfen; **17 Raumkonturen korrigieren und 5 fehlende Räume klären**, bevor weitere Geschosse oder Lichtsimulationen freigegeben werden. Eigene Beiträge beider Teammitglieder und die tatsächliche Übergabe separat nachweisen; die bisherigen technischen Prüfungen ersetzen keinen solchen Teamnachweis. [#11](../../issues/11)
 - **Emir:** Base44-Serverstand abgleichen, ChatGPT-Anwendungsfall und benötigte Zugänge mit Felix klären, ersten prüfbaren Ablauf und technische Dokumentation liefern · [#33](../../issues/33). Der ältere Export-/Abgleichauftrag [#21](../../issues/21) muss anhand des inzwischen importierten Stands abgeglichen werden.
 - **Vincent:** Teamvorstellung und Projektdokumentation aktualisieren; echte und geplante Funktionen unterscheiden.
@@ -124,14 +128,16 @@ flowchart TB
     browser <--> cloud
     iphone <-->|"Geschützte API-Anfragen und Datei-Downloads"| cloud
     cloud <--> web
-    subgraph pc["Benjamins Gaming-PC · geplante Anbindung"]
+    subgraph pc["Uni- oder Cloud-Rechner · Auswahl offen"]
         bridge["Revit-Datenübergabe / Tunnel<br/>noch zu prüfen"]
         revit["Revit · Modelle und Exporte"]
         ollama["Ollama · separater KI-Versuch"]
         revit -.-> bridge
         ollama -.-> bridge
     end
-    api -.->|"Geschützter PC-Server-Tunnel · geplant"| bridge
+    api -.->|"Geschützte Revit-Anbindung · geplant"| bridge
+    gemini["Google Gemini API<br/>Gebäude-Assistent · Metadaten, keine Dateien"]
+    api -->|"Nur nach bestätigter Anfrage"| gemini
     github["GitHub · Branch → Pull Request → main"]
     github -->|"d21-deploy für Website/API"| web
     github -->|"Xcode-Build und Installation"| iphone

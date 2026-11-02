@@ -99,6 +99,10 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.hasSuffix("/notifications") { result = [["id":1,"kind":"chat","title":"Benjamin: Der neue Plan ist da.","building_id":901,"created_at":"2026-11-02T12:00:00.000Z","read_at":NSNull()]] }
         else if path.hasSuffix("/members") { result = [["id":999999,"name":"Felix","status":"owner"],["id":2,"name":"Benjamin","status":"accepted"]] }
         else if path.hasSuffix("/messages") { result = [["id":1,"user_id":2,"name":"Benjamin","text":"Der neue Plan ist da.","created_at":"2026-11-02T12:00:00.000Z"]] }
+        else if path.hasSuffix("/assistant") {
+            if method == "POST" { result = ["answer":"Für dieses Testgebäude sind ein Name und eine Adresse hinterlegt. Dateiinhalte wurden nicht ausgewertet. Als nächsten Schritt könnt ihr Fotos und freigegebene Pläne ergänzen.","model":"Lokale Vorschau – keine Gemini-Anfrage","notice":"Lokale Testantwort, keine echten Gebäudedaten übertragen.","cached":false] }
+            else { result = ["enabled":true,"model":"Lokale Vorschau","notice":"Testdaten","context_hash":"preview-only","context":["building":["name":"Gebäude D21","address":"Hochschule Darmstadt"],"files":["count":0,"bytes":0,"latest":[],"shown":0]]] }
+        }
         else if path.hasSuffix("profile/avatar") { status = 404 }
         else if path == "/api/v1/buildings" {
             if method == "POST" {

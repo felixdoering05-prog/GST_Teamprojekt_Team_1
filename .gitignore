@@ -49,3 +49,6 @@ dist/
 
 # Private SMTP credentials (server only)
 private-mail/
+
+# Local AI credentials (production key remains outside the repository)
+private-ai/
