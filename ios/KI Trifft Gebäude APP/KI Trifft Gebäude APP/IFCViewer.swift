@@ -157,7 +157,9 @@ struct IFCLibraryView: View {
 struct IFCStoredModelView: View {
     let url: URL
     var smartHome = false
-    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome) }
+    var account: AccountModel? = nil
+    var buildingID: Int? = nil
+    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID) }
 }
 
 /// Optional local preview; server-stored models are opened through IFCLibraryView.
@@ -233,10 +235,13 @@ private enum IFCError: LocalizedError {
 private struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
     var smartHome = false
-    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL) }
+    var account: AccountModel? = nil
+    var buildingID: Int? = nil
+    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        if account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
@@ -247,12 +252,43 @@ private struct IFCWebView: UIViewRepresentable {
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
 
     }
-    final class Coordinator: NSObject, WKURLSchemeHandler, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKURLSchemeHandler, WKNavigationDelegate, WKScriptMessageHandler {
         let modelURL: URL
-        init(modelURL: URL) { self.modelURL = modelURL }
+        weak var account: AccountModel?
+        let buildingID: Int?
+        var activeTask: Task<Void, Never>?
+        init(modelURL: URL, account: AccountModel?, buildingID: Int?) { self.modelURL = modelURL; self.account = account; self.buildingID = buildingID }
+        struct CommandInfo: Decodable { let enabled: Bool; let context_hash: String }
+        struct CommandProposal: Codable { let action: String; let target: String; let color: String?; let summary: String }
+        struct CommandReply: Decodable { let command: CommandProposal }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
+                  web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],
+                  let id = body["id"], UUID(uuidString: id) != nil, let question = body["question"],
+                  !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, question.utf16.count <= 500,
+                  let account, let buildingID else { return }
+            activeTask?.cancel()
+            activeTask = Task { @MainActor [weak web] in
+                guard let web else { return }
+                do {
+                    let info: CommandInfo = try await account.request("buildings/\(buildingID)/assistant?mode=ifc-command")
+                    guard info.enabled else { throw APIError(status: 503, message: "Gemini ist gerade nicht verfügbar.") }
+                    let result: CommandReply = try await account.request("buildings/\(buildingID)/assistant", method: "POST", body: ["question":question,"consent":"yes","mode":"ifc-command","context_hash":info.context_hash], headers: ["X-Request-ID":id], timeout: 45)
+                    guard !Task.isCancelled else { return }
+                    // JSON arguments are passed as data; no interpolated/evaluated model code.
+                    var command = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result.command)) as! [String: Any]
+                    if command["color"] == nil { command["color"] = NSNull() }
+                    _ = try? await web.callAsyncJavaScript("window.d21CommandReply(id, command, null)", arguments: ["id":id,"command":command], in: nil, contentWorld: .page)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    _ = try? await web.callAsyncJavaScript("window.d21CommandReply(id, null, error)", arguments: ["id":id,"error":error.localizedDescription], in: nil, contentWorld: .page)
+                }
+            }
+        }
         func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
             do {
                 guard let url = urlSchemeTask.request.url, url.host == "viewer" else { throw IFCError.message("Ungültige Viewer-Adresse.") }
@@ -279,6 +315,7 @@ private struct IFCWebView: UIViewRepresentable {
             decisionHandler(navigationAction.request.url?.scheme == "d21ifc" ? .allow : .cancel)
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            activeTask?.cancel()
             webView.loadHTMLString("<meta name='viewport' content='width=device-width'><p style='font:18px -apple-system;padding:24px'>Das Modell benötigt zu viel Speicher. Bitte über „Datei öffnen“ einen kleineren IFC-Ausschnitt auswählen.</p>", baseURL: nil)
         }
     }

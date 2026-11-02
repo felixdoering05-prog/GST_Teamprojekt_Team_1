@@ -12,6 +12,7 @@ struct BuildingDocument: Identifiable, Codable {
     let name: String
     let mime_type: String
     let size: Int
+    var building_id: Int? = nil
 }
 
 enum BuildingStep: Int, Codable, CaseIterable {

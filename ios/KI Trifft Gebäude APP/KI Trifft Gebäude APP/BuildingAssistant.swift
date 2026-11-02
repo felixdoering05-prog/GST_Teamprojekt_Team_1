@@ -33,6 +33,10 @@ struct BuildingAssistantView: View {
                     Text("Fragen zu \(building.name) – mit den Angaben aus eurer Gebäudemappe.").foregroundStyle(.secondary)
                     Text("Jede Frage wird einzeln beantwortet. Der Teamchat bleibt privat und wird nicht mitgesendet.").font(.footnote).foregroundStyle(.secondary)
                 }
+                Section("Modell steuern") {
+                    NavigationLink { IFCLibraryView(model: account, buildingID: building.id) } label: { Label("IFC-Modell mit Befehlen öffnen", systemImage: "cube.transparent") }
+                    Text("Im geöffneten Modell auf „Modellbefehle“ tippen: ausblenden, einfärben oder zurücksetzen. Hier im Text-Assistenten wird keine Modelländerung ausgeführt.").font(.footnote).foregroundStyle(.secondary)
+                }
                 if loading { Section { ProgressView("Gebäudestand wird geladen …") } }
                 if let info {
                     if !info.enabled { Section { Label("Der Assistent ist vorübergehend nicht verfügbar.", systemImage: "cloud.slash"); Button("Verfügbarkeit erneut prüfen") { Task { await load() } } } }

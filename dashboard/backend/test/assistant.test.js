@@ -20,7 +20,7 @@ before(async()=>{
   if(mode==='quota')return {ok:false,status:429};
   if(mode==='secret-error')throw new Error('Never expose '+mockKey);
   if(mode==='revoke')await db.query('DELETE FROM app_building_members WHERE building_id=$1 AND user_id=$2',[building.id,member.id]);
-  return {ok:true,json:async()=>({candidates:[{finishReason:mode==='truncated'?'MAX_TOKENS':'STOP',content:{parts:[{thought:true,text:'INTERNAL-THOUGHT'},{text:'Es ist eine PDF-Datei hinterlegt. Raumdaten fehlen.'}]}}]})};
+  return {ok:true,json:async()=>({candidates:[{finishReason:mode==='truncated'?'MAX_TOKENS':'STOP',content:{parts:[{thought:true,text:'INTERNAL-THOUGHT'},{text:mode==='command'?JSON.stringify({action:'color',target:'walls',color:'#2563eb',summary:'Wände blau einfärben'}):mode==='command-invalid'?JSON.stringify({action:'delete',target:'walls',color:null,summary:'Löschen'}):mode==='command-unsupported'?JSON.stringify({action:'unsupported',target:'none',color:null,summary:'Noch nicht unterstützt'}):'Es ist eine PDF-Datei hinterlegt. Raumdaten fehlen.'}]}}]})};
  };
  const app=express();app.use(express.json({limit:'16kb'}));app.use('/api/v1',accountRouter(db,{assistant:{enabled:true,getKey:()=>{if(mode==='missing-key')throw new Error('No file');return mockKey;},fetch:mockFetch}}));
  server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));url=`http://127.0.0.1:${server.address().port}/api/v1`;
@@ -83,6 +83,19 @@ test('deleting a test building keeps quota accounting and prevents replay throug
  const nonce=randomUUID();await db.query("INSERT INTO app_ai_requests(user_id,building_id,request_key,question_hash,status) VALUES($1,$2,$3,'fixture','failed')",[owner.id,temp.id,nonce]);
  await db.query('DELETE FROM app_buildings WHERE id=$1',[temp.id]);
  assert.equal((await db.query('SELECT building_id FROM app_ai_requests WHERE request_key=$1',[nonce])).rows[0].building_id,null);
+});
+test('IFC mode sends command text only, validates structured proposals and replays them',async()=>{
+ await db.query("UPDATE app_ai_requests SET created_at=now()-interval '2 hours'");mode='command';
+ const info=await request(owner,path()+'?mode=ifc-command');
+ assert.equal(info.body.context.mode,'ifc-command');assert.equal(JSON.stringify(info.body.context).includes('Testcampus'),false);
+ const nonce=randomUUID(),body={mode:'ifc-command',question:'Färbe alle Wände blau',consent:'yes',context_hash:info.body.context_hash};
+ const first=await request(owner,path(),body,nonce);assert.equal(first.status,200);assert.equal(first.body.command.action,'color');
+ const sent=JSON.parse(calls.at(-1).options.body);assert.equal(sent.generationConfig.responseMimeType,'application/json');
+ for(const text of ['Plan.pdf','Testcampus','D21 Test',privateContent])assert.equal(calls.at(-1).options.body.includes(text),false);
+ const count=calls.length;const replay=await request(owner,path(),body,nonce);assert.equal(replay.body.cached,true);assert.deepEqual(replay.body.command,first.body.command);assert.equal(calls.length,count);
+ mode='command-invalid';assert.equal((await request(owner,path(),body,randomUUID())).status,502);
+ mode='command-unsupported';const unsupported=await request(owner,path(),body,randomUUID());assert.equal(unsupported.body.command.action,'unsupported');
+ mode='ok';await db.query("UPDATE app_ai_requests SET created_at=now()-interval '2 hours'");
 });
 test('persistent account quota blocks new calls without affecting other users',async()=>{
  await db.query("UPDATE app_ai_requests SET created_at=now()-interval '2 hours'");

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { IfcAPI, IFCSPACE } from 'web-ifc';
+import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR, IFCWINDOW, IFCROOF, IFCSLAB } from 'web-ifc';
 import { ElementAppearance } from './interactions.js';
+import { mountCommands } from './commands.js';
 
 const status = document.querySelector('#status');
 const panel = document.querySelector('#selection');
@@ -9,6 +10,7 @@ const buttons = [...document.querySelectorAll('button')];
 buttons.forEach(button => button.disabled = true);
 let api, modelID, renderer, controls, root, scene, camera;
 const appearance = new ElementAppearance();
+const elementTypes = new Map();
 const info = document.querySelector('#selection-info');
 const home = document.querySelector('#home');
 const roomsPanel = document.querySelector('#rooms');
@@ -89,9 +91,12 @@ async function open() {
         mesh.userData.expressID = flat.expressID;
         root.add(mesh);
         appearance.add(flat.expressID, mesh);
+
       } finally { data.delete(); }
     }
   });
+  const categories = new Map([[IFCWALL,'walls'],[IFCWALLSTANDARDCASE,'walls'],[IFCWALLELEMENTEDCASE,'walls'],[IFCDOOR,'doors'],[IFCWINDOW,'windows'],[IFCROOF,'roofs'],[IFCSLAB,'slabs']]);
+  for (const id of appearance.elements.keys()) elementTypes.set(id, categories.get(api.GetLineType(modelID,id)));
   if (!meshes) throw new Error('In dieser IFC-Datei wurde keine darstellbare 3D-Geometrie gefunden.');
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
@@ -131,9 +136,11 @@ async function open() {
     document.querySelector('#show-all').textContent = appearance.hiddenCount ? `Alles anzeigen (${appearance.hiddenCount})` : 'Alles anzeigen';
     render();
   }
+  const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, destroyed: () => destroyed });
   const ray = new THREE.Raycaster();
   function pick(x, y) {
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
+    cancelCommand();
     appearance.select(ray.intersectObjects(appearance.visibleMeshes, false)[0]?.object.userData.expressID);
     updateSelection();
   }
@@ -164,6 +171,7 @@ async function open() {
   document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); };
   document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); };
   function mode(smart) {
+    cancelCommand(); document.querySelector('#commands').hidden = true;
     home.hidden = !smart;
     document.querySelector('#tools').hidden = smart;
     document.querySelector('#model-mode').setAttribute('aria-pressed', String(!smart));
@@ -215,6 +223,7 @@ async function open() {
   }
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);
+  document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
   status.hidden = true;
   renderer.render(scene, camera);

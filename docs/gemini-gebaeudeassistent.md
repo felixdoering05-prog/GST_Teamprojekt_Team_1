@@ -39,3 +39,7 @@ Der Endpoint ist auch für einen späteren Web-Client nutzbar; eine neue Assiste
 Tests mit isolierter PostgreSQL-Laufzeit und gemocktem Anbieter: Zugriff, ausdrückliche Bestätigung, überprüfter Kontext, Ausschluss von Dateiinhalten und fremden Daten, begrenzte Fragen, versteckte Modell-Gedanken, Wiederholung ohne zweiten Anbieteraufruf, Quota, teilweise Antworten, sichere Fehler, Rechteentzug während einer Anfrage, fehlende Konfiguration, belegte Slots sowie fortbestehende Kontingente nach Gebäudelöschung. Echte Google-Testaufrufe verwenden ausschließlich synthetische Angaben, keine Team-Pläne.
 
 Quellen: [Modell](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [API](https://ai.google.dev/api), [Preise und Datenverwendung](https://ai.google.dev/gemini-api/docs/pricing), [Schlüssel](https://ai.google.dev/gemini-api/docs/api-key).
+
+## IFC-Ansicht steuern
+
+Für Ansichtsaktionen im geöffneten IFC-Modell gibt es jetzt einen getrennten Befehlsmodus: ausblenden, einfärben und zurücksetzen, jeweils mit lokaler Trefferzahl und Bestätigung. Dabei geht nur der Befehlstext an Google, kein Modell. [Modellbefehle](ifc-modellbefehle.md). Der normale Text-Assistent führt weiterhin keine Ansichtsaktionen aus.
