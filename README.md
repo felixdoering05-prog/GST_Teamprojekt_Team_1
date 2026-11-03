@@ -5,6 +5,10 @@
 
 ### [🌐 D21-Dashboard öffnen](https://filling-vendor-verification-hop.trycloudflare.com)
 
+### [🏛️ Vincents Projektseite öffnen](https://filling-vendor-verification-hop.trycloudflare.com/projekt/)
+
+**Dashboard:** Gebäude, Dateien und Assistent · **Projektseite von Vincent:** Vorstellung, Vorgehen und Präsentation
+
 Passwortgeschützter Projektzugang · Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern.
 
 **Gebäudedaten zusammenführen. IFC-Modelle ansehen. Revit anbinden. KI nachvollziehbar erproben.**
@@ -174,4 +178,6 @@ Die Gesamtmeilensteine bleiben bestehen: [M1 · Umfang und Vorgaben](../../issue
 
 ## Präsentationsseite
 
-Vincents D21-Landingpage liegt unter der bestehenden Website-Adresse mit dem Zusatz **`/projekt/`**. Sie ist als Präsentationsentwurf mit Demo und offenen Ergebnissen gekennzeichnet; der Dashboard-Link führt zur App. Der bisherige Zugangsschutz gilt weiter. [Ablage und Bearbeitung](docs/landingpage-vincent.md).
+**[Vincents D21-Projektseite öffnen →](https://filling-vendor-verification-hop.trycloudflare.com/projekt/)**
+
+Die Landingpage liegt getrennt vom Dashboard unter **`/projekt/`**. Sie ist als Präsentationsentwurf mit Demo und offenen Ergebnissen gekennzeichnet; der Dashboard-Link führt zur App. Der bisherige Zugangsschutz gilt weiter. [Ablage und Bearbeitung](docs/landingpage-vincent.md).
