@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareText,
   Radio,
   X,
   Zap,
@@ -23,6 +24,7 @@ const NAV = [
   { path: '/sensorik', label: 'Sensorik', icon: Radio, hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
   { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },
   { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
+  { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
   { path: '/meldungen', label: 'Meldungen', icon: BellRing, hint: 'Grenzwertüberschreitungen und technische Warnungen' },
   { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und Konfiguration' },
 ];
