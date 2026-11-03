@@ -6,7 +6,7 @@ Stand: 03.11.2026. Das von Vincent per SFTP gelieferte Paket `D21-Website-Server
 
 Die vorhandene Website-Adresse um **`/projekt/`** ergänzen. `/projekt` wird mit Status 308 dorthin weitergeleitet; die Weiterleitung bleibt relativ, damit HTTPS vor Cloudflare erhalten bleibt. Das Dashboard liegt weiter unter `/`, die API unter `/api/`. Der bestehende Zugangsschutz gilt auch für die Präsentationsseite.
 
-Fünf Abschnitte: Projekt, Gebäude, Vorgehen, Ergebnisse/Demo und Team. Die Seite ist ausdrücklich ein Präsentationsentwurf: Ergebnisse und Namen sind noch Platzhalter, Raumauswahl ist eine Demo ohne Datenverbindung. Keine Sensor-, Revit- oder KI-Anbindung wird behauptet. Ein ergänzter Link führt zum bestehenden Dashboard.
+Fünf Abschnitte: Projekt, Gebäude, Vorgehen, Ergebnisse/Demo und Team. Die Seite ist ausdrücklich ein Präsentationsentwurf: Umsetzung, Ergebnisse und Fazit sind weiterhin offen; die Raumauswahl ist eine Demo ohne Datenverbindung. Der Seitentitel lautet „KI trifft Gebäude“. Die Teamvorstellung nennt die von Vincent am 03.11.2026 bestätigten sechs Namen und die bereits bestätigten Rollen: Vincent Kißner (Landingpage/Präsentation), Emir Sancak (App/Web), Felix Döring (Projektmanagement/Server), Josef Assaf und Lukas Zimmermann (Revit/KI) sowie Benjamin Grimm (Schnittstellen). Keine Sensor-, Revit- oder KI-Anbindung wird behauptet. Ein ergänzter Link führt zum bestehenden Dashboard.
 
 Quellen liegen in `dashboard/base44-frontend/public/projekt/`: HTML, CSS, JavaScript, bereitgestellte Aufgabenstellung als PDF und Gebäudeaufnahme mit erhaltenen Bildhinweisen. PDF und Bild werden aus Vincents Paket unverändert übernommen. Keine zusätzlichen Pakete, Ports oder Datenbankänderungen.
 
