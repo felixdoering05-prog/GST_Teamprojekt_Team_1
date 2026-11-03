@@ -1,0 +1,15 @@
+[Unit]
+Description=D21 host metrics snapshot for protected admin portal
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/d21-admin-collect.py
+User=root
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/d21-admin
+TimeoutStartSec=45

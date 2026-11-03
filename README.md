@@ -189,3 +189,7 @@ Die Gesamtmeilensteine bleiben bestehen: [M1 · Umfang und Vorgaben](../../issue
 **[Vincents D21-Projektseite öffnen →](https://filling-vendor-verification-hop.trycloudflare.com/projekt/)**
 
 Die Landingpage liegt getrennt vom Dashboard unter **`/projekt/`**. Sie ist als Präsentationsentwurf mit Demo und offenen Ergebnissen gekennzeichnet; der Dashboard-Link führt zur App. Der bisherige Zugangsschutz gilt weiter. [Ablage und Bearbeitung](docs/landingpage-vincent.md).
+
+## Serververwaltung
+
+Felix kann mit seinem freigegebenen Projektkonto unter **`/verwaltung`** Serverkapazität, Dienste, API-/KI-Nutzung und registrierte Konten überwachen. Andere Konten erhalten keine Einsicht. Keine Schlüssel oder Passwörter im Portal. [Einrichtung und Grenzen](docs/serververwaltung.md).

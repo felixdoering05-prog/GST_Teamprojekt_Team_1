@@ -1,3 +1,4 @@
+const {initAdmin,adminRouter}=require('./admin');
 const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
@@ -39,6 +40,7 @@ async function initAccounts(db) {
  await initProfile(db);
  await initCollaboration(db);
  await initAssistant(db);
+ await initAdmin(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -120,6 +122,7 @@ function accountRouter(db,options={}) {
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use(collaborationRouter(db,requireAccount));
  router.use(modelStateRouter(db,requireAccount));
  router.use(assistantRouter(db,requireAccount,options.assistant));

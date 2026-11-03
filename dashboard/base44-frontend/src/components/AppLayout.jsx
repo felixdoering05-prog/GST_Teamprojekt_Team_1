@@ -11,11 +11,12 @@ import {
   Menu,
   MessageSquareText,
   Radio,
+  ShieldCheck,
   X,
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { base44 } from '@/api/base44Client';
+import { request, base44 } from '@/api/base44Client';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
@@ -29,10 +30,10 @@ const NAV = [
   { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und Konfiguration' },
 ];
 
-function NavItems({ onNavigate }) {
+function NavItems({ onNavigate, isAdmin }) {
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {NAV.map((item) => {
+      {[...NAV,...(isAdmin?[{path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'}]:[])].map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -70,8 +71,10 @@ function NavItems({ onNavigate }) {
 
 function SidebarBody({ onNavigate }) {
   const [email, setEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    request('/admin/me').then(data=>setIsAdmin(data.admin)).catch(()=>setIsAdmin(false));
     base44.auth
       .me()
       .then((u) => setEmail(u?.email || ''))
@@ -95,7 +98,7 @@ function SidebarBody({ onNavigate }) {
         <p className="px-6 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/40">
           Navigation
         </p>
-        <NavItems onNavigate={onNavigate} />
+        <NavItems isAdmin={isAdmin} onNavigate={onNavigate} />
       </div>
 
       <div className="border-t border-sidebar-border px-5 py-4">

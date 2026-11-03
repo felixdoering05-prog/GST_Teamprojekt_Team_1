@@ -52,3 +52,6 @@ private-mail/
 
 # Local AI credentials (production key remains outside the repository)
 private-ai/
+
+# Private host status snapshots
+**/private-admin/
