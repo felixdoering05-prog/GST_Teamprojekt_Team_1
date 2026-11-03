@@ -1,5 +1,9 @@
 # D21 · iOS-App
 
+## Karten, eigene Chatnachrichten und Sprache
+
+Gebäudekarten öffnen eine Schnellwahl. Eigene Chatnachrichten lassen sich nach langem Drücken und Bestätigung löschen. Der Sprachbereich unterstützt die separat freigegebene ElevenLabs-Erkennung/-Ausgabe und bestätigte Gerätesimulationen. Die API-Aktivierung hängt von einem gültigen, passend berechtigten Key ab. [Ablauf und Grenzen](../docs/iphone-karten-chat-sprache.md).
+
 ## Dashboard, Demo und Messwerte · 03.11.2026
 
 Neuer Hauptreiter **Dashboard** mit Sensorik, Energie und Analyse auf gemeinsamer Web-Datenbasis. **Demo ohne Konto ausprobieren** funktioniert lokal ohne Serveränderung oder Gemini-Anfrage. Sensoren erfassen und CSV-Messwerte mit Vorschau importieren. Gemini kann nach gesonderter Freigabe Messwert-Zusammenfassungen erläutern; kein Modelltraining. [Bedienung, Format und Grenzen](../docs/iphone-dashboard-daten-ki.md).

@@ -17,6 +17,7 @@ struct ProjectNotice: Decodable, Identifiable {
 }
 struct BuildingMessage: Decodable, Identifiable {
     let id: Int; let user_id: Int; let name: String; let text: String; let created_at: String
+    var deleted: Bool? = nil
 }
 func projectDate(_ value: String) -> String {
     let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -167,7 +168,7 @@ struct BuildingDetailView: View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(["Übersicht", "Dashboard", "Dateien", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
+                    ForEach(["Übersicht", "Dashboard", "Dateien", "3D", "Geräte", "Sprache", "KI", "Team"], id: \.self) { item in
                         Button { section = item } label: { Text(item).font(.subheadline.weight(.semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(section == item ? d21Accent : Color(.secondarySystemGroupedBackground), in: Capsule()).foregroundStyle(section == item ? .white : .primary) }.accessibilityAddTraits(section == item ? .isSelected : [])
                     }
                 }.padding(.horizontal).padding(.vertical, 8)
@@ -177,6 +178,7 @@ struct BuildingDetailView: View {
             case "Dateien": BuildingFilesView(building: building, model: model)
             case "3D": BuildingModelView(building: building, account: model)
             case "Geräte": BuildingDevicesView(building: building, account: model)
+            case "Sprache": BuildingVoiceView(building: building, account: model)
             case "KI": BuildingAssistantView(building: building, account: model)
             case "Team": BuildingChatView(building: building, account: model)
             default:
@@ -260,6 +262,8 @@ struct BuildingChatView: View {
     @State private var pendingText: String?
     @State private var older = false
     @State private var hasMore = true
+    @State private var deleteTarget: BuildingMessage?
+    @State private var deleting = false
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         VStack(spacing: 0) {
@@ -270,9 +274,11 @@ struct BuildingChatView: View {
                     ForEach(messages) { message in
                         VStack(alignment: message.user_id == account.user?.id ? .trailing : .leading, spacing: 5) {
                             Text(message.user_id == account.user?.id ? "Du" : message.name).font(.caption.bold()).foregroundStyle(d21Accent)
-                            Text(message.text).textSelection(.enabled)
+                            if message.deleted == true { Label("Nachricht gelöscht", systemImage: "trash").font(.subheadline).foregroundStyle(.secondary) }
+                            else { Text(message.text).textSelection(.enabled) }
                             Text(projectDate(message.created_at)).font(.caption2).foregroundStyle(.secondary)
                         }.frame(maxWidth: .infinity, alignment: message.user_id == account.user?.id ? .trailing : .leading).padding(.vertical, 6).id(message.id)
+                        .contextMenu { if message.user_id == account.user?.id && message.deleted != true { Button("Nachricht löschen", systemImage: "trash", role: .destructive) { deleteTarget = message }.disabled(deleting) } }
                     }
                 }.listStyle(.plain).refreshable { await load() }
                 .onChange(of: messages.last?.id) { _, id in if let id, !older { proxy.scrollTo(id, anchor: .bottom) } }
@@ -283,19 +289,28 @@ struct BuildingChatView: View {
                 Button { Task { await send() } } label: { Image(systemName: sending ? "hourglass" : "arrow.up.circle.fill").font(.title2) }.accessibilityLabel("Nachricht senden").disabled(sending || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.utf16.count>2000)
             }.padding().background(.bar)
             Text("Nur für Gebäudemitglieder · Aktualisierung bei geöffneter App").font(.caption2).foregroundStyle(.secondary).padding(.bottom, 4)
-        }.task {
+        }.confirmationDialog("Eigene Nachricht für alle löschen?", isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }), titleVisibility: .visible) {
+            Button("Nachricht löschen", role: .destructive) { if let target = deleteTarget { Task { await remove(target) } } }
+            Button("Behalten", role: .cancel) { deleteTarget = nil }
+        } message: { Text("Der Text wird durch einen Löschhinweis ersetzt. Die Aktion kann in der App nicht rückgängig gemacht werden.") }
+        .task {
             await load()
             while !Task.isCancelled { do { try await Task.sleep(for: .seconds(10)) } catch { return }; if scenePhase == .active { await load() } }
         }
     }
     private func load() async {
         guard !loading else { return }; loading = true; defer { loading = false }
-        do { let latest: [BuildingMessage] = try await account.request("buildings/\(building.id)/messages"); let ids = Set(latest.map(\.id)); messages = (messages.filter { !ids.contains($0.id) } + latest).sorted { $0.id < $1.id }; if messages.count <= 50 { hasMore = latest.count == 50 }; problem = nil }
+        do {
+            let latest: [BuildingMessage] = try await account.request("buildings/\(building.id)/messages")
+            let ids = Set(latest.map(\.id)), oldIDs = messages.filter { !ids.contains($0.id) }.suffix(450).map { String($0.id) }
+            let old: [BuildingMessage] = oldIDs.isEmpty ? [] : try await account.request("buildings/\(building.id)/messages?ids=" + oldIDs.joined(separator: ","))
+            messages = Array((old + latest).sorted { $0.id < $1.id }.suffix(500)); hasMore = messages.count < 500 && latest.count == 50; problem = nil
+        }
         catch { problem = error.localizedDescription }
     }
     private func loadOlder() async {
-        guard let first = messages.first else { return }; older = true; defer { older = false }
-        do { let page: [BuildingMessage] = try await account.request("buildings/\(building.id)/messages?before=\(first.id)"); let ids = Set(messages.map(\.id)); messages = page.filter { !ids.contains($0.id) } + messages; hasMore = page.count == 50 } catch { problem = error.localizedDescription }
+        guard !older, !loading, messages.count < 500, let first = messages.first else { return }; older = true; defer { older = false }
+        do { let page: [BuildingMessage] = try await account.request("buildings/\(building.id)/messages?before=\(first.id)"); let ids = Set(messages.map(\.id)); messages = Array((page.filter { !ids.contains($0.id) } + messages).suffix(500)); hasMore = page.count == 50 && messages.count < 500 } catch { problem = error.localizedDescription }
     }
     private func send() async {
         sending = true; defer { sending = false }
@@ -303,5 +318,9 @@ struct BuildingChatView: View {
         if pendingText != content { requestID = UUID(); pendingText = content }
         do { let _: LogoutResult = try await account.request("buildings/\(building.id)/messages", method: "POST", body: ["text":content], headers: ["X-Request-ID":requestID.uuidString]); text = ""; pendingText = nil; await load() }
         catch { problem = error.localizedDescription }
+    }
+    private func remove(_ message: BuildingMessage) async {
+        guard !deleting else { return }; deleting = true; defer { deleting = false; deleteTarget = nil }
+        do { let _: LogoutResult = try await account.request("buildings/\(building.id)/messages/\(message.id)", method: "DELETE"); messages.removeAll { $0.id == message.id }; await load() } catch { problem = error.localizedDescription }
     }
 }
