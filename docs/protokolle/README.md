@@ -2,7 +2,7 @@
 
 [← Startseite](../../README.md)
 
-Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. **Bis zum 30.10.2026 ist in diesem Verzeichnis noch kein freigegebenes Team-Sitzungsprotokoll erfasst.** Entwicklungsprotokolle und technische Arbeitsnachweise unten sind keine Teamtermine. Fehlende Termine und Beschlüsse dürfen nur anhand tatsächlicher Aufzeichnungen nachgetragen werden.
+Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. **Stand 03.11.2026: Bislang ist in diesem Verzeichnis noch kein freigegebenes Team-Sitzungsprotokoll erfasst.** Entwicklungsprotokolle und technische Arbeitsnachweise unten sind keine Teamtermine. Fehlende Termine und Beschlüsse dürfen nur anhand tatsächlicher Aufzeichnungen nachgetragen werden.
 
 ## Neues Protokoll erstellen
 
@@ -60,3 +60,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [IFC-Modellbefehle, 02.11.2026](2026-11-02-ifc-modellbefehle.md)
 
 - [Gemeinsame Modellansicht und KI-Chat, 02.11.2026](2026-11-02-gemeinsame-modellansicht-ki-chat.md)
+
+- [02.11.2026 · Projektpflege und Testprioritäten](2026-11-02-projektpflege-nachmittag.md) – Repository-Statusprüfung; kein Team-Sitzungsprotokoll.
