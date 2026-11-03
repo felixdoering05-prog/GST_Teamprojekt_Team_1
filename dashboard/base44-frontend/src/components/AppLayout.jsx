@@ -30,10 +30,12 @@ const NAV = [
   { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und Konfiguration' },
 ];
 
+const ADMIN_NAV = {path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'};
+
 function NavItems({ onNavigate, isAdmin }) {
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {[...NAV,...(isAdmin?[{path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'}]:[])].map((item) => {
+      {[...NAV,...(isAdmin?[ADMIN_NAV]:[])].map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -128,7 +130,7 @@ function SidebarBody({ onNavigate }) {
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const current = NAV.find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
+  const current = [...NAV,ADMIN_NAV].find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
 
   return (
     <div className="min-h-screen bg-background">
