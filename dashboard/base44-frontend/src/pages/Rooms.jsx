@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Building2, Layers, MapPin, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Building2, Layers, MapPin, Plus, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -100,7 +100,7 @@ export default function Rooms() {
   if (showBuildingList) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Gebäudeliste" description="Wählen Sie ein Gebäude aus, um Name und Adresse anzuzeigen.">
+        <PageHeader title="Ihre Gebäude" description="Gebäudedaten, Räume und Dateien übersichtlich an einem Ort.">
           <Button onClick={() => { setNewBuilding(true); setBuildingOpen(true); }}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Gebäude anlegen
           </Button>
@@ -109,19 +109,19 @@ export default function Rooms() {
         {data.buildings.length === 0 ? (
           <EmptyState icon={Building2} title="Noch keine Gebäude angelegt" description="Legen Sie ein Gebäude an, um anschließend die Gebäudedaten und Räume zu verwalten." children={<Button onClick={() => { setNewBuilding(true); setBuildingOpen(true); }}>Gebäude anlegen</Button>} />
         ) : (
-          <div className="grid gap-3">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {data.buildings.map((building) => (
               <button key={building.id} type="button" onClick={() => openBuilding(building)}
-                className="surface flex w-full items-center justify-between gap-4 p-5 text-left transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="surface group flex w-full flex-col items-start gap-5 p-5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`Gebäude ${building.name} öffnen`}>
                 <span className="flex min-w-0 items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><Building2 className="h-5 w-5" /></span>
                   <span className="min-w-0">
-                    <span className="block font-heading font-semibold text-foreground">{building.name}</span>
+                    <span className="block break-words font-heading text-lg font-semibold text-foreground">{building.name}</span>
                     <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" />{building.address || 'Adresse nicht hinterlegt'}</span>
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-medium text-primary">Öffnen</span>
+                <span className="flex w-full items-center justify-between border-t border-border pt-4 text-xs font-medium text-primary">Gebäude öffnen<ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span>
               </button>
             ))}
           </div>
