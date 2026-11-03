@@ -377,6 +377,7 @@ struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var selectedTab: Int = {
         #if DEBUG
+        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DevicesPreview") { return 3 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NoticesPreview") { return 2 }
         return 0
@@ -454,6 +455,7 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
+            NavigationStack { DevicesHomeView(account: model) }.tabItem { Label("Geräte", systemImage: "house") }.tag(3)
             NavigationStack { ContactsView(account: model, social: social) }.tabItem { Label("Kontakte", systemImage: "person.2") }.tag(1)
             NavigationStack { NotificationsView(account: model, social: social, openContacts: { selectedTab = 1 }) }.tabItem { Label("Mitteilungen", systemImage: "bell") }.badge(social.unread).tag(2)
         }.task {

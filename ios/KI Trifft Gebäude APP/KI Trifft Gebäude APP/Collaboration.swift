@@ -165,17 +165,24 @@ struct BuildingDetailView: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Bereich", selection: $section) { ForEach(["Übersicht", "Dateien", "3D", "KI", "Team"], id: \.self) { Text($0).tag($0) } }.pickerStyle(.segmented).padding()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(["Übersicht", "Dateien", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
+                        Button { section = item } label: { Text(item).font(.subheadline.weight(.semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(section == item ? d21Accent : Color(.secondarySystemGroupedBackground), in: Capsule()).foregroundStyle(section == item ? .white : .primary) }.accessibilityAddTraits(section == item ? .isSelected : [])
+                    }
+                }.padding(.horizontal).padding(.vertical, 8)
+            }
             switch section {
             case "Dateien": BuildingFilesView(building: building, model: model)
             case "3D": BuildingModelView(building: building, account: model)
+            case "Geräte": BuildingDevicesView(building: building, account: model)
             case "KI": BuildingAssistantView(building: building, account: model)
             case "Team": BuildingChatView(building: building, account: model)
             default:
                 Form {
-                    Section { Label(building.is_owner == false ? "Mit dir geteilt" : "Dein Gebäude", systemImage: "building.2.fill").foregroundStyle(d21Accent); Text("Fotos, Pläne und Gespräche gemeinsam an einem Ort.").foregroundStyle(.secondary) }
-                    Section("Gebäudedaten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) }
-                    Section("Nächster Schritt") { Button("Fotos und Pläne ergänzen", systemImage: "doc.badge.plus") { section = "Dateien" }; Button("3D-Modell ansehen", systemImage: "cube.transparent") { section = "3D" }; Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Team" } }
+                    BuildingNextSteps(building: building, account: model, navigate: { section = $0 })
+                    Section("Gebäudedaten") { DisclosureGroup("Name und Adresse bearbeiten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) } }
+                    Section("Gemeinsam arbeiten") { Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Team" }; Button("Mitglieder einladen", systemImage: "person.badge.plus") { sharing = true } }
                     Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { section = "KI" }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }
                     Section { Button("Mitglieder und Freigaben", systemImage: "person.2") { sharing = true } }
                     if let problem { Section { Text(problem).foregroundStyle(.red) } }
