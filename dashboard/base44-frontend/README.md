@@ -73,3 +73,19 @@ Dateien und iOS-App bleiben kompatibel. Vor Produktionsdeployment einen Datenban
 nach dem vorhandenen Betriebsverfahren erstellen. Niemals `down -v` verwenden.
 
 Passwort-Wiederherstellung per E-Mail-Code ist vorbereitet und ohne SMTP-Absender deaktiviert. [Mail-Einrichtung](../../docs/passwort-mail.md).
+
+## Oberflächenpflege · 3. November 2026
+
+Die bestehende helle Oberfläche mit dunkler Navigation wurde gezielt überarbeitet:
+gruppierte Navigation, deutlichere aktive Seite, besser lesbare Kennzahlen,
+Gebäudekarten und umbrechende Gebäudebeschriftungen auf kleinen Bildschirmen.
+Das mobile Menü verwendet einen Radix-Dialog mit Fokusbegrenzung, Escape und
+Fokus-Rückkehr; beim Wechsel zur Desktopansicht schließt es automatisch.
+Ein Sprunglink und reduzierte Animationen ergänzen die Tastaturbedienung.
+
+Geprüft: `npm run build`, `npm run lint`, `git diff --check` sowie Dashboard,
+Gebäudeliste und mobile Menübedienung im Browser mit synthetischen lokalen Daten.
+Bei 390 px Viewportbreite wurde kein horizontaler Seitenüberlauf festgestellt.
+Vite meldet weiterhin einen großen Haupt-Bundle; der Build ist erfolgreich.
+Dies ist kein Produktiv- oder Ende-zu-Ende-Nachweis der API. Die Veröffentlichung
+erfolgt weiterhin nach Review über den bestehenden Deploymentweg.

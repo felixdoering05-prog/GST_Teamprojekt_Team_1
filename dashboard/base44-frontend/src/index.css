@@ -55,6 +55,7 @@
 
   body {
     @apply bg-background text-foreground font-body antialiased;
+    line-height: 1.5;
   }
 
   h1,
@@ -66,7 +67,21 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer utilities {
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+
   .tabular {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

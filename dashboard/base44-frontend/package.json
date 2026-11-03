@@ -7,6 +7,7 @@
     "dev": "node scripts/build-ifc.mjs && vite",
     "build": "node scripts/build-ifc.mjs && vite build",
     "lint": "eslint . --quiet",
+    "test:viewer": "node --test ifc-viewer/storeys.test.js",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"

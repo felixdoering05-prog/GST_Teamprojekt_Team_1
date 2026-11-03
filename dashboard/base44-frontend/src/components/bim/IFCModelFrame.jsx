@@ -7,6 +7,7 @@ export default function IFCModelFrame({ document }) {
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (document.example) { setLoading(false); setError(''); return; }
     let active = true, ready = false, buffer;
     setLoading(true); setError('');
     function send() {
@@ -32,11 +33,10 @@ export default function IFCModelFrame({ document }) {
       if (active) { buffer = bytes; send(); }
     }).catch(e => { if (active) { setError(e.message); setLoading(false); } });
     return () => { active = false; buffer = undefined; window.removeEventListener('message', receive); };
-  }, [document.id, attempt]);
-  return <div className="space-y-3">
-    {loading && <p role="status">Modell wird aus deiner Gebäudemappe geladen …</p>}
-    {error && <div role="alert"><p>{error}</p><button className="mt-2 underline" onClick={() => setAttempt(n => n + 1)}>Erneut versuchen</button></div>}
-    <iframe onLoad={() => frame.current?.contentWindow?.postMessage({ type: 'd21-ifc-request' }, window.location.origin)} ref={frame} key={`${document.id}-${attempt}`} src="/ifc-viewer/index.html" title={`3D-Modell: ${document.name}`} className={`h-[72vh] min-h-[440px] w-full rounded-xl border ${error ? 'hidden' : ''}`} />
-    <p className="text-xs text-muted-foreground">Drehen, zoomen, Bauteile einfärben und ausblenden. Unter Smart Home kannst du Licht für exportierte IFC-Räume simulieren. Farben, ausgeblendete Bauteile und simuliertes Licht werden gemeinsam auf dem Projektserver gespeichert und mit der iPhone-App abgeglichen. Die Originaldatei bleibt erhalten.</p>
+  }, [document.id, document.example, attempt]);
+  return <div>
+    {loading && <p role="status" className="px-4 py-3 text-xs text-muted-foreground">Modell wird aus deiner Gebäudemappe geladen …</p>}
+    {error && <div role="alert" className="p-5 text-sm text-destructive"><p>{error}</p><button className="mt-2 underline" onClick={() => setAttempt(n => n + 1)}>Erneut versuchen</button></div>}
+    <iframe onLoad={() => { if (!document.example) frame.current?.contentWindow?.postMessage({ type: 'd21-ifc-request' }, window.location.origin); }} ref={frame} key={`${document.id}-${attempt}`} src={`/ifc-viewer/index.html${document.example ? '?example=true' : ''}`} title={`3D-Modell: ${document.name}`} className={`block h-[calc(100dvh-240px)] min-h-[480px] w-full border-0 ${error ? 'hidden' : ''}`} />
   </div>;
 }

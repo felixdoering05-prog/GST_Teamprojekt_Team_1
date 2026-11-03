@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   BellRing,
   Boxes,
@@ -31,11 +32,20 @@ const NAV = [
 ];
 
 const ADMIN_NAV = {path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'};
+const NAV_GROUPS = [
+  { label: 'Gebäude', items: NAV.slice(0, 3) },
+  { label: 'Auswertung', items: NAV.slice(3, 8) },
+  { label: 'Verwaltung', items: NAV.slice(8) },
+];
 
 function NavItems({ onNavigate, isAdmin }) {
   return (
-    <nav className="flex flex-col gap-1 px-3">
-      {[...NAV,...(isAdmin?[ADMIN_NAV]:[])].map((item) => {
+    <nav aria-label="Hauptnavigation" className="space-y-5 px-3">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.label}>
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/60">{group.label}</p>
+          <div className="flex flex-col gap-1">
+      {[...group.items, ...(group.label === 'Verwaltung' && isAdmin ? [ADMIN_NAV] : [])].map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -45,9 +55,9 @@ function NavItems({ onNavigate, isAdmin }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(
-                'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                'group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400',
                 isActive
-                  ? 'bg-white/10 text-white'
+                  ? 'bg-cyan-400/10 font-medium text-white ring-1 ring-inset ring-cyan-400/20'
                   : 'text-sidebar-foreground/80 hover:bg-white/5 hover:text-white',
               )
             }
@@ -67,6 +77,9 @@ function NavItems({ onNavigate, isAdmin }) {
           </NavLink>
         );
       })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }
@@ -85,38 +98,36 @@ function SidebarBody({ onNavigate }) {
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
-      <div className="flex items-center gap-3 px-5 py-5">
+      <div className="flex items-center gap-3 px-5 py-7">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 ring-1 ring-inset ring-cyan-400/30">
           <Boxes className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
           <p className="truncate font-heading text-sm font-semibold text-white">D21 Digital Twin</p>
-          <p className="truncate text-[11px] text-sidebar-foreground/60">Hochschule Darmstadt</p>
+          <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/70">Hochschule Darmstadt</p>
         </div>
       </div>
 
       <div className="mx-5 mb-2 h-px bg-sidebar-border" />
-      <div className="flex-1 overflow-y-auto pb-4 hide-scrollbar">
-        <p className="px-6 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/40">
-          Navigation
-        </p>
+      <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
         <NavItems isAdmin={isAdmin} onNavigate={onNavigate} />
       </div>
 
       <div className="border-t border-sidebar-border px-5 py-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/40">Datenquelle</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/60">Datenquelle</p>
         <p className="mt-1.5 flex items-center gap-2 text-xs text-sidebar-foreground/70">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           Projektserver · eigene Daten
         </p>
         {email ? (
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="truncate text-[11px] text-sidebar-foreground/50">{email}</span>
+            <span className="truncate text-[11px] text-sidebar-foreground/70">{email}</span>
             <button
               type="button"
               onClick={() => base44.auth.logout('/login')}
               title="Abmelden"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Abmelden"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>
@@ -132,60 +143,58 @@ export default function AppLayout() {
   const location = useLocation();
   const current = [...NAV,ADMIN_NAV].find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
 
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
+      <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] border-r border-sidebar-border lg:block">
         <SidebarBody />
       </aside>
 
-      {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Menü schließen"
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-2xl transition-transform">
-            <button
-              type="button"
-              aria-label="Menü schließen"
-              onClick={() => setOpen(false)}
-              className="absolute right-3 top-4 z-10 grid h-8 w-8 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
-            >
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm" />
+          <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[90vw] shadow-2xl">
+            <Dialog.Title className="sr-only">Navigation</Dialog.Title>
+            <Dialog.Close aria-label="Menü schließen" className="absolute right-1 top-1 z-10 grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
               <X className="h-4 w-4" />
-            </button>
+            </Dialog.Close>
             <SidebarBody onNavigate={() => setOpen(false)} />
-          </div>
-        </div>
-      ) : null}
+          </Dialog.Content>
+        </Dialog.Portal>
 
       <div className="lg:pl-[264px]">
         <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <button
+          <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <Dialog.Trigger
               type="button"
-              onClick={() => setOpen(true)}
               aria-label="Menü öffnen"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground lg:hidden"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
             >
               <Menu className="h-4 w-4" />
-            </button>
+            </Dialog.Trigger>
             <div className="min-w-0 flex-1">
               <h1 className="truncate font-heading text-base font-semibold text-foreground sm:text-lg">{current.label}</h1>
               <p className="hidden truncate text-xs text-muted-foreground sm:block">{current.hint}</p>
             </div>
-            <span className="hidden items-center gap-2 rounded-full border border-amber-500/30 bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-700 sm:inline-flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground sm:inline-flex">
+              <Database className="h-3.5 w-3.5 text-primary" />
               Projektserver
             </span>
           </div>
         </header>
 
-        <main className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 py-5 focus:outline-none sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
       </div>
+      </Dialog.Root>
     </div>
   );
 }

@@ -113,18 +113,18 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <section className="surface relative overflow-hidden px-5 py-6 sm:px-7 sm:py-7">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-400" />
+        <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
               Digitaler Zwilling · Gebäude {building?.name || '–'}
             </p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold text-foreground sm:text-3xl">D21 Digital Twin</h2>
+            <h2 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Ihr Gebäude im Überblick</h2>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              KI trifft Gebäude: Sensordaten in Revit, ausgewertet mit künstlicher Intelligenz.
+              Raumklima, Sensoren und Meldungen an einem Ort.
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte aktiv', real: 'Echte Messwerte' }} />
             <Button variant="outline" size="sm" onClick={data.reload}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Aktualisieren
@@ -136,7 +136,7 @@ export default function Dashboard() {
           {series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''}
         </p>
 
-        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-5 sm:grid-cols-4">
           {meta.map((item) => {
             const Icon = item.icon;
             return (
@@ -145,8 +145,8 @@ export default function Dashboard() {
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</dt>
-                  <dd className="truncate text-sm font-medium text-foreground">{item.value}</dd>
+                  <dt className="break-words text-[11px] uppercase tracking-wide text-muted-foreground [hyphens:auto]">{item.label}</dt>
+                  <dd className="break-words text-sm font-medium text-foreground">{item.value}</dd>
                 </div>
               </div>
             );
@@ -154,7 +154,7 @@ export default function Dashboard() {
         </dl>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <section aria-label="Gebäudekennzahlen" className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6">
         <StatCard label="Ø Temperatur" value={formatNumber('temperature', avgOf('temperature'))} unit="°C" hint="Sollbereich 19–26 °C" icon={Thermometer} />
         <StatCard label="Ø CO₂" value={formatNumber('co2', avgOf('co2'))} unit="ppm" hint="Grenzwert 1.000 ppm" icon={Wind} />
         <StatCard label="Ø Luftfeuchte" value={formatNumber('humidity', avgOf('humidity'))} unit="%" hint="Sollbereich 30–60 %" icon={Droplets} />
