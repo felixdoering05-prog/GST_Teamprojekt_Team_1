@@ -289,10 +289,10 @@ struct BuildingChatView: View {
                 Button { Task { await send() } } label: { Image(systemName: sending ? "hourglass" : "arrow.up.circle.fill").font(.title2) }.accessibilityLabel("Nachricht senden").disabled(sending || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.utf16.count>2000)
             }.padding().background(.bar)
             Text("Nur für Gebäudemitglieder · Aktualisierung bei geöffneter App").font(.caption2).foregroundStyle(.secondary).padding(.bottom, 4)
-        }.confirmationDialog("Eigene Nachricht für alle löschen?", isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }), titleVisibility: .visible) {
-            Button("Nachricht löschen", role: .destructive) { if let target = deleteTarget { Task { await remove(target) } } }
+        }.confirmationDialog("Eigene Nachricht für alle löschen?", isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }), titleVisibility: .visible, presenting: deleteTarget) { target in
+            Button("Nachricht löschen", role: .destructive) { Task { await remove(target) } }
             Button("Behalten", role: .cancel) { deleteTarget = nil }
-        } message: { Text("Der Text wird durch einen Löschhinweis ersetzt. Die Aktion kann in der App nicht rückgängig gemacht werden.") }
+        } message: { _ in Text("Der Text wird durch einen Löschhinweis ersetzt. Die Aktion kann in der App nicht rückgängig gemacht werden.") }
         .task {
             await load()
             while !Task.isCancelled { do { try await Task.sleep(for: .seconds(10)) } catch { return }; if scenePhase == .active { await load() } }

@@ -10,9 +10,13 @@ struct VoiceReading: Identifiable { let id = UUID(); let text: String }
     @Published var problem: String?
     private var recorder: AVAudioRecorder?
     private var clock: Task<Void,Never>?
+    private var permissionTicket = UUID()
     func start() async {
         guard !recording else { return }
-        guard await AVAudioApplication.requestRecordPermission() else { problem = "Bitte Mikrofonzugriff in den iPhone-Einstellungen erlauben."; return }
+        let ticket = UUID(); permissionTicket = ticket
+        let permitted = await AVAudioApplication.requestRecordPermission()
+        guard permissionTicket == ticket, !Task.isCancelled else { return }
+        guard permitted else { problem = "Bitte Mikrofonzugriff in den iPhone-Einstellungen erlauben."; return }
         clear(); seconds = 0
         do {
             let session = AVAudioSession.sharedInstance(); try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker]); try session.setActive(true)
@@ -23,7 +27,7 @@ struct VoiceReading: Identifiable { let id = UUID(); let text: String }
             clock = Task { for i in 1...30 { do { try await Task.sleep(for: .seconds(1)) } catch { return }; guard self.recording else { return }; self.seconds = i }; self.stop() }
         } catch { problem = error.localizedDescription; stop() }
     }
-    func stop() { recorder?.stop(); recorder = nil; recording = false; clock?.cancel(); clock = nil; if let url { try? FileManager.default.setAttributes([.protectionKey:FileProtectionType.complete], ofItemAtPath: url.path) }; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+    func stop() { permissionTicket = UUID(); recorder?.stop(); recorder = nil; recording = false; clock?.cancel(); clock = nil; if let url { try? FileManager.default.setAttributes([.protectionKey:FileProtectionType.complete], ofItemAtPath: url.path) }; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
     func clear() { stop(); if let url { try? FileManager.default.removeItem(at: url) }; url = nil; problem = nil }
 }
 
@@ -73,7 +77,7 @@ struct BuildingVoiceView: View {
         .navigationTitle("Sprachassistent").navigationBarTitleDisplayMode(.inline)
         .task { do { struct Status: Decodable { let enabled: Bool }; let status: Status = try await account.request("buildings/\(building.id)/voice"); enabled = status.enabled } catch { problem = error.localizedDescription } }
         .onChange(of: text) { _,_ in proposal = nil; result = nil }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { recorder.stop() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .background { recorder.stop() } }
         .onDisappear { recorder.clear() }
         .confirmationDialog("Nur die Simulation schalten?", isPresented: $confirm, titleVisibility: .visible) { Button("Simulation bestätigen") { Task { await apply() } }; Button("Abbrechen", role: .cancel) {} } message: { Text(proposal?.description ?? "") }
         .sheet(item: $reading) { VoicePlaybackView(building: building, account: account, text: $0.text) }
@@ -105,6 +109,7 @@ struct VoicePlaybackView: View {
     @State private var problem: String?
     @State private var requestID = UUID()
     @State private var attempted = false
+    @State private var operation = UUID()
     private var spoken: String { var value = "", length = 0; for char in text { let count = String(char).utf16.count; if length + count > 1200 { break }; value.append(char); length += count }; return value }
     var body: some View {
         NavigationStack {
@@ -118,11 +123,12 @@ struct VoicePlaybackView: View {
                 if let problem { Section { Text(problem).foregroundStyle(.red) } }
             }.navigationTitle("Sprachausgabe").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Schließen") { dismiss() }.disabled(busy) } }
-        }.onDisappear { player?.stop(); player = nil; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { player?.stop() } }
+        }.interactiveDismissDisabled(busy)
+        .onDisappear { operation = UUID(); player?.stop(); player = nil; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { operation = UUID(); player?.stop() } }
     }
     private func play() async {
-        guard consent, !busy, !attempted else { return }; busy = true; attempted = true; defer { busy = false }
-        do { let bytes = try await account.speakVoice(buildingID: building.id, text: spoken, requestID: requestID); let session = AVAudioSession.sharedInstance(); try session.setCategory(.playback); try session.setActive(true); let audio = try AVAudioPlayer(data: bytes); player = audio; audio.play(); problem = nil } catch { problem = error.localizedDescription }
+        guard consent, !busy, !attempted else { return }; busy = true; attempted = true; let ticket = UUID(); operation = ticket; defer { busy = false }
+        do { let bytes = try await account.speakVoice(buildingID: building.id, text: spoken, requestID: requestID); guard operation == ticket, scenePhase == .active, !Task.isCancelled else { return }; let session = AVAudioSession.sharedInstance(); try session.setCategory(.playback); try session.setActive(true); let audio = try AVAudioPlayer(data: bytes); player = audio; audio.play(); problem = nil } catch { if operation == ticket { problem = error.localizedDescription } }
     }
 }
