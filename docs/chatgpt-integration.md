@@ -21,7 +21,7 @@ Die regelbasierte Seite „Analyse“ bleibt unabhängig davon und nutzt kein Sp
 | Aufruf aus dem Browser | `src/lib/assistantClient.js` |
 | Freigabe je Gebäude | Feld `Building.ai_assistant_release` |
 
-Diese Dateien liegen im Base44-Projekt. Die Serverausgabe unter `dashboard/base44-frontend/` enthält den Assistenten nicht (Stand 2.11.2026).
+Diese Dateien liegen im Base44-Projekt. Die Serverausgabe unter `dashboard/base44-frontend/` enthält den Assistenten nicht (Stand 3.11.2026). Als Ablage im Repository dient die Momentaufnahme `docs/d21-digital-twin-revit-bim-und-g-a060ebbe-2026-11-03.zip`.
 
 ## Zugänge und Konfiguration
 
@@ -136,4 +136,4 @@ Ergebnisse und offene Punkte gehören in das [Protokoll](../protokolle/2026-11-0
 2. Kostensatz je Aufruf und Budget; Abstimmung mit Felix.
 3. Beschluss zur Datenübermittlung an einen KI-Dienst im [Entscheidungsprotokoll](entscheidungen.md).
 4. Feste Modellwahl, falls ein bestimmtes Modell gefordert ist.
-5. Aktueller Export der Oberfläche und Screenshots.
+5. Screenshots der Vorführung; der Export vom 3.11.2026 ist abgelegt.
