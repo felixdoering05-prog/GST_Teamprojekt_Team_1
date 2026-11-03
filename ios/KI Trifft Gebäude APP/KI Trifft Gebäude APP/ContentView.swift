@@ -286,6 +286,7 @@ struct ContentView: View {
 struct WelcomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var showConnection = false
+    @State private var showDemo = false
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -300,11 +301,13 @@ struct WelcomeView: View {
                         NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
                     Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
+                    Button("Demo ohne Konto ausprobieren", systemImage: "play.circle") { showDemo = true }
                     Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(28)
             }
             .sheet(isPresented: $showConnection) { ConnectionView() }
+            .sheet(isPresented: $showDemo) { NativeDemoView() }
         }
     }
 }
@@ -377,12 +380,13 @@ struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var selectedTab: Int = {
         #if DEBUG
+        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DashboardPreview") { return 4 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DevicesPreview") { return 3 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NoticesPreview") { return 2 }
-        return 0
+        return WorkflowPreview.enabled ? 0 : 4
         #else
-        return 0
+        return 4
         #endif
     }()
     @StateObject private var social = CollaborationModel()
@@ -399,6 +403,7 @@ struct AccountHomeView: View {
     }
     var body: some View {
         TabView(selection: $selectedTab) {
+            NavigationStack { NativeDashboardEntry(account: model) }.tabItem { Label("Dashboard", systemImage: "chart.bar.xaxis") }.tag(4)
             NavigationStack(path: $path) {
                 List {
                     Section {

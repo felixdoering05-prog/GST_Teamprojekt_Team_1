@@ -1,5 +1,6 @@
 const {initAdmin,adminRouter}=require('./admin');
 const {initDevices,devicesRouter}=require('./devices');
+const {initTelemetry,telemetryRouter}=require('./telemetry');
 const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
@@ -43,6 +44,7 @@ async function initAccounts(db) {
  await initAssistant(db);
  await initAdmin(db);
  await initDevices(db);
+ await initTelemetry(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -126,6 +128,7 @@ function accountRouter(db,options={}) {
  }));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use(devicesRouter(db,requireAccount));
+ router.use(telemetryRouter(db,requireAccount));
  router.use(collaborationRouter(db,requireAccount));
  router.use(modelStateRouter(db,requireAccount));
  router.use(assistantRouter(db,requireAccount,options.assistant));

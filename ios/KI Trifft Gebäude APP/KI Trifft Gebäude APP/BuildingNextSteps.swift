@@ -29,6 +29,7 @@ struct BuildingNextSteps: View {
             }
         }
         Section("Dein Gebäudepass") {
+            Button { navigate("Dashboard") } label: { Label("Dashboard, Messwerte und Analyse", systemImage: "chart.bar.xaxis") }
             step("1", title: "Gebäude angelegt", detail: "Name und Adresse kannst du unten bearbeiten.", done: true, area: "Übersicht")
             step("2", title: "Fotos und Pläne", detail: loaded ? "\(files.count) Dateien gespeichert" : "Dateistand noch nicht verfügbar", done: loaded && !files.isEmpty, area: "Dateien")
             step("3", title: "Gebäude in 3D", detail: hasModel ? "IFC-Modell vorhanden" : "Optional: IFC-Modell hochladen", done: hasModel, area: "3D")

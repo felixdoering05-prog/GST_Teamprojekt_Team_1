@@ -1,5 +1,9 @@
 # D21 · iOS-App
 
+## Dashboard, Demo und Messwerte · 03.11.2026
+
+Neuer Hauptreiter **Dashboard** mit Sensorik, Energie und Analyse auf gemeinsamer Web-Datenbasis. **Demo ohne Konto ausprobieren** funktioniert lokal ohne Serveränderung oder Gemini-Anfrage. Sensoren erfassen und CSV-Messwerte mit Vorschau importieren. Gemini kann nach gesonderter Freigabe Messwert-Zusammenfassungen erläutern; kein Modelltraining. [Bedienung, Format und Grenzen](../docs/iphone-dashboard-daten-ki.md).
+
 ## Geräte und einfachere Abläufe · 03.11.2026
 
 Neuer Reiter **Geräte**, Anlage in drei Schritten, Raumfilter und servergespeicherte Simulationen für Licht/Steckdosen. Home Assistant, MQTT und Matter können als spätere Anbindung vorgemerkt werden; echte Geräte sind noch nicht verbunden. Der Gebäudeüberblick zeigt passende nächste Schritte anhand der gespeicherten Dateien. [Bedienung, API und Grenzen](../docs/geraete-ios.md).

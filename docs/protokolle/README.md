@@ -70,3 +70,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [03.11.2026 · Geschütztes Server-Verwaltungsportal](2026-11-03-serververwaltung.md)
 
 - [03.11.2026 · Gerätebereich und einfachere iPhone-Abläufe](2026-11-03-ios-geraete.md)
+
+- [03.11.2026 · iPhone-Dashboard, Demo und datenbezogene Gemini-Auswertung](2026-11-03-iphone-dashboard-demo-ki.md)
