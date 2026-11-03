@@ -62,3 +62,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [Gemeinsame Modellansicht und KI-Chat, 02.11.2026](2026-11-02-gemeinsame-modellansicht-ki-chat.md)
 
 - [02.11.2026 · Projektpflege und Testprioritäten](2026-11-02-projektpflege-nachmittag.md) – Repository-Statusprüfung; kein Team-Sitzungsprotokoll.
+
+- [03.11.2026 · Vincents Landingpage](2026-11-03-vincent-landingpage.md)

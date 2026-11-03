@@ -171,3 +171,7 @@ Durchgezogen = vorhandener Datenweg · Gestrichelt = noch nicht bestätigte Anbi
 Die Gesamtmeilensteine bleiben bestehen: [M1 · Umfang und Vorgaben](../../issues/1), [M2 · Revit und Pilot](../../issues/2), [M3 · Auswertung](../../issues/3), [M4 · Abgabe](../../issues/4). Hochschulvorgaben, Forschungsfrage und Bewertungsmaßstäbe müssen weiter konkretisiert werden.
 
 *KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
+
+## Präsentationsseite
+
+Vincents D21-Landingpage liegt unter der bestehenden Website-Adresse mit dem Zusatz **`/projekt/`**. Sie ist als Präsentationsentwurf mit Demo und offenen Ergebnissen gekennzeichnet; der Dashboard-Link führt zur App. Der bisherige Zugangsschutz gilt weiter. [Ablage und Bearbeitung](docs/landingpage-vincent.md).
