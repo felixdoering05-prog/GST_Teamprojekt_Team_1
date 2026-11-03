@@ -244,7 +244,7 @@ private struct IFCWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         if account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
-        if account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
+        if account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest"); configuration.userContentController.add(context.coordinator, name:"ifcProviderRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
@@ -256,6 +256,7 @@ private struct IFCWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
+        coordinator.providerTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName:"ifcProviderRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
 
@@ -267,11 +268,13 @@ private struct IFCWebView: UIViewRepresentable {
         let documentID: Int?
         var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
+        var providerTask: Task<Void, Never>?
         init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?) { self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
-        struct CommandInfo: Decodable { let enabled: Bool; let context_hash: String }
+        struct CommandInfo: Decodable { let enabled: Bool; let context_hash: String; let provider: String?; let provider_name: String? }
         struct CommandProposal: Codable { let action: String; let target: String; let color: String?; let summary: String }
         struct CommandReply: Decodable { let command: CommandProposal }
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "ifcProviderRequest" { providerRequest(message); return }
             if message.name == "ifcSceneRequest" { sceneRequest(message); return }
             guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
                   web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],
@@ -283,8 +286,9 @@ private struct IFCWebView: UIViewRepresentable {
                 guard let web else { return }
                 do {
                     let info: CommandInfo = try await account.request("buildings/\(buildingID)/assistant?mode=ifc-command")
-                    guard info.enabled else { throw APIError(status: 503, message: "Gemini ist gerade nicht verfügbar.") }
-                    let result: CommandReply = try await account.request("buildings/\(buildingID)/assistant", method: "POST", body: ["question":question,"consent":"yes","mode":"ifc-command","context_hash":info.context_hash], headers: ["X-Request-ID":id], timeout: 45)
+                    guard info.enabled else { throw APIError(status: 503, message: "Der KI-Dienst ist gerade nicht verfügbar.") }
+                    guard body["provider"] == (info.provider ?? "gemini") else { throw APIError(status:409,message:"KI-Anbieter geändert. Bitte Modellbefehle schließen, erneut öffnen und die Übertragung prüfen.") }
+                    let result: CommandReply = try await account.request("buildings/\(buildingID)/assistant", method: "POST", body: ["question":question,"consent":"yes","mode":"ifc-command","context_hash":info.context_hash,"consent_provider":info.provider ?? "gemini"], headers: ["X-Request-ID":id], timeout: 45)
                     guard !Task.isCancelled else { return }
                     // JSON arguments are passed as data; no interpolated/evaluated model code.
                     var command = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result.command)) as! [String: Any]
@@ -293,6 +297,24 @@ private struct IFCWebView: UIViewRepresentable {
                 } catch {
                     guard !Task.isCancelled else { return }
                     _ = try? await web.callAsyncJavaScript("window.d21CommandReply(id, null, error)", arguments: ["id":id,"error":error.localizedDescription], in: nil, contentWorld: .page)
+                }
+            }
+        }
+        func providerRequest(_ message: WKScriptMessage) {
+            guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
+                  let body = message.body as? [String:String], let id = body["id"], UUID(uuidString:id) != nil,
+                  let account, let buildingID else { return }
+            providerTask?.cancel()
+            providerTask = Task { @MainActor [weak web] in
+                guard let web else { return }
+                do {
+                    let info: CommandInfo = try await account.request("buildings/\(buildingID)/assistant?mode=ifc-command")
+                    guard info.enabled else { throw APIError(status:503,message:"Der KI-Dienst ist gerade nicht verfügbar.") }
+                    guard !Task.isCancelled else { return }
+                    _ = try? await web.callAsyncJavaScript("window.d21ProviderReply(id, provider, name, null)", arguments:["id":id,"provider":info.provider ?? "gemini","name":info.provider_name ?? "KI-Dienst"], in:nil, contentWorld:.page)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    _ = try? await web.callAsyncJavaScript("window.d21ProviderReply(id, null, null, error)", arguments:["id":id,"error":error.localizedDescription], in:nil, contentWorld:.page)
                 }
             }
         }
@@ -345,7 +367,7 @@ private struct IFCWebView: UIViewRepresentable {
             decisionHandler(navigationAction.request.url?.scheme == "d21ifc" ? .allow : .cancel)
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            activeTask?.cancel(); sceneTask?.cancel()
+            activeTask?.cancel(); sceneTask?.cancel(); providerTask?.cancel()
             webView.loadHTMLString("<meta name='viewport' content='width=device-width'><p style='font:18px -apple-system;padding:24px'>Das Modell benötigt zu viel Speicher. Bitte über „Datei öffnen“ einen kleineren IFC-Ausschnitt auswählen.</p>", baseURL: nil)
         }
     }

@@ -1,11 +1,10 @@
+const {providerConfig,generate}=require('./ai-provider');
 const {modelIndex}=require('./model-state');
 const {commandContext,commandSchema,commandInstruction,validateCommand}=require('./ifc-command');
 const express=require('express');
-const {readFileSync}=require('node:fs');
 const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
-const MODEL='gemini-3.5-flash-lite';
 const NOTICE='KI-Antworten können fehlerhaft sein. Grundlage sind die angezeigten Angaben und gegebenenfalls IFC-Typzahlen. Keine ausgewerteten Pläne oder geometrische Prüfung.';
 async function initAssistant(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_ai_budget (id INTEGER PRIMARY KEY CHECK(id=1))`);
@@ -51,18 +50,15 @@ async function reserve(db,user,building,key,hash,model){
 const contextHash=context=>createHash('sha256').update(JSON.stringify(context)).digest('hex');
 function assistantRouter(db,requireAccount,options={}){
  const r=express.Router();
- const enabled=options.enabled??(process.env.GEMINI_ENABLED==='true');
- const model=options.model||process.env.GEMINI_MODEL||MODEL;
+ const config=providerConfig(options),{provider,model,ready}=config;
  const fetchProvider=options.fetch||global.fetch;
- const getKey=options.getKey||(()=>readFileSync(process.env.GEMINI_API_KEY_FILE||'/run/d21-ai/gemini-api-key','utf8').trim());
- const ready=()=>{try{const key=getKey();return enabled&&/^gemini-[a-z0-9.-]+$/.test(model)&&typeof key==='string'&&key.length>=20&&key.length<=500&&!/\s/.test(key);}catch{return false;}};
  r.use('/buildings/:buildingId/assistant',requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
  r.param('buildingId',(req,res,next,v)=>/^[1-9]\d*$/.test(v)&&Number(v)<=2147483647?next():res.status(400).json({error:'Ungültige Gebäude-ID.'}));
  r.get('/buildings/:buildingId/assistant',wrap(async(req,res)=>{
   const building=await accessibleBuilding(db,req.params.buildingId,req.account.id);if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   if(req.query.document_id!==undefined&&(!/^[1-9]\d*$/.test(String(req.query.document_id))||Number(req.query.document_id)>2147483647))return res.status(400).json({error:'Ungültige Modell-ID.'});
   const context=req.query.mode==='ifc-command'?commandContext:await contextFor(db,building,req.query.document_id);
-  res.json({enabled:ready(),model,notice:NOTICE,context,context_hash:contextHash(context),limits:{per_account_24h:20,project_24h:100}});
+  res.json({enabled:ready(),model,notice:NOTICE,context,provider,provider_name:config.name,context_hash:contextHash({...context,provider,model}),limits:{per_account_24h:20,project_24h:100}});
  }));
  r.get('/buildings/:buildingId/assistant/history',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return res.status(404).json({error:'Gebäude nicht gefunden.'});
@@ -70,7 +66,7 @@ function assistantRouter(db,requireAccount,options={}){
   res.set('Cache-Control','private, no-store').json(rows);
  }));
  const problem=(res,code,processing=false)=>{
-  const messages={400:'Bitte die Datenübertragung bestätigen und eine Frage mit 1–2000 Zeichen eingeben.',409:processing?'Diese Frage wird noch bearbeitet. Bitte kurz warten und erneut abrufen.':'Diese Anfrage wurde bereits verwendet. Bitte eine neue Frage starten.',410:'Die gespeicherte Antwort ist abgelaufen. Bitte eine neue Anfrage starten.',429:'Das Anfragelimit ist erreicht – bei uns oder bei Gemini. Bitte später erneut versuchen.',503:'Der Assistent ist gerade nicht verfügbar oder ausgelastet. Bitte später erneut versuchen.',502:'Gemini konnte keine vollständige Antwort liefern. Bitte eine neue Anfrage versuchen.',504:'Gemini hat zu lange gebraucht. Bitte später eine neue Anfrage versuchen.'};
+  const messages={400:'Bitte die Datenübertragung bestätigen und eine Frage mit 1–2000 Zeichen eingeben.',409:processing?'Diese Frage wird noch bearbeitet. Bitte kurz warten und erneut abrufen.':'Diese Anfrage wurde bereits verwendet. Bitte eine neue Frage starten.',410:'Die gespeicherte Antwort ist abgelaufen. Bitte eine neue Anfrage starten.',429:'Das Anfragelimit ist erreicht – in der App oder beim KI-Dienst. Bitte später erneut versuchen.',503:'Der Assistent ist gerade nicht verfügbar oder ausgelastet. Bitte später erneut versuchen.',502:'Der KI-Dienst konnte keine vollständige Antwort liefern. Bitte eine neue Anfrage versuchen.',504:'Der KI-Dienst hat zu lange gebraucht. Bitte später eine neue Anfrage versuchen.'};
   res.status(code).json({error:messages[code]||messages[503]});
  };
  r.post('/buildings/:buildingId/assistant',wrap(async(req,res)=>{
@@ -79,11 +75,12 @@ function assistantRouter(db,requireAccount,options={}){
   const key=req.get('X-Request-ID')||'';
   if(!question||question.length>2000||question.includes('\0')||req.body?.consent!=='yes'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return problem(res,400);
   if(!ready())return problem(res,503);
+  if(provider==='hda'&&req.body?.consent_provider!=='hda'||req.body?.consent_provider!==undefined&&req.body.consent_provider!==provider)return res.status(400).json({error:'Bitte die App aktualisieren und die Übertragung an den angezeigten KI-Anbieter erneut bestätigen.'});
   const commandMode=req.body?.mode==='ifc-command',chat=req.body?.chat===true;
   const documentID=req.body?.document_id;
   if(documentID!==undefined&&(!Number.isInteger(documentID)||!(await db.query("SELECT id FROM app_documents WHERE id=$1 AND building_id=$2 AND mime_type='application/x-step'",[documentID,building.id])).rows.length))return res.status(400).json({error:'Bitte ein IFC-Modell dieses Gebäudes auswählen.'});
   const context=commandMode?commandContext:await contextFor(db,building,documentID);
-  if(req.body?.context_hash!==contextHash(context))return res.status(409).json({error:'Die Gebäudedaten haben sich geändert. Bitte den Gebäudestand aktualisieren und erneut prüfen.'});
+  if(req.body?.context_hash!==contextHash({...context,provider,model}))return res.status(409).json({error:'Die Gebäudedaten oder der KI-Anbieter haben sich geändert. Bitte den Gebäudestand aktualisieren und erneut prüfen.'});
   const state=await reserve(db,req.account.id,building.id,key,createHash('sha256').update(question+'\n'+req.body.context_hash+(chat?'\nchat:'+String(documentID||''):'' )).digest('hex'),model);
   if(state.error)return problem(res,state.error,state.processing);
   const respond=async(stored,cached,usedModel=model)=>{
@@ -97,7 +94,7 @@ function assistantRouter(db,requireAccount,options={}){
      await c.query('COMMIT');
     }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
    }
-   return res.json({answer,...(command?{command}:{}),model:usedModel,notice:command?'Nur Vorschlag: Ausführung erst nach Prüfung im Modell.':NOTICE,cached});
+   return res.json({answer,provider,provider_name:config.name,...(command?{command}:{}),model:usedModel,notice:command?'Nur Vorschlag: Ausführung erst nach Prüfung im Modell.':NOTICE,cached});
   };
   if(state.cached!==undefined)return await respond(state.cached,true,state.model);
   try{
@@ -113,12 +110,7 @@ function assistantRouter(db,requireAccount,options={}){
     payload.systemInstruction.parts[0].text+=' Du bist in einem fortlaufenden privaten Chat. Nutze den mitgesendeten Verlauf als Gesprächskontext. Falls building_context.model.counts vorhanden ist, darfst du diese IFC-Typzahlen nennen, als IFC-Einträge und nicht als geometrisch geprüfte Bauteile. Für Modellaktionen wählt der Nutzer im KI-Reiter den Modus Modellbefehl; Vorschläge müssen vor dem Speichern bestätigt werden.';
    }
    if(commandMode){payload.systemInstruction={parts:[{text:commandInstruction}]};payload.generationConfig={maxOutputTokens:900,temperature:0,responseMimeType:'application/json',responseJsonSchema:commandSchema};}
-   const response=await fetchProvider(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':getKey()},body:JSON.stringify(payload),signal:AbortSignal.timeout(options.timeoutMs||30000),redirect:'error'});
-   if(!response.ok){const e=new Error('Provider response');e.code=response.status===429?429:503;throw e;}
-   const data=await response.json();
-   const candidate=data.candidates?.[0];
-   const answer=(candidate?.content?.parts||[]).filter(p=>!p.thought&&typeof p.text==='string').map(p=>p.text).join('\n').trim();
-   if(!answer||answer.length>16000||candidate.finishReason!=='STOP'){const e=new Error('Incomplete answer');e.code=502;throw e;}
+   const answer=await generate(config,payload,{fetch:fetchProvider,timeoutMs:options.timeoutMs||30000});
    if(!await accessibleBuilding(db,building.id,req.account.id)){
     await db.query("UPDATE app_ai_requests SET status='failed',error_code=404,finished_at=now() WHERE id=$1",[state.id]);return res.status(404).json({error:'Gebäude nicht gefunden.'});
    }

@@ -38,7 +38,7 @@ export function localCommand(text) {
     'alles zurücksetzen': { action: 'reset', target: 'all', color: null, summary: 'Alle Bauteile anzeigen und Originalfarben wiederherstellen' },
     'ausgewähltes bauteil ausblenden': { action: 'hide', target: 'selected', color: null, summary: 'Ausgewähltes Bauteil ausblenden' },
   };
-  if (!Object.hasOwn(presets, value)) throw Error('Lokal sind die vier Beispielbefehle verfügbar. Freie Formulierungen mit Gemini gibt es bei gespeicherten Modellen in der iPhone-App.');
+  if (!Object.hasOwn(presets, value)) throw Error('Lokal sind die vier Beispielbefehle verfügbar. Freie Formulierungen mit dem konfigurierten KI-Dienst gibt es bei gespeicherten Modellen in der iPhone-App.');
   return presets[value];
 }
 function commandRequestID() {
@@ -54,12 +54,28 @@ export function mountCommands({ appearance, types, update, changed = () => {}, d
   const preview = document.querySelector('#command-preview');
   const consent = document.querySelector('#command-consent');
   const remote = window.webkit?.messageHandlers.ifcCommandRequest;
-  let plan, ticket, busy = false;
+  let plan, ticket, busy = false, currentProvider, providerTicket;
+  const providerBridge=window.webkit?.messageHandlers.ifcProviderRequest;
   function clear() { plan = undefined; execute.disabled = true; output.textContent = ''; }
-  function cancel() { ticket = undefined; busy = false; preview.disabled = false; clear(); }
-  document.querySelector('#command-open').onclick = () => { panel.hidden = false; };
+  function cancel() { ticket = undefined; busy = false; preview.disabled = !!remote && !currentProvider; clear(); }
+  document.querySelector('#command-open').onclick = () => { panel.hidden = false; if(remote) loadProvider(); };
   document.querySelector('#command-close').onclick = () => { cancel(); panel.hidden = true; };
-  document.querySelector('#command-mode-note').textContent = remote ? 'Gemini übersetzt nur deinen Befehlstext. Keine IFC-Datei, Bauteildaten oder Gebäudemetadaten werden gesendet. Bei gespeicherten Modellen werden bestätigte Änderungen gemeinsam auf dem Server gespeichert.' : 'Vier feste Beispielbefehle, vollständig lokal. Keine Google-Anfrage. Bei gespeicherten Modellen werden bestätigte Änderungen gemeinsam auf dem Server gespeichert.';
+  const note=document.querySelector('#command-mode-note');
+  note.textContent=remote?'KI-Anbieter wird geprüft …':'Vier feste Beispielbefehle, vollständig lokal. Keine externe KI-Anfrage. Bei gespeicherten Modellen werden bestätigte Änderungen gemeinsam auf dem Server gespeichert.';
+  function loadProvider(){
+    cancel();currentProvider=undefined;consent.checked=false;preview.disabled=true;
+    if(!providerBridge){note.textContent='Bitte die App aktualisieren, um den KI-Anbieter zu prüfen.';return;}
+    note.textContent='KI-Anbieter wird geprüft …';providerTicket=commandRequestID();providerBridge.postMessage({id:providerTicket});
+  }
+  window.d21ProviderReply=(id,provider,name,error)=>{
+    if(destroyed()||id!==providerTicket)return;
+    providerTicket=undefined;
+    if(error||!['gemini','hda'].includes(provider)){note.textContent=String(error||'Unbekannter KI-Dienst.');return;}
+    currentProvider=provider;consent.checked=false;
+    note.textContent=`${name} übersetzt nur deinen Befehlstext. Keine IFC-Datei, Bauteildaten oder Gebäudemetadaten werden übertragen. Bestätigte Änderungen werden bei gespeicherten Modellen gemeinsam auf dem Server gespeichert.`;
+    document.querySelector('#command-consent-text').textContent=`Nur diesen Befehlstext an ${name} senden`;
+    preview.disabled=false;
+  };
   document.querySelector('#command-consent-label').hidden = !remote;
   document.querySelectorAll('[data-command]').forEach(button => button.onclick = () => { cancel(); input.value = button.dataset.command; });
   input.oninput = cancel;
@@ -81,9 +97,10 @@ export function mountCommands({ appearance, types, update, changed = () => {}, d
     try {
       if (!input.value.trim() || input.value.length > 500) throw Error('Bitte einen Befehl mit maximal 500 Zeichen eingeben.');
       if (remote) {
+        if(!currentProvider) throw Error('Bitte den KI-Anbieter durch erneutes Öffnen prüfen.');
         if (!consent.checked) throw Error('Bitte die Übertragung des Befehlstexts bestätigen.');
         ticket = commandRequestID(); busy = true; preview.disabled = true; output.textContent = 'Befehl wird übersetzt …';
-        remote.postMessage({ id: ticket, question: input.value });
+        remote.postMessage({ id: ticket, question: input.value, provider:currentProvider });
       } else proposal(localCommand(input.value));
     } catch (e) { output.textContent = e.message; }
   };
@@ -92,6 +109,6 @@ export function mountCommands({ appearance, types, update, changed = () => {}, d
     try { const operation={action:plan.command.action,ids:plan.ids,color:plan.command.color}; const count = applyCommand(plan, appearance); changed(operation); clear(); update(); output.textContent = `${count} Bauteil(e) geändert. Bei Servermodellen läuft die Speicherung. Die IFC-Datei bleibt unverändert.`; }
     catch (e) { clear(); output.textContent = e.message; }
   };
-  window.addEventListener('pagehide', () => { cancel(); delete window.d21CommandReply; }, { once: true });
+  window.addEventListener('pagehide', () => { cancel(); delete window.d21CommandReply; delete window.d21ProviderReply; }, { once: true });
   return cancel;
 }

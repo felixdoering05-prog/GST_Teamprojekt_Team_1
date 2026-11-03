@@ -11,6 +11,7 @@ struct AssistantStatus: Decodable { let enabled: Bool; let model: String; let no
 struct ModelCommand: Codable { let action: String; let target: String; let color: String?; let summary: String
     var json: [String:Any] { ["action":action,"target":target,"color":color.map { $0 as Any } ?? NSNull(),"summary":summary] }
 }
+struct AIProviderStatus: Decodable { let enabled: Bool; let context_hash: String; let provider: String?; let provider_name: String? }
 struct AssistantAnswer: Decodable { let answer: String; let model: String; let notice: String; let cached: Bool }
 struct AssistantTurn: Decodable, Identifiable { let id: Int; let document_id: Int?; let question: String; let answer: String; let command: ModelCommand? }
 private struct CommandPreview: Decodable { let count: Int; let description: String }
@@ -26,6 +27,8 @@ struct BuildingAssistantView: View {
     @State private var question = ""
     @State private var commandMode = false
     @State private var consent = false
+    @State private var providerID: String?
+    @State private var providerName = "KI-Dienst"
     @State private var sending = false
     @State private var loading = false
     @State private var problem: String?
@@ -76,13 +79,13 @@ struct BuildingAssistantView: View {
                     }.pickerStyle(.menu).disabled(sending)
                 }
                 Picker("Anfrage", selection: $commandMode) { Text("Frage").tag(false); Text("Modellbefehl").tag(true) }.pickerStyle(.segmented).disabled(sending)
-                DisclosureGroup("Was wird an Google gesendet?") {
+                DisclosureGroup("Was wird an \(providerName) gesendet?") {
                     Text(commandMode ? "Nur dein Befehlstext und feste erlaubte Aktionen. Keine IFC-Datei oder Gesprächshistorie." : "Deine Frage, bis zu sechs bisherige Frage-Antwort-Paare dieses KI-Chats, Gebäudename, Adresse, die letzten 20 Dateinamen mit Typ/Größe und bei Modellauswahl dessen Name und IFC-Typzahlen. Keine Dateiinhalte, Geometrie, Teamnachrichten oder Kontakte.").font(.caption).foregroundStyle(.secondary)
                 }
-                Toggle("Übertragung an Google erlauben", isOn: $consent).font(.footnote).disabled(sending)
+                Toggle("Übertragung an \(providerName) erlauben", isOn: $consent).font(.footnote).disabled(sending)
                 HStack(alignment: .bottom) {
                     TextField(commandMode ? "Zum Beispiel: Färbe alle Wände blau" : "Nachricht an deinen Assistenten", text: $question, axis: .vertical).lineLimit(1...4).textFieldStyle(.roundedBorder).disabled(sending)
-                    Button { sendTask = Task { await send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.largeTitle) }.accessibilityLabel("Nachricht senden").disabled(sending || !consent || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000 || commandMode && selectedID == nil)
+                    Button { sendTask = Task { await send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.largeTitle) }.accessibilityLabel("Nachricht senden").disabled(sending || loading || providerID == nil || !consent || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000 || commandMode && selectedID == nil)
                 }
                 Text("KI kann irren · 20 Anfragen je Konto / 24 h · Modelländerungen erst nach Bestätigung").font(.caption2).foregroundStyle(.secondary)
             }.padding().background(.regularMaterial)
@@ -102,7 +105,11 @@ struct BuildingAssistantView: View {
         do {
             let history: [AssistantTurn] = try await account.request("buildings/\(building.id)/assistant/history")
             let docs = try await account.documents(buildingID: building.id).filter { $0.mime_type == "application/x-step" }.sorted { $0.id > $1.id }
+            let service: AIProviderStatus = try await account.request("buildings/\(building.id)/assistant?mode=ifc-command")
             guard !Task.isCancelled else { return }; turns = history; documents = docs
+            let nextProvider = service.provider ?? "gemini"
+            if nextProvider != providerID { consent = false }
+            providerID = nextProvider; providerName = service.provider_name ?? "KI-Dienst"
             if selectedID == nil { selectedID = docs.first?.id }
             problem = nil
         } catch { if !Task.isCancelled { problem = error.localizedDescription } }
@@ -115,10 +122,10 @@ struct BuildingAssistantView: View {
         lastFingerprint = fingerprint; retryNew = false; problem = nil; notice = nil
         do {
             let query = commandMode ? "?mode=ifc-command" : selectedID.map { "?document_id=\($0)" } ?? ""
-            struct Status: Decodable { let enabled: Bool; let context_hash: String }
-            let info: Status = try await account.request("buildings/\(building.id)/assistant" + query)
+            let info: AIProviderStatus = try await account.request("buildings/\(building.id)/assistant" + query)
+            guard (info.provider ?? "gemini") == providerID else { consent = false; providerID = info.provider ?? "gemini"; providerName = info.provider_name ?? "KI-Dienst"; throw APIError(status:409,message:"Der KI-Anbieter hat sich geändert. Bitte die Übertragung erneut bestätigen.") }
             guard info.enabled else { throw APIError(status: 503, message: "Der Assistent ist gerade nicht verfügbar.") }
-            var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true]
+            var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true,"consent_provider":info.provider ?? "gemini"]
             if commandMode { body["mode"] = "ifc-command" }
             if let selectedID { body["document_id"] = selectedID }
             let _: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers:["X-Request-ID":requestID.uuidString], timeout:45)

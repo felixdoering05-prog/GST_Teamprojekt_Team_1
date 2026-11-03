@@ -44,7 +44,7 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 | Passwort vergessen | Technisch vorbereitet; echter Mailversand benötigt weiterhin ein eingerichtetes Projekt-Absenderkonto. [Einrichtung](docs/passwort-mail.md) |
 | Revit-EG-Arbeitsstand | In Revit 2027.3 wurde lokal ein unvollständiges EG-Modell mit **50 nativen Wänden und 28 geschlossenen Räumen** erstellt; RVT und IFC4 wurden gespeichert und technisch geprüft. **11 Räume** liegen innerhalb des technischen Prüfwerts von 0,03 m², **17** haben noch Flächenabweichungen und **5 Planräume** fehlen. Türen, Fenster, Decken, Dach und weitere Geschosse sind noch offen. Keine fachliche Abnahme und keine Freigabe zum Hochladen. [Arbeitsnachweis](docs/revit-planrekonstruktion.md) · [PR #44](../../pull/44) |
 | Revit-Rechner / Datenweg | Benjamins Gaming-PC entfällt. Ein Uni- oder Cloud-Rechner und dessen sichere Anbindung sind noch auszuwählen; eine automatische Revit-Übergabe ist nicht nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
-| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API, nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. IFC-Typzahlen, privater KI-Verlauf und bestätigte Ansichts-Befehle; keine automatische Plan-/Geometrieanalyse. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
+| KI im Produkt | Der native Gebäude-Assistent unterstützt konfigurierbare KI-Anbieter über unsere API mit ausdrücklicher Übertragungsbestätigung. h_da Open WebUI ist vorbereitet; sein Server-Netzzugang ist noch offen. IFC-Typzahlen, privater KI-Verlauf und bestätigte Ansichts-Befehle; keine automatische Plan-/Geometrieanalyse. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
 
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
@@ -56,9 +56,9 @@ Mit [PR #47](../../pull/47) wurde ein IFC-BIM-Viewer für die **Website** in `ma
 
 **Prüfgrenze:** Der Merge bestätigt den implementierten Code, nicht einen erfolgreich absolvierten Ende-zu-Ende-Test auf dem Produktivserver oder mit einem vollständigen D21-Modell. Revit-Liveanbindung, Sensorik/KNX und reale Lichtsteuerung sind dadurch weiterhin nicht nachgewiesen. Für die Projektabnahme sind ein Test mit freigegebenem IFC-Modell, Web-/iPhone-Vergleich und nachvollziehbare Testergebnisse erforderlich.
 
-## Gebäude-Assistent mit Gemini
+## Gebäude-Assistent und Hochschul-API
 
-Im Gebäude-Reiter **KI** unterstützt ein privater Chat mit Gemini und gespeichertem Verlauf. Das ausgewählte IFC wird auf dem Server nach Typen gezählt. Modellbefehle lassen sich nach Vorschau und Bestätigung gemeinsam speichern. **3D** öffnet das Modell direkt; Farben, Sichtbarkeit und simuliertes Licht werden mit der Website abgeglichen. Keine IFC-Dateien oder Teamnachrichten werden an Google übertragen. [Bedienung und Schnittstellen](docs/gemeinsames-modell-und-ki-chat.md). [Bedienung, Datenumfang und Limits](docs/gemini-gebaeudeassistent.md).
+Im Gebäude-Reiter **KI** steht ein privater Chat mit gespeichertem Verlauf bereit; der Anbieter wird ausdrücklich angezeigt. Das ausgewählte IFC wird auf dem Server nach Typen gezählt. Modellbefehle lassen sich nach Vorschau und Bestätigung gemeinsam speichern. **3D** öffnet das Modell direkt; Farben, Sichtbarkeit und simuliertes Licht werden mit der Website abgeglichen. Keine IFC-Dateien oder Teamnachrichten werden an Google übertragen. [Bedienung und Schnittstellen](docs/gemeinsames-modell-und-ki-chat.md). [Bedienung, Datenumfang und Limits](docs/gemini-gebaeudeassistent.md).
 
 ## Gemeinsam in der iPhone-App arbeiten
 
@@ -171,3 +171,7 @@ Durchgezogen = vorhandener Datenweg · Gestrichelt = noch nicht bestätigte Anbi
 Die Gesamtmeilensteine bleiben bestehen: [M1 · Umfang und Vorgaben](../../issues/1), [M2 · Revit und Pilot](../../issues/2), [M3 · Auswertung](../../issues/3), [M4 · Abgabe](../../issues/4). Hochschulvorgaben, Forschungsfrage und Bewertungsmaßstäbe müssen weiter konkretisiert werden.
 
 *KI-Ausgaben gelten erst nach fachlicher Prüfung als Projektergebnis.*
+
+### Hochschul-API (03.11.2026)
+
+h_da Open WebUI ist als weiterer Anbieter vorbereitet. Schlüssel und Qwen-Modell wurden über den VPN-verbundenen Mac geprüft. Der Projektserver benötigt noch einen eigenen Hochschulnetz-Zugang; **noch keine produktive h_da-Anbindung**. Die API meldete zwei Anfragen je zehn Sekunden. [Einrichtung und offener Server-VPN-Schritt](docs/hda-openwebui-anbindung.md).

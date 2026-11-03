@@ -16,6 +16,10 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_ENABLED: ${AI_ENABLED:-}
+      HDA_MODEL: ${HDA_MODEL:-}
+      HDA_API_KEY_FILE: /run/d21-ai/hda-api-key
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_API_KEY_FILE: /run/d21-ai/gemini-api-key
