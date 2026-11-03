@@ -13,6 +13,7 @@ struct BuildingNextSteps: View {
             Label(building.is_owner == false ? "Gemeinsames Gebäude" : "Dein Gebäude", systemImage: "building.2.fill").font(.headline).foregroundStyle(d21Accent)
             Text("Von der ersten Datei zum digitalen Gebäude. Du kannst jeden Schritt später fortsetzen.").foregroundStyle(.secondary)
         }
+        .task { await load() }
         Section("Dein nächster Schritt") {
             if let problem { Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); Button("Dateistand erneut laden") { Task { await load() } } }
             else if !loaded { ProgressView("Gebäudemappe wird geprüft …") }
@@ -33,7 +34,6 @@ struct BuildingNextSteps: View {
             step("3", title: "Gebäude in 3D", detail: hasModel ? "IFC-Modell vorhanden" : "Optional: IFC-Modell hochladen", done: hasModel, area: "3D")
             Button { navigate("Geräte") } label: { Label("4 · Geräte und Räume vorbereiten", systemImage: "house") }
         }
-        .task { await load() }
     }
     private func step(_ number: String, title: String, detail: String, done: Bool, area: String) -> some View {
         Button { navigate(area) } label: {
