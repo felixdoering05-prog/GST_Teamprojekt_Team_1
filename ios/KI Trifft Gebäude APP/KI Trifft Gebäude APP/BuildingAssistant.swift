@@ -35,6 +35,8 @@ struct BuildingAssistantView: View {
     @State private var lastFingerprint = ""
     @State private var retryNew = false
     @State private var sendTask: Task<Void,Never>?
+    @State private var voiceReading: VoiceReading?
+    init(building: Building, account: AccountModel, initialText: String = "") { self.building = building; self.account = account; _question = State(initialValue: initialText) }
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
@@ -53,6 +55,7 @@ struct BuildingAssistantView: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Gebäude-Assistent", systemImage: "sparkles").font(.caption.bold()).foregroundStyle(d21Accent)
                                     Text(turn.answer).textSelection(.enabled)
+                                    Button("Mit ElevenLabs vorlesen", systemImage: "speaker.wave.2") { voiceReading = VoiceReading(text: turn.answer) }.disabled(sending)
                                     if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
                                         Button("Änderung prüfen", systemImage: "checkmark.circle") { Task { await prepare(command, document: document) } }.buttonStyle(.bordered).disabled(sending)
                                         Text("Vorschlag · Änderung erfordert Bestätigung").font(.caption).foregroundStyle(.secondary)
@@ -89,6 +92,7 @@ struct BuildingAssistantView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .task { await load() }
+        .sheet(item: $voiceReading) { VoicePlaybackView(building: building, account: account, text: $0.text) }
         .onDisappear { sendTask?.cancel() }
         .onChange(of: selectedID) { _,_ in consent = false }
         .onChange(of: commandMode) { _,_ in consent = false }

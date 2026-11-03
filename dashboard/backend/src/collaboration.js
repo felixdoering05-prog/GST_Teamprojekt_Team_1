@@ -23,11 +23,13 @@ async function initCollaboration(db){
  text TEXT NOT NULL CHECK(length(text) BETWEEN 1 AND 2000),request_key TEXT NOT NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(building_id,user_id,request_key))`);
  await db.query('CREATE INDEX IF NOT EXISTS app_messages_building_idx ON app_messages(building_id,id)');
+ await db.query('ALTER TABLE app_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
  await db.query(`CREATE TABLE IF NOT EXISTS app_notifications (
  id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
  kind TEXT NOT NULL,title TEXT NOT NULL,building_id INTEGER REFERENCES app_buildings(id) ON DELETE CASCADE,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),read_at TIMESTAMPTZ)`);
  await db.query('CREATE INDEX IF NOT EXISTS app_notifications_user_idx ON app_notifications(user_id,id)');
+ await db.query('ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS message_id INTEGER REFERENCES app_messages(id) ON DELETE SET NULL');
 }
 const accessSQL=`(b.user_id=$2 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$2 AND m.status='accepted'))`;
 async function accessibleBuilding(db,id,user,lock=false){
@@ -39,9 +41,9 @@ async function accessibleBuilding(db,id,user,lock=false){
  return (await db.query(`SELECT b.* FROM app_buildings b WHERE b.id=$1 AND ${accessSQL}${lock?' FOR UPDATE OF b':''}`,[id,user])).rows[0];
 }
 async function notify(db,user,kind,title,building=null){await db.query('INSERT INTO app_notifications(user_id,kind,title,building_id) VALUES($1,$2,$3,$4)',[user,kind,title,building]);}
-async function notifyBuilding(db,building,actor,kind,title){
- await db.query(`INSERT INTO app_notifications(user_id,kind,title,building_id)
- SELECT user_id,$3,$4,$1 FROM (SELECT user_id FROM app_buildings WHERE id=$1 UNION SELECT user_id FROM app_building_members WHERE building_id=$1 AND status='accepted') recipients WHERE user_id<>$2`,[building,actor,kind,title]);
+async function notifyBuilding(db,building,actor,kind,title,message=null){
+ await db.query(`INSERT INTO app_notifications(user_id,kind,title,building_id,message_id)
+ SELECT user_id,$3,$4,$1,$5 FROM (SELECT user_id FROM app_buildings WHERE id=$1 UNION SELECT user_id FROM app_building_members WHERE building_id=$1 AND status='accepted') recipients WHERE user_id<>$2`,[building,actor,kind,title,message]);
 }
 async function transaction(db,fn){const c=await db.connect();try{await c.query('BEGIN');const result=await fn(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 async function respondTransaction(db,res,fn){
@@ -133,8 +135,13 @@ function collaborationRouter(db,requireAccount){
  }));
  r.get('/buildings/:buildingId/messages',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return fail(res,404,'Gebäude nicht gefunden.');
+  if(req.query.ids!==undefined){
+   const ids=String(req.query.ids).split(',');if(!ids.length||ids.length>500||ids.some(id=>!idOK(id)))return fail(res,400,'Ungültige Nachrichtenauswahl.');
+   const rows=(await db.query('SELECT m.id,m.user_id,m.text,m.created_at,(m.deleted_at IS NOT NULL) AS deleted,u.name FROM app_messages m JOIN app_users u ON u.id=m.user_id WHERE m.building_id=$1 AND m.id=ANY($2::int[]) ORDER BY m.id',[req.params.buildingId,ids.map(Number)])).rows;
+   return res.json(rows.map(x=>({...x,name:firstName(x.name)})));
+  }
   const before=req.query.before||2147483647;if(!idOK(before))return fail(res,400,'Ungültige Nachrichten-Kennung.');
-  const rows=(await db.query(`SELECT m.id,m.user_id,m.text,m.created_at,u.name FROM app_messages m JOIN app_users u ON u.id=m.user_id WHERE m.building_id=$1 AND m.id<$2 ORDER BY m.id DESC LIMIT 50`,[req.params.buildingId,before])).rows;
+  const rows=(await db.query(`SELECT m.id,m.user_id,m.text,m.created_at,(m.deleted_at IS NOT NULL) AS deleted,u.name FROM app_messages m JOIN app_users u ON u.id=m.user_id WHERE m.building_id=$1 AND m.id<$2 ORDER BY m.id DESC LIMIT 50`,[req.params.buildingId,before])).rows;
   res.json(rows.reverse().map(x=>({...x,name:firstName(x.name)})));
  }));
  r.post('/buildings/:buildingId/messages',wrap(async(req,res)=>{
@@ -142,12 +149,21 @@ function collaborationRouter(db,requireAccount){
   if(!text||text.length>2000||! /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return fail(res,400,'Nachricht: 1–2000 Zeichen und gültige Anfrage-Kennung erforderlich.');
   await respondTransaction(db,res,async(c,res)=>{
    const b=await accessibleBuilding(c,req.params.buildingId,req.account.id,true);if(!b)return fail(res,404,'Gebäude nicht gefunden.');
-   const existing=(await c.query('SELECT id,text FROM app_messages WHERE building_id=$1 AND user_id=$2 AND request_key=$3',[b.id,req.account.id,key])).rows[0];
-   if(existing){if(existing.text!==text)return fail(res,409,'Die Kennung gehört zu einer anderen Nachricht.');return res.json({ok:true});}
+   const existing=(await c.query('SELECT id,text,deleted_at FROM app_messages WHERE building_id=$1 AND user_id=$2 AND request_key=$3',[b.id,req.account.id,key])).rows[0];
+   if(existing){if(existing.deleted_at)return fail(res,409,'Diese Nachricht wurde gelöscht.');if(existing.text!==text)return fail(res,409,'Die Kennung gehört zu einer anderen Nachricht.');return res.json({ok:true});}
    const count=Number((await c.query("SELECT COUNT(*) AS count FROM app_messages WHERE user_id=$1 AND building_id=$2 AND created_at>now()-interval '1 minute'",[req.account.id,b.id])).rows[0].count);
    if(count>=20)return fail(res,429,'Bitte kurz warten, bevor du weitere Nachrichten sendest.');
-   await c.query('INSERT INTO app_messages(building_id,user_id,text,request_key) VALUES($1,$2,$3,$4)',[b.id,req.account.id,text,key]);
-   await notifyBuilding(c,b.id,req.account.id,'chat',`${firstName(req.account.name)}: ${text.slice(0,120)}`);res.status(201).json({ok:true});
+   const inserted=(await c.query('INSERT INTO app_messages(building_id,user_id,text,request_key) VALUES($1,$2,$3,$4) RETURNING id',[b.id,req.account.id,text,key])).rows[0];
+   await notifyBuilding(c,b.id,req.account.id,'chat',`${firstName(req.account.name)}: ${text.slice(0,120)}`,inserted.id);res.status(201).json({ok:true});
+  });
+ }));
+ r.delete('/buildings/:buildingId/messages/:messageId',wrap(async(req,res)=>{
+  if(!idOK(req.params.messageId))return fail(res,400,'Ungültige Nachrichten-Kennung.');
+  await respondTransaction(db,res,async(c,res)=>{
+   const b=await accessibleBuilding(c,req.params.buildingId,req.account.id,true);if(!b)return fail(res,404,'Gebäude nicht gefunden.');
+   const changed=await c.query("UPDATE app_messages SET text='Nachricht gelöscht',deleted_at=COALESCE(deleted_at,now()) WHERE id=$1 AND building_id=$2 AND user_id=$3 RETURNING id",[req.params.messageId,b.id,req.account.id]);
+   if(!changed.rows.length)return fail(res,404,'Eigene Nachricht nicht gefunden.');
+   await c.query("UPDATE app_notifications SET title='Eine Nachricht wurde gelöscht.' WHERE message_id=$1 AND kind='chat'",[req.params.messageId]);res.json({ok:true});
   });
  }));
  r.get('/notifications',wrap(async(req,res)=>{

@@ -174,13 +174,15 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     func documents(buildingID: Int) async throws -> [BuildingDocument] {
         try await request("buildings/\(buildingID)/documents")
     }
-    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil) async throws -> Data {
+    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
         var request = URLRequest(url: url)
         request.httpMethod = method ?? (data == nil ? "GET" : "POST")
         request.timeoutInterval = 120
         if let uploadID { request.setValue(uploadID.uuidString, forHTTPHeaderField: "X-Upload-ID") }
-        if data != nil { request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type") }
+        if data != nil { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+        if voiceConsent { request.setValue("yes", forHTTPHeaderField: "X-D21-Voice-Consent") }
+        if let requestID { request.setValue(requestID.uuidString.lowercased(), forHTTPHeaderField: "X-Request-ID") }
         if let name {
             var allowed = CharacterSet.urlPathAllowed
             allowed.remove(charactersIn: "%/?#&+=")
@@ -204,6 +206,16 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             throw APIError(status: http.statusCode, message: message)
         }
         return result
+    }
+    func transcribeVoice(buildingID: Int, data: Data, requestID: UUID) async throws -> String {
+        guard data.count <= 1_048_576 else { throw APIError(status: 0, message: "Aufnahme maximal 1 MB.") }
+        struct Transcript: Decodable { let text: String }
+        let bytes = try await fileRequest(path: "buildings/\(buildingID)/voice/transcribe", data: data, voiceConsent: true, requestID: requestID)
+        return try JSONDecoder().decode(Transcript.self, from: bytes).text
+    }
+    func speakVoice(buildingID: Int, text: String, requestID: UUID) async throws -> Data {
+        let data = try JSONSerialization.data(withJSONObject: ["text":text])
+        return try await fileRequest(path: "buildings/\(buildingID)/voice/speak", data: data, voiceConsent: true, contentType: "application/json", requestID: requestID)
     }
     func uploadDocument(buildingID: Int, name: String, data: Data, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil) async throws -> BuildingDocument {
         guard !data.isEmpty, data.count <= 25 * 1024 * 1024 else { throw APIError(status: 0, message: "Bitte eine Datei bis 25 MB auswählen.") }
@@ -394,6 +406,9 @@ struct AccountHomeView: View {
     @State private var showAdd = false
     @State private var showProfile = false
     @State private var path: [Building] = []
+    @State private var buildingPreview: Building?
+    @State private var nextBuilding: Building?
+    @State private var nextArea = "Übersicht"
     @State private var savedDraft: BuildingDraft?
     @State private var discardDraft = false
     @Environment(\.scenePhase) private var scenePhase
@@ -426,9 +441,7 @@ struct AccountHomeView: View {
                     }
                     Section("Meine und geteilte Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            NavigationLink(value: building) {
-                                Label { VStack(alignment: .leading, spacing: 5) { Text(building.name).font(.headline); if building.is_owner == false { Text("Mit dir geteilt").font(.caption).foregroundStyle(d21Accent) }; Text(building.address.isEmpty ? "Adresse noch offen" : building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
-                            }
+                            Button { buildingPreview = building } label: { NativeBuildingCard(building: building) }.buttonStyle(.plain).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
                         }
                         if model.buildings.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -440,7 +453,10 @@ struct AccountHomeView: View {
                 }
                 .navigationTitle("Hallo, \(model.user?.name ?? "")")
                 .searchable(text: $search, prompt: "Gebäude suchen")
-                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model) }
+                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model, initialSection: nextArea) }
+                .sheet(item: $buildingPreview, onDismiss: { if let building = nextBuilding { nextBuilding = nil; path.append(building) } }) { building in
+                    BuildingQuickSheet(building: building) { area in nextArea = area; nextBuilding = building; buildingPreview = nil }
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showProfile = true } label: { AvatarBadge(data: model.avatarData, size: 38) }
@@ -449,7 +465,7 @@ struct AccountHomeView: View {
                     }
                 }
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
-                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; path.append(building) } }
+                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Übersicht"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
                 .task { refreshDraft() }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft() } }

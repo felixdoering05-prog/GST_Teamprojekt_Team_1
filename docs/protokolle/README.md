@@ -72,3 +72,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [03.11.2026 · Gerätebereich und einfachere iPhone-Abläufe](2026-11-03-ios-geraete.md)
 
 - [03.11.2026 · iPhone-Dashboard, Demo und datenbezogene Gemini-Auswertung](2026-11-03-iphone-dashboard-demo-ki.md)
+
+- [03.11.2026 · Gebäudekarten, Chatlöschung und ElevenLabs](2026-11-03-karten-chat-elevenlabs.md)
