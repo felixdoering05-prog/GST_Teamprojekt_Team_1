@@ -1,6 +1,6 @@
 # D21 – Serverausgabe der Base44-Oberfläche
 
-Ausgangsstand: `docs/d21-digital-twin-revit-bim-und-g-a060ebbe.zip` (27.10.2026).
+Ausgangsstand: `docs/d21-digital-twin-revit-bim-und-g-a060ebbe-2026-11-03.zip` (03.11.2026), mit gezielter Übernahme der neueren Funktionen in die D21-API-Version.
 Die ZIP bleibt unverändert als Übergabe erhalten. Diese bearbeitbare Ausgabe ersetzt die
 Base44-Daten- und Kontoaufrufe durch die gemeinsame D21-API. Keine Base44-Anmeldedaten nötig.
 
@@ -33,6 +33,11 @@ verwendet aber **keinen Base44-SDK und keinen Base44-Server**.
 - Dateilimits und Formatprüfung bleiben unverändert: 25 MB je Datei, 250 MB je Konto.
 - Alle über das iPhone angelegten Gebäude sind unter „Gebäude & Räume“ auswählbar.
   Neue Gebäude und Uploads erscheinen unter demselben Konto auch in der iPhone-App.
+
+
+## Gebäude-Assistent
+
+Die Oberfläche ist unter „Gebäude-Assistent“ erreichbar und nutzt ausschließlich `/api/v1/buildings/:id/assistant` des D21-Backends. Vor dem Senden lädt sie den aktuellen, serverseitig berechneten Gebäudekontext und übermittelt dessen Kontext-Hash sowie eine ausdrückliche Einwilligung. Der KI-Schlüssel bleibt serverseitig. Der Assistent bleibt deaktiviert, solange `GEMINI_ENABLED` und der serverseitige Schlüssel nicht eingerichtet sind.
 
 ## Was die ZIP nicht enthält
 
