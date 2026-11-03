@@ -31,13 +31,13 @@ Die private Teamablage ist von der persönlichen Gebäudemappe der Website/iPhon
 
 Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone-App nutzen eine gemeinsame Datenablage für persönliche Konten, Gebäude, Bilder, Pläne und IFC-Modelle. Darauf aufbauend erproben wir die Anbindung von Revit und abgegrenzte KI-Anwendungen mit nachvollziehbaren Ergebnissen.
 
-**Stand: 2. November 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
+**Stand: 3. November 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
 
 ## Aktueller Entwicklungsstand
 
 | Bereich | Bestätigter Stand |
 | :--- | :--- |
-| Website | Die aus Base44 übernommene Oberfläche liegt unter [`dashboard/base44-frontend/`](dashboard/base44-frontend/) und nutzt unsere API. Anmeldung, Gebäude und Dateien werden auf dem Projektserver verwaltet. Änderungen im Base44-Editor müssen weiterhin kontrolliert nach GitHub übernommen werden. |
+| Website | Die aus Base44 übernommene Oberfläche liegt unter [`dashboard/base44-frontend/`](dashboard/base44-frontend/) und nutzt unsere API. Anmeldung, Gebäude und Dateien werden auf dem Projektserver verwaltet. Ein Gebäude-Assistent wurde am 3. November in das eigenständige Frontend portiert ([PR #67](../../pull/67)); dieser Weg ist laut PR noch nicht getestet und benötigt eine serverseitige Gemini-Konfiguration. Änderungen im Base44-Editor müssen weiterhin kontrolliert nach GitHub übernommen werden. |
 | iPhone-App | Nativer SwiftUI-Prototyp unter [`ios/`](ios/): Projektstart mit Logo, persönliche Anmeldung, Profilbild und Begrüßung mit Account-Namen. |
 | Gebäudemappe | Geführte Anlage über Name, Adresse, Fotos, Pläne und Übersicht; lokale Zwischenstände, wiederholbare Uploads, Suche, Vorschau, Umbenennen und Löschen. [Anleitung](docs/gebaeudemappe-ios.md) |
 | Gemeinsame Daten | Website und iPhone verwenden dieselben persönlichen Konten, Gebäude und Dateien in PostgreSQL. Andere Konten erhalten keine automatische Gebäudefreigabe. |
@@ -48,11 +48,11 @@ Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone
 | Passwort vergessen | Technisch vorbereitet; echter Mailversand benötigt weiterhin ein eingerichtetes Projekt-Absenderkonto. [Einrichtung](docs/passwort-mail.md) |
 | Revit-EG-Arbeitsstand | In Revit 2027.3 wurde lokal ein unvollständiges EG-Modell mit **50 nativen Wänden und 28 geschlossenen Räumen** erstellt; RVT und IFC4 wurden gespeichert und technisch geprüft. **11 Räume** liegen innerhalb des technischen Prüfwerts von 0,03 m², **17** haben noch Flächenabweichungen und **5 Planräume** fehlen. Türen, Fenster, Decken, Dach und weitere Geschosse sind noch offen. Keine fachliche Abnahme und keine Freigabe zum Hochladen. [Arbeitsnachweis](docs/revit-planrekonstruktion.md) · [PR #44](../../pull/44) |
 | Revit-Rechner / Datenweg | Benjamins Gaming-PC entfällt. Ein Uni- oder Cloud-Rechner und dessen sichere Anbindung sind noch auszuwählen; eine automatische Revit-Übergabe ist nicht nachgewiesen. Die lokal erzeugten RVT/IFC-Dateien ersetzen keinen PC-Server-Integrationstest. [#9](../../issues/9), [#19](../../issues/19) |
-| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API, nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. IFC-Typzahlen, privater KI-Verlauf und bestätigte Ansichts-Befehle; keine automatische Plan-/Geometrieanalyse. Die Web-Auswertung bleibt zunächst regelbasiert. [Emirs Aufgabe #33](../../issues/33) |
+| KI im Produkt | Der native Gebäude-Assistent nutzt Gemini über unsere API nach bestätigter Übertragung von Gebäudedaten und Dateimetadaten. Ein produktiver API-Test mit synthetischen Daten ist dokumentiert ([PR #59](../../pull/59)). IFC-Typzahlen, privater KI-Verlauf und bestätigte Ansichts-Befehle; keine automatische Plan-/Geometrieanalyse. Der Web-Assistent ist portiert, aber noch nicht Ende-zu-Ende geprüft ([PR #67](../../pull/67)). [Emirs Aufgabe #33](../../issues/33) |
 
 Die Dateigrenzen betragen **20 MiB je IFC-Datei**, **25 MiB für andere unterstützte Dateien** und **250 MiB pro Konto**. Große echte Revit-Exporte und vollständige Abläufe auf den Geräten des Teams müssen zusätzlich geprüft werden.
 
-Zuletzt umgesetzt: [#39 · IFC-Modellbibliothek](../../pull/39), [#41 · Dokumentation und Claude-Zuordnung](../../pull/41), [#42 · IFC-Bauteilaktionen und Raumlichtsimulation](../../pull/42), [#43 · Revit-API-Vorbereitung](../../pull/43), [#44 · lokaler Revit-EG-Arbeitsstand](../../pull/44). Die frühere Startaufgabe für den Xcode-Prototyp [#8](../../issues/8) ist geschlossen.
+Ausgewählte Meilensteine: [#39 · IFC-Modellbibliothek](../../pull/39), [#44 · lokaler Revit-EG-Arbeitsstand](../../pull/44), [#47 · Web-BIM-Viewer](../../pull/47), [#57 · Kontakte und Gebäudefreigaben](../../pull/57), [#58 · Gemini-Assistent](../../pull/58), [#60 · IFC-Modellbefehle](../../pull/60), [#61 · gemeinsame Modellansicht und KI-Chat](../../pull/61), [#66 · Vincents Projektseite](../../pull/66), [#67 · Web-Assistent portiert](../../pull/67) und [#68 · Teamvorstellung](../../pull/68). Die frühere Startaufgabe für den Xcode-Prototyp [#8](../../issues/8) ist geschlossen.
 
 ## Neuer Stand · 30. Oktober 2026: Web-BIM-Viewer
 
@@ -71,6 +71,14 @@ Kontakte über E-Mail mit Bestätigung, Gebäudeeinladungen, gemeinsame Dateien/
 ## Automatisierungen mit n8n
 
 Zwei nur lesende Abläufe protokollieren GitHub-Aufgaben/PR-Änderungen und die Erreichbarkeit der Website im n8n-Ausführungsverlauf. Der Verwaltungszugang bleibt privat über SSH; noch kein WhatsApp- oder Mailversand. [Zugang, Bedienung und Grenzen](dashboard/n8n/README.md) · [Protokoll](docs/protokolle/2026-11-02-n8n-automatisierungen.md)
+
+## Neuer Stand · 3. November 2026: Website und KI
+
+- **Projektseite:** Vincents eigenständige Präsentationsseite ist unter [\`/projekt/\`](https://filling-vendor-verification-hop.trycloudflare.com/projekt/) eingebunden ([PR #66](../../pull/66)). Sie zeigt inzwischen die sechs bestätigten Teammitglieder und ihre Rollen ([PR #68](../../pull/68)); Umsetzung, Ergebnisse und Fazit sind weiterhin offen. Der direkte Einstieg wurde mit [PR #69](../../pull/69) in der README ergänzt.
+- **Web-Gebäudeassistent:** Ein Gebäude-Assistent wurde aus dem Base44-Export in das eigenständige Frontend portiert ([PR #67](../../pull/67)). Der Merge belegt den Code, **keinen erfolgreich getesteten Produktivablauf**; Gemini muss serverseitig eingerichtet sein.
+- **Base44-Export:** Ein aktualisierter Export vom 3. November mit Gebäude-Assistent ist dokumentiert ([PR #65](../../pull/65)). Ein ZIP-Export ist keine automatische Synchronisierung mit dem laufenden Frontend.
+- **Hochschul-KI:** Die h_da Open-WebUI-Anbindung wurde erprobt, die Aktivierung ist aber noch nicht als produktiv abgeschlossen bestätigt ([PR #64](../../pull/64), geschlossen und nicht gemergt). Gemini und h_da sind getrennte Anbieter; ein stiller Wechsel findet nicht statt.
+- **Nachweise:** Technische Arbeitsprotokolle reichen bis zum 3. November. Ein freigegebenes Team-Sitzungsprotokoll ist weiterhin nicht verzeichnet ([Issue #46](../../issues/46)).
 
 ## Neue Rückmeldung: Claude-Zugänge und Campus-Heatmap
 
@@ -104,12 +112,12 @@ Zusätzlich nennt Herr Bürgy eine geplante **Campus-Heatmap**, aus der aktuelle
 
 Die neue Zugangszuordnung ändert diese fachlichen Rollen nicht. API- und Datenbankänderungen mit Felix beziehungsweise Benjamin abstimmen. [Ausführliche Rollenübersicht](docs/verantwortlichkeiten.md)
 
-## Nächste Schritte bis Dienstag, 3. November 2026
+## Offene Prüfungen und nächste Schritte · Stand 3. November 2026
 
 - **Felix:** zwei Einladungsempfänger mit Bürgy abstimmen; Bereitstellung und Nutzungsfreigabe der D21-Pläne nachhalten. Abrechnung und Budget bleiben offen, bis sie bestätigt sind.
 - **Benjamin & Felix:** Uni-/Cloud-Rechner auswählen und sicheren Verbindungsweg planen und Revit-/IFC-Übergabe abstimmen. Der frühere Termin für [#19](../../issues/19) war der 28. Oktober; ein Abschlussnachweis steht noch aus.
 - **Lukas & Josef:** den bereits dokumentierten lokalen EG-Modellstand aus [PR #44](../../pull/44) als Ausgangspunkt fachlich gegenprüfen; **17 Raumkonturen korrigieren und 5 fehlende Räume klären**, bevor weitere Geschosse oder Lichtsimulationen freigegeben werden. Eigene Beiträge beider Teammitglieder und die tatsächliche Übergabe separat nachweisen; die bisherigen technischen Prüfungen ersetzen keinen solchen Teamnachweis. [#11](../../issues/11)
-- **Emir:** Base44-Serverstand abgleichen, ChatGPT-Anwendungsfall und benötigte Zugänge mit Felix klären, ersten prüfbaren Ablauf und technische Dokumentation liefern · [#33](../../issues/33). Der ältere Export-/Abgleichauftrag [#21](../../issues/21) muss anhand des inzwischen importierten Stands abgeglichen werden.
+- **Emir:** den aktualisierten Base44-Export und den portierten Web-Gebäudeassistenten mit dem tatsächlich laufenden Frontend abgleichen, Berechtigungen und Einwilligung Ende-zu-Ende testen; Umfang und Abschlussnachweis von [#33](../../issues/33) und [#21](../../issues/21) gesondert prüfen.
 - **Vincent:** Teamvorstellung und Projektdokumentation aktualisieren; echte und geplante Funktionen unterscheiden.
 - **Alle:** mindestens einen nachvollziehbaren Beitrag, Prüfergebnisse und offene Blocker im jeweiligen Issue festhalten.
 
