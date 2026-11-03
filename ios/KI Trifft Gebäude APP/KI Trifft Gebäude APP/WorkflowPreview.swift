@@ -101,6 +101,7 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
+        else if path.hasSuffix("/telemetry") { result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(TelemetrySnapshot.demo()))) ?? [:] }
         else if path.contains("/devices") {
             if method == "POST" {
                 var item = object; item["id"] = (WorkflowPreview.devices.map { $0["id"] as? Int ?? 0 }.max() ?? 0) + 1

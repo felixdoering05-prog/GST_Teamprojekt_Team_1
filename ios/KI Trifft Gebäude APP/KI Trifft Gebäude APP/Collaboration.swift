@@ -167,12 +167,13 @@ struct BuildingDetailView: View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(["Übersicht", "Dateien", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
+                    ForEach(["Übersicht", "Dashboard", "Dateien", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
                         Button { section = item } label: { Text(item).font(.subheadline.weight(.semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(section == item ? d21Accent : Color(.secondarySystemGroupedBackground), in: Capsule()).foregroundStyle(section == item ? .white : .primary) }.accessibilityAddTraits(section == item ? .isSelected : [])
                     }
                 }.padding(.horizontal).padding(.vertical, 8)
             }
             switch section {
+            case "Dashboard": TelemetryDashboardView(account: model, building: building)
             case "Dateien": BuildingFilesView(building: building, model: model)
             case "3D": BuildingModelView(building: building, account: model)
             case "Geräte": BuildingDevicesView(building: building, account: model)
