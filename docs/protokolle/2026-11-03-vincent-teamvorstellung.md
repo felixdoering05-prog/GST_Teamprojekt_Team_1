@@ -21,8 +21,8 @@ Für Umsetzung, Ergebnisse und Fazit liegen laut Vincent noch keine Inhalte vor.
 
 - Ausgangsstand: `c44bee782f5e2a2abdfdbb1eeda0c1c279e28910` auf `main`.
 - Branch: `feat/vincent-landingpage-team`.
-- Pull Request: wird nach Erstellung verlinkt.
-- Status: lokal geprüft und für den Pull Request vorbereitet; noch nicht zusammengeführt oder veröffentlicht.
+- Pull Request: [#68 – Landingpage: sechs bestätigte Teammitglieder vorstellen](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/68).
+- Status: lokal geprüft und in Pull Request #68 zur Prüfung bereitgestellt; noch nicht zusammengeführt oder veröffentlicht.
 - Felix: Pull Request prüfen, nach Review zusammenführen, vor Deployment Datenbank sichern und ausschließlich über `d21-deploy` veröffentlichen. Anschließend `/projekt/`, Dashboard/API und den Erhalt der Datenbank prüfen.
 
 Keine Änderungen an Serverrechten, API, Datenbank, nginx oder Abhängigkeiten.
