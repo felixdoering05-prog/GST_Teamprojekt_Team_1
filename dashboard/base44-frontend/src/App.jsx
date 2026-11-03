@@ -21,6 +21,7 @@ import Energy from './pages/Energy';
 import Analysis from './pages/Analysis';
 import Alerts from './pages/Alerts';
 import DataSettings from './pages/DataSettings';
+import BuildingAssistant from './pages/BuildingAssistant';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
           <Route path="/analyse" element={<Analysis />} />
           <Route path="/meldungen" element={<Alerts />} />
           <Route path="/daten" element={<DataSettings />} />
+          <Route path="/assistent" element={<BuildingAssistant />} />
         </Route>
       </Route>
 
