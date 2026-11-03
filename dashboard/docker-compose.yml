@@ -16,6 +16,8 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
+      D21_ADMIN_USER_IDS: ${D21_ADMIN_USER_IDS:-}
+      D21_ADMIN_SNAPSHOT_FILE: /run/d21-admin/status.json
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_API_KEY_FILE: /run/d21-ai/gemini-api-key
@@ -26,7 +28,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       SMTP_PASSWORD_FILE: /run/d21-mail/smtp-password
       PASSWORD_RESET_SECRET_FILE: /run/d21-mail/reset-secret
-    volumes: ['./private-mail:/run/d21-mail:ro', '${D21_AI_CONFIG_DIR:-./private-ai}:/run/d21-ai:ro']
+    volumes: ['./private-mail:/run/d21-mail:ro', '${D21_AI_CONFIG_DIR:-./private-ai}:/run/d21-ai:ro', '${D21_ADMIN_STATUS_DIR:-./private-admin}:/run/d21-admin:ro']
     depends_on:
       db:
         condition: service_healthy
