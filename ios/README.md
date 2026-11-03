@@ -1,5 +1,9 @@
 # D21 · iOS-App
 
+## Geräte und einfachere Abläufe · 03.11.2026
+
+Neuer Reiter **Geräte**, Anlage in drei Schritten, Raumfilter und servergespeicherte Simulationen für Licht/Steckdosen. Home Assistant, MQTT und Matter können als spätere Anbindung vorgemerkt werden; echte Geräte sind noch nicht verbunden. Der Gebäudeüberblick zeigt passende nächste Schritte anhand der gespeicherten Dateien. [Bedienung, API und Grenzen](../docs/geraete-ios.md).
+
 In Xcode `KI Trifft Gebäude APP/KI Trifft Gebäude APP.xcodeproj` öffnen, das gleichnamige Scheme und einen konkreten iPhone-Simulator auswählen und starten.
 
 ## Enthalten

@@ -68,3 +68,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [03.11.2026 · Teamvorstellung und Projekttitel der Landingpage](2026-11-03-vincent-teamvorstellung.md) – bestätigte Namen und Rollen; Umsetzung, Ergebnisse und Fazit bleiben offen.
 
 - [03.11.2026 · Geschütztes Server-Verwaltungsportal](2026-11-03-serververwaltung.md)
+
+- [03.11.2026 · Gerätebereich und einfachere iPhone-Abläufe](2026-11-03-ios-geraete.md)

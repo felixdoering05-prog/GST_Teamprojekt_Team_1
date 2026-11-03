@@ -13,6 +13,10 @@ enum WorkflowPreview {
     static var keys: [String: Int] = [:]
     static var assistantTurns: [[String:Any]] = []
     static var sceneRevision = 0
+    static var devices: [[String:Any]] = [
+        ["id":1,"building_id":901,"name":"Deckenlicht","room":"Besprechung","kind":"light","mode":"simulation","integration":"none","is_on":false,"revision":0],
+        ["id":2,"building_id":901,"name":"Raumtemperatur","room":"Besprechung","kind":"temperature","mode":"planned","integration":"home-assistant","is_on":false,"revision":0]
+    ]
     static var sceneState: [String:Any] = ["hidden":[],"colors":[:],"lights":[]]
     static let photo: Data = {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 320, height: 200))
@@ -97,6 +101,16 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
+        else if path.contains("/devices") {
+            if method == "POST" {
+                var item = object; item["id"] = (WorkflowPreview.devices.map { $0["id"] as? Int ?? 0 }.max() ?? 0) + 1
+                item["building_id"] = Int(path.split(separator: "/").dropLast(1).last ?? "901") ?? 901
+                item["is_on"] = false; item["revision"] = 0; WorkflowPreview.devices.append(item); result = item
+            } else if method == "PATCH", let id = Int(path.split(separator: "/").last ?? ""), let index = WorkflowPreview.devices.firstIndex(where: { $0["id"] as? Int == id }) {
+                WorkflowPreview.devices[index]["is_on"] = object["is_on"]
+                WorkflowPreview.devices[index]["revision"] = (WorkflowPreview.devices[index]["revision"] as? Int ?? 0) + 1; result = WorkflowPreview.devices[index]
+            } else { let id = Int(path.split(separator: "/").dropLast(1).last ?? "901") ?? 901; result = WorkflowPreview.devices.filter { $0["building_id"] as? Int == id } }
+        }
         else if path.hasSuffix("/contacts") && method == "GET" { result = [["id":1,"user_id":2,"name":"Benjamin","status":"accepted"],["id":2,"user_id":3,"name":"Emir","status":"pending"]] }
         else if path.hasSuffix("/building-invitations") { result = [] }
         else if path.contains("/notifications/") && path.hasSuffix("/read") { result = ["ok":true] }
