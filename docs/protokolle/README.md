@@ -64,3 +64,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [02.11.2026 · Projektpflege und Testprioritäten](2026-11-02-projektpflege-nachmittag.md) – Repository-Statusprüfung; kein Team-Sitzungsprotokoll.
 
 - [03.11.2026 · Vincents Landingpage](2026-11-03-vincent-landingpage.md)
+
+- [03.11.2026 · Teamvorstellung und Projekttitel der Landingpage](2026-11-03-vincent-teamvorstellung.md) – bestätigte Namen und Rollen; Umsetzung, Ergebnisse und Fazit bleiben offen.
