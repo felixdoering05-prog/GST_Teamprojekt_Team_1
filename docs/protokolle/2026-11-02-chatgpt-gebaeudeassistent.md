@@ -72,7 +72,7 @@ Mobilgerät, gleichzeitige Nutzung und Betrieb mit realen Messwerten sind nicht 
 
 Der Assistent liest die Base44-Entitäten dieser App. Die Serverausgabe unter `dashboard/base44-frontend/` arbeitet über die D21-API mit PostgreSQL.
 
-Der Code des Assistenten liegt ausschließlich im Base44-Projekt und ist im Repository nicht enthalten: Die Seiten der Serverausgabe umfassen elf Dateien ohne Assistenten, eine Codesuche nach „assistent“ findet keinen Treffer. Der Export `docs/d21-digital-twin-revit-bim-und-g-a060ebbe.zip` wurde am 28.10.2026 hochgeladen und enthält den Assistenten nicht.
+Der Assistent liegt im Repository nicht als gepflegter Code, sondern als Momentaufnahme vor: Im Base44-Projekt befinden sich Funktion, Shared-Modul und Seite; im Repository erscheinen sie im Export `docs/d21-digital-twin-revit-bim-und-g-a060ebbe-2026-11-03.zip` (163 Dateien, ohne `docs/`, `node_modules/` und `dist/`). Der ältere Export `docs/d21-digital-twin-revit-bim-und-g-a060ebbe.zip` vom 28.10.2026 enthält den Assistenten noch nicht und bleibt zum Vergleich erhalten. Die Seiten der Serverausgabe unter `dashboard/base44-frontend/src` umfassen elf Dateien ohne Assistenten; eine Codesuche nach „assistent“ findet dort keinen Treffer.
 
 Eine Änderung im Base44-Editor ist keine Veröffentlichung auf dem Projektserver. Die Übernahme erfolgt kontrolliert über Export → eigener Branch → Pull Request → Gegenprüfung → `d21-deploy`. Siehe [Base44 → eigener Projektserver](../base44-serveranbindung.md).
 
@@ -86,13 +86,13 @@ Eine Änderung im Base44-Editor ist keine Veröffentlichung auf dem Projektserve
 | Keine kontoindividuelle Gebäudezuordnung | Gemeinsame Ablage ohne Besitzerfeld; geprüft werden nur Anmeldung, Existenz und Freigabe | `tenant_id` und Row-Level-Security prüfen, falls mehrere Einrichtungen folgen |
 | 24-Stunden-Fenster bei Demo-Daten | Dünne Datenlage, Antworten bleiben allgemein | Reale Messwerte anbinden |
 | Grenzwerte doppelt gepflegt (`src/lib/metrics.js` und Shared-Modul) | Abweichende Bewertung möglich | Eine Quelle festlegen |
-| Kein Code im Repository, Export veraltet | Nachvollziehbarkeit eingeschränkt | Export nach Freigabe erneuern |
+| Code nur als ZIP-Momentaufnahme, keine Versionierung | Änderungen am Assistenten sind im Repository nicht nachvollziehbar | Export bei jeder Freigabe erneuern oder dauerhafte Synchronisierung entscheiden |
 
 ## Nächste Schritte
 
 1. Anwendungsfall, Schnittstelle und Budget mit Felix abstimmen und das Ergebnis hier nachtragen (bis 3.11.2026).
 2. Beschluss zur Datenübermittlung an einen KI-Dienst im Entscheidungsprotokoll erfassen.
-3. Aktuellen Oberflächen-Export und Screenshots der Vorführung ergänzen.
+3. Screenshots der Vorführung ergänzen; der Export vom 3.11.2026 ist abgelegt und bei jeder Freigabe zu erneuern.
 
 ## Freigabe und Nachträge
 
