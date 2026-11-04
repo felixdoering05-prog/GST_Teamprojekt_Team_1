@@ -76,3 +76,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [03.11.2026 · Gebäudekarten, Chatlöschung und ElevenLabs](2026-11-03-karten-chat-elevenlabs.md)
 
 - [04.11.2026 · Kontoweite KI-Einstellung und Live-Sprachassistent](../iphone-live-sprachassistent.md) – technischer Arbeitsnachweis; Installation auf Felix’ iPhone später.
+
+- [04.11.2026 · Private Home-Assistant-Lampendemo](../homeassistant-lampen-demo.md) – technische Anbindung einer ausdrücklich freigegebenen echten Lampe.
