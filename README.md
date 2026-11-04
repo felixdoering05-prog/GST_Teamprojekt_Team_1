@@ -31,7 +31,7 @@ Die private Teamablage ist von der persönlichen Gebäudemappe der Website/iPhon
 
 Wir entwickeln einen digitalen Gebäudepass für das **D21**. Website und iPhone-App nutzen eine gemeinsame Datenablage für persönliche Konten, Gebäude, Bilder, Pläne und IFC-Modelle. Darauf aufbauend erproben wir die Anbindung von Revit und abgegrenzte KI-Anwendungen mit nachvollziehbaren Ergebnissen.
 
-**Stand: 3. November 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
+**Stand: 4. November 2026.** Umgesetzte Funktionen, vorbereitete Anbindungen und offene Arbeitspakete werden getrennt ausgewiesen. Ein funktionierender IFC-Viewer ist noch keine automatische Revit-Schnittstelle oder KI-Auswertung.
 
 ## Aktueller Entwicklungsstand
 
@@ -79,6 +79,21 @@ Zwei nur lesende Abläufe protokollieren GitHub-Aufgaben/PR-Änderungen und die 
 - **Base44-Export:** Ein aktualisierter Export vom 3. November mit Gebäude-Assistent ist dokumentiert ([PR #65](../../pull/65)). Ein ZIP-Export ist keine automatische Synchronisierung mit dem laufenden Frontend.
 - **Hochschul-KI:** Die h_da Open-WebUI-Anbindung wurde erprobt, die Aktivierung ist aber noch nicht als produktiv abgeschlossen bestätigt ([PR #64](../../pull/64), geschlossen und nicht gemergt). Gemini und h_da sind getrennte Anbieter; ein stiller Wechsel findet nicht statt.
 - **Nachweise:** Technische Arbeitsprotokolle reichen bis zum 3. November. Ein freigegebenes Team-Sitzungsprotokoll ist weiterhin nicht verzeichnet ([Issue #46](../../issues/46)).
+
+## Entwicklungsupdate · 3./4. November 2026
+
+Die folgenden Funktionen wurden in `main` übernommen. **Code-Merge, bestandene automatisierte Tests und eine sichtbare Prüfung auf echten Geräten sind unterschiedliche Nachweisstufen.**
+
+| Bereich | Implementierter Stand und Prüfgrenzen |
+| :--- | :--- |
+| Serververwaltung | Geschütztes Portal unter `/verwaltung` mit System-, Dienst- und Nutzungsübersicht; nur ausdrücklich freigeschaltete Administration. Backend-/Frontendtests bestanden. [PR #75](../../pull/75) · [Dokumentation](docs/serververwaltung.md) |
+| Web-BIM-Viewer | Dreidimensionale Modellansicht mit Geschossauswahl, Freilegen/Trennen von Ebenen, Beschriftungen und überarbeiteter Navigation. Ein synthetischer Beispielcampus ist **kein** D21-Bestandsmodell. [PR #79](../../pull/79) |
+| iPhone-Gerätebereich | Geführte Geräteanlage und Gebäude-/Raumzuordnung. Licht und Steckdosen sind **Simulationen**, Sensor- und spätere Home-Assistant-/MQTT-/Matter-Anbindungen nur vorgemerkt. Simulator-Builds bestanden; sichtbarer Gerätetest offen. [PR #77](../../pull/77) · [Anleitung](docs/geraete-ios.md) |
+| iPhone-Dashboard und Messdaten | Dashboard, Sensorik, Energie, regelbasierte Analyse, lokale Demo sowie CSV-Messwertimport mit Vorschau. Gemini kann nach gesonderter Freigabe begrenzte aggregierte Messwerte erhalten. Kein Nachweis einer angebundenen realen D21-Sensorik. [PR #81](../../pull/81) |
+| Gebäudekarten und Sprache | Native Gebäudekarten, bestätigte Löschung eigener Chatnachrichten sowie ElevenLabs-Sprachablauf mit gesonderter Zustimmung und begrenzten Geräte-Simulationsaktionen. Synthetische STT-/TTS-Providerprüfung erfolgreich; sichtbarer vollständiger iPhone-Test offen. [PR #82](../../pull/82) |
+| Aufnahme-/Wiedergabesicherheit | Mikrofonfreigaben und verzögerte Sprachausgabe beim Ansichtswechsel/Hintergrundwechsel abgesichert; signierter iPhone-Build nachgewiesen. [PR #83](../../pull/83) |
+
+**Priorität:** echte Messdaten und Gerätezugriffe nur nach Berechtigungsprüfung einbinden; Web-/iPhone-IFC-Ansichten und CSV-Import auf realen Geräten testen; Revit-Modell fachlich prüfen und eine nachvollziehbare Serverübergabe aufbauen. Der erste echte D21-Datenpunkt ist als [Zwischenziel #74](../../issues/74) bis 13. November erfasst. Der [Sprachassistent im IFC-Web-Viewer #80](../../issues/80) ist eine offene Aufgabe, kein fertig getestetes Feature. Fehlende freigegebene Team-Sitzungsprotokolle bleiben unter [#46](../../issues/46) offen. Technische Arbeitsprotokolle bis zum 3. November sind im [Protokollindex](docs/protokolle/README.md) verlinkt.
 
 ## Neue Rückmeldung: Claude-Zugänge und Campus-Heatmap
 
