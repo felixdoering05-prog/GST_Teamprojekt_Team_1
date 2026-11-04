@@ -146,7 +146,7 @@ function assistantRouter(db,requireAccount,options={}){
    let stored=answer;
    if(lamps.length){const parsed=JSON.parse(answer);if(typeof parsed.answer!=='string'||!Array.isArray(parsed.light_actions))throw Error('Invalid lamp response');stored=parsed.answer;
     if(parsed.light_actions.length){
-     const q=question.toLocaleLowerCase('de');const targets=lamps.filter(l=>[l.name,l.room].some(n=>n&&q.includes(n.toLocaleLowerCase('de'))));
+     const q=question.toLocaleLowerCase('de');const targets=lamps.filter(l=>[l.name,l.room,...l.room.split("·").map(x=>x.trim())].some(n=>n&&q.includes(n.toLocaleLowerCase('de'))));
      if(!/\b(schalte?|mach(?:e)?|stelle?|dimm(?:e)?|färbe?)\b/i.test(q)||parsed.light_actions.some(a=>!targets.some(l=>l.key===a.key)))stored='Welche Lampe oder welchen Raum soll ich wie schalten? Bitte nenne den Namen und die gewünschte Änderung.';
      else stored=(await executeDeviceActions(db,req.account.id,building.id,parsed.light_actions,key,options.homeAssistant||{})).answer;
     }
