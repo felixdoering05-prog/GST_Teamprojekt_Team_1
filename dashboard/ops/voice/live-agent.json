@@ -38,22 +38,29 @@
                     ],
                     "properties": {
                       "key": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Exakter Schlüssel aus authorized_lights."
                       },
                       "on": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "true einschalten, false ausschalten."
                       },
                       "rgb": {
                         "type": "array",
                         "items": {
-                          "type": "integer"
-                        }
+                          "type": "integer",
+                          "description": "Ganzzahliger Farbkanal von 0 bis 255."
+                        },
+                        "description": "Optionaler RGB-Farbwert, drei ganze Zahlen von 0 bis 255. Nur bei on=true."
                       },
                       "brightness": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Optionale Helligkeit von 1 bis 255. Nur bei on=true."
                       }
-                    }
-                  }
+                    },
+                    "description": "Ein Auftrag für genau eine freigegebene Lampe."
+                  },
+                  "description": "Einzelne Lampenaufträge aus der aktuellen ausdrücklichen Nutzerbitte, maximal fünf."
                 }
               }
             }
