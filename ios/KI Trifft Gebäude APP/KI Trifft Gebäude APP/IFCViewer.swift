@@ -160,7 +160,12 @@ struct IFCStoredModelView: View {
     var account: AccountModel? = nil
     var buildingID: Int? = nil
     var documentID: Int? = nil
-    var body: some View { IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID, documentID: documentID) }
+    @State private var showMap = false
+    var body: some View {
+        IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID, documentID: documentID)
+        .toolbar { if let account, let documentID, account.buildings.first(where:{$0.id==buildingID})?.is_owner != false { ToolbarItem(placement:.topBarTrailing) { Button("Kartenumgebung",systemImage:"map") {showMap=true} } } }
+        .sheet(isPresented:$showMap) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
+    }
 }
 
 /// Optional local preview; server-stored models are opened through IFCLibraryView.
@@ -298,7 +303,12 @@ private struct IFCWebView: UIViewRepresentable {
         }
         struct SceneReply: Codable {
             struct State: Codable { let hidden: [Int]; let colors: [String:String]; let lights: [Int] }
-            let revision: Int; let state: State
+            struct DeviceLight: Codable { let space_id: Int; let on: Bool; let available: Bool; let rgb: [Int]; let brightness: Int }
+            struct MapView: Codable {
+                struct Feature: Codable { let kind: String; let geometry: [[Double]]; let width: Double?; let height: Double; let estimated_height: Bool }
+                let latitude: Double; let longitude: Double; let heading: Double; let meters_per_unit: Double; let revision: Int; let features: [Feature]?
+            }
+            let revision: Int; let state: State; let device_lights: [DeviceLight]?; let map_view: MapView?
         }
         func sceneRequest(_ message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
@@ -342,6 +352,7 @@ private struct IFCWebView: UIViewRepresentable {
         }
         func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if navigationAction.navigationType == .linkActivated, let url=navigationAction.request.url, url.absoluteString == "https://www.openstreetmap.org/copyright" { UIApplication.shared.open(url);decisionHandler(.cancel);return }
             decisionHandler(navigationAction.request.url?.scheme == "d21ifc" ? .allow : .cancel)
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

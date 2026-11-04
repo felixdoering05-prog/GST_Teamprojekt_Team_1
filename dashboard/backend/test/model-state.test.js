@@ -26,7 +26,7 @@ test('STEP indexing ignores entity-looking text and comments',()=>{assert.deepEq
 test('state and server index enforce authentication and building membership',async()=>{
  assert.equal((await request(null,state())).status,401);assert.equal((await request(outsider,state())).status,404);
  assert.equal((await request(owner,`/documents/${foreign.id}/model-index`)).status,404);
- assert.deepEqual((await request(member,state())).body,{revision:0,state:{hidden:[],colors:{},lights:[]}});
+ assert.deepEqual((await request(member,state())).body,{revision:0,state:{hidden:[],colors:{},lights:[]},device_lights:[],map_view:null});
  assert.deepEqual((await request(owner,`/documents/${document.id}/model-index`)).body.counts,{walls:1,rooms:1,doors:1});
 });
 test('shared mutations persist, reject stale writes and preserve original IFC bytes',async()=>{
