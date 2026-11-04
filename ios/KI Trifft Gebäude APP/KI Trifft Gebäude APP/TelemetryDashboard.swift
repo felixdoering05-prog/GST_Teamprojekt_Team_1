@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 struct NativeDashboardEntry: View {
     @ObservedObject var account: AccountModel
     @State private var selectedID: Int?
-    @State private var demo = false
     private var selected: Building? { account.buildings.first { $0.id == selectedID } ?? account.buildings.first }
     var body: some View {
         VStack(spacing: 0) {
@@ -13,18 +12,15 @@ struct NativeDashboardEntry: View {
                 Picker("Gebäude", selection: Binding(get: { selected?.id ?? 0 }, set: { selectedID = $0 })) { ForEach(account.buildings) { Text($0.name).tag($0.id) } }.pickerStyle(.menu).padding(.horizontal)
                 TelemetryDashboardView(account: account, building: building).id(building.id)
             } else {
-                ContentUnavailableView("Dein Dashboard wartet", systemImage: "chart.bar.xaxis", description: Text("Lege ein Gebäude an oder nimm eine Einladung an. Die Demo kannst du ohne Daten ausprobieren."))
-                Button("Demo ausprobieren") { demo = true }.buttonStyle(.borderedProminent)
+                ContentUnavailableView("Dein Dashboard wartet", systemImage: "chart.bar.xaxis", description: Text("Lege ein Gebäude an oder nimm eine Einladung an. "))
             }
         }
         .navigationTitle("Dashboard").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Demo", systemImage: "play.circle") { demo = true } } }
-        .sheet(isPresented: $demo) { NativeDemoView() }
     }
 }
 struct NativeDemoView: View {
     @Environment(\.dismiss) private var dismiss
-    var body: some View { NavigationStack { TelemetryDashboardView(account: nil, building: nil, localDemo: true).navigationTitle("D21 · Demo").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Demo schließen") { dismiss() } } } } }
+    var body: some View { NavigationStack { TelemetryDashboardView(account: nil, building: nil, localDemo: true).navigationTitle("Vorstellungsmodus").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Demo schließen") { dismiss() } } } } }
 }
 
 struct TelemetryDashboardView: View {
@@ -50,7 +46,7 @@ struct TelemetryDashboardView: View {
                 #endif
                 Label(localDemo ? "DEMO · Fiktive Beispieldaten" : source == "real" ? "Projektserver · importierte Messwerte" : "Projektserver · Demodaten", systemImage: localDemo || source == "demo" ? "testtube.2" : "server.rack").font(.subheadline.bold()).foregroundStyle(localDemo || source == "demo" ? .orange : d21Accent)
                 if localDemo { Text("Alles ausprobieren – ohne Konto, Serveränderung oder Gemini-Anfrage. Die Werte sind erfunden.").font(.footnote).foregroundStyle(.secondary) }
-                else { Picker("Datenquelle", selection: $source) { Text("Messwerte").tag("real"); Text("Server-Demo").tag("demo") }.pickerStyle(.segmented); Text("Importierte Werte sind nicht unabhängig verifiziert. Die Quellen bleiben getrennt.").font(.caption).foregroundStyle(.secondary) }
+                else { Text("Importierte Werte sind nicht unabhängig verifiziert. Die Quellen bleiben getrennt.").font(.caption).foregroundStyle(.secondary) }
                 Picker("Ansicht", selection: $area) { ForEach(["Dashboard","Sensorik","Energie","Analyse"], id: \.self) { Text($0).tag($0) } }
             }
             if let problem { Section { Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); if snapshot != nil { Text("Letzter geladener Stand. Keine aktuelle Verbindung bestätigt.").font(.footnote) }; Button("Erneut laden") { Task { await load() } }.disabled(loading) } }

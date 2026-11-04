@@ -1,3 +1,4 @@
+import { mountMapEnvironment } from './map-environment.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -5,6 +6,9 @@ import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, I
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 
+const previewMode=new URLSearchParams(location.search).get('preview')==='true';
+const darkPreview=new URLSearchParams(location.search).get('theme')==='dark';
+const previewColor=darkPreview?'#99c5ff':'#174a80';
 const status = document.querySelector('#status');
 const panel = document.querySelector('#selection');
 const buttons = [...document.querySelectorAll('button')];
@@ -51,7 +55,7 @@ async function open() {
   await api.Init(path => new URL(path, location.href).href, true);
   modelID = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
-  scene = new THREE.Scene(); scene.background = new THREE.Color('#eef3f5');
+  scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#e5e9ee');
   scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
   root = new THREE.Group(); scene.add(root);
@@ -75,10 +79,11 @@ async function open() {
         geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
         geometry.setIndex(new THREE.BufferAttribute(indices.slice(), 1));
         const color = placed.color;
-        const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(color.x, color.y, color.z), opacity: color.w, transparent: color.w < 1, side: THREE.DoubleSide, roughness: .8 });
+        const material = new THREE.MeshStandardMaterial({ color: previewMode?new THREE.Color(previewColor):new THREE.Color(color.x, color.y, color.z), opacity: previewMode?1:color.w, transparent: !previewMode && color.w < 1, side: THREE.DoubleSide, roughness: .8 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.applyMatrix4(new THREE.Matrix4().fromArray(placed.flatTransformation));
         mesh.userData.expressID = flat.expressID;
+        mesh.castShadow = true; mesh.receiveShadow = true;
         root.add(mesh);
         appearance.add(flat.expressID, mesh);
 
@@ -95,9 +100,18 @@ async function open() {
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
   camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, span / 10000, span * 100);
   renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
   document.querySelector('#scene').append(renderer.domElement);
+  root.updateMatrixWorld(true);
+  const centeredBounds = new THREE.Box3().setFromObject(root);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 12, span * 12),new THREE.MeshStandardMaterial({color:'#e5e9ee',roughness:1}));
+  ground.rotation.x = -Math.PI/2; ground.position.y = centeredBounds.min.y - span*.001; ground.receiveShadow=true; scene.add(ground);
+  light.position.set(-span,span*2,span*.6); light.castShadow=true;light.shadow.mapSize.set(1024,1024);
+  Object.assign(light.shadow.camera,{left:-span*2,right:span*2,top:span*2,bottom:-span*2,near:.1,far:span*8});light.shadow.normalBias=span*.0002;light.shadow.camera.updateProjectionMatrix();
   controls = new OrbitControls(camera, renderer.domElement);
+  controls.maxPolarAngle=Math.PI*.49;
   controls.minDistance = span / 100; controls.maxDistance = span * 20;
   function fit(top = false) {
     const distance = span * .625 / Math.tan(THREE.MathUtils.degToRad(22.5)) / Math.min(camera.aspect, 1);
@@ -105,6 +119,7 @@ async function open() {
     controls.target.set(0, 0, 0); controls.update();
   }
   fit();
+  if(previewMode){document.querySelectorAll('body > :not(#scene)').forEach(x=>x.hidden=true);renderer.render(scene,camera);report('ready:preview');return;}
   document.querySelector('#fit').onclick = () => fit();
   document.querySelector('#top').onclick = () => fit(true);
   controls.addEventListener('change', () => renderer.render(scene, camera));
@@ -114,6 +129,7 @@ async function open() {
   }); observer.observe(document.body);
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
   const render = () => renderer.render(scene, camera);
+  const applyMap = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
   const text = value => typeof value?.value === 'string' ? value.value : '';
   function updateSelection() {
     const id = appearance.selectedID;
@@ -196,11 +212,11 @@ async function open() {
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setIndex(new THREE.BufferAttribute(indices.slice(), 1));
-        const material = new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
         const effect = new THREE.Mesh(geometry, material);
         effect.applyMatrix4(new THREE.Matrix4().fromArray(placed.flatTransformation));
         effect.position.sub(center); effect.visible = false;
-        roomEffects.add(effect); meshes.push(effect);
+        effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect);
       } finally { data.delete(); }
     }
     const toggle = document.createElement('button');
@@ -208,7 +224,7 @@ async function open() {
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
     toggle.textContent = meshes.length ? 'Licht aus' : 'Ohne Raumgeometrie'; toggle.disabled = !meshes.length;
     toggle.dataset.noGeometry=String(!meshes.length);
-    roomLights.set(id,on=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=meshes.length?(on?'Licht an':'Licht aus'):'Ohne Raumgeometrie';meshes.forEach(mesh=>mesh.visible=on);});
+    roomLights.set(id,(on,color='#ffd35c',linked=false,available=true)=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=!meshes.length?'Ohne Raumgeometrie':linked?(!available?'Gerät nicht erreichbar':on?'Licht an · Geräte':'Licht aus · Geräte'):on?'Licht an':'Licht aus';toggle.dataset.linked=String(linked);toggle.disabled=linked||!meshes.length;meshes.forEach(mesh=>{mesh.visible=on;mesh.material.color.set(color);});});
     toggle.onclick = () => {
       const on = toggle.getAttribute('aria-checked') !== 'true';
       toggle.setAttribute('aria-checked', String(on)); toggle.textContent = on ? 'Licht an' : 'Licht aus';
@@ -220,7 +236,7 @@ async function open() {
   buttons.forEach(button => button.disabled = false);
   document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
-  synchronization = mountSynchronization({appearance,roomLights,update:updateSelection});
+  synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   status.hidden = true;
   renderer.render(scene, camera);
   report(`ready:${meshes}`);

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { MessageSquareText, Send, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -10,7 +11,6 @@ export default function BuildingAssistant() {
   const [buildings, setBuildings] = useState(null);
   const [buildingId, setBuildingId] = useState('');
   const [question, setQuestion] = useState('');
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [context, setContext] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -41,13 +41,13 @@ export default function BuildingAssistant() {
   const send = async (event) => {
     event.preventDefault();
     const text = question.trim();
-    if (!text || !consent || !context?.enabled || busy || !buildingId) return;
+    if (!text || !context?.enabled || busy || !buildingId) return;
     setBusy(true); setError('');
     try {
       const result = await request(`/buildings/${encodeURIComponent(buildingId)}/assistant`, {
         method: 'POST',
         headers: { 'X-Request-ID': crypto.randomUUID() },
-        body: { question: text, consent: 'yes', context_hash: context.context_hash, chat: true },
+        body: { question: text, context_hash: context.context_hash, chat: true },
       });
       setEntries((current) => [...current, { question: text, ...result }]);
       setQuestion('');
@@ -73,12 +73,9 @@ export default function BuildingAssistant() {
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
               <p>Der Server verwendet nur den angezeigten Gebäudekontext. Antworten sind KI-generiert und müssen fachlich geprüft werden. Der Browser erhält keinen KI-API-Schlüssel.</p>
             </div>
-            {context && !context.enabled ? <p className="text-sm text-amber-700">Der Assistent ist auf dem Server derzeit nicht aktiviert.</p> : null}
+            {context && !context.enabled ? <p className="text-sm text-amber-700">Der Assistent ist derzeit nicht verfügbar. Prüfe deine KI-Einstellungen.</p> : null}
             {context?.notice ? <p className="text-xs text-muted-foreground">{context.notice}</p> : null}
-            <label className="flex items-start gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-              <span>Ich stimme zu, dass meine Frage und der angezeigte Kontext dieses Gebäudes an den serverseitig eingerichteten KI-Dienst übermittelt werden.</span>
-            </label>
+            {context && !context.account_enabled ? <Link to="/daten" className="text-sm font-medium text-primary underline">KI einmal für mein Konto aktivieren → Einstellungen</Link> : null}
           </section>
 
           <section className="surface overflow-hidden">
@@ -94,7 +91,7 @@ export default function BuildingAssistant() {
             </div>
             <form onSubmit={send} className="flex gap-2 border-t border-border p-4">
               <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={2000} placeholder="Frage zum Gebäude …" className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 text-sm" />
-              <Button type="submit" disabled={busy || !consent || !context?.enabled || !question.trim()}>{busy ? 'Bitte warten …' : <><Send className="mr-2 h-4 w-4" />Senden</>}</Button>
+              <Button type="submit" disabled={busy || !context?.enabled || !question.trim()}>{busy ? 'Bitte warten …' : <><Send className="mr-2 h-4 w-4" />Senden</>}</Button>
             </form>
           </section>
         </>

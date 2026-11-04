@@ -1,7 +1,15 @@
+const {initUIPreferences,uiPreferencesRouter}=require('./ui-preferences');
+const {assistantDevicesRouter}=require('./assistant-devices');
+const {initMapViews,mapViewRouter}=require('./map-view');
+const {equipmentRouter}=require('./equipment');
+const {initHomeAssistant,homeAssistantRouter}=require('./home-assistant');
 const {initAdmin,adminRouter}=require('./admin');
 const {campusRouter}=require('./campus');
 const {initDevices,devicesRouter}=require('./devices');
 const {initTelemetry,telemetryRouter}=require('./telemetry');
+const {initVoice,voiceRouter}=require('./voice');
+const {initAIPreferences,aiPreferencesRouter}=require('./ai-preferences');
+const {initLiveVoice,liveVoiceRouter}=require('./live-voice');
 const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
@@ -45,7 +53,13 @@ async function initAccounts(db) {
  await initAssistant(db);
  await initAdmin(db);
  await initDevices(db);
+ await initHomeAssistant(db);
+ await initMapViews(db);
  await initTelemetry(db);
+ await initVoice(db);
+ await initAIPreferences(db);
+ await initUIPreferences(db);
+ await initLiveVoice(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -110,7 +124,7 @@ function accountRouter(db,options={}) {
  router.use(passwordResetRouter(db,{passwordHash,throttle,...options}));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
- router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
+ router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
  router.post('/buildings',requireAccount,wrap(async(req,res)=>{
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const address=typeof req.body?.address==='string'?req.body.address.trim():'';
@@ -131,9 +145,17 @@ function accountRouter(db,options={}) {
  router.use('/campus',campusRouter(db,requireAccount,options.campus));
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
+ router.use(mapViewRouter(db,requireAccount,options.mapView));
+ router.use(uiPreferencesRouter(db,requireAccount));
+ router.use(equipmentRouter(db,requireAccount,options.homeAssistant));
+ router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));
+ router.use(liveVoiceRouter(db,requireAccount,{...options.liveVoice,homeAssistant:options.homeAssistant}));
+ router.use(voiceRouter(db,requireAccount,options.voice));
+ router.use(aiPreferencesRouter(db,requireAccount));
+ router.use(assistantDevicesRouter(db,requireAccount,options.homeAssistant||{}));
  router.use(collaborationRouter(db,requireAccount));
- router.use(modelStateRouter(db,requireAccount));
- router.use(assistantRouter(db,requireAccount,options.assistant));
+ router.use(modelStateRouter(db,requireAccount,options.homeAssistant));
+ router.use(assistantRouter(db,requireAccount,{...options.assistant,homeAssistant:options.homeAssistant}));
  router.use(twinRouter(db,requireAccount));
  router.use(profileRouter(db,requireAccount));
  router.use(documentRouter(db,requireAccount));

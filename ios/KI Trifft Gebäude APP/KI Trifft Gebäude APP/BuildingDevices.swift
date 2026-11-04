@@ -26,6 +26,10 @@ struct BuildingDevice: Identifiable, Codable {
     let integration: DeviceIntegration
     let is_on: Bool
     let revision: Int
+    let document_id: Int?
+    let space_id: Int?
+    let rgb: [Int]?
+    let brightness: Int?
     var simulated: Bool { mode == "simulation" }
     var roomLabel: String { room.isEmpty ? "Ohne Raum" : room }
 }
@@ -46,7 +50,7 @@ struct DevicesHomeView: View {
                 }
                 if account.buildings.isEmpty { ContentUnavailableView("Noch kein Gebäude", systemImage: "building.2", description: Text("Lege zuerst unter Gebäude eine Gebäudemappe an oder nimm eine Einladung an.")) }
             }
-            Section { Text("Aktuell werden keine echten Lampen, Steckdosen oder Sensoren verbunden. Simulationen und Vorbereitungen liegen auf eurem Projektserver und sind für Gebäudemitglieder sichtbar.").font(.footnote).foregroundStyle(.secondary) }
+            Section { Text("Gebäudegeräte bleiben Simulationen oder Vorbereitungen und sind für Gebäudemitglieder sichtbar. Freigegebene echte Geräte kannst du in einer Gebäudemappe verbinden und zuordnen.").font(.footnote).foregroundStyle(.secondary) }
         }
         .navigationTitle("Geräte")
         .refreshable { await account.loadBuildings() }
@@ -62,22 +66,30 @@ struct BuildingDevicesView: View {
     @State private var busy = false
     @State private var problem: String?
     @State private var adding = false
+    @State private var lamps: [ConnectedLamp] = []
+    @State private var selectedLamp: ConnectedLamp?
+    @State private var selectedDevice: BuildingDevice?
+    @State private var connecting = false
     @State private var room = "Alle Räume"
     @Environment(\.scenePhase) private var scenePhase
-    private var rooms: [String] { Array(Set(devices.map(\.roomLabel))).sorted() }
+    private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"})).sorted() }
     private var visible: [BuildingDevice] { devices.filter { room == "Alle Räume" || $0.roomLabel == room } }
     var body: some View {
         List {
             Section {
                 Label(building.name, systemImage: "house.fill").font(.headline)
-                Text("\(devices.filter(\.simulated).count) Simulationen · \(devices.filter { !$0.simulated }.count) vorgemerkt").font(.subheadline).foregroundStyle(.secondary)
-                Button("Gerät Schritt für Schritt hinzufügen", systemImage: "plus.circle.fill") { adding = true }.disabled(busy)
+                Text("\(lamps.count) verbundene Lampen").font(.subheadline).foregroundStyle(.secondary)
+                Button("Vorhandenes Gerät verbinden", systemImage: "link") { connecting = true }.disabled(busy)
+
             }
             if let problem { Section { Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); Button("Erneut laden") { Task { await reload() } }.disabled(loading || busy) } }
+            if !lamps.isEmpty {
+                Section("Geräte") { ForEach(lamps.filter { room == "Alle Räume" || $0.location?.room == room }) { lamp in ConnectedLampCard(lamp:lamp,account:account,assign:{selectedLamp=lamp},changed:{await reload()}) } }
+            }
             if loading && !loaded { Section { ProgressView("Geräte werden geladen …") } }
-            if loaded && devices.isEmpty {
+            if loaded && devices.isEmpty && lamps.isEmpty {
                 Section {
-                    ContentUnavailableView("Dein erstes Gerät", systemImage: "lightbulb", description: Text("Beginne zum Beispiel mit einem simulierten Licht. Typ wählen, Raum zuordnen und ausprobieren."))
+                    ContentUnavailableView("Dein erstes Gerät", systemImage: "lightbulb", description: Text("Verbinde ein vorhandenes Gerät und ordne es deinem Gebäude und einem Raum zu."))
                 }
             }
             if !rooms.isEmpty {
@@ -86,20 +98,18 @@ struct BuildingDevicesView: View {
             ForEach(rooms.filter { name in visible.contains { $0.roomLabel == name } }, id: \.self) { name in
                 Section(name) { ForEach(visible.filter { $0.roomLabel == name }) { device in deviceRow(device) } }
             }
-            Section("Im Modell ausprobieren") {
-                NavigationLink { IFCLibraryView(model: account, smartHome: true, buildingID: building.id) } label: { Label("Raumlicht im 3D-Modell simulieren", systemImage: "cube.transparent") }
-                Text("Die Raumlichtsimulation im IFC-Modell ist separat. Neue Geräte werden noch nicht automatisch mit IFC-Bauteilen verknüpft.").font(.footnote).foregroundStyle(.secondary)
+            Section("Im Modell ansehen") {
+                NavigationLink { IFCLibraryView(model: account, smartHome: true, buildingID: building.id) } label: { Label("Raumlicht im 3D-Modell ansehen", systemImage: "cube.transparent") }
+                Text("Verknüpfe unter Gebäude & Raum einen IFC-Raum, damit das Licht dort in der bestätigten Farbe angezeigt wird. Über das Kartensymbol im Viewer kannst du Straßen und Nachbargebäude laden.").font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Echte Geräte vorbereiten") {
-                ForEach(DeviceIntegration.allCases.filter { $0 != .none }, id: \.self) { item in
-                    DisclosureGroup(item.title + " · geplant") { Text(item.detail).font(.footnote).foregroundStyle(.secondary) }
-                }
-                Text("Keine automatische Suche im Netzwerk, keine Kopplung und keine echten Schaltbefehle. Für den nächsten Schritt brauchen wir das konkrete Gerät und die gewünschte Bridge.").font(.footnote).foregroundStyle(.secondary)
-            }
+
         }
         .navigationTitle("Geräte").navigationBarTitleDisplayMode(.inline)
         .refreshable { if !busy { await reload() } }
         .sheet(isPresented: $adding, onDismiss: { Task { await reload() } }) { AddDeviceView(building: building, account: account) }
+        .sheet(isPresented:$connecting,onDismiss:{Task{await reload()}}) { AvailableLampPicker(account:account,building:building,saved:{connecting=false}) }
+        .sheet(item:$selectedLamp,onDismiss:{Task{await reload()}}) { lamp in NavigationStack { EquipmentAssignmentView(account:account,building:building,lamp:lamp,saved:{selectedLamp=nil}) } }
+        .sheet(item:$selectedDevice,onDismiss:{Task{await reload()}}) { device in NavigationStack { EquipmentAssignmentView(account:account,building:building,device:device,saved:{selectedDevice=nil}) } }
         .task {
             await reload()
             while !Task.isCancelled {
@@ -115,12 +125,14 @@ struct BuildingDevicesView: View {
             if device.simulated && device.kind.switchable {
                 Toggle(device.is_on ? "Simulation: Ein" : "Simulation: Aus", isOn: Binding(get: { device.is_on }, set: { value in Task { await toggle(device, on: value) } })).tint(d21Accent).disabled(busy || loading)
                     .accessibilityLabel(device.name + ", Simulation")
+                if device.kind == .light { SimulatedLampColor(account:account,device:device,changed:{await reload()}) }
             } else { Text(device.simulated ? "Keine echten Messwerte · Sensordarstellung vorbereitet" : "Noch nicht verbunden · kein Live-Status").font(.footnote).foregroundStyle(.secondary) }
+            Button("Gebäude & Raum",systemImage:"building.2.crop.circle") { selectedDevice=device }.disabled(busy)
         }.padding(.vertical, 5)
     }
     private func reload() async {
         guard !loading else { return }; loading = true; defer { loading = false }
-        do { let items: [BuildingDevice] = try await account.request("buildings/\(building.id)/devices"); guard !Task.isCancelled else { return }; devices = items; loaded = true; problem = nil; if room != "Alle Räume" && !rooms.contains(room) { room = "Alle Räume" } }
+        do { let items: [BuildingDevice] = try await account.request("buildings/\(building.id)/devices"); let real:[ConnectedLamp]=try await account.request("buildings/\(building.id)/lamps"); lamps=real; guard !Task.isCancelled else { return }; devices = items.filter { !$0.simulated }; loaded = true; problem = nil; if room != "Alle Räume" && !rooms.contains(room) { room = "Alle Räume" } }
         catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func toggle(_ device: BuildingDevice, on: Bool) async {

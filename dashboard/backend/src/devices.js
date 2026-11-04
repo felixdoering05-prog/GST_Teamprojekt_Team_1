@@ -2,7 +2,7 @@ const express=require('express');
 const {accessibleBuilding}=require('./collaboration');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const idOK=v=>/^[1-9]\d*$/.test(String(v))&&Number(v)<=2147483647;
-const fields='id,building_id,name,room,kind,mode,integration,is_on,revision,created_at,updated_at';
+const fields='id,building_id,name,room,kind,mode,integration,is_on,revision,document_id,space_id,rgb,brightness,created_at,updated_at';
 async function initDevices(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_devices (
  id SERIAL PRIMARY KEY,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,
@@ -13,6 +13,10 @@ async function initDevices(db){
  is_on BOOLEAN NOT NULL DEFAULT false,revision INTEGER NOT NULL DEFAULT 0,
  request_key TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  UNIQUE(building_id,request_key),CHECK((mode='simulation' AND integration='none') OR mode='planned'))`);
+ await db.query('ALTER TABLE app_devices ADD COLUMN IF NOT EXISTS document_id INTEGER REFERENCES app_documents(id) ON DELETE SET NULL');
+ await db.query('ALTER TABLE app_devices ADD COLUMN IF NOT EXISTS space_id INTEGER');
+ await db.query("ALTER TABLE app_devices ADD COLUMN IF NOT EXISTS rgb JSONB NOT NULL DEFAULT '[255,211,92]'");
+ await db.query('ALTER TABLE app_devices ADD COLUMN IF NOT EXISTS brightness INTEGER NOT NULL DEFAULT 255');
  await db.query('CREATE INDEX IF NOT EXISTS app_devices_building_idx ON app_devices(building_id)');
 }
 function devicesRouter(db,requireAccount){
@@ -41,12 +45,13 @@ function devicesRouter(db,requireAccount){
      result=(await c.query(`INSERT INTO app_devices(building_id,name,room,kind,mode,integration,request_key) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING ${fields}`,[req.params.deviceBuilding,name,room,b.kind,b.mode,b.integration,b.request_key])).rows[0];
     }
    }else{
-    if(!idOK(req.params.deviceID)||Object.keys(b).some(k=>!['is_on','revision'].includes(k))||typeof b.is_on!=='boolean'||!Number.isInteger(b.revision)||b.revision<0)throw Object.assign(Error('Ungültiger Schaltauftrag.'),{status:400});
+    if(!idOK(req.params.deviceID)||Object.keys(b).some(k=>!['is_on','revision','rgb','brightness'].includes(k))||typeof b.is_on!=='boolean'||!Number.isInteger(b.revision)||b.revision<0)throw Object.assign(Error('Ungültiger Schaltauftrag.'),{status:400});
+    if(b.rgb!==undefined&&(!Array.isArray(b.rgb)||b.rgb.length!==3||b.rgb.some(x=>!Number.isInteger(x)||x<0||x>255))||b.brightness!==undefined&&(!Number.isInteger(b.brightness)||b.brightness<1||b.brightness>255))throw Object.assign(Error('Ungültige Lichtfarbe.'),{status:400});
     const old=(await c.query('SELECT mode,kind,revision FROM app_devices WHERE id=$1 AND building_id=$2 FOR UPDATE',[req.params.deviceID,req.params.deviceBuilding])).rows[0];
     if(!old)throw Object.assign(Error('Gerät nicht gefunden.'),{status:404});
     if(old.mode!=='simulation'||!['light','plug'].includes(old.kind))throw Object.assign(Error('Nur simulierte Lampen und Steckdosen lassen sich schalten. Echte Geräte sind noch nicht verbunden.'),{status:409});
     if(old.revision!==b.revision)throw Object.assign(Error('Das Gerät wurde inzwischen geändert. Bitte neu laden.'),{status:409});
-    result=(await c.query(`UPDATE app_devices SET is_on=$3,revision=revision+1,updated_at=now() WHERE id=$1 AND building_id=$2 RETURNING ${fields}`,[req.params.deviceID,req.params.deviceBuilding,b.is_on])).rows[0];
+    result=(await c.query(`UPDATE app_devices SET is_on=$3,rgb=COALESCE($4::jsonb,rgb),brightness=COALESCE($5,brightness),revision=revision+1,updated_at=now() WHERE id=$1 AND building_id=$2 RETURNING ${fields}`,[req.params.deviceID,req.params.deviceBuilding,b.is_on,b.rgb?JSON.stringify(b.rgb):null,b.brightness??null])).rows[0];
    }
    await c.query('COMMIT');res.status(create?201:200).json(result);
   }catch(e){await c.query('ROLLBACK');if(e.status)return res.status(e.status).json({error:e.message});throw e;}finally{c.release();}

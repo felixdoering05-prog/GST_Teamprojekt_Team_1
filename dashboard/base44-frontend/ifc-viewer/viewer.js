@@ -1,3 +1,4 @@
+import { mountMapEnvironment } from './map-environment.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -172,6 +173,7 @@ async function open() {
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
   let updateLabels = () => {}, campusEnvironment;
   const render = () => { campusEnvironment?.update(camera, render); renderer.render(scene, camera); updateLabels(); };
+  const applyMap = isCampus || isExample ? () => {} : mountMapEnvironment(scene,centeredBounds.min.y-span*.001,render);
   for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) document.getElementById(id).onclick = () => {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, .3, 12); camera.updateProjectionMatrix(); render();
   };
@@ -372,12 +374,12 @@ async function open() {
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setIndex(new THREE.BufferAttribute(indices.slice(), 1));
-        const material = new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
         const effect = new THREE.Mesh(geometry, material);
         effect.applyMatrix4(new THREE.Matrix4().fromArray(placed.flatTransformation));
         effect.position.sub(center); effect.visible = false;
         effect.userData.expressID = id; effect.userData.basePosition = effect.position.clone();
-        roomEffects.add(effect); meshes.push(effect);
+        effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect);
       } finally { data.delete(); }
     }
     const toggle = document.createElement('button');
@@ -385,7 +387,7 @@ async function open() {
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
     toggle.textContent = meshes.length ? 'Licht aus' : 'Ohne Raumgeometrie'; toggle.disabled = !meshes.length;
     toggle.dataset.noGeometry=String(!meshes.length);
-    roomLights.set(id,on=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=meshes.length?(on?'Licht an':'Licht aus'):'Ohne Raumgeometrie';meshes.forEach(mesh=>mesh.visible=on);});
+    roomLights.set(id,(on,color='#ffd35c',linked=false,available=true)=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=!meshes.length?'Ohne Raumgeometrie':linked?(!available?'Gerät nicht erreichbar':on?'Licht an · Geräte':'Licht aus · Geräte'):on?'Licht an':'Licht aus';toggle.dataset.linked=String(linked);toggle.disabled=linked||!meshes.length;meshes.forEach(mesh=>{mesh.visible=on;mesh.material.color.set(color);});});
     toggle.onclick = () => {
       const on = toggle.getAttribute('aria-checked') !== 'true';
       toggle.setAttribute('aria-checked', String(on)); toggle.textContent = on ? 'Licht an' : 'Licht aus';
@@ -400,7 +402,7 @@ async function open() {
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
   if (isExample || isCampus) {
     const note = document.createElement('div'); note.id = 'sync-status'; note.textContent = isCampus ? 'D21-Originalmodell · Ansichtsänderungen bleiben lokal' : 'Beispielmodell · frei erfundene Geometrie · Änderungen bleiben lokal'; document.body.append(note);
-  } else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection});
+  } else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   if (isHeat) {
     const groundY = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
     heatLayer = mountHeatLayer({ scene, root, groundY, render });

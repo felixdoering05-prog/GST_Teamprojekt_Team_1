@@ -9,6 +9,7 @@ let db,server,url;
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};
  await pg.exec('CREATE TABLE app_users(id SERIAL PRIMARY KEY,name TEXT,email TEXT);CREATE TABLE app_buildings(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES app_users(id),name TEXT);INSERT INTO app_users(name) VALUES(\'Owner\'),(\'Member\'),(\'Outsider\');INSERT INTO app_buildings(user_id,name) VALUES(1,\'D21\'),(3,\'Other\')');
+ await pg.exec('CREATE TABLE app_documents(id SERIAL PRIMARY KEY)');
  await initCollaboration(db);await initDevices(db);await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
  const app=express();app.use(express.json());app.use(devicesRouter(db,(req,res,next)=>{const id=Number(req.get('X-Test-User'));if(![1,2,3].includes(id))return res.sendStatus(401);req.account={id};next();}));app.use((e,req,res,next)=>res.status(500).json({error:e.message}));
  server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));url=`http://127.0.0.1:${server.address().port}/buildings/1/devices`;

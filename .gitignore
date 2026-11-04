@@ -58,3 +58,7 @@ private-ai/
 
 # Private host status snapshots
 **/private-admin/
+**/private-voice/
+
+# Home Assistant server credentials
+**/private-homeassistant/

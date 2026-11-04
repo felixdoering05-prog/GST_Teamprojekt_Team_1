@@ -8,7 +8,7 @@ const {modelIndex}=require('../src/model-state');
 let db,server,url,owner,member,outsider,building,document,foreign,calls=[];
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};await initAccounts(db);
- async function user(name){const u=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id',[name,name+'@example.test','unused'])).rows[0];u.token=randomBytes(32).toString('hex');await db.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[createHash('sha256').update(u.token).digest('hex'),u.id,new Date(Date.now()+86400000)]);return u;}
+ async function user(name){const u=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id',[name,name+'@example.test','unused'])).rows[0];u.token=randomBytes(32).toString('hex');await db.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[createHash('sha256').update(u.token).digest('hex'),u.id,new Date(Date.now()+86400000)]);await db.query("INSERT INTO app_ai_preferences(user_id,enabled,policy_version,revision) VALUES($1,true,1,1)",[u.id]);return u;}
  owner=await user('Owner');member=await user('Member');outsider=await user('Outsider');
  building=(await db.query('INSERT INTO app_buildings(user_id,name) VALUES($1,$2) RETURNING id',[owner.id,'Shared building'])).rows[0];
  const other=(await db.query('INSERT INTO app_buildings(user_id,name) VALUES($1,$2) RETURNING id',[outsider.id,'Foreign'])).rows[0];
@@ -26,7 +26,7 @@ test('STEP indexing ignores entity-looking text and comments',()=>{assert.deepEq
 test('state and server index enforce authentication and building membership',async()=>{
  assert.equal((await request(null,state())).status,401);assert.equal((await request(outsider,state())).status,404);
  assert.equal((await request(owner,`/documents/${foreign.id}/model-index`)).status,404);
- assert.deepEqual((await request(member,state())).body,{revision:0,state:{hidden:[],colors:{},lights:[]}});
+ assert.deepEqual((await request(member,state())).body,{revision:0,state:{hidden:[],colors:{},lights:[]},device_lights:[],map_view:null});
  assert.deepEqual((await request(owner,`/documents/${document.id}/model-index`)).body.counts,{walls:1,rooms:1,doors:1});
 });
 test('shared mutations persist, reject stale writes and preserve original IFC bytes',async()=>{

@@ -56,6 +56,9 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
 @MainActor final class AccountModel: ObservableObject {
     @Published var user: Account?
     @Published var avatarData: Data?
+    @Published var aiPreferences = AIPreferences.disabled
+    @Published var presentationMode = false
+    private var uiRevision = 0
     @Published var buildings: [Building] = []
     @Published var busy = false
     @Published var restoring = true
@@ -76,7 +79,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
               parts.path.isEmpty else { throw APIError(status: 0, message: "Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.") }
         let changed = cleaned != serverURL
-        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil }
+        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0 }
         try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username: username, password: password)), key: "gateway")
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
@@ -130,6 +133,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             user = account
             await loadBuildings()
             await loadAvatar()
+            await refreshAIPreferences()
+            await refreshUIPreferences()
         } catch {
             if (error as? APIError)?.status == 401 { try? SecureStore.write(nil, key: "session"); token = nil }
             self.error = error.localizedDescription
@@ -145,7 +150,28 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             token = session.token; user = session.user; avatarData = nil
             await loadBuildings()
             await loadAvatar()
+            await refreshAIPreferences()
+            await refreshUIPreferences()
         } catch { self.error = error.localizedDescription }
+    }
+    func refreshAIPreferences() async {
+        guard let owner = user?.id else { aiPreferences = .disabled; presentationMode=false;uiRevision=0; return }
+        do { let value: AIPreferences = try await request("profile/ai"); if user?.id == owner { aiPreferences = value } }
+        catch { if user?.id == owner { aiPreferences = .disabled; presentationMode=false;uiRevision=0 } }
+    }
+    func saveAIPreferences(_ enabled: Bool) async throws {
+        let owner = user?.id
+        do {
+            let value: AIPreferences = try await request("profile/ai", method: "PATCH", body: ["enabled":enabled,"device_control_enabled":enabled,"revision":aiPreferences.revision,"policy_version":1])
+            if user?.id == owner { aiPreferences = value }
+        } catch { await refreshAIPreferences(); throw error }
+    }
+    func refreshUIPreferences() async {
+        guard user != nil else {presentationMode=false;uiRevision=0;return}
+        do {let value:UIPreferences = try await request("profile/ui");presentationMode=value.presentation_mode;uiRevision=value.revision} catch {presentationMode=false}
+    }
+    func savePresentationMode(_ enabled:Bool) async throws {
+        let value:UIPreferences=try await request("profile/ui",method:"PATCH",body:["presentation_mode":enabled,"revision":uiRevision]);presentationMode=value.presentation_mode;uiRevision=value.revision
     }
     func passwordResetStatus() async throws -> Bool {
         let status: ResetStatus = try await request("auth/password-reset/status")
@@ -174,13 +200,15 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     func documents(buildingID: Int) async throws -> [BuildingDocument] {
         try await request("buildings/\(buildingID)/documents")
     }
-    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil) async throws -> Data {
+    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
         guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
         var request = URLRequest(url: url)
         request.httpMethod = method ?? (data == nil ? "GET" : "POST")
         request.timeoutInterval = 120
         if let uploadID { request.setValue(uploadID.uuidString, forHTTPHeaderField: "X-Upload-ID") }
-        if data != nil { request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type") }
+        if data != nil { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+        if voiceConsent { request.setValue("yes", forHTTPHeaderField: "X-D21-Voice-Consent") }
+        if let requestID { request.setValue(requestID.uuidString.lowercased(), forHTTPHeaderField: "X-Request-ID") }
         if let name {
             var allowed = CharacterSet.urlPathAllowed
             allowed.remove(charactersIn: "%/?#&+=")
@@ -204,6 +232,16 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             throw APIError(status: http.statusCode, message: message)
         }
         return result
+    }
+    func transcribeVoice(buildingID: Int, data: Data, requestID: UUID) async throws -> String {
+        guard data.count <= 1_048_576 else { throw APIError(status: 0, message: "Aufnahme maximal 1 MB.") }
+        struct Transcript: Decodable { let text: String }
+        let bytes = try await fileRequest(path: "buildings/\(buildingID)/voice/transcribe", data: data, voiceConsent: true, requestID: requestID)
+        return try JSONDecoder().decode(Transcript.self, from: bytes).text
+    }
+    func speakVoice(buildingID: Int, text: String, requestID: UUID) async throws -> Data {
+        let data = try JSONSerialization.data(withJSONObject: ["text":text])
+        return try await fileRequest(path: "buildings/\(buildingID)/voice/speak", data: data, voiceConsent: true, contentType: "application/json", requestID: requestID)
     }
     func uploadDocument(buildingID: Int, name: String, data: Data, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil) async throws -> BuildingDocument {
         guard !data.isEmpty, data.count <= 25 * 1024 * 1024 else { throw APIError(status: 0, message: "Bitte eine Datei bis 25 MB auswählen.") }
@@ -245,14 +283,14 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     }
     private func invalidateSession() {
         try? SecureStore.write(nil, key: "session")
-        token = nil; user = nil; buildings = []; avatarData = nil
+        token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
     }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
             try SecureStore.write(nil, key: "session")
-            token = nil; user = nil; buildings = []; avatarData = nil
+            token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
         } catch { if user != nil { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription } }
     }
 }
@@ -286,14 +324,13 @@ struct ContentView: View {
 struct WelcomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var showConnection = false
-    @State private var showDemo = false
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Image(systemName: "building.2.crop.circle.fill").font(.system(size: 72)).foregroundStyle(d21Accent)
                     Text("KI trifft\nGebäude").font(.system(size: 42, weight: .bold))
-                    Text("Dein digitaler Gebäudepass für das D21.").font(.title3).foregroundStyle(.secondary)
+                    Text("Dein digitaler Gebäudepass.").font(.title3).foregroundStyle(.secondary)
                     Label("Gebäudedaten zentral speichern", systemImage: "externaldrive.badge.icloud")
                     Label("Dein Konto auf iPhone und Server", systemImage: "person.crop.circle")
                     VStack(spacing: 12) {
@@ -301,13 +338,11 @@ struct WelcomeView: View {
                         NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
                     Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
-                    Button("Demo ohne Konto ausprobieren", systemImage: "play.circle") { showDemo = true }
                     Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(28)
             }
             .sheet(isPresented: $showConnection) { ConnectionView() }
-            .sheet(isPresented: $showDemo) { NativeDemoView() }
         }
     }
 }
@@ -384,9 +419,9 @@ struct AccountHomeView: View {
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DevicesPreview") { return 3 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NoticesPreview") { return 2 }
-        return WorkflowPreview.enabled ? 0 : 4
+        return 0
         #else
-        return 4
+        return 0
         #endif
     }()
     @StateObject private var social = CollaborationModel()
@@ -394,6 +429,9 @@ struct AccountHomeView: View {
     @State private var showAdd = false
     @State private var showProfile = false
     @State private var path: [Building] = []
+    @State private var buildingPreview: Building?
+    @State private var nextBuilding: Building?
+    @State private var nextArea = "Übersicht"
     @State private var savedDraft: BuildingDraft?
     @State private var discardDraft = false
     @Environment(\.scenePhase) private var scenePhase
@@ -426,9 +464,7 @@ struct AccountHomeView: View {
                     }
                     Section("Meine und geteilte Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            NavigationLink(value: building) {
-                                Label { VStack(alignment: .leading, spacing: 5) { Text(building.name).font(.headline); if building.is_owner == false { Text("Mit dir geteilt").font(.caption).foregroundStyle(d21Accent) }; Text(building.address.isEmpty ? "Adresse noch offen" : building.address).font(.subheadline).foregroundStyle(.secondary) } } icon: { Image(systemName: "building.2").foregroundStyle(d21Accent) }
-                            }
+                            Button { buildingPreview = building } label: { NativeBuildingCard(building: building) }.buttonStyle(.plain).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
                         }
                         if model.buildings.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -440,7 +476,10 @@ struct AccountHomeView: View {
                 }
                 .navigationTitle("Hallo, \(model.user?.name ?? "")")
                 .searchable(text: $search, prompt: "Gebäude suchen")
-                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model) }
+                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model, initialSection: nextArea) }
+                .sheet(item: $buildingPreview, onDismiss: { if let building = nextBuilding { nextBuilding = nil; path.append(building) } }) { building in
+                    BuildingQuickSheet(building: building) { area in nextArea = area; nextBuilding = building; buildingPreview = nil }
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showProfile = true } label: { AvatarBadge(data: model.avatarData, size: 38) }
@@ -449,7 +488,7 @@ struct AccountHomeView: View {
                     }
                 }
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
-                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; path.append(building) } }
+                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Übersicht"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
                 .task { refreshDraft() }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft() } }
@@ -460,9 +499,7 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
-            NavigationStack { DevicesHomeView(account: model) }.tabItem { Label("Geräte", systemImage: "house") }.tag(3)
-            NavigationStack { ContactsView(account: model, social: social) }.tabItem { Label("Kontakte", systemImage: "person.2") }.tag(1)
-            NavigationStack { NotificationsView(account: model, social: social, openContacts: { selectedTab = 1 }) }.tabItem { Label("Mitteilungen", systemImage: "bell") }.badge(social.unread).tag(2)
+            NavigationStack { TeamInboxView(account:model,social:social) }.tabItem { Label("Team",systemImage:"person.2") }.badge(social.unread).tag(1)
         }.task {
             await social.reload(model)
             while !Task.isCancelled { do { try await Task.sleep(for: .seconds(20)) } catch { return }; if scenePhase == .active { await social.reload(model) } }
@@ -498,6 +535,8 @@ struct ProfileView: View {
     @State private var showConnection = false
     @State private var problem: String?
     @State private var saved = false
+    @State private var showPresentation = false
+    @State private var savingMode = false
     var body: some View {
         let photoTitle = model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern"
         return NavigationStack {
@@ -511,6 +550,12 @@ struct ProfileView: View {
                         if saved { Label("Auf dem Projektserver gespeichert", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green) }
                     }.frame(maxWidth: .infinity).padding(.vertical, 16)
                 }
+                Section { NavigationLink { AISettingsView(account: model) } label: { Label("KI-Einstellungen", systemImage: "sparkles") } }
+                Section("Darstellung") {
+                    Toggle("Vorstellungsmodus",isOn:Binding(get:{model.presentationMode},set:{value in Task{savingMode=true;defer{savingMode=false};do{try await model.savePresentationMode(value);showPresentation=value}catch{problem=error.localizedDescription}}})).disabled(savingMode)
+                    Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
+                    LabeledContent("App-Version",value:(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")+" · "+(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))
+                }
                 Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
                 Section { Button("Serververbindung", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
             }
@@ -518,6 +563,8 @@ struct ProfileView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() }.disabled(uploading) } }
             .interactiveDismissDisabled(uploading)
             .sheet(isPresented: $showConnection) { ConnectionView() }
+            .fullScreenCover(isPresented:$showPresentation,onDismiss:{Task{do{try await model.savePresentationMode(false)}catch{model.presentationMode=false}}}) {NativeDemoView()}
+            .task {await model.refreshUIPreferences();showPresentation=model.presentationMode}
             .onChange(of: photo) { _, item in
                 guard let item else { return }; uploading = true; saved = false
                 Task {
