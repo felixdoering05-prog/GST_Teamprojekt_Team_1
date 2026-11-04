@@ -78,3 +78,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [04.11.2026 · Kontoweite KI-Einstellung und Live-Sprachassistent](../iphone-live-sprachassistent.md) – technischer Arbeitsnachweis; Installation auf Felix’ iPhone später.
 
 - [04.11.2026 · Private Home-Assistant-Lampendemo](../homeassistant-lampen-demo.md) – technische Anbindung einer ausdrücklich freigegebenen echten Lampe.
+
+- [04.11.2026 · Gebäude-/Raumzuordnung, RGB und BIM-Kartenumgebung](../geraete-raeume-rgb-karten.md).

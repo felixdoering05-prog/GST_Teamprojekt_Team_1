@@ -8,15 +8,15 @@ export function applySharedState(state, appearance, roomLights) {
   }
   for (const [id,set] of roomLights) set(state.lights.includes(id));
 }
-export function mountSynchronization({appearance,roomLights,update}) {
+export function mountSynchronization({appearance,roomLights,update,environment=()=>{}}) {
   const native=window.webkit?.messageHandlers.ifcSceneRequest;
   const shared=!!native||window.parent!==window;
   const note=document.createElement('div');note.id='sync-status';note.setAttribute('role','status');document.body.append(note);
   if(!shared){note.textContent='Lokale Datei · Änderungen nur auf diesem Gerät';return {change(){}};}
-  let revision=0,ticket,busy=false,loaded=false,failed=false,queue=[],timer,timeout;
+  let revision=0,deviceSignature='',latestDeviceLights=[],ticket,busy=false,loaded=false,failed=false,queue=[],timer,timeout;
   const message=document.createElement('span'),retry=document.createElement('button');retry.textContent='Erneut laden';retry.hidden=true;note.append(message,retry);
   function status(text){message.textContent=text;}
-  function lock(on){document.querySelectorAll('#color,#hide,#show-all,#reset-colors,#command-open,#rooms button').forEach(button=>button.disabled=on||button.dataset.noGeometry==='true');}
+  function lock(on){document.querySelectorAll('#color,#hide,#show-all,#reset-colors,#command-open,#rooms button').forEach(button=>button.disabled=on||button.dataset.noGeometry==='true'||button.dataset.linked==='true');}
   function request(operation){
     ticket=String(crypto.getRandomValues(new Uint32Array(4)).join('-'));busy=true;
     const body={id:ticket,...(operation?{operation,revision}:{})};
@@ -29,9 +29,10 @@ export function mountSynchronization({appearance,roomLights,update}) {
     if(error){failed=true;queue=[];lock(true);status('Nicht synchronisiert: '+String(error));retry.hidden=false;return;}
     try{
       if(!Number.isInteger(result?.revision))throw Error('Ungültige Serverantwort.');
-      const different=!loaded||revision!==result.revision; revision=result.revision;loaded=true;
+      if(Array.isArray(result.device_lights))latestDeviceLights=result.device_lights;const signature=JSON.stringify(latestDeviceLights);const different=!loaded||revision!==result.revision||signature!==deviceSignature;deviceSignature=signature; revision=result.revision;loaded=true;
       // While saves are queued, keep optimistic local changes; apply final authoritative state afterwards.
-      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights);update();}
+      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights);for(const item of latestDeviceLights){if(!Array.isArray(item.rgb)||item.rgb.length!==3)continue;const color='#'+item.rgb.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');roomLights.get(item.space_id)?.(item.on,color,true,item.available);}update();}
+      if(result.map_view!==undefined)environment(result.map_view);
       status(queue.length?'Änderungen werden gespeichert …':'Gemeinsamer Modellstand · auf dem Server gespeichert');lock(false);next();
     }catch(e){failed=true;lock(true);status(e.message);retry.hidden=false;}
   }

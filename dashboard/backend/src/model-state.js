@@ -1,3 +1,5 @@
+const {roomDeviceLights}=require('./room-lighting');
+const {modelMapView}=require('./map-view');
 const express=require('express');
 const {accessibleBuilding}=require('./collaboration');
 const {validateCommand}=require('./ifc-command');
@@ -38,7 +40,7 @@ function mutate(state,operation,index){
  if(next.hidden.length>10000||Object.keys(next.colors).length>10000||next.lights.length>10000)throw Error('Maximal 10000 geänderte Bauteile pro Modell.');
  return next;
 }
-function modelStateRouter(db,requireAccount){
+function modelStateRouter(db,requireAccount,homeAssistantOptions={}){
  const r=express.Router();r.use('/documents/:modelID/model-state',requireAccount);r.use('/documents/:modelID/model-command',requireAccount);r.use('/documents/:modelID/model-index',requireAccount);
  r.param('modelID',(req,res,next,id)=>/^[1-9]\d*$/.test(id)&&Number(id)<=2147483647?next():res.status(400).json({error:'Ungültige Modell-ID.'}));
  async function target(connection,req,lock=false,content=false){
@@ -53,7 +55,7 @@ function modelStateRouter(db,requireAccount){
  r.get('/documents/:modelID/model-state',wrap(async(req,res)=>{
   const doc=await target(db,req);if(!doc)return res.status(404).json({error:'Modell nicht gefunden.'});
   const row=(await db.query('SELECT revision,state FROM app_model_views WHERE document_id=$1',[doc.id])).rows[0];
-  res.set('Cache-Control','private, no-store').json(row||{revision:0,state:empty()});
+  res.set('Cache-Control','private, no-store').json({...row||{revision:0,state:empty()},device_lights:await roomDeviceLights(db,req.account.id,doc.id,homeAssistantOptions),map_view:await modelMapView(db,doc.id)});
  }));
  async function change(req,res,commandMode){
   const c=await db.connect();try{
