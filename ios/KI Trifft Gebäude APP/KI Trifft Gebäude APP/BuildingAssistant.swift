@@ -25,7 +25,6 @@ struct BuildingAssistantView: View {
     @State private var turns: [AssistantTurn] = []
     @State private var question = ""
     @State private var commandMode = false
-    @State private var consent = false
     @State private var sending = false
     @State private var loading = false
     @State private var problem: String?
@@ -35,7 +34,6 @@ struct BuildingAssistantView: View {
     @State private var lastFingerprint = ""
     @State private var retryNew = false
     @State private var sendTask: Task<Void,Never>?
-    @State private var voiceReading: VoiceReading?
     init(building: Building, account: AccountModel, initialText: String = "") { self.building = building; self.account = account; _question = State(initialValue: initialText) }
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +53,6 @@ struct BuildingAssistantView: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Gebäude-Assistent", systemImage: "sparkles").font(.caption.bold()).foregroundStyle(d21Accent)
                                     Text(turn.answer).textSelection(.enabled)
-                                    Button("Mit ElevenLabs vorlesen", systemImage: "speaker.wave.2") { voiceReading = VoiceReading(text: turn.answer) }.disabled(sending)
                                     if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
                                         Button("Änderung prüfen", systemImage: "checkmark.circle") { Task { await prepare(command, document: document) } }.buttonStyle(.bordered).disabled(sending)
                                         Text("Vorschlag · Änderung erfordert Bestätigung").font(.caption).foregroundStyle(.secondary)
@@ -65,7 +62,7 @@ struct BuildingAssistantView: View {
                         }
                         if sending { ProgressView("Der Assistent arbeitet …") }
                         if let notice { Text(notice).font(.footnote).foregroundStyle(d21Accent) }
-                        if let problem { Text(problem).font(.footnote).foregroundStyle(.red); Button("Gespräch neu laden") { Task { await load() } }.disabled(sending) }
+                        if let problem { Text(problem).font(.footnote).foregroundStyle(.red); Button("Gespräch neu laden") { Task { await account.refreshAIPreferences(); await load() } }.disabled(sending) }
                         Color.clear.frame(height: 1).id("bottom")
                     }.padding()
                 }.onChange(of: turns.count) { _,_ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
@@ -82,20 +79,17 @@ struct BuildingAssistantView: View {
                 DisclosureGroup("Was wird an Google gesendet?") {
                     Text(commandMode ? "Nur dein Befehlstext und feste erlaubte Aktionen. Keine IFC-Datei oder Gesprächshistorie." : "Deine Frage, bis zu sechs bisherige Frage-Antwort-Paare dieses KI-Chats, Gebäudename, Adresse, die letzten 20 Dateinamen mit Typ/Größe und bei Modellauswahl dessen Name und IFC-Typzahlen. Keine Dateiinhalte, Geometrie, Teamnachrichten oder Kontakte.").font(.caption).foregroundStyle(.secondary)
                 }
-                Toggle("Übertragung an Google erlauben", isOn: $consent).font(.footnote).disabled(sending)
+                if !account.aiPreferences.active { NavigationLink { AISettingsView(account: account) } label: { Label("KI einmal für dein Konto aktivieren", systemImage: "sparkles") } }
                 HStack(alignment: .bottom) {
                     TextField(commandMode ? "Zum Beispiel: Färbe alle Wände blau" : "Nachricht an deinen Assistenten", text: $question, axis: .vertical).lineLimit(1...4).textFieldStyle(.roundedBorder).disabled(sending)
-                    Button { sendTask = Task { await send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.largeTitle) }.accessibilityLabel("Nachricht senden").disabled(sending || !consent || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000 || commandMode && selectedID == nil)
+                    Button { sendTask = Task { await send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.largeTitle) }.accessibilityLabel("Nachricht senden").disabled(sending || !account.aiPreferences.active || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || question.utf16.count > 2000 || commandMode && selectedID == nil)
                 }
                 Text("KI kann irren · 20 Anfragen je Konto / 24 h · Modelländerungen erst nach Bestätigung").font(.caption2).foregroundStyle(.secondary)
             }.padding().background(.regularMaterial)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .task { await load() }
-        .sheet(item: $voiceReading) { VoicePlaybackView(building: building, account: account, text: $0.text) }
         .onDisappear { sendTask?.cancel() }
-        .onChange(of: selectedID) { _,_ in consent = false }
-        .onChange(of: commandMode) { _,_ in consent = false }
         .confirmationDialog("Gemeinsamen Modellstand ändern?", isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }), titleVisibility: .visible) {
             if let pending { Button("Für das Gebäudeteam speichern") { Task { await apply(pending) } } }
             Button("Abbrechen", role: .cancel) { pending = nil }
@@ -112,7 +106,7 @@ struct BuildingAssistantView: View {
         } catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func send() async {
-        guard !sending,consent else { return }; sending = true; defer { sending = false }
+        guard !sending, account.aiPreferences.active else { return }; sending = true; defer { sending = false }
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         let fingerprint = "\(commandMode)#\(selectedID ?? -1)#\(text)"
         if fingerprint != lastFingerprint || retryNew { requestID = UUID() }

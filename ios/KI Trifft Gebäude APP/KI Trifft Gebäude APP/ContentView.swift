@@ -56,6 +56,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
 @MainActor final class AccountModel: ObservableObject {
     @Published var user: Account?
     @Published var avatarData: Data?
+    @Published var aiPreferences = AIPreferences.disabled
     @Published var buildings: [Building] = []
     @Published var busy = false
     @Published var restoring = true
@@ -76,7 +77,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
               parts.path.isEmpty else { throw APIError(status: 0, message: "Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.") }
         let changed = cleaned != serverURL
-        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil }
+        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled }
         try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username: username, password: password)), key: "gateway")
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
@@ -130,6 +131,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             user = account
             await loadBuildings()
             await loadAvatar()
+            await refreshAIPreferences()
         } catch {
             if (error as? APIError)?.status == 401 { try? SecureStore.write(nil, key: "session"); token = nil }
             self.error = error.localizedDescription
@@ -145,7 +147,20 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             token = session.token; user = session.user; avatarData = nil
             await loadBuildings()
             await loadAvatar()
+            await refreshAIPreferences()
         } catch { self.error = error.localizedDescription }
+    }
+    func refreshAIPreferences() async {
+        guard let owner = user?.id else { aiPreferences = .disabled; return }
+        do { let value: AIPreferences = try await request("profile/ai"); if user?.id == owner { aiPreferences = value } }
+        catch { if user?.id == owner { aiPreferences = .disabled } }
+    }
+    func saveAIPreferences(_ enabled: Bool) async throws {
+        let owner = user?.id
+        do {
+            let value: AIPreferences = try await request("profile/ai", method: "PATCH", body: ["enabled":enabled,"revision":aiPreferences.revision,"policy_version":1])
+            if user?.id == owner { aiPreferences = value }
+        } catch { await refreshAIPreferences(); throw error }
     }
     func passwordResetStatus() async throws -> Bool {
         let status: ResetStatus = try await request("auth/password-reset/status")
@@ -257,14 +272,14 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     }
     private func invalidateSession() {
         try? SecureStore.write(nil, key: "session")
-        token = nil; user = nil; buildings = []; avatarData = nil
+        token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled
     }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
             try SecureStore.write(nil, key: "session")
-            token = nil; user = nil; buildings = []; avatarData = nil
+            token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled
         } catch { if user != nil { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription } }
     }
 }
@@ -527,6 +542,7 @@ struct ProfileView: View {
                         if saved { Label("Auf dem Projektserver gespeichert", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green) }
                     }.frame(maxWidth: .infinity).padding(.vertical, 16)
                 }
+                Section { NavigationLink { AISettingsView(account: model) } label: { Label("KI-Einstellungen", systemImage: "sparkles") } }
                 Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
                 Section { Button("Serververbindung", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
             }

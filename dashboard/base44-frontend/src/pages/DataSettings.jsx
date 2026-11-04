@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Database } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import AISettingsCard from '@/components/settings/AISettingsCard';
 import DemoDataCard from '@/components/settings/DemoDataCard';
 import ImportMeasurementsCard from '@/components/settings/ImportMeasurementsCard';
 import ImportEnergyCard from '@/components/settings/ImportEnergyCard';
@@ -99,6 +100,8 @@ export default function DataSettings() {
           </span>
         }
       />
+
+      <AISettingsCard />
 
       <DemoDataCard counts={counts} onSeed={seed} onRemove={() => setConfirmOpen(true)} onRefresh={refreshAll} busy={busy} />
 

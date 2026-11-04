@@ -2,6 +2,8 @@ const {initAdmin,adminRouter}=require('./admin');
 const {initDevices,devicesRouter}=require('./devices');
 const {initTelemetry,telemetryRouter}=require('./telemetry');
 const {initVoice,voiceRouter}=require('./voice');
+const {initAIPreferences,aiPreferencesRouter}=require('./ai-preferences');
+const {initLiveVoice,liveVoiceRouter}=require('./live-voice');
 const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
@@ -47,6 +49,8 @@ async function initAccounts(db) {
  await initDevices(db);
  await initTelemetry(db);
  await initVoice(db);
+ await initAIPreferences(db);
+ await initLiveVoice(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -131,7 +135,9 @@ function accountRouter(db,options={}) {
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
+ router.use(liveVoiceRouter(db,requireAccount,options.liveVoice));
  router.use(voiceRouter(db,requireAccount,options.voice));
+ router.use(aiPreferencesRouter(db,requireAccount));
  router.use(collaborationRouter(db,requireAccount));
  router.use(modelStateRouter(db,requireAccount));
  router.use(assistantRouter(db,requireAccount,options.assistant));

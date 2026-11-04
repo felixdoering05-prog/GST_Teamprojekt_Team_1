@@ -8,7 +8,7 @@ const {service}=require('../src/twin');
 let db,server,url,building,foreign,owner,member,outsider,calls=[];
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};await initAccounts(db);
- async function user(name){const row=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,\'unused\') RETURNING id',[name,name+'@example.test'])).rows[0];row.token=randomBytes(32).toString('hex');await db.query("INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[createHash('sha256').update(row.token).digest('hex'),row.id]);return row;}
+ async function user(name){const row=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,\'unused\') RETURNING id',[name,name+'@example.test'])).rows[0];row.token=randomBytes(32).toString('hex');await db.query("INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[createHash('sha256').update(row.token).digest('hex'),row.id]);await db.query("INSERT INTO app_ai_preferences(user_id,enabled,policy_version,revision) VALUES($1,true,1,1)",[row.id]);return row;}
  owner=await user('Owner');member=await user('Member');outsider=await user('Outsider');
  building=(await db.query("INSERT INTO app_buildings(user_id,name,address) VALUES($1,'Shared','PRIVATE_ADDRESS') RETURNING *",[owner.id])).rows[0];
  foreign=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'FOREIGN_BUILDING') RETURNING *",[outsider.id])).rows[0];
