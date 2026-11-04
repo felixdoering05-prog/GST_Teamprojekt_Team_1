@@ -1,64 +1,50 @@
-# D21 · iOS-App
+# D21 · native iPhone-App
 
-## Karten, eigene Chatnachrichten und Sprache
+[← Projektübersicht](../README.md) · [Änderungen, neueste zuerst](../CHANGELOG.md)
 
-Gebäudekarten öffnen eine Schnellwahl. Eigene Chatnachrichten lassen sich nach langem Drücken und Bestätigung löschen. Der Sprachbereich unterstützt die separat freigegebene ElevenLabs-Erkennung/-Ausgabe und bestätigte Gerätesimulationen. Die API-Aktivierung hängt von einem gültigen, passend berechtigten Key ab. [Ablauf und Grenzen](../docs/iphone-karten-chat-sprache.md).
+**Stand: 04.11.2026 · Version 1.0.89 (89), auf Felix’ iPhone installiert.**
 
-## Dashboard, Demo und Messwerte · 03.11.2026
+## Aktuelle Bedienung
 
-Neuer Hauptreiter **Dashboard** mit Sensorik, Energie und Analyse auf gemeinsamer Web-Datenbasis. **Demo ohne Konto ausprobieren** funktioniert lokal ohne Serveränderung oder Gemini-Anfrage. Sensoren erfassen und CSV-Messwerte mit Vorschau importieren. Gemini kann nach gesonderter Freigabe Messwert-Zusammenfassungen erläutern; kein Modelltraining. [Bedienung, Format und Grenzen](../docs/iphone-dashboard-daten-ki.md).
+Die App startet bei den persönlichen **Gebäuden**. Hauptbereiche: **Dashboard · Gebäude · Team**. Das Profil ist über das Profilsymbol erreichbar. Geräte werden im jeweiligen Gebäude geöffnet; ein eigener Geräte-Hauptreiter entfällt. Kontakte und Mitteilungen sind unter Team zusammengeführt.
 
-## Geräte und einfachere Abläufe · 03.11.2026
+Gebäudekarten zeigen eine Vorschau des tatsächlich hinterlegten IFC-Modells: dunkelblau im hellen, hellblau im dunklen Erscheinungsbild. Ohne Modell erscheint ein Leerzustand. Fiktive Messwerte gibt es ausschließlich unter **Profil → Darstellung → Vorstellungsmodus**. Der Modus ist standardmäßig aus und verwendet lokale Beispieldaten ohne Hardwareänderung oder KI-Anfrage.
 
-Neuer Reiter **Geräte**, Anlage in drei Schritten, Raumfilter und servergespeicherte Simulationen für Licht/Steckdosen. Home Assistant, MQTT und Matter können als spätere Anbindung vorgemerkt werden; echte Geräte sind noch nicht verbunden. Der Gebäudeüberblick zeigt passende nächste Schritte anhand der gespeicherten Dateien. [Bedienung, API und Grenzen](../docs/geraete-ios.md).
+## Funktionen
 
-In Xcode `KI Trifft Gebäude APP/KI Trifft Gebäude APP.xcodeproj` öffnen, das gleichnamige Scheme und einen konkreten iPhone-Simulator auswählen und starten.
+- Projektstart mit Logo, Anmeldung, Profilbild und Begrüßung mit Account-Namen.
+- Geführte Gebäudeanlage: Name, optionale Adresse, Fotos, Pläne und Übersicht; lokale Zwischenstände fortsetzen.
+- Gemeinsame Serverablage für Fotos, PDF, DWG und IFC; Suche, Vorschau, Umbenennen und bestätigtes Löschen. DWG wird an eine geeignete CAD-App weitergegeben.
+- IFC-Bibliothek und 3D-Ansicht mit Drehen, Zoomen, Bauteilauswahl, Farben/Sichtbarkeit und bestätigbaren Modellbefehlen. Der Gebäude-Reiter 3D lädt das gewählte Modell; Ansichtszustände werden mit dem Web abgeglichen, Originaldateien bleiben erhalten.
+- Geräte dem eigenen Gebäude und vorhandenen IFC-Räumen zuordnen; freigegebene echte Home-Assistant-Lampen schalten, dimmen und färben. Vereinfachte Raumfarbmarkierung und Schatten; keine physikalische Lichtberechnung.
+- Manuelle Standort-/Ausrichtungswahl je IFC und ausdrücklich geladene OSM-Umgebung in BIM-Optik; keine automatische Vermessung.
+- Kontakte mit Bestätigung, Gebäudeeinladungen, In-App-Mitteilungen und Gebäudechat. Eigene Nachrichten nach Bestätigung löschen. Noch keine iOS-Push-Mitteilungen.
+- Dashboard mit Sensorik, Energie, regelbasierter Auswertung und CSV-Messwertimport mit Vorschau. Keine erfundenen Live-Messwerte.
+- Privater Gemini-Gebäudechat und ElevenLabs-Livegespräch mit Unterbrechen und direkter Sprachantwort. Einmalige Kontofreigabe unter Profil → KI-Einstellungen; Mikrofon startet erst mit Gespräch starten.
+- Assistent kann ausdrücklich zugeordnete und autorisierte Lampen steuern, einschließlich Raumgruppen, RGB und Helligkeit. Keine zusätzlichen Haken pro Lampenauftrag; Ausführung und Zustandsprüfung bleiben auf dem Server. Gebäudefreigaben erweitern keine privaten Hardwareberechtigungen.
 
-## Enthalten
+[Neuester App-Stand und Freigaben](../docs/app-echte-daten-lampenassistent.md) · [Geräte/Räume/RGB/Karte](../docs/geraete-raeume-rgb-karten.md) · [Gebäudemappe](../docs/gebaeudemappe-ios.md)
 
-- Startseite mit Konto erstellen und Anmelden
-- Persönliches Konto mit Name, E-Mail und Passwort
-- HTTPS-Serververbindung mit getrenntem Website-Zugang
-- Geschützte Speicherung der Sitzung im iOS-Schlüsselbund
-- Gebäude anlegen, vom Server laden, suchen und öffnen
-- Profil und Abmelden; Kontakte, gemeinsame Gebäude, In-App-Mitteilungen und Gebäude-Chat
+## Mit dem Server verbinden
 
-Die zugehörige Konten-API muss auf dem Projektserver veröffentlicht sein. Unter **Serververbindung einrichten** werden aktuelle HTTPS-Adresse und bestehende Website-Zugangsdaten eingegeben; keine Passwörter sind im Quellcode hinterlegt. Anschließend ein persönliches Konto erstellen.
+Unter **Serververbindung einrichten** die aktuelle HTTPS-Projektadresse und den separat erhaltenen Website-Zugang eintragen; anschließend das persönliche Konto verwenden oder erstellen. Keine Zugangsdaten sind im Quellcode hinterlegt. Sitzung und Website-Zugang werden geschützt im iOS-Schlüsselbund gespeichert.
 
-Gebäudedaten liegen in PostgreSQL und sind dem jeweiligen Konto zugeordnet. Demo-Gebäude aus dem Browser-Dashboard sowie frühere lokale iOS-Testdaten werden nicht automatisch übernommen. Alte lokale Daten werden durch diese Änderung nicht gelöscht.
+Web und iPhone verwenden dieselben persönlichen oder ausdrücklich freigegebenen Gebäudemappen. Die private GitHub-Modellablage importiert Dateien nicht automatisch in die App. Die App greift über die API auf PostgreSQL zu, niemals direkt auf die Datenbank.
 
-E-Mail-Bestätigung und Kontolöschung sind noch nicht angebunden. Gebäudefreigaben mit Einladung und Annahme sind implementiert. [Zusammenarbeit](../docs/zusammenarbeit-app.md). Die Passwort-Wiederherstellung ist vorbereitet und benötigt ein eingerichtetes Absenderkonto. [API-Vertrag und Grenzen](../docs/konten-api.md).
+Grenzen: **20 MiB je IFC**, **25 MiB für andere unterstützte Dateien**, **250 MiB pro Konto**. Die IFC-Geometrie wird nach dem Download auf dem iPhone berechnet; große Exporte können Geräte überfordern.
 
-Validierung: Xcode-27.1-Debug-Build für den iPhone-18-Pro-Simulator; Backendtests mit isolierter PostgreSQL-Laufzeit.
+## Xcode und Installation
 
-## Bilder, PDF- und DWG-Dateien
+1. `KI Trifft Gebäude APP/KI Trifft Gebäude APP.xcodeproj` öffnen.
+2. Scheme **KI Trifft Gebäude APP** und einen konkreten Simulator oder ein verbundenes iPhone auswählen. „Any iOS Device“ ist nur ein Build-Ziel.
+3. Passendes Signierungsteam wählen, bauen und starten. Auf dem echten Gerät gegebenenfalls Vertrauen/Entwicklermodus bestätigen.
 
-In den Gebäudedetails lassen sich Fotos aus der Mediathek und Dateien aus der Dateien-App hochladen. Die Dateiablage ist dieselbe wie im Web-Dashboard. Bilder und PDFs haben eine Vorschau; DWG kann in eine CAD-App geteilt oder gesichert werden. Grenzen: 25 MB je Datei, 250 MB je Konto. [Dateiablage und API](../docs/dateien.md).
+Für den Schlüsselbund regulär signierte Builds verwenden; `CODE_SIGNING_ALLOWED=NO` ist kein geeigneter Laufzeit-Build dieser App. GitHub-Merge und Server-Deployment installieren keine neue native App. Aktuell erfolgt die Installation über Xcode; noch keine TestFlight-Verteilung.
 
-Den Simulator mit regulärer Xcode-Signierung bauen. `CODE_SIGNING_ALLOWED=NO` verhindert die nötige App-Kennung für den Schlüsselbund und ist für diese App kein geeigneter Laufzeit-Build.
+## Prüfstand und Grenzen
 
-## Startbildschirm
+Für Version 1.0.89: Web-Build, signierter iPhone-Build, fünf Viewer-Tests und insgesamt 107 Backend-Tests erfolgreich. Installation auf Felix’ iPhone bestätigt. Produktive Modellmetadaten, Lampenzuordnung und Kontotrennung lesend geprüft. Automatisierte Schaltprüfungen nutzen Testlampen; echte Sprachbedienung und die genaue Kartenplatzierung vor einer Präsentation gemeinsam testen.
 
-Bei einem vollständigen App-Neustart erscheint das bereitgestellte Projektlogo mit „GST TEAMPROJEKT“, „KI trifft Gebäude“ und „Ein Projekt der Hochschule Darmstadt“. Nach rund 1,8 Sekunden folgt die vorhandene Anmeldung bzw. Sitzungswiederherstellung. Beim Wechsel aus dem Hintergrund erscheint der Bildschirm nicht erneut; sein Zustand gilt nur für den laufenden App-Prozess. Reduzierte Bewegung wird beim Übergang berücksichtigt.
+Gemini erhält bewusst angefragte begrenzte Kontexte, keine automatischen vollständigen Plan-/IFC-Dateien oder Teamchats. Live-Audio geht an ElevenLabs. Keine eigene KI trainiert, keine vollständige Plan-/Geometrieprüfung. Native iOS-Mikrofonfreigabe bleibt erforderlich. Passwort-Rücksetzung benötigt weiterhin einen eingerichteten SMTP-Absender; E-Mail-Bestätigung und Kontolöschung sind noch nicht angebunden.
 
-Die originale transparente PNG-Datei liegt in `Assets.xcassets/ProjectLogo.imageset`. Für eine stabile Simulator-Vorschau kann ein Debug-Build einmal mit `-D21SplashPreview` gestartet werden. Diese Vorschau-Option ist in Release-Builds nicht enthalten.
-
-## Persönlicher Start und geführte Anlage
-
-Die Startseite begrüßt den angemeldeten Account mit seinem Namen. Das Profilsymbol oben rechts öffnet Kontodaten und die servergespeicherte Profilbild-Auswahl. „Neues Gebäude“ führt durch Name, optionale Adresse, Fotos, PDF-/DWG-Pläne und Abschlussübersicht. Ein lokaler Zwischenstand lässt sich nach einem App-Neustart fortsetzen. Die Gebäudemappe bietet Dateisuche, Vorschau, Umbenennen, bestätigtes Löschen und wiederholbare Uploads. [Gebäudemappe, lokale Entwürfe und API](../docs/gebaeudemappe-ios.md).
-
-## Passwort vergessen
-
-Die Anmeldung bietet eine Rücksetzung per einmaligem E-Mail-Code an. Ohne eingerichteten SMTP-Absender zeigt die Ansicht den ausstehenden Mailversand an und verschickt keine Mail. [Einrichtung und Grenzen](../docs/passwort-mail.md).
-
-## IFC-Viewer (erste Version)
-
-Der Gebäude-Reiter **3D** lädt das zuletzt ausgewählte IFC-Modell automatisch. IFC-Dateien können beim Anlegen, in der Gebäudemappe oder auf der Website hochgeladen und in der App als interaktives 3D-Modell mit Bauteilauswahl geöffnet werden. Maximal 20 MiB je IFC-Datei, 250 MiB pro Konto; die Anzeige wird auf dem iPhone berechnet. Eine lokale Vorschau ohne Upload bleibt verfügbar. [Bedienung, Build und Grenzen](../docs/ifc-viewer-ios.md).
-
-## Gebäude-Assistent
-
-Gebäude → **KI** öffnet einen privaten Gemini-Chat mit serverseitigem Verlauf, IFC-Typzahlen und bestätigbaren Modellvorschlägen. Vor dem Senden Datenvorschau prüfen und Übertragung aktiv bestätigen. Keine automatische Plan-/IFC-Auswertung und kein Teamchat-Export. [Bedienung, Datenumfang und Limits](../docs/gemini-gebaeudeassistent.md).
-
-## Modellbefehle
-
-Im geöffneten Modell unter **Modellbefehle** lassen sich Bauteile nach Vorschau und Bestätigung ausblenden, einfärben und auf Originalfarben/Sichtbarkeit zurücksetzen. Gemini übersetzt in der iPhone-App nur den Befehlstext; der Viewer prüft Ziele. Gespeicherte Modelle teilen Farben, Sichtbarkeit und simuliertes Licht über den Server mit der Website. [Neuer Ablauf und API](../docs/gemeinsames-modell-und-ki-chat.md). [Bedienung und Grenzen](../docs/ifc-modellbefehle.md).
+Ältere Dokumente beschreiben teilweise die damalige Simulation oder Navigation. Maßgeblich für die neuesten Änderungen sind [CHANGELOG](../CHANGELOG.md) und [aktueller App-Stand](../docs/app-echte-daten-lampenassistent.md).
