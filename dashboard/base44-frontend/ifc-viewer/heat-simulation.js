@@ -1,4 +1,4 @@
-// Illustrative scenarios, deliberately independent of sensors, weather or energy calculations.
+// Surface gains remain illustrative. DWD mode replaces only the ambient air temperature.
 export const HEAT_STOPS = [
   { value: -10, color: '#2450d8' }, { value: 0, color: '#168de2' },
   { value: 10, color: '#15c7c9' }, { value: 20, color: '#68cc68' },
@@ -15,7 +15,12 @@ export const SEASONS = [
 export function normalizeScenario(value = {}) {
   if (!value || typeof value !== 'object') value = {};
   const finite = (number, fallback, min, max) => typeof number === 'number' && Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
-  return { day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
+  const scenario = { day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
+  if (value.source === 'dwd') {
+    scenario.source = 'dwd';
+    scenario.airTemperature = typeof value.airTemperature === 'number' && Number.isFinite(value.airTemperature) && value.airTemperature >= -90 && value.airTemperature <= 65 ? value.airTemperature : null;
+  }
+  return scenario;
 }
 export function seasonForDay(day) {
   if (day >= 79 && day < 171) return SEASONS[0];
@@ -24,19 +29,20 @@ export function seasonForDay(day) {
   return SEASONS[3];
 }
 export function scenarioConditions(value) {
-  const { day, hour } = normalizeScenario(value);
+  const { day, hour, source, airTemperature } = normalizeScenario(value);
   const warmth = (1 + Math.cos(2 * Math.PI * (day - 205) / 365)) / 2;
-  const air = 11 + 13 * (2 * warmth - 1) + 4 * Math.cos(2 * Math.PI * (hour - 15) / 24);
+  const air = source === 'dwd' ? airTemperature : 11 + 13 * (2 * warmth - 1) + 4 * Math.cos(2 * Math.PI * (hour - 15) / 24);
   const daylight = 8 + 8 * warmth;
   const sun = Math.max(0, Math.sin(Math.PI * (hour - (12 - daylight / 2)) / daylight));
   const azimuth = (hour - 12) * Math.PI / 12;
   // Stylised sun direction, not an astronomical position for the campus.
   const direction = [Math.sin(azimuth), .35 + .6 * warmth, Math.cos(azimuth)];
   const length = Math.hypot(...direction);
-  return { air, sun, direction: direction.map(component => component / length), gain: sun * (8 + 9 * warmth) };
+  return { air, available: air !== null, sun, direction: direction.map(component => component / length), gain: sun * (8 + 9 * warmth) };
 }
 export function surfaceTemperature(value, position = [0, 0, 0], normal = [0, 1, 0], ground = false) {
-  const { air, gain, direction } = scenarioConditions(value);
+  const { air, gain, direction, available } = scenarioConditions(value);
+  if (!available) return null;
   const length = Math.hypot(...normal) || 1;
   const exposure = Math.max(0, normal.reduce((sum, component, index) => sum + component / length * direction[index], 0));
   const pattern = .5 + .5 * Math.sin(position[0] * .055) * Math.cos(position[2] * .045);

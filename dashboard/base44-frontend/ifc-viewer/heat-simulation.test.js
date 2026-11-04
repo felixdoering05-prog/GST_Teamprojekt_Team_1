@@ -18,6 +18,20 @@ test('winter is cooler than summer; daytime surfaces differ by exposure', () => 
   assert.equal(scenarioConditions(midnight).gain, 0);
   assert.ok(surfaceTemperature(summer) > surfaceTemperature(midnight));
 });
+
+test('DWD readings replace the assumed air temperature exactly; missing observations never become zero or synthetic data', () => {
+  const measured = { source: 'dwd', airTemperature: 7.3, day: 196, hour: 14 };
+  assert.equal(scenarioConditions(measured).air, 7.3);
+  assert.equal(scenarioConditions({ ...measured, airTemperature: 0 }).air, 0);
+  assert.ok(Math.abs(surfaceTemperature(measured) - surfaceTemperature({ ...measured, airTemperature: 9.3 }) + 2) < 1e-10);
+  for (const airTemperature of [null, undefined, NaN, Infinity, -999, '7.3']) {
+    const state = { ...measured, airTemperature };
+    assert.equal(scenarioConditions(state).available, false);
+    assert.equal(scenarioConditions(state).air, null);
+    assert.equal(surfaceTemperature(state), null);
+    assert.equal(heatColor(surfaceTemperature(state)), '#94a3b8');
+  }
+});
 test('the full annual cycle remains finite, smooth at year end and within the displayed scale', () => {
   for (let day = 0; day < 365; day++) for (const hour of [0, 6, 12, 18, 23]) {
     for (const ground of [false, true]) {
