@@ -13,7 +13,6 @@ struct GeminiMeasurementAnalysisView: View {
     @ObservedObject var account: AccountModel
     let building: Building; let source: String
     @State private var status: MeasurementAnalysisStatus?
-    @State private var consent = false
     @State private var loading = false
     @State private var sending = false
     @State private var problem: String?
@@ -43,33 +42,33 @@ struct GeminiMeasurementAnalysisView: View {
                     DisclosureGroup("Vollständigen Kontext anzeigen") { Text(contextText(status)).font(.caption.monospaced()).textSelection(.enabled) }
                     if status.context.truncated { Label("Datenbestand ist größer als dieser Ausschnitt", systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
                 }
-                Section("2 · Bewusst freigeben") {
-                    Toggle("Diesen Kontext und meine Auswertungsfrage an Google Gemini senden", isOn: $consent).tint(d21Accent).disabled(sending || answer != nil)
+                Section("2 · Auswerten") {
+                    if !account.aiPreferences.active { NavigationLink { AISettingsView(account: account) } label: { Label("KI-Einstellungen öffnen", systemImage: "sparkles") } }
                     Text("Frage: Beschreibe Auffälligkeiten und Datenlücken im Messwertkontext. Unterscheide Beobachtung, Unsicherheit und nächsten Schritt. Stelle keine Prognose oder Raumdiagnose.").font(.footnote).foregroundStyle(.secondary)
-                    Text("Anbieter: Google Gemini · \(status.model). Es gelten die gemeinsamen App-Kontingente. Anbieterbedingungen zur Verarbeitung sind unabhängig von dieser Freigabe.").font(.caption).foregroundStyle(.secondary)
+                    Text("Anbieter: Google Gemini · \(status.model). Es gelten die gemeinsamen App-Kontingente. Es gelten die Anbieterbedingungen zur Verarbeitung.").font(.caption).foregroundStyle(.secondary)
                     if !status.enabled { Text("Gemini ist auf dem Projektserver noch nicht verfügbar.").foregroundStyle(.orange) }
                     if !hasData { Text("Für diese Quelle fehlen auswertbare Messwerte. Zuerst Daten importieren.").foregroundStyle(.orange) }
-                    Button(sending ? "Gemini wertet aus …" : "Auswertung senden") { Task { await send(status) } }.disabled(!consent || !status.enabled || !hasData || sending || answer != nil)
+                    Button(sending ? "Gemini wertet aus …" : "Auswertung senden") { Task { await send(status) } }.disabled(!account.aiPreferences.active || !status.enabled || !hasData || sending || answer != nil)
                 }
             }
             if let answer {
                 Section("Gemini-Antwort · kann Fehler enthalten") { Text(answer.answer).textSelection(.enabled); Text(answer.notice).font(.footnote).foregroundStyle(.secondary); Text(answer.cached ? "Gespeicherte Antwort derselben Anfrage" : "Neue Antwort").font(.caption).foregroundStyle(.secondary) }
             }
-            if let problem { Section { Text(problem).foregroundStyle(.red); Text("Bei gleicher Anfrage lässt sich erneut senden. Nach einer Datenänderung zuerst neu vorbereiten und erneut freigeben.").font(.footnote) } }
+            if let problem { Section { Text(problem).foregroundStyle(.red); Text("Bei gleicher Anfrage lässt sich erneut senden. Nach einer Datenänderung zuerst neu vorbereiten.").font(.footnote) } }
             Section { Button("Kontext neu vorbereiten") { Task { await review() } }.disabled(sending || loading) }
         }
         .navigationTitle("KI-Analyse").navigationBarTitleDisplayMode(.inline)
-        .task { await review() }
+        .task { await account.refreshAIPreferences(); await review() }
         .interactiveDismissDisabled(sending)
     }
     private func contextText(_ status: MeasurementAnalysisStatus) -> String { let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted,.sortedKeys]; return (try? String(data: encoder.encode(status.context), encoding: .utf8)) ?? "Kontext konnte nicht dargestellt werden." }
     private func review() async {
-        guard !loading, !sending else { return }; loading = true; consent = false; answer = nil; status = nil; requestKey = UUID(); defer { loading = false }
+        guard !loading, !sending else { return }; loading = true; answer = nil; status = nil; requestKey = UUID(); defer { loading = false }
         do { let value: MeasurementAnalysisStatus = try await account.request("buildings/\(building.id)/assistant?mode=measurement-analysis&source=\(source)"); guard !Task.isCancelled else { return }; status = value; problem = nil }
         catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func send(_ status: MeasurementAnalysisStatus) async {
-        guard consent, !sending, status.enabled, hasData else { return }; sending = true; defer { sending = false }
+        guard account.aiPreferences.active, !sending, status.enabled, hasData else { return }; sending = true; defer { sending = false }
         do {
             let result: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: ["mode":"measurement-analysis","source":source,"consent":"yes","context_hash":status.context_hash,"question":"Beschreibe Auffälligkeiten und Datenlücken im Messwertkontext. Unterscheide Beobachtung, Unsicherheit und nächsten Schritt. Stelle keine Prognose oder Raumdiagnose."], headers: ["X-Request-ID":requestKey.uuidString.lowercased()], timeout: 45)
             guard !Task.isCancelled else { return }; answer = result; problem = nil

@@ -6,6 +6,18 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+        E11000000000000000000001 /* ElevenLabs in Frameworks */ = {isa = PBXBuildFile; productRef = E11000000000000000000002 /* ElevenLabs */; };
+/* End PBXBuildFile section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+        E11000000000000000000003 /* elevenlabs-swift-sdk */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/elevenlabs/elevenlabs-swift-sdk.git"; requirement = {kind = exactVersion; version = 3.4.0; }; };
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+        E11000000000000000000002 /* ElevenLabs */ = {isa = XCSwiftPackageProductDependency; package = E11000000000000000000003; productName = ElevenLabs; };
+/* End XCSwiftPackageProductDependency section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* KI Trifft Gebäude APP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "KI Trifft Gebäude APP.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -22,6 +34,7 @@
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+                E11000000000000000000001 /* ElevenLabs in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -60,6 +73,7 @@
 				000000000000000000000010 /* KI Trifft Gebäude APP */,
 			);
 			name = "KI Trifft Gebäude APP";
+			packageProductDependencies = (E11000000000000000000002 /* ElevenLabs */,);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* KI Trifft Gebäude APP.app */;
 			productType = "com.apple.product-type.application";
@@ -90,6 +104,7 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
+			packageReferences = (E11000000000000000000003 /* elevenlabs-swift-sdk */,);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

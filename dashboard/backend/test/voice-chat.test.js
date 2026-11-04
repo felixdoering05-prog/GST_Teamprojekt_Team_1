@@ -8,7 +8,7 @@ let db,server,url,building,owner,member,outsider,calls=[],providerMode='ok';
 function wav(seconds=.1){const n=Math.round(seconds*32000),b=Buffer.alloc(44+n);b.write('RIFF');b.writeUInt32LE(36+n,4);b.write('WAVEfmt ',8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(16000,24);b.writeUInt32LE(32000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(n,40);return b;}
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};await initAccounts(db);
- async function user(name){const u=(await db.query("INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,'unused') RETURNING id",[name,name+'@example.test'])).rows[0];u.token=randomBytes(32).toString('hex');await db.query("INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[createHash('sha256').update(u.token).digest('hex'),u.id]);return u;}
+ async function user(name){const u=(await db.query("INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,'unused') RETURNING id",[name,name+'@example.test'])).rows[0];u.token=randomBytes(32).toString('hex');await db.query("INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[createHash('sha256').update(u.token).digest('hex'),u.id]);await db.query("INSERT INTO app_ai_preferences(user_id,enabled,policy_version,revision) VALUES($1,true,1,1)",[u.id]);return u;}
  owner=await user('Owner');member=await user('Member');outsider=await user('Outsider');building=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'D21') RETURNING id",[owner.id])).rows[0].id;
  await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES($1,$2,'accepted')",[building,member.id]);
  const mock=async(url,options)=>{calls.push({url,options});if(providerMode==='quota')return new Response('{}',{status:429});if(providerMode==='revoke')await db.query('DELETE FROM app_building_members WHERE building_id=$1 AND user_id=$2',[building,member.id]);return url.includes('speech-to-text')?new Response(JSON.stringify({text:'Schalte Deckenlicht ein'}),{headers:{'Content-Type':'application/json'}}):new Response(Buffer.from('ID3-test'),{headers:{'Content-Type':'audio/mpeg'}});};
@@ -33,9 +33,11 @@ test('audio validation enforces real PCM duration and format',()=>{
  assert.throws(()=>wavDuration(wav(30.1)));assert.throws(()=>wavDuration(Buffer.from('fake')));
  const fake=wav();fake.writeUInt32LE(8000,24);assert.throws(()=>wavDuration(fake));
 });
-test('voice requires membership, explicit consent and bounded content before provider calls',async()=>{
+test('voice requires membership, account permission and bounded content before provider calls',async()=>{
  const n=calls.length;assert.equal((await req(null,'/voice')).status,401);assert.equal((await req(outsider,'/voice')).status,404);
- assert.equal((await req(owner,'/voice/transcribe',wav())).status,400);
+ await db.query('UPDATE app_ai_preferences SET enabled=false WHERE user_id=$1',[owner.id]);
+ assert.equal((await req(owner,'/voice/transcribe',wav(),{consent:true})).status,403);
+ await db.query('UPDATE app_ai_preferences SET enabled=true WHERE user_id=$1',[owner.id]);
  assert.equal((await req(owner,'/voice/transcribe',Buffer.from('fake'),{consent:true})).status,400);
  assert.equal((await req(owner,'/voice/speak',{text:'x'.repeat(1201)},{consent:true})).status,400);assert.equal(calls.length,n);
 });

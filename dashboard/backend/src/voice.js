@@ -1,6 +1,7 @@
 const express=require('express');
 const {readFileSync}=require('node:fs');
 const {accessibleBuilding}=require('./collaboration');
+const {aiEnabled,disabledMessage}=require('./ai-preferences');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 function wavDuration(bytes){
@@ -25,7 +26,7 @@ function voiceRouter(db,requireAccount,options={}){
  const enabled=options.enabled??process.env.ELEVENLABS_ENABLED==='true',fetchProvider=options.fetch||global.fetch;
  const ready=()=>{try{return enabled&&/^[A-Za-z0-9]{10,80}$/.test(voice)&&/^[A-Za-z0-9_-]{20,500}$/.test(key());}catch{return false;}};
  r.use(base,requireAccount,wrap(async(req,res,next)=>{res.set('Cache-Control','private, no-store');if(!/^[1-9]\d*$/.test(req.params.voiceBuilding)||Number(req.params.voiceBuilding)>2147483647)fail('Ungültiges Gebäude.');const b=await accessibleBuilding(db,req.params.voiceBuilding,req.account.id);if(!b)fail('Gebäude nicht gefunden.',404);req.voiceBuilding=b;next();}));
- r.get(base,(req,res)=>res.json({enabled:ready(),provider:'ElevenLabs',max_seconds:30,max_text:1200,per_account_kind_24h:20,project_24h:100,notice:'Aufnahmen oder angezeigte Texte werden nur nach Freigabe an ElevenLabs übertragen. Anbieter kann Daten gemäß seinen Bedingungen speichern. Keine dauerhaft offene Aufnahme.'}));
+ r.get(base,wrap(async(req,res)=>res.json({enabled:ready()&&await aiEnabled(db,req.account.id),provider:'ElevenLabs',max_seconds:30,max_text:1200,per_account_kind_24h:20,project_24h:100})));
  async function reserve(req,kind){
   const id=req.get('X-Request-ID')||'';if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))fail('Gültige Anfrage-ID erforderlich.');
   const c=await db.connect();try{await c.query('BEGIN');await c.query('SELECT id FROM app_ai_budget WHERE id=1 FOR UPDATE');
@@ -35,24 +36,27 @@ function voiceRouter(db,requireAccount,options={}){
    const row=(await c.query('INSERT INTO app_voice_usage(user_id,building_id,request_key,kind) VALUES($1,$2,$3,$4) RETURNING id',[req.account.id,req.voiceBuilding.id,id.toLowerCase(),kind])).rows[0];await c.query('COMMIT');return row.id;
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }
- const consent=req=>{if(req.get('X-D21-Voice-Consent')!=='yes')fail('Bitte die Übertragung an ElevenLabs ausdrücklich freigeben.');if(!ready())fail('ElevenLabs ist noch nicht eingerichtet.',503);};
+ const consent=async req=>{if(!await aiEnabled(db,req.account.id))fail(disabledMessage,403);if(!ready())fail('ElevenLabs ist noch nicht eingerichtet.',503);};
  async function invoke(req,res,kind,url,body,contentType){
   const id=await reserve(req,kind);try{
    if(!await accessibleBuilding(db,req.voiceBuilding.id,req.account.id))fail('Gebäude nicht gefunden.',404);
+   if(!await aiEnabled(db,req.account.id))fail(disabledMessage,403);
    const response=await fetchProvider(url,{method:'POST',headers:{'xi-api-key':key(),...(contentType?{'Content-Type':contentType}:{})},body,signal:AbortSignal.timeout(45000),redirect:'error'});
    if(!response.ok)fail(response.status===429?'ElevenLabs-Kontingent erreicht.':'ElevenLabs-Anfrage fehlgeschlagen.',response.status===429?429:502);
    const bytes=await bounded(response,kind==='stt'?65536:2*1024*1024);
    if(!await accessibleBuilding(db,req.voiceBuilding.id,req.account.id))fail('Gebäudezugang wurde entzogen.',404);
+   if(!await aiEnabled(db,req.account.id))fail(disabledMessage,403);
    if(kind==='stt'){let data;try{data=JSON.parse(bytes.toString('utf8'));}catch{fail('Ungültige Spracherkennung.',502);}if(typeof data.text!=='string'||!data.text.trim()||data.text.length>2000)fail('Keine kurze verwertbare Spracherkennung.',502);await db.query("UPDATE app_voice_usage SET status='done' WHERE id=$1",[id]);res.json({text:data.text.trim()});}
    else {if(!bytes.length||!String(response.headers.get('content-type')).startsWith('audio/'))fail('Keine gültige Audioantwort.',502);await db.query("UPDATE app_voice_usage SET status='done' WHERE id=$1",[id]);res.type('audio/mpeg').send(bytes);}
   }catch(e){await db.query("UPDATE app_voice_usage SET status='failed' WHERE id=$1",[id]);if(e.status)throw e;fail('Sprachdienst nicht erreichbar. Es erfolgt keine automatische Wiederholung.',503);}
  }
- r.post(base+'/transcribe',(req,res,next)=>{try{consent(req);next();}catch(e){next(e);}},express.raw({type:'application/octet-stream',limit:'1mb'}),wrap(async(req,res)=>{
+ r.post(base+'/transcribe',wrap(async(req,res,next)=>{await consent(req);next();}),express.raw({type:'application/octet-stream',limit:'1mb'}),wrap(async(req,res)=>{
   wavDuration(req.body);const body=new FormData();body.append('model_id','scribe_v2');body.append('language_code','de');body.append('tag_audio_events','false');body.append('file',new Blob([req.body],{type:'audio/wav'}),'speech.wav');
   await invoke(req,res,'stt','https://api.elevenlabs.io/v1/speech-to-text',body);
  }));
- r.post(base+'/speak',wrap(async(req,res)=>{consent(req);const text=req.body?.text;if(typeof text!=='string'||!text.trim()||text.length>1200||Object.keys(req.body).some(k=>k!=='text'))fail('Bitte den angezeigten Text bis 1200 Zeichen verwenden.');await invoke(req,res,'tts',`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`,JSON.stringify({text,model_id:'eleven_multilingual_v2'}),'application/json');}));
+ r.post(base+'/speak',wrap(async(req,res)=>{await consent(req);const text=req.body?.text;if(typeof text!=='string'||!text.trim()||text.length>1200||Object.keys(req.body).some(k=>k!=='text'))fail('Bitte den angezeigten Text bis 1200 Zeichen verwenden.');await invoke(req,res,'tts',`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`,JSON.stringify({text,model_id:'eleven_multilingual_v2'}),'application/json');}));
  r.post(base+'/intent',wrap(async(req,res)=>{
+  if(!await aiEnabled(db,req.account.id))fail(disabledMessage,403);
   const text=req.body?.text;if(typeof text!=='string'||text.length>300)fail('Bitte einen kurzen einzelnen Schaltbefehl verwenden.');
   const match=/^schalte\s+(?:(?:das|die|den)\s+)?(.+?)\s+(ein|aus)[.!]?$/i.exec(text.trim());if(!match)fail('Unterstützt: „Schalte Deckenlicht ein/aus“. Fragen bitte im KI-Chat vorbereiten.');
   const rows=(await db.query("SELECT id,name,revision FROM app_devices WHERE building_id=$1 AND mode='simulation' AND kind IN ('light','plug')",[req.voiceBuilding.id])).rows.filter(d=>d.name.toLocaleLowerCase('de')===match[1].trim().toLocaleLowerCase('de'));

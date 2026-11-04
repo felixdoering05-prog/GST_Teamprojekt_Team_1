@@ -1,134 +1,184 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import ElevenLabs
 
-struct VoiceReading: Identifiable { let id = UUID(); let text: String }
-@MainActor final class BuildingVoiceRecorder: ObservableObject {
-    @Published var recording = false
-    @Published var seconds = 0
-    @Published var url: URL?
+@MainActor final class BuildingLiveVoice: ObservableObject {
+    @Published var stopping = false
+    @Published var connecting = false
+    @Published var active = false
+    @Published var muted = false
+    @Published var phase = "Bereit für dein Gebäude"
+    @Published var speaking = false
+    @Published var level: Double = 0
     @Published var problem: String?
-    private var recorder: AVAudioRecorder?
-    private var clock: Task<Void,Never>?
-    private var permissionTicket = UUID()
-    func start() async {
-        guard !recording else { return }
-        let ticket = UUID(); permissionTicket = ticket
-        let permitted = await AVAudioApplication.requestRecordPermission()
-        guard permissionTicket == ticket, !Task.isCancelled else { return }
-        guard permitted else { problem = "Bitte Mikrofonzugriff in den iPhone-Einstellungen erlauben."; return }
-        clear(); seconds = 0
-        do {
-            let session = AVAudioSession.sharedInstance(); try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker]); try session.setActive(true)
-            let path = FileManager.default.temporaryDirectory.appendingPathComponent("d21-voice-" + UUID().uuidString + ".wav")
-            let audio = try AVAudioRecorder(url: path, settings: [AVFormatIDKey:kAudioFormatLinearPCM,AVSampleRateKey:16000,AVNumberOfChannelsKey:1,AVLinearPCMBitDepthKey:16,AVLinearPCMIsFloatKey:false,AVLinearPCMIsBigEndianKey:false])
-            guard audio.record(forDuration: 30) else { throw APIError(status: 0, message: "Aufnahme konnte nicht gestartet werden.") }
-            url = path; recorder = audio; recording = true
-            clock = Task { for i in 1...30 { do { try await Task.sleep(for: .seconds(1)) } catch { return }; guard self.recording else { return }; self.seconds = i }; self.stop() }
-        } catch { problem = error.localizedDescription; stop() }
+    @Published var lines: [String] = []
+    @Published var proposal: Proposal?
+    @Published var applying = false
+    struct Proposal: Identifiable { let id: String; let device: Int; let revision: Int; let on: Bool; let description: String; let generation: UUID; let deadline: Date }
+    private struct Prepared: Decodable { let device_id: Int; let revision: Int; let on: Bool; let description: String }
+    private struct Session: Decodable { let token: String; let session_id: String; let max_seconds: Int; let dynamic_variables: [String:String] }
+    private var conversation: Conversation?
+    private var startup: Task<Void,Never>?
+    private var heartbeat: Task<Void,Never>?
+    private var subscriptions = Set<AnyCancellable>()
+    private var generation = UUID()
+    private var handled = Set<String>()
+    private var lease: String?
+    private var account: AccountModel?
+    private var buildingID: Int?
+
+    func start(account: AccountModel, building: Building) {
+        guard !connecting, !active, !stopping, startup == nil else { return }
+        let ticket = UUID(); generation = ticket; self.account = account; buildingID = building.id
+        connecting = true; problem = nil; lines = []; phase = "Verbindung wird vorbereitet …"; handled = []
+        let owner = account.user?.id
+        startup = Task {
+            do {
+                let permitted = await AVAudioApplication.requestRecordPermission()
+                guard generation == ticket, !Task.isCancelled else { return }
+                guard permitted else { throw APIError(status: 0, message: "Bitte erlaube den Mikrofonzugriff in den iPhone-Einstellungen.") }
+                await account.refreshAIPreferences()
+                guard generation == ticket, account.user?.id == owner, !Task.isCancelled else { return }
+                guard account.aiPreferences.active else { throw APIError(status: 403, message: "Aktiviere KI und Sprache einmal in deinen KI-Einstellungen.") }
+                let session: Session = try await account.request("buildings/\(building.id)/voice/live", method: "POST", body: [:], headers: ["X-Request-ID":UUID().uuidString], timeout: 25)
+                guard generation == ticket, !Task.isCancelled else { await closeLease(account, building.id, session.session_id); return }
+                lease = session.session_id
+                let config = ConversationConfig(dynamicVariables: session.dynamic_variables,
+                    onError: { [weak self] _ in Task { @MainActor in guard let self, self.generation == ticket else { return }; self.stop(message: "Das Gespräch wurde unterbrochen. Bitte starte bei Bedarf neu.") } },
+                    onAgentResponse: { [weak self] text,_ in Task { @MainActor in self?.append("Assistent: " + text, ticket: ticket) } },
+                    onUserTranscript: { [weak self] text,_ in Task { @MainActor in self?.append("Du: " + text, ticket: ticket) } },
+                    onVadScore: { [weak self] score in Task { @MainActor in if self?.generation == ticket { self?.level = min(1, max(0, score)) } } })
+                let call = try await ElevenLabs.startConversation(conversationToken: session.token, config: config)
+                guard generation == ticket, account.user?.id == owner, !Task.isCancelled else { await call.endConversation(); await closeLease(account, building.id, session.session_id); return }
+                conversation = call; connecting = false; active = true; startup = nil; phase = "Ich höre zu"
+                call.$agentState.sink { [weak self] state in
+                    guard let self, self.generation == ticket else { return }
+                    self.speaking = state == .speaking
+                    self.phase = state == .speaking ? "Dein Assistent spricht" : state == .thinking ? "Ich denke nach …" : self.muted ? "Mikrofon pausiert" : "Ich höre zu"
+                }.store(in: &subscriptions)
+                call.$state.dropFirst().sink { [weak self] state in
+                    guard let self, self.generation == ticket else { return }
+                    switch state { case .ended: self.stop(); case .error: self.stop(message: "Die Verbindung wurde beendet."); default: break }
+                }.store(in: &subscriptions)
+                call.$pendingToolCalls.sink { [weak self] calls in
+                    guard let self, self.generation == ticket else { return }
+                    for request in calls where self.handled.insert(request.toolCallId).inserted {
+                        Task { await self.prepare(request, ticket: ticket, account: account, building: building.id) }
+                    }
+                }.store(in: &subscriptions)
+                heartbeat = Task {
+                    let deadline = Date().addingTimeInterval(Double(min(120, session.max_seconds)))
+                    while !Task.isCancelled, generation == ticket {
+                        do { try await Task.sleep(for: .seconds(5)); guard generation == ticket, !Task.isCancelled else { return }
+                            struct Status: Decodable { let active: Bool }
+                            let status: Status = try await account.request("buildings/\(building.id)/voice/live/\(session.session_id)", timeout: 8)
+                            guard status.active, Date() < deadline, account.user?.id == owner else { stop(message: "Gespräch beendet. Du kannst bewusst ein neues starten."); return }
+                            if let proposal, Date() >= proposal.deadline { await decline() }
+                        } catch { if generation == ticket { stop(message: "Verbindung verloren. Das Mikrofon wurde ausgeschaltet.") }; return }
+                    }
+                }
+            } catch { if generation == ticket { startup = nil; stop(message: error.localizedDescription) } }
+        }
     }
-    func stop() { permissionTicket = UUID(); recorder?.stop(); recorder = nil; recording = false; clock?.cancel(); clock = nil; if let url { try? FileManager.default.setAttributes([.protectionKey:FileProtectionType.complete], ofItemAtPath: url.path) }; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
-    func clear() { stop(); if let url { try? FileManager.default.removeItem(at: url) }; url = nil; problem = nil }
+    private func append(_ line: String, ticket: UUID) { guard generation == ticket else { return }; lines.append(String(line.prefix(4000))); if lines.count > 100 { lines.removeFirst(lines.count - 100) } }
+    private func closeLease(_ account: AccountModel, _ building: Int, _ id: String) async { let _: LogoutResult? = try? await account.request("buildings/\(building)/voice/live/\(id)", method: "DELETE") }
+    func stop(message: String? = nil) {
+        guard !stopping || active || connecting else { return }
+        generation = UUID(); let pendingStart = startup; pendingStart?.cancel(); startup = nil; heartbeat?.cancel(); heartbeat = nil
+        subscriptions.removeAll(); let call = conversation; conversation = nil
+        let id = lease; lease = nil; let model = account; let building = buildingID
+        connecting = false; active = false; muted = false; speaking = false; level = 0; proposal = nil; phase = "Bereit für dein Gebäude"
+        if let message { problem = message }
+        // End audio first, independent of a potentially unavailable project server.
+        stopping = true
+        let stopTicket = generation
+        Task {
+            await pendingStart?.value
+            if let call { await call.endConversation() }
+            if generation == stopTicket { stopping = false }
+            if let id, let model, let building { await closeLease(model, building, id) }
+        }
+    }
+    func toggleMute() async {
+        guard let call = conversation else { return }; let ticket = generation
+        do { let value = !muted; try await call.setMuted(value); if ticket == generation { muted = value; if !speaking { phase = value ? "Mikrofon pausiert" : "Ich höre zu" } } }
+        catch { if ticket == generation { stop(message: "Mikrofon konnte nicht pausiert werden. Gespräch beendet.") } }
+    }
+    private func prepare(_ request: ClientToolCallEvent, ticket: UUID, account: AccountModel, building: Int) async {
+        guard generation == ticket, let call = conversation else { return }
+        do {
+            let args = try request.getParameters()
+            guard request.toolName == "request_device_change", proposal == nil, !applying,
+                  Set(args.keys) == Set(["name","on"]), let name = args["name"] as? String, !name.isEmpty, name.count <= 100,
+                  let on = args["on"] as? Bool else { throw APIError(status: 400, message: "Kein gültiger einzelner Simulationsauftrag.") }
+            let preview: Prepared = try await account.request("buildings/\(building)/voice/intent", method: "POST", body: ["text":"Schalte " + name + (on ? " ein" : " aus")])
+            guard generation == ticket else { return }
+            guard proposal == nil else { throw APIError(status: 409, message: "Bitte erst den vorherigen Vorschlag beantworten.") }
+            proposal = Proposal(id: request.toolCallId, device: preview.device_id, revision: preview.revision, on: preview.on, description: preview.description, generation: ticket, deadline: Date().addingTimeInterval(45))
+        } catch { if generation == ticket { try? await call.sendToolResult(for: request.toolCallId, result: "Nicht ausgeführt: " + error.localizedDescription, isError: true) } }
+    }
+    func decline() async {
+        guard let proposal else { return }; self.proposal = nil
+        if proposal.generation == generation { try? await conversation?.sendToolResult(for: proposal.id, result: "Nutzer hat nicht bestätigt. Keine Änderung ausgeführt.", isError: true) }
+    }
+    func confirm() async {
+        guard let p = proposal, p.generation == generation, p.deadline > Date(), !applying, let account, let buildingID, let call = conversation else { return }
+        applying = true; proposal = nil; defer { applying = false }
+        do {
+            // Revalidate the account/session immediately before applying the explicit confirmation.
+            struct Status: Decodable { let active: Bool }
+            let status: Status = try await account.request("buildings/\(buildingID)/voice/live/\(lease ?? "")")
+            guard status.active, generation == p.generation else { return }
+            let _: BuildingDevice = try await account.request("buildings/\(buildingID)/devices/\(p.device)", method: "PATCH", body: ["is_on":p.on,"revision":p.revision])
+            guard generation == p.generation else { return }
+            try await call.sendToolResult(for: p.id, result: "Bestätigt und gespeichert: Simulation " + (p.on ? "eingeschaltet." : "ausgeschaltet.") + " Keine echte Hardware.")
+        } catch { if generation == p.generation { problem = error.localizedDescription; try? await call.sendToolResult(for: p.id, result: "Nicht bestätigt gespeichert: " + error.localizedDescription, isError: true) } }
+    }
 }
 
 struct BuildingVoiceView: View {
     let building: Building
     @ObservedObject var account: AccountModel
-    @StateObject private var recorder = BuildingVoiceRecorder()
+    @StateObject private var voice = BuildingLiveVoice()
     @Environment(\.scenePhase) private var scenePhase
-    @State private var enabled = false
-    @State private var consent = false
-    @State private var text = ""
-    @State private var busy = false
-    @State private var problem: String?
-    @State private var result: String?
-    @State private var proposal: Proposal?
-    @State private var confirm = false
-    @State private var reading: VoiceReading?
-    @State private var speechID = UUID()
-    private struct Proposal: Decodable { let device_id: Int; let revision: Int; let on: Bool; let description: String }
     var body: some View {
-        Form {
-            Section {
-                Label("Dein Gebäude hört auf dich", systemImage: "waveform").font(.headline).foregroundStyle(d21Accent)
-                Text("ElevenLabs erkennt deine Aufnahme. Du prüfst den Text und bestätigst jeden Simulationsbefehl. Keine dauerhafte Aufnahme und keine echte Hardwaresteuerung.").font(.footnote).foregroundStyle(.secondary)
-                if !enabled { Label("ElevenLabs noch nicht verfügbar", systemImage: "exclamationmark.icloud").foregroundStyle(.orange) }
-            }
-            Section("1 · Aufnahme") {
-                Button(recorder.recording ? "Aufnahme stoppen · \(recorder.seconds) s" : "Bis zu 30 Sekunden aufnehmen", systemImage: recorder.recording ? "stop.circle.fill" : "mic.circle.fill") { if recorder.recording { recorder.stop() } else { speechID = UUID(); Task { await recorder.start() } } }.disabled(busy)
-                Text("Die Aufnahme bleibt zuerst lokal auf diesem iPhone. Bei Verlassen dieser Ansicht wird die temporäre Audiodatei entfernt.").font(.caption).foregroundStyle(.secondary)
-                Toggle("Diese Aufnahme an ElevenLabs zur Erkennung senden", isOn: $consent).disabled(busy)
-                Button(busy ? "Wird verarbeitet …" : "Aufnahme erkennen lassen") { Task { await transcribe() } }.disabled(!consent || !enabled || recorder.url == nil || recorder.recording || busy)
-                if recorder.url != nil && !recorder.recording { Button("Aufnahme verwerfen", role: .destructive) { recorder.clear(); consent = false }.disabled(busy) }
-            }
-            Section("2 · Text prüfen") {
-                TextField("Zum Beispiel: Schalte Deckenlicht ein", text: $text, axis: .vertical).lineLimit(2...6).disabled(busy)
-                Text("Du kannst auch tippen. Pro Auftrag genau ein Gerät mit seinem exakten Namen verwenden.").font(.footnote).foregroundStyle(.secondary)
-                Button("Simulationsbefehl prüfen") { Task { await prepare() } }.disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy || recorder.recording)
-                NavigationLink { BuildingAssistantView(building: building, account: account, initialText: text) } label: { Label("Frage an Gemini vorbereiten", systemImage: "sparkles") }.disabled(text.isEmpty || busy || recorder.recording)
-                Text("Gemini erhält den Text erst nach der separaten Freigabe im KI-Chat. Für Modelländerungen dort den Modus Modellbefehl wählen.").font(.caption).foregroundStyle(.secondary)
-            }
-            if let proposal { Section("3 · Vor dem Schalten bestätigen") { Text(proposal.description); Button("Simulation ausführen") { confirm = true }.disabled(busy || recorder.recording) } }
-            if let result { Section("Ergebnis") { Text(result); Button("Ergebnis vorlesen", systemImage: "speaker.wave.2") { reading = VoiceReading(text: result) } } }
-            if let problem { Section { Text(problem).foregroundStyle(.red) } }
-            if let error = recorder.problem { Section { Text(error).foregroundStyle(.red) } }
-            Section { Text("Audio und vorgelesener Text werden bei Freigabe vom Projektserver an ElevenLabs übertragen. Der Anbieter kann diese Daten gemäß seinen Bedingungen speichern. In der App keine automatische Wiederholung nach einem Timeout.").font(.caption).foregroundStyle(.secondary) }
-        }
-        .navigationTitle("Sprachassistent").navigationBarTitleDisplayMode(.inline)
-        .task { do { struct Status: Decodable { let enabled: Bool }; let status: Status = try await account.request("buildings/\(building.id)/voice"); enabled = status.enabled } catch { problem = error.localizedDescription } }
-        .onChange(of: text) { _,_ in proposal = nil; result = nil }
-        .onChange(of: scenePhase) { _, phase in if phase == .background { recorder.stop() } }
-        .onDisappear { recorder.clear() }
-        .confirmationDialog("Nur die Simulation schalten?", isPresented: $confirm, titleVisibility: .visible) { Button("Simulation bestätigen") { Task { await apply() } }; Button("Abbrechen", role: .cancel) {} } message: { Text(proposal?.description ?? "") }
-        .sheet(item: $reading) { VoicePlaybackView(building: building, account: account, text: $0.text) }
-    }
-    private func transcribe() async {
-        guard let url = recorder.url, consent, !busy else { return }; busy = true; defer { busy = false }
-        do { text = try await account.transcribeVoice(buildingID: building.id, data: Data(contentsOf: url), requestID: speechID); problem = nil; consent = false }
-        catch { problem = error.localizedDescription + " Für eine neue Erkennung bitte neu aufnehmen." }
-    }
-    private func prepare() async {
-        guard !busy else { return }; busy = true; proposal = nil; result = nil; defer { busy = false }
-        do { proposal = try await account.request("buildings/\(building.id)/voice/intent", method: "POST", body: ["text":text]); problem = nil } catch { problem = error.localizedDescription }
-    }
-    private func apply() async {
-        guard let proposal, !busy else { return }; busy = true; self.proposal = nil; defer { busy = false }
-        do { let _: BuildingDevice = try await account.request("buildings/\(building.id)/devices/\(proposal.device_id)", method: "PATCH", body: ["is_on":proposal.on,"revision":proposal.revision]); result = "Die Gerätesimulation wurde \(proposal.on ? "eingeschaltet" : "ausgeschaltet"). Keine echte Hardware wurde geschaltet."; problem = nil } catch { problem = error.localizedDescription }
-    }
-}
-
-struct VoicePlaybackView: View {
-    let building: Building
-    @ObservedObject var account: AccountModel
-    let text: String
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var consent = false
-    @State private var busy = false
-    @State private var player: AVAudioPlayer?
-    @State private var problem: String?
-    @State private var requestID = UUID()
-    @State private var attempted = false
-    @State private var operation = UUID()
-    private var spoken: String { var value = "", length = 0; for char in text { let count = String(char).utf16.count; if length + count > 1200 { break }; value.append(char); length += count }; return value }
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Dieser Text wird an ElevenLabs gesendet") { Text(spoken).textSelection(.enabled); if spoken != text { Text("Auf 1200 Zeichen gekürzt.").font(.caption).foregroundStyle(.orange) } }
-                Section { Toggle("Diesen Text zur Sprachausgabe an ElevenLabs senden", isOn: $consent).disabled(busy); Text("Der Anbieter kann den Text gemäß seinen Bedingungen speichern. Pro bewusstem Abruf entsteht eine Anbieteranfrage.").font(.caption).foregroundStyle(.secondary)
-                    Button(busy ? "Stimme wird geladen …" : "Mit ElevenLabs vorlesen") { Task { await play() } }.disabled(!consent || busy || attempted)
-                    if player != nil { Button("Wiedergabe stoppen") { player?.stop() }; Button("Vorhandene Audioantwort erneut abspielen") { player?.play() } }
-                    if attempted && player == nil && !busy { Button("Neue Anbieteranfrage vorbereiten") { attempted = false; consent = false; requestID = UUID() } }
+        ScrollView {
+            VStack(spacing: 24) {
+                Text(building.name).font(.subheadline).foregroundStyle(.secondary)
+                VoiceAssistantAnimation(active: voice.active || voice.connecting, speaking: voice.speaking, level: voice.muted ? 0 : voice.level)
+                    .frame(height: 200).accessibilityHidden(true)
+                Text(voice.phase).font(.title2.bold()).multilineTextAlignment(.center).accessibilityAddTraits(.updatesFrequently)
+                Text(voice.active ? "Sprich ganz normal. Du kannst die Antwort jederzeit unterbrechen." : "Frage nach deinem Gebäude oder bitte darum, ein simuliertes Gerät zu schalten.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                if !account.aiPreferences.active {
+                    NavigationLink { AISettingsView(account: account) } label: { Label("KI einmal aktivieren", systemImage: "sparkles") }.buttonStyle(.borderedProminent).tint(d21Accent)
+                } else if voice.active || voice.connecting {
+                    HStack {
+                        if voice.active { Button(voice.muted ? "Mikrofon an" : "Stumm", systemImage: voice.muted ? "mic.slash" : "mic") { Task { await voice.toggleMute() } }.buttonStyle(.bordered) }
+                        Button("Beenden", systemImage: "phone.down.fill", role: .destructive) { voice.stop() }.buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    Button("Gespräch starten", systemImage: "waveform") { voice.start(account: account, building: building) }.buttonStyle(.borderedProminent).controlSize(.large).tint(d21Accent).disabled(voice.stopping)
                 }
-                if let problem { Section { Text(problem).foregroundStyle(.red) } }
-            }.navigationTitle("Sprachausgabe").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Schließen") { dismiss() }.disabled(busy) } }
-        }.interactiveDismissDisabled(busy)
-        .onDisappear { operation = UUID(); player?.stop(); player = nil; try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { operation = UUID(); player?.stop() } }
-    }
-    private func play() async {
-        guard consent, !busy, !attempted else { return }; busy = true; attempted = true; let ticket = UUID(); operation = ticket; defer { busy = false }
-        do { let bytes = try await account.speakVoice(buildingID: building.id, text: spoken, requestID: requestID); guard operation == ticket, scenePhase == .active, !Task.isCancelled else { return }; let session = AVAudioSession.sharedInstance(); try session.setCategory(.playback); try session.setActive(true); let audio = try AVAudioPlayer(data: bytes); player = audio; audio.play(); problem = nil } catch { if operation == ticket { problem = error.localizedDescription } }
+                if let p = voice.proposal {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Simulation bestätigen", systemImage: "lightbulb").font(.headline)
+                        Text(p.description)
+                        HStack { Button("Abbrechen") { Task { await voice.decline() } }; Spacer(); Button("Bestätigen") { Task { await voice.confirm() } }.buttonStyle(.borderedProminent).tint(d21Accent) }
+                    }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                }
+                if voice.applying { ProgressView("Simulation wird gespeichert …") }
+                if let problem = voice.problem { Text(problem).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
+                if !voice.lines.isEmpty { DisclosureGroup("Gespräch mitlesen") { VStack(alignment: .leading, spacing: 12) { ForEach(Array(voice.lines.enumerated()), id: \.offset) { _, line in Text(line).font(.subheadline).frame(maxWidth: .infinity, alignment: .leading) } } } }
+                Text("ElevenLabs · Live-Mikrofon nur im Gespräch · maximal 2 Minuten\nGeräte sind vorerst Simulationen. Änderungen erst nach Bestätigung.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                NavigationLink("KI-Einstellungen") { AISettingsView(account: account) }.font(.footnote)
+            }.padding(24)
+        }.background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("Sprachassistent").navigationBarTitleDisplayMode(.inline)
+        .task { await account.refreshAIPreferences() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { voice.stop() } }
+        .onChange(of: account.aiPreferences.active) { _, enabled in if !enabled { voice.stop() } }
+        .onChange(of: account.user?.id) { _,_ in voice.stop() }
+        .onDisappear { voice.stop() }
     }
 }

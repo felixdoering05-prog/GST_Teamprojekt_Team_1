@@ -5,6 +5,7 @@ const {readFileSync}=require('node:fs');
 const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {analysisContext}=require('./telemetry');
+const {aiEnabled,disabledMessage}=require('./ai-preferences');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const MODEL='gemini-3.5-flash-lite';
 const NOTICE='KI-Antworten können fehlerhaft sein. Grundlage sind die angezeigten Angaben und gegebenenfalls IFC-Typzahlen. Keine ausgewerteten Pläne oder geometrische Prüfung.';
@@ -65,7 +66,8 @@ function assistantRouter(db,requireAccount,options={}){
   if(req.query.document_id!==undefined&&(!/^[1-9]\d*$/.test(String(req.query.document_id))||Number(req.query.document_id)>2147483647))return res.status(400).json({error:'Ungültige Modell-ID.'});
   if(req.query.mode==='measurement-analysis'&&!['real','demo'].includes(req.query.source))return res.status(400).json({error:'Bitte eine Datenquelle auswählen.'});
   const context=req.query.mode==='ifc-command'?commandContext:req.query.mode==='measurement-analysis'?await analysisContext(db,building,req.query.source):await contextFor(db,building,req.query.document_id);
-  res.json({enabled:ready(),model,notice:req.query.mode==='measurement-analysis'?ANALYSIS_NOTICE:NOTICE,context,context_hash:contextHash(context),limits:{per_account_24h:20,project_24h:100}});
+  const account_enabled=await aiEnabled(db,req.account.id);
+  res.json({enabled:ready()&&account_enabled,account_enabled,model,notice:req.query.mode==='measurement-analysis'?ANALYSIS_NOTICE:NOTICE,context,context_hash:contextHash(context),limits:{per_account_24h:20,project_24h:100}});
  }));
  r.get('/buildings/:buildingId/assistant/history',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return res.status(404).json({error:'Gebäude nicht gefunden.'});
@@ -78,9 +80,10 @@ function assistantRouter(db,requireAccount,options={}){
  };
  r.post('/buildings/:buildingId/assistant',wrap(async(req,res)=>{
   const building=await accessibleBuilding(db,req.params.buildingId,req.account.id);if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
+  if(!await aiEnabled(db,req.account.id))return res.status(403).json({error:disabledMessage});
   const question=typeof req.body?.question==='string'?req.body.question.trim():'';
   const key=req.get('X-Request-ID')||'';
-  if(!question||question.length>2000||question.includes('\0')||req.body?.consent!=='yes'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return problem(res,400);
+  if(!question||question.length>2000||question.includes('\0')||req.body?.consent==='no'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return problem(res,400);
   if(!ready())return problem(res,503);
   const commandMode=req.body?.mode==='ifc-command',chat=req.body?.chat===true;
   const analysisMode=req.body?.mode==='measurement-analysis';
@@ -93,6 +96,7 @@ function assistantRouter(db,requireAccount,options={}){
   const state=await reserve(db,req.account.id,building.id,key,createHash('sha256').update(question+'\n'+req.body.context_hash+(chat?'\nchat:'+String(documentID||''):'' )).digest('hex'),model);
   if(state.error)return problem(res,state.error,state.processing);
   const respond=async(stored,cached,usedModel=model)=>{
+   if(!await aiEnabled(db,req.account.id))return res.status(403).json({error:disabledMessage});
    const command=commandMode?validateCommand(JSON.parse(stored)):null;
    const answer=command?command.summary:stored;
    if(chat){
@@ -122,6 +126,7 @@ function assistantRouter(db,requireAccount,options={}){
     payload.systemInstruction.parts[0].text+=' Du bist in einem fortlaufenden privaten Chat. Nutze den mitgesendeten Verlauf als Gesprächskontext. Falls building_context.model.counts vorhanden ist, darfst du diese IFC-Typzahlen nennen, als IFC-Einträge und nicht als geometrisch geprüfte Bauteile. Für Modellaktionen wählt der Nutzer im KI-Reiter den Modus Modellbefehl; Vorschläge müssen vor dem Speichern bestätigt werden.';
    }
    if(commandMode){payload.systemInstruction={parts:[{text:commandInstruction}]};payload.generationConfig={maxOutputTokens:900,temperature:0,responseMimeType:'application/json',responseJsonSchema:commandSchema};}
+   if(!await aiEnabled(db,req.account.id)){await db.query("UPDATE app_ai_requests SET status='failed',error_code=403,finished_at=now() WHERE id=$1",[state.id]);return res.status(403).json({error:disabledMessage});}
    const response=await fetchProvider(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':getKey()},body:JSON.stringify(payload),signal:AbortSignal.timeout(options.timeoutMs||30000),redirect:'error'});
    if(!response.ok){const e=new Error('Provider response');e.code=response.status===429?429:503;throw e;}
    const data=await response.json();

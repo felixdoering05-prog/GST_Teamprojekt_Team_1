@@ -74,3 +74,5 @@ Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermi
 - [03.11.2026 · iPhone-Dashboard, Demo und datenbezogene Gemini-Auswertung](2026-11-03-iphone-dashboard-demo-ki.md)
 
 - [03.11.2026 · Gebäudekarten, Chatlöschung und ElevenLabs](2026-11-03-karten-chat-elevenlabs.md)
+
+- [04.11.2026 · Kontoweite KI-Einstellung und Live-Sprachassistent](../iphone-live-sprachassistent.md) – technischer Arbeitsnachweis; Installation auf Felix’ iPhone später.
