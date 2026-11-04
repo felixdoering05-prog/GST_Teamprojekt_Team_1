@@ -238,7 +238,7 @@ private enum IFCError: LocalizedError {
     var errorDescription: String? { switch self { case let .message(text): return text } }
 }
 
-private struct IFCWebView: UIViewRepresentable {
+struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
     var smartHome = false
     var account: AccountModel? = nil

@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 
 struct Building: Identifiable, Codable, Equatable, Hashable {
+    var model_document_id: Int? = nil
     let id: Int
     let name: String
     let address: String

@@ -11,7 +11,7 @@ export default function AISettingsCard() {
   const change = async () => {
     if (!value || busy) return;
     setBusy(true); setError('');
-    try { setValue(await request('/profile/ai', { method: 'PATCH', body: { enabled: !(value.enabled && value.policy_version === 1), revision: value.revision, policy_version: 1 } })); }
+    try { setValue(await request('/profile/ai', { method: 'PATCH', body: { enabled: !(value.enabled && value.policy_version === 1), device_control_enabled: !(value.enabled && value.policy_version === 1), revision: value.revision, policy_version: 1 } })); }
     catch (e) { setError(e.message); try { setValue(await request('/profile/ai')); } catch { setValue(null); } }
     finally { setBusy(false); }
   };
@@ -21,7 +21,7 @@ export default function AISettingsCard() {
     <p className="text-sm text-muted-foreground">Einmal aktivieren – auf dem Server gespeichert, auch für die iPhone-App. KI wird erst bei einer bewusst gestarteten Anfrage verwendet.</p>
     <Button onClick={change} disabled={!value || busy} variant={active ? 'outline' : 'default'}>{busy ? 'Wird gespeichert …' : active ? 'KI deaktivieren' : 'KI und Sprache aktivieren'}</Button>
     <span role="status" className="ml-3 text-sm">{value ? active ? 'Aktiviert' : 'Deaktiviert' : 'Einstellung wird geladen …'}</span>
-    <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">Daten, Anbieter und Grenzen</summary><p className="mt-2">Google Gemini erhält Frage, begrenzte KI-Historie und Gebäudekontext (Name/Adresse, Dateinamen, IFC-Typzahlen oder ausgewählte Messwertaggregate). ElevenLabs erhält beim Live-Gespräch Audio, Gebäudename, bis zu 50 simulierte Gerätenamen/Zustände und zehn Dateinamen. Keine automatischen Datei-Inhalte, Geometrie, Kontakte oder Team-Chats. Anbieterbedingungen gelten; ElevenLabs: keine Audioaufzeichnung, Verlauf ein Tag. Maximal zwei Minuten pro Gespräch; gemeinsame Kontingente. Kein Training eines eigenen Modells. Deaktivieren sperrt neue Anfragen sofort, die App beendet laufende Gespräche bei der nächsten Prüfung (etwa fünf Sekunden). Bereits übertragene Daten werden nicht zurückgerufen. Gerätesimulationen erfordern weiterhin Bestätigung.</p></details>
+    <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">Daten, Anbieter und Grenzen</summary><p className="mt-2">Google Gemini erhält Frage, begrenzte KI-Historie und Gebäudekontext (Name/Adresse, Dateinamen, IFC-Typzahlen oder ausgewählte Messwertaggregate). ElevenLabs erhält beim Live-Gespräch Audio, Gebäudename, Namen der freigegebenen Lampen und Räume und zehn Dateinamen. Keine automatischen Datei-Inhalte, Geometrie, Kontakte oder Team-Chats. Anbieterbedingungen gelten; ElevenLabs: keine Audioaufzeichnung, Verlauf ein Tag. Maximal zwei Minuten pro Gespräch; gemeinsame Kontingente. Kein Training eines eigenen Modells. Deaktivieren sperrt neue Anfragen sofort, die App beendet laufende Gespräche bei der nächsten Prüfung (etwa fünf Sekunden). Bereits übertragene Daten werden nicht zurückgerufen. Die Freigabe erlaubt ausdrücklich angeforderte Schalt-, Farb- und Dimmaufträge für deine verbundenen Lampen im gewählten Gebäude. Ergebnisse werden durch Home Assistant bestätigt.</p></details>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;
 }

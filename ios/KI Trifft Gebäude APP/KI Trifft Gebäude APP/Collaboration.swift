@@ -324,3 +324,16 @@ struct BuildingChatView: View {
         do { let _: LogoutResult = try await account.request("buildings/\(building.id)/messages/\(message.id)", method: "DELETE"); messages.removeAll { $0.id == message.id }; await load() } catch { problem = error.localizedDescription }
     }
 }
+
+struct UIPreferences:Decodable {let presentation_mode:Bool;let revision:Int}
+struct TeamInboxView:View {
+    @ObservedObject var account:AccountModel
+    @ObservedObject var social:CollaborationModel
+    @State private var section="Kontakte"
+    var body:some View {
+        VStack(spacing:0) {
+            Picker("Team",selection:$section){Text("Kontakte").tag("Kontakte");Text(social.unread>0 ? "Mitteilungen (\(social.unread))" : "Mitteilungen").tag("Mitteilungen")}.pickerStyle(.segmented).padding()
+            if section=="Kontakte" {ContactsView(account:account,social:social)} else {NotificationsView(account:account,social:social,openContacts:{section="Kontakte"})}
+        }.navigationTitle("Team")
+    }
+}

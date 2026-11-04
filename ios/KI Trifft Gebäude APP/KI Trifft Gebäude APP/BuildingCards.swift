@@ -5,8 +5,7 @@ struct NativeBuildingCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                LinearGradient(colors: [d21Accent.opacity(0.18),Color(.secondarySystemGroupedBackground)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                Image(systemName: "building.2.crop.circle.fill").font(.system(size: 62)).foregroundStyle(d21Accent.opacity(0.85)).padding(20)
+                BIMBuildingThumbnail(building:building)
                 HStack { Spacer(); Label(building.is_owner == false ? "Geteilt" : "Dein Gebäude", systemImage: building.is_owner == false ? "person.2" : "checkmark.shield").font(.caption.bold()).padding(9).background(.regularMaterial, in: Capsule()) }.padding(12).frame(maxHeight: .infinity, alignment: .top)
             }.frame(height: 132)
             VStack(alignment: .leading, spacing: 10) {
