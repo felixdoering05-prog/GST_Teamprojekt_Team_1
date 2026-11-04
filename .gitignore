@@ -53,5 +53,8 @@ private-mail/
 # Local AI credentials (production key remains outside the repository)
 private-ai/
 
+# Original campus IFC: private deployment file, never included in the web build.
+**/private-models/
+
 # Private host status snapshots
 **/private-admin/

@@ -7,6 +7,7 @@ import {
   BrainCircuit,
   Building2,
   Database,
+  Flame,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ import { request, base44 } from '@/api/base44Client';
 const NAV = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
   { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
+  { path: '/heat-map', label: 'Heat map', icon: Flame, hint: 'Jahreszeiten simulieren und Temperaturverteilungen auf dem Campus erkunden' },
   { path: '/gebaeude', label: 'Gebäude & Räume', icon: Building2, hint: 'Geschosse und Räume anlegen, bearbeiten und verwalten' },
   { path: '/sensorik', label: 'Sensorik', icon: Radio, hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
   { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },
@@ -33,9 +35,9 @@ const NAV = [
 
 const ADMIN_NAV = {path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'};
 const NAV_GROUPS = [
-  { label: 'Gebäude', items: NAV.slice(0, 3) },
-  { label: 'Auswertung', items: NAV.slice(3, 8) },
-  { label: 'Verwaltung', items: NAV.slice(8) },
+  { label: 'Gebäude', items: NAV.slice(0, 4) },
+  { label: 'Auswertung', items: NAV.slice(4, 9) },
+  { label: 'Verwaltung', items: NAV.slice(9) },
 ];
 
 function NavItems({ onNavigate, isAdmin }) {

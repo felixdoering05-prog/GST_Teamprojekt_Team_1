@@ -1,0 +1,326 @@
+{
+  "source": "https://www2.h-da.de/imap/index.html",
+  "retrieved": "2026-11-03",
+  "buildings": [
+    {
+      "code": "A10",
+      "coordinates": [
+        8.6320085,
+        49.865903
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A11",
+      "coordinates": [
+        8.632493,
+        49.8659215
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A12",
+      "coordinates": [
+        8.6332235,
+        49.8659765
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A13",
+      "coordinates": [
+        8.6339505,
+        49.866175
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A14",
+      "coordinates": [
+        8.633992,
+        49.8665455
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A15",
+      "coordinates": [
+        8.6325215,
+        49.866147
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A16",
+      "coordinates": [
+        8.634427785873413,
+        49.86613130668988
+      ],
+      "address": "Haardtring 100"
+    },
+    {
+      "code": "A20",
+      "coordinates": [
+        8.6336795,
+        49.8673625
+      ],
+      "address": "Berliner Allee 47"
+    },
+    {
+      "code": "B10",
+      "coordinates": [
+        8.636886198073626,
+        49.86754506851295
+      ],
+      "address": "Schöfferstraße 1"
+    },
+    {
+      "code": "B11",
+      "coordinates": [
+        8.636247670552248,
+        49.86788436441198
+      ],
+      "address": "Schöfferstraße 1"
+    },
+    {
+      "code": "B12",
+      "coordinates": [
+        8.636130999999999,
+        49.8672845
+      ],
+      "address": "Schöfferstraße 1"
+    },
+    {
+      "code": "B13",
+      "coordinates": [
+        8.636610000000001,
+        49.8667575
+      ],
+      "address": "Schöfferstraße 1"
+    },
+    {
+      "code": "B14",
+      "coordinates": [
+        8.637162532088908,
+        49.86678270092639
+      ],
+      "address": ""
+    },
+    {
+      "code": "B15",
+      "coordinates": [
+        8.6371975,
+        49.865891
+      ],
+      "address": "Stephanstraße 7"
+    },
+    {
+      "code": "C10",
+      "coordinates": [
+        8.638197630643845,
+        49.86731352642586
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C11",
+      "coordinates": [
+        8.637802400637247,
+        49.86685667917098
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C11",
+      "coordinates": [
+        8.638032171875238,
+        49.86701184232271
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C12",
+      "coordinates": [
+        8.637934999999999,
+        49.86627192237113
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C14",
+      "coordinates": [
+        8.638960999999998,
+        49.866225
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C15",
+      "coordinates": [
+        8.63887,
+        49.866474
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C16",
+      "coordinates": [
+        8.6387985,
+        49.8667225
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C18",
+      "coordinates": [
+        8.639225499999998,
+        49.866274000000004
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C19",
+      "coordinates": [
+        8.638434593645067,
+        49.86642437799482
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C20",
+      "coordinates": [
+        8.638518171714992,
+        49.866174932775046
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C21",
+      "coordinates": [
+        8.639256,
+        49.8665395
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "C23",
+      "coordinates": [
+        8.638856022360116,
+        49.86772249940621
+      ],
+      "address": "Schöfferstraße 3"
+    },
+    {
+      "code": "D10",
+      "coordinates": [
+        8.6399945,
+        49.866573
+      ],
+      "address": "Schöfferstraße 8"
+    },
+    {
+      "code": "D10",
+      "coordinates": [
+        8.639817,
+        49.867001
+      ],
+      "address": "Schöfferstraße 8"
+    },
+    {
+      "code": "D11",
+      "coordinates": [
+        8.640444,
+        49.8665985
+      ],
+      "address": "Birkenweg 10"
+    },
+    {
+      "code": "D12",
+      "coordinates": [
+        8.640571,
+        49.8671495
+      ],
+      "address": "Schöfferstraße 8b"
+    },
+    {
+      "code": "D14",
+      "coordinates": [
+        8.6414455,
+        49.8662175
+      ],
+      "address": "Schöfferstraße 8b"
+    },
+    {
+      "code": "D15",
+      "coordinates": [
+        8.641557,
+        49.866530999999995
+      ],
+      "address": "Schöfferstraße 8b"
+    },
+    {
+      "code": "D16",
+      "coordinates": [
+        8.6411195,
+        49.866536499999995
+      ],
+      "address": "Birkenweg 8"
+    },
+    {
+      "code": "D17",
+      "coordinates": [
+        8.6409365,
+        49.866977500000004
+      ],
+      "address": "Birkenweg 8"
+    },
+    {
+      "code": "D18",
+      "coordinates": [
+        8.6413395,
+        49.8673945
+      ],
+      "address": "Birkenweg 11b"
+    },
+    {
+      "code": "D19",
+      "coordinates": [
+        8.640313500000001,
+        49.865635499999996
+      ],
+      "address": "Schöfferstraße 10"
+    },
+    {
+      "code": "D20",
+      "coordinates": [
+        8.640428,
+        49.865127
+      ],
+      "address": "Schöfferstraße 12"
+    },
+    {
+      "code": "D21",
+      "coordinates": [
+        8.63648,
+        49.8640005
+      ],
+      "address": "Holzhofallee 38"
+    },
+    {
+      "code": "D13a",
+      "coordinates": [
+        8.640631448034199,
+        49.865962537141954
+      ],
+      "address": "Schöfferstraße 8"
+    },
+    {
+      "code": "D22",
+      "coordinates": [
+        8.63754534628152,
+        49.86329693224704
+      ],
+      "address": "Holzhofallee 36b"
+    }
+  ]
+}

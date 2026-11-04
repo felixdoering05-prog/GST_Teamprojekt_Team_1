@@ -1,4 +1,5 @@
 const {initAdmin,adminRouter}=require('./admin');
+const {campusRouter}=require('./campus');
 const {initDevices,devicesRouter}=require('./devices');
 const {initTelemetry,telemetryRouter}=require('./telemetry');
 const {initModelState,modelStateRouter}=require('./model-state');
@@ -127,6 +128,7 @@ function accountRouter(db,options={}) {
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
+ router.use('/campus',campusRouter(db,requireAccount,options.campus));
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
  router.use(collaborationRouter(db,requireAccount));

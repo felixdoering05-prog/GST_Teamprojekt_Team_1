@@ -7,8 +7,15 @@ import { mountCommands } from './commands.js';
 import { exampleIFC } from './example.js';
 import { readStoreys, floorCut } from './storeys.js';
 import { addSurroundings } from './surroundings.js';
+import { addCampusMap } from './campus-map.js';
+import { footprintHeading } from './campus-projection.js';
+import footprint from './d21-footprint.json';
+import { mountCampusOnly } from './campus-only.js';
+import { mountHeatLayer } from './heat-layer.js';
 
 const isExample = new URLSearchParams(location.search).get('example') === 'true';
+const isCampus = new URLSearchParams(location.search).get('campus') === 'd21';
+const isHeat = new URLSearchParams(location.search).get('heat') === 'true';
 
 const status = document.querySelector('#status');
 const panel = document.querySelector('#selection');
@@ -22,6 +29,7 @@ const home = document.querySelector('#home');
 const roomsPanel = document.querySelector('#rooms');
 let roomEffects;
 let releaseSurroundings;
+let heatLayer;
 let destroyed = false;
 const maxVertices = 1_000_000;
 const maxMeshes = 10_000;
@@ -30,6 +38,7 @@ function release() {
   if (destroyed) return;
   destroyed = true;
   controls?.dispose();
+  heatLayer?.dispose();
   root?.traverse(object => { object.geometry?.dispose(); object.material?.dispose(); });
   roomEffects?.traverse(object => { object.geometry?.dispose(); object.material?.dispose(); });
   releaseSurroundings?.();
@@ -112,14 +121,16 @@ async function open() {
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
   if (![center.x, center.y, center.z].every(Number.isFinite)) throw new Error('Die Modell-Koordinaten sind ungültig.');
-  root.position.sub(center);
+  const heading = isCampus ? footprintHeading(footprint.coordinates) : 0;
+  root.rotation.y = heading;
+  root.position.copy(center).multiplyScalar(-1).applyAxisAngle(new THREE.Vector3(0, 1, 0), heading);
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
   let viewHeight = span * 1.3 / Math.min(innerWidth / innerHeight, 1);
   let lastAspect = innerWidth / innerHeight;
   camera = new THREE.OrthographicCamera(-viewHeight * innerWidth / innerHeight / 2, viewHeight * innerWidth / innerHeight / 2, viewHeight / 2, -viewHeight / 2, span / 10000, span * 100);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95;
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
   document.querySelector('#scene').append(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
@@ -127,7 +138,7 @@ async function open() {
   controls.maxPolarAngle = Math.PI * .49;
   root.updateMatrixWorld(true);
   const centeredBounds = new THREE.Box3().setFromObject(root);
-  releaseSurroundings = addSurroundings(scene, centeredBounds, isExample);
+  if (!isCampus) releaseSurroundings = addSurroundings(scene, centeredBounds, isExample);
   light.position.set(-span, span * 2, span * .6);
   light.castShadow = true; light.shadow.mapSize.set(1024, 1024);
   Object.assign(light.shadow.camera, {left:-span*2,right:span*2,top:span*2,bottom:-span*2,near:.1,far:span*8});
@@ -159,8 +170,8 @@ async function open() {
     frustum(); renderer.setSize(innerWidth, innerHeight); render();
   }); observer.observe(document.body);
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
-  let updateLabels = () => {};
-  const render = () => { renderer.render(scene, camera); updateLabels(); };
+  let updateLabels = () => {}, campusEnvironment;
+  const render = () => { campusEnvironment?.update(camera, render); renderer.render(scene, camera); updateLabels(); };
   for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) document.getElementById(id).onclick = () => {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, .3, 12); camera.updateProjectionMatrix(); render();
   };
@@ -186,14 +197,27 @@ async function open() {
       if (slab.min.y > floor.base + (floor.top - floor.base) * .5) floor.ceiling = Math.min(floor.ceiling ?? Infinity, slab.min.y);
     }
   }
+  if (isCampus) {
+    const ground = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
+    campusEnvironment = addCampusMap(scene, { groundY: ground });
+    releaseSurroundings = () => campusEnvironment.dispose();
+    document.querySelector('#map-attribution').hidden = false;
+    const campusButton = document.querySelector('#campus-fit'); campusButton.hidden = false;
+    campusButton.onclick = () => {
+      const target = campusEnvironment.bounds.getCenter(new THREE.Vector3());
+      const size = Math.max(...campusEnvironment.bounds.getSize(new THREE.Vector3()).toArray());
+      viewHeight = size * 1.2 / Math.min(innerWidth / innerHeight, 1); lastAspect = innerWidth / innerHeight;
+      camera.zoom = 1; frustum(); camera.position.copy(target).add(new THREE.Vector3(0, size * 3, size * .001)); controls.target.copy(target); controls.update(); render();
+    };
+  }
   let selectedFloor = null, exploded = false;
   const gap = span * .14;
   const labelHost = document.querySelector('#labels');
   const titleLabel = document.createElement('div'); titleLabel.className = 'model-label';
   const marker = document.createElement('span'); marker.className = 'marker'; marker.textContent = isExample ? '3D' : 'IFC';
   const titleText = document.createElement('span'); const title = document.createElement('strong');
-  title.textContent = isExample ? 'Beispielcampus' : 'Gebäudemodell';
-  const subtitle = document.createElement('small'); subtitle.textContent = isExample ? 'Stilvorschau · keine D21-Geometrie' : `${meshes} Geometrien · ${storeys.length} Geschosse`;
+  title.textContent = isCampus ? 'D21 · Hochschule Darmstadt' : isExample ? 'Beispielcampus' : 'Gebäudemodell';
+  const subtitle = document.createElement('small'); subtitle.textContent = isCampus ? 'Original-IFC · Lage nach h_da' : isExample ? 'Stilvorschau · keine D21-Geometrie' : `${meshes} Geometrien · ${storeys.length} Geschosse`;
   titleText.append(title, subtitle); titleLabel.append(marker, titleText); labelHost.append(titleLabel);
   const floorLabels = storeys.map(floor => {
     const label = document.createElement('div'); label.className = 'model-label floor-label'; label.textContent = floor.name; labelHost.append(label); return label;
@@ -238,7 +262,7 @@ async function open() {
   const floorList = document.querySelector('#floor-list');
   [...storeys].reverse().forEach(floor => {
     const button = document.createElement('button'); button.textContent = floor.name; button.dataset.floor = String(floor.id); button.setAttribute('aria-pressed', 'false');
-    button.onclick = () => { selectedFloor = floor.id; appearance.select(undefined); panel.hidden = true; refreshView(); };
+    button.onclick = () => { selectedFloor = floor.id; heatLayer?.select(undefined); appearance.select(undefined); panel.hidden = true; refreshView(); };
     floorList.append(button);
   });
   document.querySelector('#floor-count').textContent = String(storeys.length);
@@ -250,14 +274,15 @@ async function open() {
     for (const selector of ['#all-floors', '#floor-list', '#floor-note']) document.querySelector(selector).hidden = collapsed;
   }
   floorToggle.onclick = () => collapseFloors(floorToggle.getAttribute('aria-expanded') === 'true');
-  const responsiveFloors = () => collapseFloors(mobile.matches);
+  const responsiveFloors = () => collapseFloors(isHeat || mobile.matches);
   responsiveFloors(); mobile.addEventListener('change', responsiveFloors);
   window.addEventListener('pagehide', () => mobile.removeEventListener('change', responsiveFloors), { once: true });
   document.querySelector('#floor-note').textContent = storeys.length ? 'Etage wählen, um das Gebäude bis zu diesem Geschoss freizulegen.' : 'Keine Geschosszuordnung mit Geometrie im IFC vorhanden.';
-  document.querySelector('#all-floors').onclick = () => { selectedFloor = null; refreshView(); };
-  document.querySelector('#explode').onclick = () => { exploded = !exploded; refreshView(); fit(); render(); };
+  document.querySelector('#all-floors').onclick = () => { selectedFloor = null; heatLayer?.select(undefined); refreshView(); };
+  document.querySelector('#explode').onclick = () => { exploded = !exploded; heatLayer?.select(undefined); refreshView(); fit(); render(); };
   document.querySelector('#toggle-labels').onclick = event => {
     labelHost.hidden = !labelHost.hidden; event.currentTarget.setAttribute('aria-pressed', String(!labelHost.hidden));
+    campusEnvironment?.setLabels(!labelHost.hidden); render();
   };
   const text = value => typeof value?.value === 'string' ? value.value : '';
   function updateSelection() {
@@ -279,6 +304,11 @@ async function open() {
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
     cancelCommand();
     const cut = floorCut(storeys, selectedFloor, exploded ? gap : 0);
+    if (isHeat) {
+      const targets = [...appearance.visibleMeshes, ...(heatLayer?.ground.visible ? [heatLayer.ground] : [])];
+      heatLayer?.select(ray.intersectObjects(targets, false).find(hit => cut === null || hit.point.y <= cut));
+      return;
+    }
     appearance.select(ray.intersectObjects(appearance.visibleMeshes, false).find(hit => cut === null || hit.point.y <= cut)?.object.userData.expressID);
     updateSelection();
   }
@@ -368,11 +398,18 @@ async function open() {
   document.querySelector('#explode').disabled = storeys.length < 2;
   document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
-  if (isExample) {
-    const note = document.createElement('div'); note.id = 'sync-status'; note.textContent = 'Beispielmodell · frei erfundene Geometrie · Änderungen bleiben lokal'; document.body.append(note);
+  if (isExample || isCampus) {
+    const note = document.createElement('div'); note.id = 'sync-status'; note.textContent = isCampus ? 'D21-Originalmodell · Ansichtsänderungen bleiben lokal' : 'Beispielmodell · frei erfundene Geometrie · Änderungen bleiben lokal'; document.body.append(note);
   } else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection});
+  if (isHeat) {
+    const groundY = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
+    heatLayer = mountHeatLayer({ scene, root, groundY, render });
+    document.querySelector('#model-mode').onclick = () => {};
+    document.querySelector('#sync-status')?.remove();
+  }
   status.hidden = true;
   render();
   report(`ready:${meshes}`);
 }
-open().catch(fail);
+if (isCampus && new URLSearchParams(location.search).get('map-only') === 'true') mountCampusOnly();
+else open().catch(fail);
