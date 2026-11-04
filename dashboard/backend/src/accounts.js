@@ -1,3 +1,4 @@
+const {initHomeAssistant,homeAssistantRouter}=require('./home-assistant');
 const {initAdmin,adminRouter}=require('./admin');
 const {initDevices,devicesRouter}=require('./devices');
 const {initTelemetry,telemetryRouter}=require('./telemetry');
@@ -47,6 +48,7 @@ async function initAccounts(db) {
  await initAssistant(db);
  await initAdmin(db);
  await initDevices(db);
+ await initHomeAssistant(db);
  await initTelemetry(db);
  await initVoice(db);
  await initAIPreferences(db);
@@ -135,6 +137,7 @@ function accountRouter(db,options={}) {
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
+ router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));
  router.use(liveVoiceRouter(db,requireAccount,options.liveVoice));
  router.use(voiceRouter(db,requireAccount,options.voice));
  router.use(aiPreferencesRouter(db,requireAccount));

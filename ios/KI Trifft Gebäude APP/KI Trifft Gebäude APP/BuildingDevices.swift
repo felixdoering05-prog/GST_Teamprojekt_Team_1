@@ -38,6 +38,7 @@ struct DevicesHomeView: View {
                 Label("Dein Gebäude wird smart", systemImage: "house.fill").font(.title2.bold()).foregroundStyle(d21Accent)
                 Text("Wähle ein Gebäude. Dort kannst du Geräte vorbereiten und Licht oder Steckdosen gefahrlos simulieren.").foregroundStyle(.secondary)
             }
+            HomeAssistantLightsSection(account: account)
             Section("Gebäude auswählen") {
                 ForEach(account.buildings) { building in
                     NavigationLink { BuildingDevicesView(building: building, account: account) } label: {
@@ -46,7 +47,7 @@ struct DevicesHomeView: View {
                 }
                 if account.buildings.isEmpty { ContentUnavailableView("Noch kein Gebäude", systemImage: "building.2", description: Text("Lege zuerst unter Gebäude eine Gebäudemappe an oder nimm eine Einladung an.")) }
             }
-            Section { Text("Aktuell werden keine echten Lampen, Steckdosen oder Sensoren verbunden. Simulationen und Vorbereitungen liegen auf eurem Projektserver und sind für Gebäudemitglieder sichtbar.").font(.footnote).foregroundStyle(.secondary) }
+            Section { Text("Gebäudegeräte bleiben Simulationen oder Vorbereitungen und sind für Gebäudemitglieder sichtbar. Eine separat freigegebene private Home-Assistant-Demo erscheint oben.").font(.footnote).foregroundStyle(.secondary) }
         }
         .navigationTitle("Geräte")
         .refreshable { await account.loadBuildings() }
