@@ -6,6 +6,9 @@ import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, I
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 
+const previewMode=new URLSearchParams(location.search).get('preview')==='true';
+const darkPreview=new URLSearchParams(location.search).get('theme')==='dark';
+const previewColor=darkPreview?'#99c5ff':'#174a80';
 const status = document.querySelector('#status');
 const panel = document.querySelector('#selection');
 const buttons = [...document.querySelectorAll('button')];
@@ -52,7 +55,7 @@ async function open() {
   await api.Init(path => new URL(path, location.href).href, true);
   modelID = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
-  scene = new THREE.Scene(); scene.background = new THREE.Color('#e5e9ee');
+  scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#e5e9ee');
   scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
   root = new THREE.Group(); scene.add(root);
@@ -76,7 +79,7 @@ async function open() {
         geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
         geometry.setIndex(new THREE.BufferAttribute(indices.slice(), 1));
         const color = placed.color;
-        const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(color.x, color.y, color.z), opacity: color.w, transparent: color.w < 1, side: THREE.DoubleSide, roughness: .8 });
+        const material = new THREE.MeshStandardMaterial({ color: previewMode?new THREE.Color(previewColor):new THREE.Color(color.x, color.y, color.z), opacity: previewMode?1:color.w, transparent: !previewMode && color.w < 1, side: THREE.DoubleSide, roughness: .8 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.applyMatrix4(new THREE.Matrix4().fromArray(placed.flatTransformation));
         mesh.userData.expressID = flat.expressID;
@@ -116,6 +119,7 @@ async function open() {
     controls.target.set(0, 0, 0); controls.update();
   }
   fit();
+  if(previewMode){document.querySelectorAll('body > :not(#scene)').forEach(x=>x.hidden=true);renderer.render(scene,camera);report('ready:preview');return;}
   document.querySelector('#fit').onclick = () => fit();
   document.querySelector('#top').onclick = () => fit(true);
   controls.addEventListener('change', () => renderer.render(scene, camera));

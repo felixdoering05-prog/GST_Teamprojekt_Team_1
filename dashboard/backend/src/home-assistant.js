@@ -49,18 +49,22 @@ function homeAssistantRouter(db,requireAccount,options={}){
   const lights=await Promise.all(config.lights.map(async light=>{const location=(await db.query('SELECT building_id,room,document_id,space_id,revision FROM app_lamp_locations WHERE user_id=$1 AND light_key=$2',[req.account.id,light.key])).rows[0]||null;try{return {...await state(config,light),location};}catch{return {key:light.key,name:light.name,room:light.room,available:false,is_on:null,supports_rgb:false,rgb:null,brightness:null,location,checked_at:null};}}));
   res.json({configured:true,lights});
  }));
- r.post(base+'/:light/command',wrap(async(req,res)=>{
-  const config=configuration(req.account.id),light=config?.lights.find(x=>x.key===req.params.light);if(!light)fail('Lampe nicht freigegeben.',404);
-  const b=req.body||{},key=req.get('X-Request-ID')||'';
+ r.post(base+'/:light/command',wrap(async(req,res)=>{const result=await executeLampCommand(db,req.account.id,req.params.light,req.body,req.get('X-Request-ID'),options);res.status(result.confirmed?200:202).json(result);}));
+ r.use((e,req,res,next)=>e.status?res.status(e.status).json({error:e.message}):next(e));return r;
+}
+async function executeLampCommand(db,user,lightKey,body,requestKey,options={}){
+ const {configuration,state,call}=homeAssistantService(options);
+  const config=configuration(user),light=config?.lights.find(x=>x.key===lightKey);if(!light)fail('Lampe nicht freigegeben.',404);
+  const b=body||{},key=requestKey||'';
   if(Object.keys(b).some(k=>!['on','rgb','brightness'].includes(k))||typeof b.on!=='boolean'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key))fail('Bitte einen gültigen einzelnen Lichtauftrag senden.');
   if(b.rgb!==undefined&&(!Array.isArray(b.rgb)||b.rgb.length!==3||b.rgb.some(x=>!Number.isInteger(x)||x<0||x>255))||b.brightness!==undefined&&(!Number.isInteger(b.brightness)||b.brightness<1||b.brightness>255)||!b.on&&(b.rgb!==undefined||b.brightness!==undefined))fail('Bitte gültige Lichtfarbe und Helligkeit verwenden.');
   const c=await db.connect();let id;
   try{
-   await c.query('BEGIN');await c.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
-   if((await c.query('SELECT 1 FROM app_ha_commands WHERE user_id=$1 AND request_key=$2',[req.account.id,key.toLowerCase()])).rows.length)fail('Dieser Auftrag wurde bereits angenommen. Status neu laden; nicht automatisch wiederholen.',409);
-   const count=(await c.query("SELECT COUNT(*) n,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '30 seconds') active FROM app_ha_commands WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[req.account.id])).rows[0];
+   await c.query('BEGIN');await c.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[user]);
+   if((await c.query('SELECT 1 FROM app_ha_commands WHERE user_id=$1 AND request_key=$2',[user,key.toLowerCase()])).rows.length)fail('Dieser Auftrag wurde bereits angenommen. Status neu laden; nicht automatisch wiederholen.',409);
+   const count=(await c.query("SELECT COUNT(*) n,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '30 seconds') active FROM app_ha_commands WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[user])).rows[0];
    if(Number(count.n)>=20)fail('Bitte kurz warten: maximal 20 Lichtaufträge pro Minute.',429);if(Number(count.active)>0)fail('Ein Lichtauftrag läuft noch. Bitte zuerst den Status neu laden.',409);
-   id=(await c.query('INSERT INTO app_ha_commands(user_id,light_key,request_key,desired_on) VALUES($1,$2,$3,$4) RETURNING id',[req.account.id,light.key,key.toLowerCase(),b.on])).rows[0].id;
+   id=(await c.query('INSERT INTO app_ha_commands(user_id,light_key,request_key,desired_on) VALUES($1,$2,$3,$4) RETURNING id',[user,light.key,key.toLowerCase(),b.on])).rows[0].id;
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   try{
@@ -74,9 +78,8 @@ function homeAssistantRouter(db,requireAccount,options={}){
    }
    const confirmed=matches(current);
    await db.query("UPDATE app_ha_commands SET status=$2,finished_at=now() WHERE id=$1",[id,confirmed?'confirmed':'unconfirmed']);
-   res.status(confirmed?200:202).json({confirmed,light:current,message:confirmed?'Lampenstatus von Home Assistant bestätigt.':'Auftrag gesendet; der gewünschte Zustand ist noch nicht bestätigt. Bitte Status neu laden.'});
+   return {confirmed,light:current,message:confirmed?'Lampenstatus von Home Assistant bestätigt.':'Auftrag gesendet; der gewünschte Zustand ist noch nicht bestätigt. Bitte Status neu laden.'};
   }catch(e){await db.query("UPDATE app_ha_commands SET status='uncertain',finished_at=now() WHERE id=$1",[id]);throw e;}
- }));
- r.use((e,req,res,next)=>e.status?res.status(e.status).json({error:e.message}):next(e));return r;
+
 }
-module.exports={initHomeAssistant,homeAssistantRouter,homeAssistantService};
+module.exports={initHomeAssistant,homeAssistantRouter,homeAssistantService,executeLampCommand};

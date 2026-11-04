@@ -105,10 +105,25 @@ import ElevenLabs
         do { let value = !muted; try await call.setMuted(value); if ticket == generation { muted = value; if !speaking { phase = value ? "Mikrofon pausiert" : "Ich höre zu" } } }
         catch { if ticket == generation { stop(message: "Mikrofon konnte nicht pausiert werden. Gespräch beendet.") } }
     }
+    private var lightRequests: [String:String] = [:]
     private func prepare(_ request: ClientToolCallEvent, ticket: UUID, account: AccountModel, building: Int) async {
         guard generation == ticket, let call = conversation else { return }
         do {
             let args = try request.getParameters()
+            if request.toolName == "control_lights" {
+                guard !applying, Set(args.keys) == Set(["actions"]) else { throw APIError(status: 400, message: "Ungültiger Lampenauftrag.") }
+                applying = true; defer { applying = false }
+                struct LeaseStatus: Decodable { let active: Bool }
+                let status: LeaseStatus = try await account.request("buildings/\(building)/voice/live/\(lease ?? "")")
+                guard status.active, generation == ticket else { throw APIError(status:403,message:"Gespräch beendet.") }
+                let requestID = lightRequests[request.toolCallId] ?? UUID().uuidString
+                lightRequests[request.toolCallId] = requestID
+                struct Result: Decodable { let answer: String }
+                let result: Result = try await account.request("buildings/\(building)/assistant/device-actions", method: "POST", body: args, headers: ["X-Request-ID": requestID], timeout: 60)
+                guard generation == ticket else { return }
+                try await call.sendToolResult(for: request.toolCallId, result: result.answer)
+                return
+            }
             guard request.toolName == "request_device_change", proposal == nil, !applying,
                   Set(args.keys) == Set(["name","on"]), let name = args["name"] as? String, !name.isEmpty, name.count <= 100,
                   let on = args["on"] as? Bool else { throw APIError(status: 400, message: "Kein gültiger einzelner Simulationsauftrag.") }
@@ -149,7 +164,7 @@ struct BuildingVoiceView: View {
                 VoiceAssistantAnimation(active: voice.active || voice.connecting, speaking: voice.speaking, level: voice.muted ? 0 : voice.level)
                     .frame(height: 200).accessibilityHidden(true)
                 Text(voice.phase).font(.title2.bold()).multilineTextAlignment(.center).accessibilityAddTraits(.updatesFrequently)
-                Text(voice.active ? "Sprich ganz normal. Du kannst die Antwort jederzeit unterbrechen." : "Frage nach deinem Gebäude oder bitte darum, ein simuliertes Gerät zu schalten.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(voice.active ? "Sprich ganz normal. Du kannst die Antwort jederzeit unterbrechen." : "Frage nach deinem Gebäude oder bitte darum, deine verbundenen Lampen zu schalten.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 if !account.aiPreferences.active {
                     NavigationLink { AISettingsView(account: account) } label: { Label("KI einmal aktivieren", systemImage: "sparkles") }.buttonStyle(.borderedProminent).tint(d21Accent)
                 } else if voice.active || voice.connecting {

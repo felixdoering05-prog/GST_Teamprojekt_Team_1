@@ -1,3 +1,4 @@
+const {deviceContext}=require('./assistant-devices');
 const express=require('express');
 const {readFileSync}=require('node:fs');
 const {accessibleBuilding}=require('./collaboration');
@@ -37,7 +38,7 @@ function liveVoiceRouter(db,requireAccount,options={}){
    if(!await aiEnabled(db,req.account.id)||current.revision!==preference.revision||!await accessibleBuilding(db,req.liveBuilding.id,req.account.id))fail('Freigabe oder Gebäudezugang wurde geändert.',403);
    const devices=(await db.query("SELECT name,kind,is_on FROM app_devices WHERE building_id=$1 AND mode='simulation' AND kind IN ('light','plug') ORDER BY id LIMIT 50",[req.liveBuilding.id])).rows;
    const documents=(await db.query('SELECT name,mime_type FROM app_documents WHERE building_id=$1 ORDER BY id DESC LIMIT 10',[req.liveBuilding.id])).rows;
-   res.json({token:data.token,session_id:sessionKey,max_seconds:120,dynamic_variables:{building_context:JSON.stringify({building_name:req.liveBuilding.name,simulated_devices:devices,latest_documents:documents,limitations:'Nur Namen und Simulationszustände; keine Dateiinhalte, Geometrie oder echten Geräte. Listen sind begrenzte Ausschnitte.'})}});
+   res.json({token:data.token,session_id:sessionKey,max_seconds:120,dynamic_variables:{building_context:JSON.stringify({building_name:req.liveBuilding.name,authorized_lights:await deviceContext(db,req.account.id,req.liveBuilding.id,options.homeAssistant||{}),latest_documents:documents,limitations:'Nur freigegebene Lampen dieses Kontos und Gebäudes dürfen mit control_lights gesteuert werden. Keine Dateiinhalte oder Geometrie. Listen sind begrenzte Ausschnitte.'})}});
   }catch(e){await db.query("UPDATE app_voice_usage SET status='failed' WHERE id=$1",[usage]);if(e.status)throw e;fail('Live-Verbindung nicht erreichbar.',503);}
  }));
  r.get(base+'/:session',wrap(async(req,res)=>{
