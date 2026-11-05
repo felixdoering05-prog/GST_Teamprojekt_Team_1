@@ -9,3 +9,6 @@ for (const name of ['index.html', 'style.css']) await copyFile(new URL('ifc-view
 await copyFile(new URL('node_modules/web-ifc/web-ifc.wasm', root), new URL('web-ifc.wasm', output));
 await copyFile(new URL('node_modules/web-ifc/LICENSE.md', root), new URL('web-ifc-LICENSE.txt', output));
 await copyFile(new URL('node_modules/three/LICENSE', root), new URL('three-LICENSE.txt', output));
+const campusData = new URL('public/campus-data/', root);
+await mkdir(campusData, { recursive: true });
+for (const name of ['campus-locations.json', 'd21-footprint.json']) await copyFile(new URL('ifc-viewer/' + name, root), new URL(name, campusData));

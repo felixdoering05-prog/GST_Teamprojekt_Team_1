@@ -18,6 +18,8 @@ services:
       DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
       D21_ADMIN_USER_IDS: ${D21_ADMIN_USER_IDS:-}
       D21_ADMIN_SNAPSHOT_FILE: /run/d21-admin/status.json
+      D21_CAMPUS_BUILDING_ID: ${D21_CAMPUS_BUILDING_ID:-}
+      D21_CAMPUS_MODEL_FILE: /run/d21-models/H_DA_D21_Final.ifc
       D21_HOMEASSISTANT_CONFIG_FILE: /run/d21-homeassistant/config.json
       D21_HOMEASSISTANT_TOKEN_FILE: /run/d21-homeassistant/access-token
       ELEVENLABS_ENABLED: ${ELEVENLABS_ENABLED:-false}
@@ -34,7 +36,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       SMTP_PASSWORD_FILE: /run/d21-mail/smtp-password
       PASSWORD_RESET_SECRET_FILE: /run/d21-mail/reset-secret
-    volumes: ['${D21_HOMEASSISTANT_CONFIG_DIR:-./private-homeassistant}:/run/d21-homeassistant:ro', './private-mail:/run/d21-mail:ro', '${D21_AI_CONFIG_DIR:-./private-ai}:/run/d21-ai:ro', '${D21_ADMIN_STATUS_DIR:-./private-admin}:/run/d21-admin:ro', '${D21_VOICE_CONFIG_DIR:-./private-voice}:/run/d21-voice:ro']
+    volumes: ['${D21_HOMEASSISTANT_CONFIG_DIR:-./private-homeassistant}:/run/d21-homeassistant:ro', './private-mail:/run/d21-mail:ro', '${D21_AI_CONFIG_DIR:-./private-ai}:/run/d21-ai:ro', '${D21_ADMIN_STATUS_DIR:-./private-admin}:/run/d21-admin:ro', '${D21_VOICE_CONFIG_DIR:-./private-voice}:/run/d21-voice:ro', '${D21_CAMPUS_MODELS_DIR:-./private-models}:/run/d21-models:ro']
     depends_on:
       db:
         condition: service_healthy

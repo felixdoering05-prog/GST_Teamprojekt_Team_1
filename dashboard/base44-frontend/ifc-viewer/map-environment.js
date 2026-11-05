@@ -3,9 +3,10 @@ export function localPoint(lon,lat,view){const north=(lat-view.latitude)*111320,
 export function mountMapEnvironment(scene,groundY,render){
  let previous='',group;
  function clear(){if(!group)return;scene.remove(group);group.traverse(x=>{x.geometry?.dispose();x.material?.dispose();});group=null;}
- const note=document.createElement('div');note.id='map-attribution';document.body.append(note);
+ const note=document.querySelector('#map-attribution')||document.createElement('div');note.id='map-attribution';note.hidden=true;if(!note.parentNode)document.body.append(note);
+ window.addEventListener('pagehide',clear,{once:true});
  return view=>{
-  const signature=JSON.stringify(view);if(signature===previous)return;previous=signature;clear();note.replaceChildren();
+  const signature=JSON.stringify(view);if(signature===previous)return;previous=signature;clear();note.replaceChildren();note.hidden=true;
   if(!view?.features||!Array.isArray(view.features)||!Number.isFinite(view.meters_per_unit)||view.meters_per_unit<=0)return;
   group=new THREE.Group();group.position.y=groundY+.03;group.rotation.y=view.heading*Math.PI/180;
   const unit=view.meters_per_unit;
@@ -24,7 +25,7 @@ export function mountMapEnvironment(scene,groundY,render){
     geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#e6e7e5':'#d7e3d7',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
    }
   }
-  scene.add(group);
+  scene.add(group);note.hidden=false;
   const attribution=document.createElement('a');attribution.href='https://www.openstreetmap.org/copyright';attribution.textContent='© OpenStreetMap-Mitwirkende';attribution.target='_blank';attribution.rel='noopener';note.append(attribution,document.createTextNode(' · Umgebung vereinfacht; fehlende Höhen geschätzt · Position manuell'));render();
  };
 }

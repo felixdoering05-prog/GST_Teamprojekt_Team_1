@@ -17,6 +17,7 @@ import Dashboard from './pages/Dashboard';
 import Rooms from './pages/Rooms';
 import Sensors from './pages/Sensors';
 import BimViewer from './pages/BimViewer';
+import HeatMap from './pages/HeatMap';
 import Energy from './pages/Energy';
 import Analysis from './pages/Analysis';
 import Alerts from './pages/Alerts';
@@ -62,6 +63,7 @@ const AuthenticatedApp = () => {
           <Route path="/gebaeude" element={<Rooms />} />
           <Route path="/sensorik" element={<Sensors />} />
           <Route path="/bim-viewer" element={<BimViewer />} />
+          <Route path="/heat-map" element={<HeatMap />} />
           <Route path="/energie" element={<Energy />} />
           <Route path="/analyse" element={<Analysis />} />
           <Route path="/meldungen" element={<Alerts />} />

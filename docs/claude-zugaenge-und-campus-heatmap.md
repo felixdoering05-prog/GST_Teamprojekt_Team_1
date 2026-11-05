@@ -33,6 +33,8 @@ Der Zugang zu verwendbaren Bauplänen sowie gegebenenfalls vorhandenen Revit-/IF
 
 ## Campus-Heatmap als mögliche Verbindung
 
+Ergänzung vom 5. November 2026: Auf Emirs neue Anforderung wird eine eigenständige **Heat map** mit illustrativer Jahreszeiten-/Tageszeit-Simulation und fester Temperaturfarbskala umgesetzt. Bedienung, Annahmen und Prüfungen stehen in [Web-BIM-Viewer und Heat map](web-bim-viewer.md#heat-map-und-jahreszeiten). Diese lokale Visualisierung ist unabhängig von der nachfolgend beschriebenen möglichen Anbindung echter Campusdaten; eine Datenfreigabe oder Messanbindung wird daraus nicht abgeleitet.
+
 Herr Bürgy berichtet von einer geplanten Campus-Heatmap für aktuelle und vergangene Wärmeverhältnisse. Dazu kündigt er eine Abstimmung mit HSE, KNE und BuL an; anschließend sollen weitere Informationen folgen. Eine Verbindung zu unserem Projekt ist eine mögliche Erweiterung, kein bereits beschlossener oder implementierter Funktionsumfang.
 
 Zu klären sind Zweck und genaue Bedeutung der Messgrößen, Datenquelle und Verfügbarkeit, Zugriffs-/Nutzungsrechte, zeitliche und räumliche Zuordnung sowie ein möglicher Datenvertrag mit unserer API. Erst nach dieser Klärung wird ein konkretes Arbeitspaket abgestimmt. Vorhandene Sensorik-/Energie-Demoansichten sind kein Nachweis einer angebundenen Campus-Heatmap.
