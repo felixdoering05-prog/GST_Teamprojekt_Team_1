@@ -212,8 +212,19 @@ async function open() {
       camera.zoom = 1; frustum(); camera.position.copy(target).add(new THREE.Vector3(0, size * 3, size * .001)); controls.target.copy(target); controls.update(); render();
     };
   }
-  let selectedFloor = null, exploded = false;
+  let selectedFloor = null, separatedFloor = null;
   const gap = span * .14;
+  const selectedFloorCut = () => floorCut(storeys, selectedFloor,
+    selectedFloor !== null && separatedFloor === selectedFloor ? gap : 0, 1);
+  function updateSeparationControl() {
+    const button = document.querySelector('#explode');
+    const separated = selectedFloor !== null && separatedFloor === selectedFloor;
+    button.disabled = selectedFloor === null || !storeys.length;
+    button.setAttribute('aria-pressed', String(separated));
+    button.setAttribute('aria-label', separated ? 'Ausgewähltes Geschoss wieder einfügen' : 'Ausgewähltes Geschoss absetzen');
+    button.title = selectedFloor === null ? 'Wähle zuerst ein Geschoss aus.' : button.getAttribute('aria-label');
+    button.textContent = separated ? 'Geschoss einfügen' : 'Geschoss absetzen';
+  }
   const labelHost = document.querySelector('#labels');
   const titleLabel = document.createElement('div'); titleLabel.className = 'model-label';
   const marker = document.createElement('span'); marker.className = 'marker'; marker.textContent = isExample ? '3D' : 'IFC';
@@ -231,40 +242,39 @@ async function open() {
   };
   updateLabels = () => {
     const displayedFloor = storeys.find(floor => floor.id === selectedFloor);
-    const top = displayedFloor ? floorCut(storeys, selectedFloor, exploded ? gap : 0) : centeredBounds.max.y + (exploded ? Math.max(0, storeys.length - 1) * gap : 0);
+    const top = displayedFloor ? selectedFloorCut() : centeredBounds.max.y + (separatedFloor ? gap : 0);
     placeLabel(titleLabel, new THREE.Vector3(0, top + span * .09, 0));
     floorLabels.forEach((label, index) => {
-      label.hidden = !exploded || (selectedFloor !== null && index > storeys.findIndex(floor => floor.id === selectedFloor));
+      label.hidden = separatedFloor !== storeys[index].id;
       if (!label.hidden) {
         const point = floorBounds.get(storeys[index].id).getCenter(new THREE.Vector3());
-        point.y = storeys[index].base + index * gap + .4;
+        point.y = storeys[index].base + gap + .4;
         placeLabel(label, point);
       }
     });
   };
   function refreshView() {
-    const cut = floorCut(storeys, selectedFloor, exploded ? gap : 0);
+    const cut = selectedFloorCut();
     renderer.clippingPlanes = cut === null ? [] : [new THREE.Plane(new THREE.Vector3(0, -1, 0), cut)];
     for (const mesh of root.children) {
-      const index = storeys.findIndex(floor => floor.id === mesh.userData.storey);
       mesh.position.copy(mesh.userData.basePosition);
-      if (exploded && index >= 0) mesh.position.y += index * gap;
+      if (mesh.userData.storey === separatedFloor) mesh.position.y += gap;
     }
     roomEffects?.children.forEach(mesh => {
-      const index = storeys.findIndex(floor => floor.id === spatial.assignments.get(mesh.userData.expressID));
+      const storey = spatial.assignments.get(mesh.userData.expressID);
       mesh.position.copy(mesh.userData.basePosition);
-      if (exploded && index >= 0) mesh.position.y += index * gap;
+      if (storey === separatedFloor) mesh.position.y += gap;
     });
     root.updateMatrixWorld(true);
     document.querySelector('#all-floors').setAttribute('aria-pressed', String(selectedFloor === null));
-    document.querySelector('#explode').setAttribute('aria-pressed', String(exploded));
+    updateSeparationControl();
     document.querySelectorAll('[data-floor]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.floor) === selectedFloor)));
     render();
   }
   const floorList = document.querySelector('#floor-list');
   [...storeys].reverse().forEach(floor => {
     const button = document.createElement('button'); button.textContent = floor.name; button.dataset.floor = String(floor.id); button.setAttribute('aria-pressed', 'false');
-    button.onclick = () => { selectedFloor = floor.id; heatLayer?.select(undefined); appearance.select(undefined); panel.hidden = true; refreshView(); };
+    button.onclick = () => { selectedFloor = floor.id; if (separatedFloor !== null) separatedFloor = floor.id; heatLayer?.select(undefined); appearance.select(undefined); panel.hidden = true; refreshView(); };
     floorList.append(button);
   });
   document.querySelector('#floor-count').textContent = String(storeys.length);
@@ -280,8 +290,8 @@ async function open() {
   responsiveFloors(); mobile.addEventListener('change', responsiveFloors);
   window.addEventListener('pagehide', () => mobile.removeEventListener('change', responsiveFloors), { once: true });
   document.querySelector('#floor-note').textContent = storeys.length ? 'Etage wählen, um das Gebäude bis zu diesem Geschoss freizulegen.' : 'Keine Geschosszuordnung mit Geometrie im IFC vorhanden.';
-  document.querySelector('#all-floors').onclick = () => { selectedFloor = null; heatLayer?.select(undefined); refreshView(); };
-  document.querySelector('#explode').onclick = () => { exploded = !exploded; heatLayer?.select(undefined); refreshView(); fit(); render(); };
+  document.querySelector('#all-floors').onclick = () => { selectedFloor = null; separatedFloor = null; heatLayer?.select(undefined); refreshView(); };
+  document.querySelector('#explode').onclick = () => { if (selectedFloor === null) return; separatedFloor = separatedFloor === selectedFloor ? null : selectedFloor; heatLayer?.select(undefined); refreshView(); fit(); render(); };
   document.querySelector('#toggle-labels').onclick = event => {
     labelHost.hidden = !labelHost.hidden; event.currentTarget.setAttribute('aria-pressed', String(!labelHost.hidden));
     campusEnvironment?.setLabels(!labelHost.hidden); render();
@@ -397,7 +407,7 @@ async function open() {
   }
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);
-  document.querySelector('#explode').disabled = storeys.length < 2;
+  updateSeparationControl();
   document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
   if (isExample || isCampus) {
