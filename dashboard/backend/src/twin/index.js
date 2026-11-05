@@ -1,3 +1,4 @@
+const {syncBuildingLocation}=require('../building-weather');
 const express = require('express');
 const {randomUUID} = require('node:crypto');
 const seed = require('./seed');
@@ -95,7 +96,7 @@ function service(db,userId) {
   if(count>=MAX_ROWS)fail('Prototyp-Limit von 20.000 Datensätzen pro Konto erreicht.',413);
   if(entity==='Building') {
    const row=(await db.query('INSERT INTO app_buildings(user_id,name,address,twin_data) VALUES($1,$2,$3,$4) RETURNING id',[userId,data.name,data.address||'',JSON.stringify(data)])).rows[0];
-   return get(entity,String(row.id));
+   await syncBuildingLocation(db,row.id,data);return get(entity,String(row.id));
   }
   const id=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[id,userId,entity,JSON.stringify(data)]);return { ...data, id, created_date:new Date().toISOString() };
  }
@@ -103,7 +104,7 @@ function service(db,userId) {
   const old=await get(entity,id);const patch=validate(entity,input,true);
   const {id:_,created_date,updated_date,...original}=old;
   const data=validate(entity,{...original,...patch});await references(entity,data);
-  if(entity==='Building')await db.query('UPDATE app_buildings SET name=$1,address=$2,twin_data=$3 WHERE id=$4 AND user_id=$5',[data.name,data.address||'',JSON.stringify(data),id,userId]);
+  if(entity==='Building'){await db.query('UPDATE app_buildings SET name=$1,address=$2,twin_data=$3 WHERE id=$4 AND user_id=$5',[data.name,data.address||'',JSON.stringify(data),id,userId]);await syncBuildingLocation(db,id,data);}
   else await db.query('UPDATE app_twin_records SET data=$1,updated_at=now() WHERE id=$2 AND user_id=$3 AND entity=$4',[JSON.stringify(data),id,userId,entity]);
   return get(entity,id);
  }

@@ -214,7 +214,6 @@ async function open() {
       viewHeight = size * 1.2 / Math.min(innerWidth / innerHeight, 1); lastAspect = innerWidth / innerHeight;
       camera.zoom = 1; frustum(); camera.position.copy(target).add(new THREE.Vector3(0, size * 3, size * .001)); controls.target.copy(target); controls.update(); render();
     };
-  }
   } else if (showWorldMap) {
     campusEnvironment = addCampusMap(scene, { groundY: centeredBounds.min.y, center: [modelPlacement.longitude, modelPlacement.latitude] });
     releaseSurroundings = () => campusEnvironment.dispose();
