@@ -240,26 +240,29 @@ private enum IFCError: LocalizedError {
 
 struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
+    var heat: HeatPresentation? = nil
     var smartHome = false
     var account: AccountModel? = nil
     var buildingID: Int? = nil
     var documentID: Int? = nil
-    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID) }
+    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
-        if account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
-        if account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
+        if heat != nil {configuration.userContentController.add(context.coordinator,name:"ifcHeatReady")}
+        if heat == nil && account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
+        if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
         web.isOpaque = false
         web.scrollView.isScrollEnabled = false
-        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html" + (smartHome ? "?mode=smart-home" : ""))!))
+        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html" + (heat != nil ? "?heat=true" : smartHome ? "?mode=smart-home" : ""))!))
         return web
     }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {context.coordinator.heat=heat;if context.coordinator.heatReady {context.coordinator.sendHeat(uiView)}}
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName:"ifcHeatReady")
         coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
@@ -270,13 +273,25 @@ struct IFCWebView: UIViewRepresentable {
         weak var account: AccountModel?
         let buildingID: Int?
         let documentID: Int?
+        var heat:HeatPresentation?
+        var heatReady=false
+        var heatMap:SceneReply.MapView?
         var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
-        init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?) { self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
+        init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?, heat:HeatPresentation? = nil) { self.heat=heat;self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
+        @MainActor func sendHeat(_ web:WKWebView) {
+            guard let heat,heatReady else{return}
+            do {var value=(try JSONSerialization.jsonObject(with:JSONEncoder().encode(heat))) as? [String:Any] ?? [:];if let heatMap {value["map_view"]=try JSONSerialization.jsonObject(with:JSONEncoder().encode(heatMap))};Task{_ = try? await web.callAsyncJavaScript("window.d21SetWeather?.(weather)",arguments:["weather":value],in:nil,contentWorld:.page)}}catch{}
+        }
         struct CommandInfo: Decodable { let enabled: Bool; let context_hash: String }
         struct CommandProposal: Codable { let action: String; let target: String; let color: String?; let summary: String }
         struct CommandReply: Decodable { let command: CommandProposal }
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name=="ifcHeatReady", message.frameInfo.isMainFrame, message.webView?.url?.scheme=="d21ifc",let web=message.webView,heat != nil {
+                heatReady=true;sendHeat(web)
+                if let account,let documentID {sceneTask=Task{@MainActor [weak self,weak web] in guard let self,let web else{return};do{let value:SceneReply=try await account.request("documents/\(documentID)/model-state");guard !Task.isCancelled else{return};self.heatMap=value.map_view;self.sendHeat(web)}catch{}}}
+                return
+            }
             if message.name == "ifcSceneRequest" { sceneRequest(message); return }
             guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
                   web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],

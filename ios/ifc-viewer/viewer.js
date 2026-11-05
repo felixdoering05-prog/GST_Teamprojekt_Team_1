@@ -1,3 +1,4 @@
+import {mountNativeHeat} from './heat.js';
 import { mountMapEnvironment } from './map-environment.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
@@ -6,6 +7,7 @@ import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, I
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 
+const heatMode=new URLSearchParams(location.search).get('heat')==='true';
 const previewMode=new URLSearchParams(location.search).get('preview')==='true';
 const darkPreview=new URLSearchParams(location.search).get('theme')==='dark';
 const previewColor=darkPreview?'#99c5ff':'#174a80';
@@ -55,7 +57,7 @@ async function open() {
   await api.Init(path => new URL(path, location.href).href, true);
   modelID = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
-  scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#e5e9ee');
+  scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#ffffff');
   scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
   root = new THREE.Group(); scene.add(root);
@@ -106,7 +108,7 @@ async function open() {
   document.querySelector('#scene').append(renderer.domElement);
   root.updateMatrixWorld(true);
   const centeredBounds = new THREE.Box3().setFromObject(root);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 12, span * 12),new THREE.MeshStandardMaterial({color:'#e5e9ee',roughness:1}));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 12, span * 12),new THREE.ShadowMaterial({opacity:.14}));
   ground.rotation.x = -Math.PI/2; ground.position.y = centeredBounds.min.y - span*.001; ground.receiveShadow=true; scene.add(ground);
   light.position.set(-span,span*2,span*.6); light.castShadow=true;light.shadow.mapSize.set(1024,1024);
   Object.assign(light.shadow.camera,{left:-span*2,right:span*2,top:span*2,bottom:-span*2,near:.1,far:span*8});light.shadow.normalBias=span*.0002;light.shadow.camera.updateProjectionMatrix();
@@ -132,6 +134,7 @@ async function open() {
   const applyMap = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
   const text = value => typeof value?.value === 'string' ? value.value : '';
   function updateSelection() {
+    if(heatMode)return;
     const id = appearance.selectedID;
     panel.hidden = id === undefined;
     if (id !== undefined) {
@@ -147,6 +150,7 @@ async function open() {
   const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, changed, destroyed: () => destroyed });
   const ray = new THREE.Raycaster();
   function pick(x, y) {
+    if(heatMode)return;
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
     cancelCommand();
     appearance.select(ray.intersectObjects(appearance.visibleMeshes, false)[0]?.object.userData.expressID);
@@ -236,7 +240,8 @@ async function open() {
   buttons.forEach(button => button.disabled = false);
   document.querySelector('#command-execute').disabled = true;
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
-  synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
+  if(heatMode)mountNativeHeat(root,render,applyMap);
+  else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   status.hidden = true;
   renderer.render(scene, camera);
   report(`ready:${meshes}`);

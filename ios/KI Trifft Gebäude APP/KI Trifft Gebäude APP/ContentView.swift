@@ -441,6 +441,7 @@ struct AccountHomeView: View {
     }
     var body: some View {
         TabView(selection: $selectedTab) {
+            NavigationStack {BuildingHeatmapHome(account:model)}.tabItem{Label("Heatmap",systemImage:"thermometer.sun")}.tag(5)
             NavigationStack { NativeDashboardEntry(account: model) }.tabItem { Label("Dashboard", systemImage: "chart.bar.xaxis") }.tag(4)
             NavigationStack(path: $path) {
                 List {

@@ -4,6 +4,17 @@
 
 **Neueste Änderungen zuerst.** Innerhalb eines Tages stehen die zuletzt zusammengeführten Änderungen oben. Dieser Verlauf dokumentiert Entwicklung; er ersetzt keine Team-Sitzungsprotokolle. Frühere Einträge beschreiben den damaligen Stand und werden durch spätere Änderungen ergänzt.
 
+## 5. November 2026
+
+### Native Heatmap für Gebäude, Wetter und weiße Karte
+
+- Neuer iPhone-Reiter mit Gebäudestandort, aktuellen Open-Meteo-Modellwerten und bis zu 24 stündlichen Prognosewerten. Expliziter Abruf mit gerundetem Punkt und Cache; keine erfundenen Messwerte.
+- Private IFC-Auswahl und direkt bedienbarer Stundenregler für illustrative Oberflächenfarben. Wetterdaten samt Quelle und Abrufzeit stehen dem privaten KI-Chat und bewusst gestarteter Live-Sprache zur Verfügung.
+- Weiße mobile Modellumgebung mit Schatten, etwa 100 × 100 m neue Kartenausschnitte und Plausibilitätsprüfung von IFC-GPS und Grundriss. Keine blind automatische, vermessungsgerechte Georeferenzierung.
+- Signierter App-Build 1.0.96 (96), 117 Backend-Tests und fünf native Viewer-Tests. Sommer-/Winterfarben und weißer Hintergrund mit einem synthetischen IFC sichtbar geprüft; tatsächlicher Wetterabruf für öffentlichen Darmstadt-Punkt erfolgreich.
+
+[Anleitung, Datenschutz und Prüfgrenzen](docs/iphone-heatmap-wetter.md)
+
 ## 4. November 2026
 
 ### Zuletzt · Lampenassistent und natürliche Raumnamen · PR #90

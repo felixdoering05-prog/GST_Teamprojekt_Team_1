@@ -1,3 +1,5 @@
+const {placementRouter}=require('./placement-check');
+const {initBuildingWeather,buildingWeatherRouter}=require('./building-weather');
 const {initUIPreferences,uiPreferencesRouter}=require('./ui-preferences');
 const {assistantDevicesRouter}=require('./assistant-devices');
 const {initMapViews,mapViewRouter}=require('./map-view');
@@ -55,6 +57,7 @@ async function initAccounts(db) {
  await initDevices(db);
  await initHomeAssistant(db);
  await initMapViews(db);
+ await initBuildingWeather(db);
  await initTelemetry(db);
  await initVoice(db);
  await initAIPreferences(db);
@@ -146,6 +149,8 @@ function accountRouter(db,options={}) {
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
  router.use(mapViewRouter(db,requireAccount,options.mapView));
+ router.use(placementRouter(db,requireAccount));
+ router.use(buildingWeatherRouter(db,requireAccount,options.weather));
  router.use(uiPreferencesRouter(db,requireAccount));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));
  router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));

@@ -9,7 +9,7 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 4. November 2026 · iPhone-App: 1.0.89 (89)**
+**Stand: 5. November 2026 · iPhone-App: 1.0.96 (96)**
 
 Vorstellung am **Freitag, 6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
 
@@ -23,11 +23,12 @@ Vorstellung am **Freitag, 6. November 2026** · Abschlusspräsentation/Abgabe: *
 
 | Stand | Änderung |
 | :--- | :--- |
-| **04.11. · zuletzt · #90** | Lampenassistent versteht kurze Raumnamen auch bei IFC-Bezeichnungen wie „EG-08 · Wintergarten“. ElevenLabs-Werkzeugparameter ergänzt und vom Anbieter angenommen. [PR #90](../../pull/90) |
+| **05.11. · neu · iPhone-Heatmap** | Eigener Heatmap-Reiter für jedes zugängliche Gebäude mit Standort, Open-Meteo-Wetterdaten und KI-Kontext. Weiße 3D-Karte mit etwa 100 × 100 m Umgebung und IFC-/Grundriss-Plausibilitätsprüfung. [Bedienung und Grenzen](docs/iphone-heatmap-wetter.md) |
+| **04.11. · #90** | Lampenassistent versteht kurze Raumnamen auch bei IFC-Bezeichnungen wie „EG-08 · Wintergarten“. ElevenLabs-Werkzeugparameter ergänzt und vom Anbieter angenommen. [PR #90](../../pull/90) |
 | **04.11. · App 1.0.89 · #89** | Echte Daten als Standard; Vorstellungsmodus nur im Profil. Echte BIM-Vorschauen auf Gebäudekarten, Geräte innerhalb der Gebäude, Kontakte und Mitteilungen gemeinsam unter **Team**. KI-Chat und Live-Sprache können nach einmaliger Kontofreigabe zugeordnete private Lampen steuern. [PR #89](../../pull/89) |
 | **04.11. · #88–#85** | Web-Viewer-Zugriffsfehler behoben; Gebäude-/IFC-Raumzuordnung, RGB, Schatten und manuell wählbare OSM-Umgebung ergänzt. Echte Home-Assistant-Lampen und unterbrechbare Live-Gespräche angebunden. [Details](CHANGELOG.md#4-november-2026) |
 
-**Geprüfter Stand:** 107 Backend-Tests und fünf Viewer-Tests erfolgreich; Web-Build und signierter iPhone-Build erfolgreich. Version 1.0.89 wurde auf Felix’ iPhone installiert. Serverstand nach PR #90 und private Lampenzuordnung wurden geprüft. Die automatisierten Schaltprüfungen verwenden Testlampen; die vollständige Sprachbedienung mit echter Hardware ist vor der Vorführung noch gemeinsam auszuprobieren. Technische Tests ersetzen keine fachliche Modellabnahme.
+**Geprüfter Stand:** 117 Backend-Tests und fünf native Viewer-Tests erfolgreich; Web-Build und signierter iPhone-Build erfolgreich. Der signierte Build 1.0.96 ist erstellt; der zuvor bestätigte installierte Stand war 1.0.89. Serverstand nach PR #90 und private Lampenzuordnung wurden geprüft. Die automatisierten Schaltprüfungen verwenden Testlampen; die vollständige Sprachbedienung mit echter Hardware ist vor der Vorführung noch gemeinsam auszuprobieren. Technische Tests ersetzen keine fachliche Modellabnahme.
 
 ## Unser Projekt
 
@@ -67,6 +68,7 @@ Vorschlag für einen verständlichen Ablauf von etwa acht bis zehn Minuten:
 | **Team und Chat** | Kontaktanfragen per E-Mail-Adresse, bestätigte Gebäudeeinladungen, gemeinsame Dateien, In-App-Mitteilungen und Textchat pro Gebäude. Eigene Nachrichten nach Bestätigung löschen. **Noch keine iOS-Push-Mitteilungen.** |
 | **Dashboard und Messdaten** | Sensorik, Energie, regelbasierte Auswertung sowie CSV-Import mit Vorschau und Prüfung. Ohne importierte Daten werden keine Messwerte erfunden. Fiktive Daten nur im ausdrücklich geöffneten Vorstellungsmodus. |
 | **Gemini-Gebäudeassistent** | Privater Gebäudechat mit gespeichertem Verlauf, begrenzten Metadaten, optionalen IFC-Typzahlen und ausgewählten Messwertaggregaten. Modellbefehle als geprüfte, bestätigbare Vorschläge. Explizite Lampenaufträge für freigegebene Geräte und Räume. **Kein eigenes Modelltraining und keine automatische Analyse kompletter Pläne oder IFC-Geometrie.** |
+| **Gebäudebezogene Heatmap** | Eigener iPhone-Reiter mit Standortwahl, Wettermodell/Prognose von Open-Meteo, Stundenregler und IFC-Einfärbung. KI-Chat und Sprache erhalten bewusst geladene Wetterwerte mit Quelle/Abrufzeit. Weiße Umgebung und etwa 100 × 100 m Kartenausschnitt. [Anleitung](docs/iphone-heatmap-wetter.md) |
 | **Live-Sprachassistent** | ElevenLabs-Livegespräch mit direkter Sprachantwort, Unterbrechen und Wellenanimation. Bewusster Gesprächsstart und einmalige Kontofreigabe; keine zusätzlichen Bestätigungsboxen für jeden autorisierten Lampenauftrag. Schaltmeldungen beruhen auf der Home-Assistant-Rückprüfung. |
 | **Serververwaltung** | Geschütztes Portal unter `/verwaltung` für freigeschaltete Administration: Kapazitäten, Dienste, API-/KI-Nutzung und registrierte Konten. Andere Konten erhalten keine Einsicht. Anbieterlimits werden nicht automatisch aufgehoben. |
 | **Automatisierung** | Zwei lesende n8n-Abläufe protokollieren GitHub-Änderungen und Website-Erreichbarkeit im privaten Ausführungsverlauf. Noch kein automatischer WhatsApp-/Mailversand. |

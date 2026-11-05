@@ -11,9 +11,10 @@ export function mountMapEnvironment(scene,groundY,render){
   const unit=view.meters_per_unit;
   for(const feature of view.features.slice(0,200)){
    const coords=feature.geometry.map(p=>localPoint(p[0],p[1],view));
+   if(!coords.some(p=>Math.abs(p[0]*view.meters_per_unit)<=50&&Math.abs(p[1]*view.meters_per_unit)<=50))continue;
    if(feature.kind==='road'){
     for(let i=1;i<coords.length;i++){const a=coords[i-1],b=coords[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);if(length<.001)continue;
-     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#dce0e2':'#c6ccd1',roughness:1}));road.position.set((a[0]+b[0])/2,.02/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
+     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#f1f3f5':'#e2e6eb',roughness:1}));road.position.set((a[0]+b[0])/2,.02/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
     }
    }else{
     // Omit the footprint containing the model's anchor; the IFC supplies that building.
@@ -21,7 +22,7 @@ export function mountMapEnvironment(scene,groundY,render){
     if(feature.kind==='building'&&contains)continue;
     const shape=new THREE.Shape(coords.map(p=>new THREE.Vector2(p[0],-p[1])));
     const geometry=feature.kind==='building'?new THREE.ExtrudeGeometry(shape,{depth:feature.height/unit,bevelEnabled:false}):new THREE.ShapeGeometry(shape);
-    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#e6e7e5':'#d7e3d7',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
+    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#f5f6f7':'#eef3ef',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
    }
   }
   scene.add(group);
