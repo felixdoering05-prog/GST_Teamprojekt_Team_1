@@ -1,3 +1,4 @@
+import {placementGeometry} from './placement-geometry.js';
 import {mountNativeHeat} from './heat.js';
 import { mountMapEnvironment } from './map-environment.js';
 import { mountSynchronization } from './sync.js';
@@ -7,6 +8,7 @@ import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, I
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 
+const placementMode=new URLSearchParams(location.search).get('placement')==='true';
 const heatMode=new URLSearchParams(location.search).get('heat')==='true';
 const previewMode=new URLSearchParams(location.search).get('preview')==='true';
 const darkPreview=new URLSearchParams(location.search).get('theme')==='dark';
@@ -98,6 +100,7 @@ async function open() {
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
   if (![center.x, center.y, center.z].every(Number.isFinite)) throw new Error('Die Modell-Koordinaten sind ungültig.');
+  if(placementMode){const geometry=placementGeometry(root,bounds,api.GetCoordinationMatrix(modelID));window.webkit?.messageHandlers?.ifcPlacement?.postMessage(geometry);report('ready:placement');return;}
   root.position.sub(center);
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
   camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, span / 10000, span * 100);

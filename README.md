@@ -1,5 +1,8 @@
 <div align="center">
 
+**Neu: iPhone 1.0.98 – IFC automatisch auf der Karte platzieren.** Im Modell unter „Modell auf Karte“ werden Georeferenz und Nordrichtung erkannt. Ein Tipp übernimmt die Platzierung und lädt die 100-m-Kartenumgebung. Fehlt eine belastbare Referenz, einmal die Adresse eingeben; Drehung und Maßstab bleiben unter Details korrigierbar. Kartengrundrisse liefern nur einen Näherungsvorschlag. [Details](docs/automatische-ifc-platzierung.md).
+
+
 # KI TRIFFT GEBÄUDE
 ### D21 Digital Twin · GST-Teamprojekt 1 · Hochschule Darmstadt
 

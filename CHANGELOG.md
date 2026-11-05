@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 05.11.2026 – Automatische IFC-Platzierung (iPhone 1.0.98)
+
+- Ein gemeinsamer Schritt „Automatisch platzieren & Karte laden“, Zahlenfelder unter Details.
+- IFC MapConversion mit expliziter EPSG-Referenz (UTM / Web Mercator), Modellmittelpunkt, Einheiten und Nordrichtung werden ausgewertet. Alternativ IFC-Site-GPS mit TrueNorth oder passender vorhandener OSM-Grundriss.
+- Unklare Angaben bleiben manuell korrigierbar; 180°-Mehrdeutigkeit wird angezeigt. Kein Anschluss an ein amtliches Geoportal, keine vermessungstechnische Freigabe.
+
+
 [← Projektübersicht](README.md)
 
 **Neueste Änderungen zuerst.** Innerhalb eines Tages stehen die zuletzt zusammengeführten Änderungen oben. Dieser Verlauf dokumentiert Entwicklung; er ersetzt keine Team-Sitzungsprotokolle. Frühere Einträge beschreiben den damaligen Stand und werden durch spätere Änderungen ergänzt.
