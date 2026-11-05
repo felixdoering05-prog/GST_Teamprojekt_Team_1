@@ -29,12 +29,12 @@ export function readStoreys(api, modelID) {
 }
 
 // Local clipping is independent of shared visibility and therefore never saves floor cuts.
-export function floorCut(storeys, selectedID, gap = 0) {
+export function floorCut(storeys, selectedID, gap = 0, gapIndex) {
   const index = storeys.findIndex(floor => floor.id === selectedID);
   if (index < 0) return null;
   const floor = storeys[index];
   const next = storeys[index + 1];
   const previous = storeys[index - 1];
   const height = next ? next.base - floor.base : previous ? floor.base - previous.base : floor.top - floor.base;
-  return Math.min(floor.base + Math.max(height, .1), floor.ceiling ?? Infinity) + index * gap - .04;
+  return Math.min(floor.base + Math.max(height, .1), floor.ceiling ?? Infinity) + (gapIndex ?? index) * gap - .04;
 }
