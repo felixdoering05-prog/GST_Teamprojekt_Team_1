@@ -99,7 +99,7 @@ function SidebarBody({ onNavigate }) {
   }, []);
 
   return (
-    <div className="d21-sidebar flex h-full flex-col bg-sidebar/70">
+    <div className="d21-sidebar flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 py-7">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-100/80 text-cyan-700 ring-1 ring-inset ring-white/90">
           <Boxes className="h-[18px] w-[18px]" />
