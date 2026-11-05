@@ -22,7 +22,7 @@ export default function IFCModelFrame({ document, heatmap }) {
     setLoading(true); setError('');
     function send() {
       if (!active || !ready || !buffer || !frame.current?.contentWindow) return;
-      frame.current.contentWindow.postMessage({ type: 'd21-ifc-model', buffer }, window.location.origin, [buffer]);
+      frame.current.contentWindow.postMessage({ type: 'd21-ifc-model', buffer, placement: { latitude: document.latitude, longitude: document.longitude, model_heading_degrees: document.model_heading_degrees ?? 0, map_provider_consent: document.map_provider_consent === true } }, window.location.origin, [buffer]);
       buffer = undefined; setLoading(false);
     }
     async function receive(event) {
