@@ -10,6 +10,10 @@ const EMPTY = {
   code: '',
   site: '',
   address: '',
+  latitude: '',
+  longitude: '',
+  model_heading_degrees: '0',
+  map_provider_consent: false,
   year_built: '',
   gross_area_m2: '',
   floors_count: '',
@@ -33,6 +37,10 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
             code: building.code || '',
             site: building.site || '',
             address: building.address || '',
+            latitude: building.latitude ?? '',
+            longitude: building.longitude ?? '',
+            model_heading_degrees: building.model_heading_degrees ?? '0',
+            map_provider_consent: building.map_provider_consent === true,
             year_built: building.year_built ?? '',
             gross_area_m2: building.gross_area_m2 ?? '',
             floors_count: building.floors_count ?? '',
@@ -52,6 +60,17 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
       toast({ title: 'Angaben fehlen', description: 'Die Gebäudebezeichnung ist erforderlich.', variant: 'destructive' });
       return;
     }
+    if ((form.latitude === '') !== (form.longitude === '')) {
+      toast({ title: 'Standort unvollständig', description: 'Bitte Breitengrad und Längengrad gemeinsam angeben.', variant: 'destructive' });
+      return;
+    }
+    const latitude = form.latitude === '' ? null : Number(form.latitude);
+    const longitude = form.longitude === '' ? null : Number(form.longitude);
+    const heading = form.model_heading_degrees === '' ? 0 : Number(form.model_heading_degrees);
+    if ((latitude !== null && (!Number.isFinite(latitude) || latitude < -85.05112878 || latitude > 85.05112878)) || (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) || !Number.isFinite(heading) || heading < 0 || heading > 360) {
+      toast({ title: 'Standort prüfen', description: 'Koordinaten oder Modellrichtung liegen außerhalb des gültigen Bereichs.', variant: 'destructive' });
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
@@ -59,6 +78,10 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
         code: form.code.trim(),
         site: form.site.trim(),
         address: form.address.trim(),
+        latitude,
+        longitude,
+        model_heading_degrees: heading,
+        map_provider_consent: form.map_provider_consent,
         year_built: form.year_built === '' ? null : Number(form.year_built),
         gross_area_m2: form.gross_area_m2 === '' ? null : Number(form.gross_area_m2),
         floors_count: form.floors_count === '' ? null : Number(form.floors_count),
@@ -91,6 +114,13 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
           <TextField label="Kurzzeichen" value={form.code} onChange={set('code')} placeholder="z. B. D21" />
           <TextField label="Standort" value={form.site} onChange={set('site')} placeholder="z. B. Hochschule Darmstadt" />
           <TextField label="Adresse" value={form.address} onChange={set('address')} placeholder="optional" />
+          <TextField label="Breitengrad (WGS84)" type="number" step="any" value={form.latitude} onChange={set('latitude')} placeholder="z. B. 49.8640" />
+          <TextField label="Längengrad (WGS84)" type="number" step="any" value={form.longitude} onChange={set('longitude')} placeholder="z. B. 8.6365" />
+          <TextField label="Modellrichtung ab Norden (°)" type="number" min="0" max="360" step="1" value={form.model_heading_degrees} onChange={set('model_heading_degrees')} />
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-lg border p-3 text-sm">
+            <input type="checkbox" className="mt-1" checked={form.map_provider_consent} onChange={event => setForm(f => ({ ...f, map_provider_consent: event.target.checked }))} />
+            <span><span className="font-medium">OpenStreetMap-Karte für diesen Standort laden</span><span className="mt-1 block text-muted-foreground">Beim Anzeigen der Karte erhält der Kartendienst Anfragen für den sichtbaren Kartenausschnitt. Die Adresse wird nicht zur Suche übertragen. Ohne Häkchen bleibt der IFC-Viewer ohne externe Standortkarte.</span></span>
+          </label>
           <TextField label="Baujahr" type="number" value={form.year_built} onChange={set('year_built')} />
           <TextField label="Bruttogrundfläche in m²" type="number" step="0.1" value={form.gross_area_m2} onChange={set('gross_area_m2')} />
           <TextField label="Anzahl Geschosse" type="number" value={form.floors_count} onChange={set('floors_count')} />
