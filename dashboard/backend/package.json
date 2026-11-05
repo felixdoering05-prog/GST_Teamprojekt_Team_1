@@ -6,7 +6,8 @@
   "dependencies": {
     "express": "^4.21.2",
     "nodemailer": "^10.2.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "proj4": "^2.22.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12"
