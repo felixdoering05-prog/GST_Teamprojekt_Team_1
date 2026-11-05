@@ -59,8 +59,8 @@ function NavItems({ onNavigate, isAdmin }) {
               cn(
                 'group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400',
                 isActive
-                  ? 'bg-cyan-400/10 font-medium text-white ring-1 ring-inset ring-cyan-400/20'
-                  : 'text-sidebar-foreground/80 hover:bg-white/5 hover:text-white',
+                  ? 'bg-white/70 font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-white/90'
+                  : 'text-sidebar-foreground/85 hover:bg-white/65 hover:text-slate-900',
               )
             }
           >
@@ -72,7 +72,7 @@ function NavItems({ onNavigate, isAdmin }) {
                     isActive ? 'bg-cyan-400 opacity-100' : 'opacity-0',
                   )}
                 />
-                <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-cyan-400' : 'text-sidebar-foreground/60')} />
+                <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-cyan-700' : 'text-sidebar-foreground/60')} />
                 <span className="truncate">{item.label}</span>
               </>
             )}
@@ -99,13 +99,13 @@ function SidebarBody({ onNavigate }) {
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
+    <div className="d21-sidebar flex h-full flex-col bg-sidebar/70">
       <div className="flex items-center gap-3 px-5 py-7">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 ring-1 ring-inset ring-cyan-400/30">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-100/80 text-cyan-700 ring-1 ring-inset ring-white/90">
           <Boxes className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-heading text-sm font-semibold text-white">D21 Digital Twin</p>
+          <p className="truncate font-heading text-sm font-semibold text-slate-900">D21 Digital Twin</p>
           <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/70">Hochschule Darmstadt</p>
         </div>
       </div>
@@ -129,7 +129,7 @@ function SidebarBody({ onNavigate }) {
               onClick={() => base44.auth.logout('/login')}
               title="Abmelden"
               aria-label="Abmelden"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-white/75 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>
@@ -153,9 +153,9 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="d21-shell min-h-screen bg-background">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] border-r border-sidebar-border lg:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] border-r border-white/75 bg-white/30 shadow-[8px_0_28px_rgba(35,52,70,0.06)] backdrop-blur-2xl lg:block">
         <SidebarBody />
       </aside>
 
@@ -164,7 +164,7 @@ export default function AppLayout() {
           <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm" />
           <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[90vw] shadow-2xl">
             <Dialog.Title className="sr-only">Navigation</Dialog.Title>
-            <Dialog.Close aria-label="Menü schließen" className="absolute right-1 top-1 z-10 grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+            <Dialog.Close aria-label="Menü schließen" className="absolute right-1 top-1 z-10 grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-white/75 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
               <X className="h-4 w-4" />
             </Dialog.Close>
             <SidebarBody onNavigate={() => setOpen(false)} />
@@ -172,12 +172,12 @@ export default function AppLayout() {
         </Dialog.Portal>
 
       <div className="lg:pl-[264px]">
-        <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+        <header className="d21-topbar sticky top-0 z-30 border-b border-white/70 bg-white/55 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <Dialog.Trigger
               type="button"
               aria-label="Menü öffnen"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/80 bg-white/65 text-foreground shadow-sm backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
             >
               <Menu className="h-4 w-4" />
             </Dialog.Trigger>
@@ -185,7 +185,7 @@ export default function AppLayout() {
               <h1 className="truncate font-heading text-base font-semibold text-foreground sm:text-lg">{current.label}</h1>
               <p className="hidden truncate text-xs text-muted-foreground sm:block">{current.hint}</p>
             </div>
-            <span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-2 rounded-full border border-white/80 bg-white/65 px-3 py-1.5 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur-xl sm:inline-flex">
               <Database className="h-3.5 w-3.5 text-primary" />
               Projektserver
             </span>
