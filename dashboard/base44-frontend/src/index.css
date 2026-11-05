@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 24% 97%;
+    --background: 210 34% 96%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -39,13 +39,13 @@
     --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 213 27% 84%;
+    --sidebar-background: 210 38% 96%;
+    --sidebar-foreground: 218 25% 30%;
     --sidebar-primary: 191 91% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 15%;
+    --sidebar-accent: 0 0% 100%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 32% 17%;
+    --sidebar-border: 214 25% 87%;
     --sidebar-ring: 191 91% 45%;
   }
 
@@ -56,6 +56,9 @@
   body {
     @apply bg-background text-foreground font-body antialiased;
     line-height: 1.5;
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(ellipse at 12% 8%, rgba(65, 181, 192, .13), transparent 34%), radial-gradient(ellipse at 88% 18%, rgba(123, 194, 164, .12), transparent 31%), linear-gradient(135deg, rgba(255,255,255,.3), transparent 58%);
+    background-attachment: fixed;
   }
 
   h1,
@@ -87,8 +90,36 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .surface {
-    @apply rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-16px_rgba(15,23,42,0.18)];
+  .surface,
+  .glass-panel {
+    @apply rounded-2xl border border-white/75 bg-white/65 shadow-[0_12px_34px_rgba(35,52,70,0.1),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl;
+  }
+
+  .d21-sidebar {
+    background: rgba(248, 251, 253, .72);
+    border-right: 1px solid rgba(255, 255, 255, .82);
+    box-shadow: 10px 0 34px rgba(36, 61, 79, .06);
+    -webkit-backdrop-filter: blur(24px) saturate(145%);
+    backdrop-filter: blur(24px) saturate(145%);
+  }
+
+  .d21-topbar {
+    background: rgba(248, 251, 253, .66);
+    border-bottom-color: rgba(255, 255, 255, .82);
+    box-shadow: 0 8px 24px rgba(36, 61, 79, .05);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
+    backdrop-filter: blur(20px) saturate(145%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .surface,
+    .glass-panel,
+    .d21-sidebar,
+    .d21-topbar {
+      background: rgba(255, 255, 255, .97);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
   }
 
   .hide-scrollbar::-webkit-scrollbar {
