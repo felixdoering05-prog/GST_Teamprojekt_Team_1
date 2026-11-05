@@ -289,7 +289,7 @@ async function open() {
   const responsiveFloors = () => collapseFloors(isHeat || mobile.matches);
   responsiveFloors(); mobile.addEventListener('change', responsiveFloors);
   window.addEventListener('pagehide', () => mobile.removeEventListener('change', responsiveFloors), { once: true });
-  document.querySelector('#floor-note').textContent = storeys.length ? 'Etage wählen, um das Gebäude bis zu diesem Geschoss freizulegen.' : 'Keine Geschosszuordnung mit Geometrie im IFC vorhanden.';
+  document.querySelector('#floor-note').textContent = storeys.length ? 'Etage wählen, um das Gebäude bis dahin freizulegen. „Geschoss absetzen“ löst nur die Auswahl; alle übrigen bleiben zusammen.' : 'Keine Geschosszuordnung mit Geometrie im IFC vorhanden.';
   document.querySelector('#all-floors').onclick = () => { selectedFloor = null; separatedFloor = null; heatLayer?.select(undefined); refreshView(); };
   document.querySelector('#explode').onclick = () => { if (selectedFloor === null) return; separatedFloor = separatedFloor === selectedFloor ? null : selectedFloor; heatLayer?.select(undefined); refreshView(); fit(); render(); };
   document.querySelector('#toggle-labels').onclick = event => {
