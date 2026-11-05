@@ -25,6 +25,7 @@ function validate(entity,input,partial=false) {
   if(!Object.hasOwn(schema.properties,key))fail(`Unbekanntes Feld: ${key}`);
   if(value===null){if(schema.required.includes(key))fail(`Pflichtfeld: ${key}`);result[key]=null;continue;}
   if(field.type==='number' && (typeof value!=='number'||!Number.isFinite(value)))fail(`Ungültige Zahl: ${key}`);
+  if(field.type==='boolean' && typeof value!=='boolean')fail(`Ungültiger Wahrheitswert: ${key}`);
   if(field.type==='string' && (typeof value!=='string'||value.length>4000))fail(`Ungültiger Text: ${key}`);
   if(field.type==='array' && (!Array.isArray(value)||value.length>500||value.some(x=>typeof x!=='string'||x.length>200)))fail(`Ungültige Liste: ${key}`);
   if(field.enum&&!field.enum.includes(value))fail(`Ungültige Auswahl: ${key}`);
@@ -33,7 +34,13 @@ function validate(entity,input,partial=false) {
  }
  if(!partial)for(const [key,field] of Object.entries(schema.properties))if(result[key]===undefined&&field.default!==undefined)result[key]=field.default;
  if(!partial)for(const key of schema.required)if(result[key]===undefined||result[key]===null||result[key]==='')fail(`Pflichtfeld: ${key}`);
- if(entity==='Building' && ((result.name?.length||0)>200||(result.address?.length||0)>500))fail('Gebäudename maximal 200 Zeichen, Adresse maximal 500 Zeichen.');
+ if(entity==='Building') {
+  if((result.name?.length||0)>200||(result.address?.length||0)>500)fail('Gebäudename maximal 200 Zeichen, Adresse maximal 500 Zeichen.');
+  const hasLatitude=result.latitude!==undefined&&result.latitude!==null, hasLongitude=result.longitude!==undefined&&result.longitude!==null;
+  if(hasLatitude!==hasLongitude)fail('Bitte Breitengrad und Längengrad gemeinsam angeben.');
+  if(hasLatitude&&(result.latitude < -85.05112878||result.latitude > 85.05112878||result.longitude < -180||result.longitude > 180))fail('Die Koordinaten liegen außerhalb des gültigen Kartenbereichs.');
+  if(result.model_heading_degrees!==undefined&&result.model_heading_degrees!==null&&(result.model_heading_degrees<0||result.model_heading_degrees>360))fail('Die Modellrichtung muss zwischen 0° und 360° liegen.');
+ }
  return result;
 }
 function matches(row,filter={}) {

@@ -4,21 +4,24 @@ import footprint from './d21-footprint.json';
 import { campusPoint, coordinateTile, tilePosition } from './campus-projection.js';
 
 // Public map tiles are loaded only when visible; browser HTTP caching remains enabled.
-export function addCampusMap(scene, { groundY = 0, outline = false } = {}) {
+export function addCampusMap(scene, { groundY = 0, outline = false, center = null } = {}) {
   const group = new THREE.Group(); group.position.y = groundY - .03; scene.add(group);
   const tiles = [], labels = [], resources = new Set(); let disposed = false, repaint = () => {};
   const keep = resource => { resources.add(resource); return resource; };
-  const zoom = 17;
-  const [west, north] = coordinateTile([8.6308, 49.8703], zoom);
-  const [east, south] = coordinateTile([8.6425, 49.8620], zoom);
+  const zoom = center ? 19 : 17;
+  const origin = center || undefined;
+  const [centerX, centerY] = center ? coordinateTile(center, zoom) : [0, 0];
+  const [west, north] = center ? [centerX - 1, centerY - 1] : coordinateTile([8.6308, 49.8703], zoom);
+  const [east, south] = center ? [centerX + 1, centerY + 1] : coordinateTile([8.6425, 49.8620], zoom);
+  const tileCount = 2 ** zoom;
   const geometry = keep(new THREE.PlaneGeometry(1, 1));
   for (let y = north; y <= south; y++) for (let x = west; x <= east; x++) {
-    const position = tilePosition(x, y, zoom);
+    const position = tilePosition(x, y, zoom, origin);
     const material = keep(new THREE.MeshBasicMaterial({ color:'#eceeea', toneMapped:false }));
     const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(position.x, 0, position.z); mesh.scale.set(position.size, position.size, 1); group.add(mesh);
     const box = new THREE.Box3(new THREE.Vector3(position.x-position.size/2,groundY-.1,position.z-position.size/2),new THREE.Vector3(position.x+position.size/2,groundY+.1,position.z+position.size/2));
-    tiles.push({mesh,box,x,y,state:'idle'});
+    tiles.push({mesh,box,x:((x % tileCount) + tileCount) % tileCount,y,state:'idle'});
   }
   if (outline) {
     const shape = new THREE.Shape(footprint.coordinates.map(coordinate => { const [x,z]=campusPoint(coordinate);return new THREE.Vector2(x,-z); }));
@@ -26,7 +29,7 @@ export function addCampusMap(scene, { groundY = 0, outline = false } = {}) {
     mesh.rotation.x=-Math.PI/2;mesh.position.y=.08;group.add(mesh);
   }
   const labelGroup = new THREE.Group(); group.add(labelGroup);
-  for (const building of locations.buildings) {
+  for (const building of (center ? [] : locations.buildings)) {
     if (building.code === 'D21' && !outline) continue;
     const canvas = document.createElement('canvas');canvas.width=128;canvas.height=56;
     const context=canvas.getContext('2d');context.fillStyle=building.code==='D21'?'#087f80':'#ffffffeb';context.beginPath();context.roundRect(0,0,128,56,10);context.fill();
@@ -40,8 +43,8 @@ export function addCampusMap(scene, { groundY = 0, outline = false } = {}) {
   const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');
   const frustum=new THREE.Frustum();
   const campusBounds = new THREE.Box3();
-  for (const building of locations.buildings) { const [x,z]=campusPoint(building.coordinates);campusBounds.expandByPoint(new THREE.Vector3(x,groundY,z)); }
-  campusBounds.expandByScalar(45);
+  if (center) campusBounds.setFromObject(group).expandByScalar(4);
+  else { for (const building of locations.buildings) { const [x,z]=campusPoint(building.coordinates);campusBounds.expandByPoint(new THREE.Vector3(x,groundY,z)); } campusBounds.expandByScalar(45); }
   return {
     bounds:campusBounds,
     setLabels(visible){labelGroup.visible=visible;},

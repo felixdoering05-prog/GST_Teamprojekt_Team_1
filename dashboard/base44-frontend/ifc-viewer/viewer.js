@@ -22,7 +22,7 @@ const status = document.querySelector('#status');
 const panel = document.querySelector('#selection');
 const buttons = [...document.querySelectorAll('button')];
 buttons.forEach(button => button.disabled = true);
-let api, modelID, renderer, controls, root, scene, camera;
+let api, modelID, renderer, controls, root, scene, camera, modelPlacement;
 const appearance = new ElementAppearance();
 const elementTypes = new Map();
 const info = document.querySelector('#selection-info');
@@ -60,7 +60,7 @@ window.addEventListener('webglcontextlost', event => { event.preventDefault(); f
 
 async function open() {
   // The parent authenticates the download. Only IFC bytes enter the viewer, never a session token.
-  const bytes = isExample ? exampleIFC() : await new Promise((resolve, reject) => {
+  const loaded = isExample ? { bytes: exampleIFC(), placement: null } : await new Promise((resolve, reject) => {
     const timer = setTimeout(() => { window.removeEventListener('message', receive); reject(new Error('Das Modell wurde nicht übertragen. Bitte erneut öffnen.')); }, 60000);
     function receive(event) {
       if (event.source !== window.parent || event.origin !== location.origin) return;
@@ -68,11 +68,14 @@ async function open() {
       if (event.data?.type !== 'd21-ifc-model') return;
       const buffer = event.data.buffer;
       if (!(buffer instanceof ArrayBuffer) || !buffer.byteLength || buffer.byteLength > 20 * 1024 * 1024) return;
-      clearTimeout(timer); window.removeEventListener('message', receive); resolve(new Uint8Array(buffer));
+      clearTimeout(timer); window.removeEventListener('message', receive); resolve({ bytes: new Uint8Array(buffer), placement: event.data.placement || null });
     }
     window.addEventListener('message', receive);
     window.parent.postMessage({ type: 'd21-ifc-ready' }, location.origin);
   });
+  const bytes = loaded.bytes; modelPlacement = loaded.placement;
+  const hasLocation = Number.isFinite(modelPlacement?.latitude) && Number.isFinite(modelPlacement?.longitude) && Math.abs(modelPlacement.latitude) <= 85.05112878 && Math.abs(modelPlacement.longitude) <= 180;
+  const showWorldMap = !isCampus && !isExample && hasLocation && modelPlacement?.map_provider_consent === true;
   const header = new TextDecoder().decode(bytes.subarray(0, 4096));
   if (!header.trimStart().startsWith('ISO-10303-21;') || !header.includes('FILE_SCHEMA')) throw new Error('Bitte eine unkomprimierte IFC-Datei auswählen (IFC2x3 oder IFC4).');
   api = new IfcAPI();
@@ -122,7 +125,7 @@ async function open() {
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
   if (![center.x, center.y, center.z].every(Number.isFinite)) throw new Error('Die Modell-Koordinaten sind ungültig.');
-  const heading = isCampus ? footprintHeading(footprint.coordinates) : 0;
+  const heading = isCampus ? footprintHeading(footprint.coordinates) : hasLocation ? Math.PI / 2 - (modelPlacement.model_heading_degrees || 0) * Math.PI / 180 : 0;
   root.rotation.y = heading;
   root.position.copy(center).multiplyScalar(-1).applyAxisAngle(new THREE.Vector3(0, 1, 0), heading);
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
@@ -173,7 +176,7 @@ async function open() {
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
   let updateLabels = () => {}, campusEnvironment;
   const render = () => { campusEnvironment?.update(camera, render); renderer.render(scene, camera); updateLabels(); };
-  const applyMap = isCampus || isExample ? () => {} : mountMapEnvironment(scene,centeredBounds.min.y-span*.001,render);
+  const applyMap = isCampus || isExample || showWorldMap ? () => {} : mountMapEnvironment(scene,centeredBounds.min.y-span*.001,render);
   for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) document.getElementById(id).onclick = () => {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, .3, 12); camera.updateProjectionMatrix(); render();
   };
@@ -211,6 +214,13 @@ async function open() {
       viewHeight = size * 1.2 / Math.min(innerWidth / innerHeight, 1); lastAspect = innerWidth / innerHeight;
       camera.zoom = 1; frustum(); camera.position.copy(target).add(new THREE.Vector3(0, size * 3, size * .001)); controls.target.copy(target); controls.update(); render();
     };
+  }
+  } else if (showWorldMap) {
+    campusEnvironment = addCampusMap(scene, { groundY: centeredBounds.min.y, center: [modelPlacement.longitude, modelPlacement.latitude] });
+    releaseSurroundings = () => campusEnvironment.dispose();
+    const attribution = document.querySelector('#map-attribution');
+    attribution.innerHTML = 'Karte: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap-Mitwirkende</a>';
+    attribution.hidden = false;
   }
   let selectedFloor = null, separatedFloor = null;
   const gap = span * .14;

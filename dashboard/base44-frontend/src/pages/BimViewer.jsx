@@ -28,7 +28,7 @@ export default function BimViewer() {
       const buildings = await request('/buildings');
       const results = await Promise.allSettled(buildings.map(async building => {
         const files = await request(`/buildings/${building.id}/documents`);
-        return files.filter(file => file.mime_type === 'application/x-step').map(file => ({ ...file, buildingName: building.name, buildingID: building.id }));
+        return files.filter(file => file.mime_type === 'application/x-step').map(file => ({ ...file, buildingName: building.name, buildingID: building.id, latitude: building.latitude, longitude: building.longitude, model_heading_degrees: building.model_heading_degrees ?? 0, map_provider_consent: building.map_provider_consent === true }));
       }));
       if (!active) return;
       const rows = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
