@@ -12,7 +12,7 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 5. November 2026 · iPhone-App: 1.0.96 (96)**
+**Stand: 6. November 2026 · iPhone-App: Build 1.0.98 (98) erstellt; Installation auf physischem Gerät noch nicht bestätigt**
 
 Vorstellung am **Freitag, 6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
 
@@ -26,12 +26,19 @@ Vorstellung am **Freitag, 6. November 2026** · Abschlusspräsentation/Abgabe: *
 
 | Stand | Änderung |
 | :--- | :--- |
+| **05.11. · #98 · iPhone 1.0.98** | Automatische IFC-Georeferenzierung und Kartenplatzierung mit prüfbaren Vorschlägen; manuelle Korrektur bleibt möglich. 124 Backend-, 18 Web-/Wetter- und 7 native Viewer-Tests sowie signierter Build erfolgreich. Physisches iPhone noch nicht getestet. [PR #98](../../pull/98) |
+| **05.11. · #97 · iPhone-Heatmap** | Gebäudebezogene Wetteransicht mit bewusstem Open-Meteo-Abruf und illustrativer IFC-Einfärbung. Wettermodelle sind keine gemessenen D21-Raumtemperaturen. [PR #97](../../pull/97) |
+| **05.11. · #96/#95** | Optionale weltweite IFC-Kartenposition im Web; beim Geschoss-Trennen wird nur die gewählte Etage abgesetzt. Für diese PRs wurden keine Tests/Builds ausgeführt. [#96](../../pull/96) · [#95](../../pull/95) |
+| **05.11. · #94/#93** | Helles Glass-Design für Dashboard und BIM-Bedienfelder; Browser-/Liveprüfung nicht vollständig bestätigt. [#94](../../pull/94) · [#93](../../pull/93) |
+| **05.11. · #92 · Campus-Heatmap** | D21-/Campusansicht mit historischen DWD-Lufttemperaturen aus Frankfurt/Main (2025); simulierte Oberflächentemperaturen klar getrennt. [PR #92](../../pull/92) |
 | **05.11. · neu · iPhone-Heatmap** | Eigener Heatmap-Reiter für jedes zugängliche Gebäude mit Standort, Open-Meteo-Wetterdaten und KI-Kontext. Weiße 3D-Karte mit etwa 100 × 100 m Umgebung und IFC-/Grundriss-Plausibilitätsprüfung. [Bedienung und Grenzen](docs/iphone-heatmap-wetter.md) |
 | **04.11. · #90** | Lampenassistent versteht kurze Raumnamen auch bei IFC-Bezeichnungen wie „EG-08 · Wintergarten“. ElevenLabs-Werkzeugparameter ergänzt und vom Anbieter angenommen. [PR #90](../../pull/90) |
 | **04.11. · App 1.0.89 · #89** | Echte Daten als Standard; Vorstellungsmodus nur im Profil. Echte BIM-Vorschauen auf Gebäudekarten, Geräte innerhalb der Gebäude, Kontakte und Mitteilungen gemeinsam unter **Team**. KI-Chat und Live-Sprache können nach einmaliger Kontofreigabe zugeordnete private Lampen steuern. [PR #89](../../pull/89) |
 | **04.11. · #88–#85** | Web-Viewer-Zugriffsfehler behoben; Gebäude-/IFC-Raumzuordnung, RGB, Schatten und manuell wählbare OSM-Umgebung ergänzt. Echte Home-Assistant-Lampen und unterbrechbare Live-Gespräche angebunden. [Details](CHANGELOG.md#4-november-2026) |
 
-**Geprüfter Stand:** 117 Backend-Tests und fünf native Viewer-Tests erfolgreich; Web-Build und signierter iPhone-Build erfolgreich. Der signierte Build 1.0.96 ist erstellt; der zuvor bestätigte installierte Stand war 1.0.89. Serverstand nach PR #90 und private Lampenzuordnung wurden geprüft. Die automatisierten Schaltprüfungen verwenden Testlampen; die vollständige Sprachbedienung mit echter Hardware ist vor der Vorführung noch gemeinsam auszuprobieren. Technische Tests ersetzen keine fachliche Modellabnahme.
+**Früherer Prüfstand (vor PR #98):** 117 Backend-Tests und fünf native Viewer-Tests erfolgreich; Web-Build und signierter iPhone-Build erfolgreich. Der signierte Build 1.0.96 ist erstellt; der zuvor bestätigte installierte Stand war 1.0.89. Serverstand nach PR #90 und private Lampenzuordnung wurden geprüft. Die automatisierten Schaltprüfungen verwenden Testlampen; die vollständige Sprachbedienung mit echter Hardware ist vor der Vorführung noch gemeinsam auszuprobieren. Technische Tests ersetzen keine fachliche Modellabnahme.
+
+**Präsentations-Check (06.11.):** Die neue Kartenplatzierung ist als signierter Build vorhanden, aber nicht als auf dem physischen iPhone installiert bestätigt. Die Heatmaps verwenden Wetterdaten bzw. Simulationen, **keine nachgewiesene D21-Sensorik**. Für die Vorführung bitte tatsächlichen Geräte- und Website-Stand prüfen. Die Tabelle freigegebener Team-Sitzungsprotokolle ist weiterhin leer; [Nachweis/Statusklärung #99](../../issues/99) ist offen (das frühere [#46](../../issues/46) ist geschlossen).
 
 ## Unser Projekt
 
