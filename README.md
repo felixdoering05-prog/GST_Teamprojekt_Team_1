@@ -12,13 +12,30 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 6. November 2026 · iPhone-App: Build 1.0.98 (98) erstellt; Installation auf physischem Gerät noch nicht bestätigt**
+**Stand: 7. November 2026 · iPhone-App: Build 1.0.98 (98) erstellt; Installation dieses Builds auf physischem Gerät noch nicht bestätigt**
 
-Vorstellung am **Freitag, 6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
+Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
 
-[Neueste Änderungen](#neueste-änderungen) · [Vorführung](#vorführung-am-freitag) · [Funktionen](#was-bereits-möglich-ist) · [Aufgaben](../../issues) · [Änderungsverlauf](CHANGELOG.md) · [Protokolle](docs/protokolle/README.md)
+[Neueste Änderungen](#neueste-änderungen) · [Vorführablauf](#vorführung-vom-6-november) · [Funktionen](#was-bereits-möglich-ist) · [Aufgaben](../../issues) · [Änderungsverlauf](CHANGELOG.md) · [Protokolle](docs/protokolle/README.md)
 
 </div>
+
+## Neue Arbeitspakete · 6./7. November 2026
+
+Nach der Projektvorstellung wurden neue, **noch offene** Aufgaben für die nächste Phase angelegt. Diese organisatorischen Änderungen sind **keine** bereits abgeschlossenen technischen Integrationen.
+
+| Priorität | Verantwortlich | Nächster belegbarer Schritt |
+| :--- | :--- | :--- |
+| **P1 · [#101](../../issues/101)** | **Josef** | Hochschulserver, KI-Professor und KI-PCs im D21 anfragen; Ressourcen, Zugang und Kosten dokumentieren. |
+| **P1 · [#105](../../issues/105)** | **Lukas** | Datenschutz und Freigaben für Modelle, Sensorwerte, KI und Sprache klären; formale GitHub-Zuweisung ist noch blockiert. |
+| **P1 · [#102](../../issues/102)** | **Benjamin** | Mit Herrn Jakob Sensoren/Thermostate, Schnittstellen, Datenrechte und ersten Datenpunkt klären. |
+| **P1 · [#74](../../issues/74)** | **Benjamin + Emir** | Bis **13. November** einen **echten** D21-Messwert mit Quelle, Einheit und Zeitstempel in der Web-App nachweisen. |
+| **P1 · [#99](../../issues/99)** | **Team** | Fehlendes freigegebenes Team-Sitzungsprotokoll nachweisen oder die Schließung von #46 begründen. |
+| **P2 · [#103](../../issues/103)** | **Felix** | Mit anderer Revit-Gruppe einen freigegebenen Modell-/IFC-Pilot abstimmen. |
+| **P2 · [#104](../../issues/104)** | **Felix** | Fortführung, Betrieb, Datenschutz und Übergabe nach Projektende klären. |
+| **P2 · [#80](../../issues/80), [#73](../../issues/73)** | **Felix / Revit-Team** | Web-Sprachassistent und dokumentierten Revit-IFC-Serverprozess weiterführen. |
+
+[Zentrale Aufgabenübersicht #106](../../issues/106). Benjamins Gaming-PC ist keine verfügbare Projektinfrastruktur; der bestehende Projektserver läuft, eine Hochschul-Anbindung ist noch offen. Es gibt weiterhin **kein im Protokollindex freigegebenes Team-Sitzungsprotokoll**; technische Arbeitsberichte sind davon zu unterscheiden.
 
 ## Neueste Änderungen
 
@@ -46,7 +63,7 @@ Wir entwickeln am Beispiel des **D21** einen digitalen Gebäudepass. Gebäudeinf
 
 Der aktuelle Stand ist ein **Projektprototyp**. Eine private Home-Assistant-Lampe ist kein Nachweis für eine angeschlossene D21-Gebäudeautomation. IFC-Anzeige und Metadatenabfragen sind keine automatische Planprüfung oder vollständige Revit-Liveanbindung.
 
-## Vorführung am Freitag
+## Vorführung vom 6. November
 
 Vorschlag für einen verständlichen Ablauf von etwa acht bis zehn Minuten:
 
