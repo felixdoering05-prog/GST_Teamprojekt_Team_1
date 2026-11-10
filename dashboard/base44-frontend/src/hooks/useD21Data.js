@@ -49,7 +49,7 @@ export default function useD21Data(requestedBuildingID = '') {
       let pages = 0;
       let hasMore = true;
       while (hasMore && pages < MAX_PAGES) {
-        const options = { sort: 'measured_at', limit: PAGE_SIZE };
+        const options = { sort: '-measured_at', limit: PAGE_SIZE };
         if (cursor) options.cursor = cursor;
         const page = await base44.entities.Measurement.filter({ measured_at: { $gte: since } }, options);
         series.push(...(page.items || []));
