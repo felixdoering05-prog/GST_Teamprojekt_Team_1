@@ -12,6 +12,6 @@ Vincent hat das Logo „Building Sentinel“ für die Projektseite bereitgestell
 ## Stand und Übergabe
 
 - Branch: `feat/vincent-building-sentinel-logo`
-- Pull Request: Link folgt nach dem Öffnen.
-- Stand: lokal geprüft, zur Prüfung vorbereitet.
+- Pull Request: [#116 – Building-Sentinel-Logo im Seitenkopf](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/116).
+- Stand: lokal geprüft und im Pull Request zur Prüfung bereit.
 - Felix kann die Änderung nach Review und Merge über `d21-deploy` veröffentlichen. Anschließend Logo und Startlink unter `/projekt/` prüfen.
