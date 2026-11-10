@@ -1,4 +1,4 @@
-:root{font:13px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#3c4856;background:#e5e9ee;--accent:#087f80;--line:#e4e7e8;--panel:rgba(255,255,255,.76);--glass-border:rgba(255,255,255,.74);--glass-blur:blur(16px) saturate(145%);--glass-shadow:0 12px 34px rgba(35,52,70,.16),inset 0 1px 0 rgba(255,255,255,.8)}
+:root{font:13px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#3c4856;background:#dfe8f0;--accent:#087f80;--line:#e4e7e8;--panel:rgba(255,255,255,.76);--glass-border:rgba(255,255,255,.74);--glass-blur:blur(16px) saturate(145%);--glass-shadow:0 12px 34px rgba(35,52,70,.16),inset 0 1px 0 rgba(255,255,255,.8)}
 .heat-mode #heat-readout{position:absolute;z-index:9;left:18px;top:112px;max-width:calc(100% - 95px);padding:12px 14px;border:1px solid #fff;border-radius:12px;background:var(--panel);color:#334155;font-weight:600;font-size:12px;box-shadow:var(--glass-shadow);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur)}.heat-mode #selection,.heat-mode #home,.heat-mode #commands{display:none!important}@media(max-width:600px){.heat-mode #heat-readout{left:10px;top:112px;font-size:11px}}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}button,input{font:inherit}button{border:1px solid rgba(255,255,255,.58);background:rgba(255,255,255,.48);border-radius:9px;padding:10px 12px;color:#52606d;min-height:40px;cursor:pointer;transition:background .15s,color .15s}button:hover{background:rgba(255,255,255,.9);color:#096e70}button:disabled{opacity:.45;cursor:default}button[aria-pressed=true]{background:#e5f2ef;color:#087675}button:focus-visible,input:focus-visible{outline:3px solid #118eab;outline-offset:2px}[hidden]{display:none!important}
 #scene{position:absolute;inset:0;touch-action:none}canvas{display:block;width:100%;height:100%}
@@ -19,3 +19,11 @@
 #map-attribution:empty{display:none}
 
 @media(prefers-reduced-transparency:reduce){#modes,#view-controls,#camera-tools,#tools,#levels,#selection,#home,.model-label,#status,#commands,#map-status,#map-attribution,.heat-mode #heat-readout{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none}.model-label{background:#fff}}
+
+/* Reference-inspired glass controls with a calm, higher-contrast scene. */
+:root{--panel:rgba(249,252,255,.76);--glass-border:rgba(255,255,255,.88);--glass-shadow:0 16px 42px rgba(30,48,68,.18),inset 0 1px 0 rgba(255,255,255,.96);--glass-blur:blur(22px) saturate(150%)}
+#modes,#view-controls,#camera-tools,#tools,#levels,#selection,#home,#commands,#heat-readout,#map-status,#map-attribution{border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur)}
+#levels button[aria-pressed="true"],#all-floors[aria-pressed="true"]{background:rgba(8,127,128,.18);border-color:rgba(8,127,128,.38);color:#075b5c;box-shadow:inset 0 0 0 1px rgba(8,127,128,.12)}
+#heat-readout{max-width:min(440px,calc(100% - 32px));line-height:1.55;border-radius:16px;background:rgba(249,252,255,.84);color:#243447}
+.model-label{border:1px solid rgba(255,255,255,.92);box-shadow:0 9px 25px rgba(30,48,68,.17),inset 0 1px 0 #fff;backdrop-filter:blur(18px) saturate(150%)}
+@media(prefers-reduced-transparency:reduce){:root{--panel:rgba(255,255,255,.98);--glass-blur:none}}
