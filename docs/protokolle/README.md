@@ -27,6 +27,8 @@ Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzun
 
 Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermine. Für den aktuellen Gesamtstand und die Reihenfolge der jüngsten Änderungen siehe [CHANGELOG](../../CHANGELOG.md). Ältere Berichte bleiben als damalige Arbeitsnachweise erhalten.
 
+- [10.11.2026 · Farbpalette für Building Sentinel](2026-11-10-vincent-building-sentinel-farbpalette.md) – Landingpage auf Dunkelblau und Pink abgestimmt.
+
 - [10.11.2026 · Building Sentinel auf der Landingpage](2026-11-10-vincent-building-sentinel-logo.md) – Logo im Seitenkopf eingebunden.
 
 - [04.11.2026 · Echte Daten, vereinfachte App und Lampenassistent](../app-echte-daten-lampenassistent.md) – Version 1.0.89 installiert; Kontofreigabe, echte Lampen, Prüfstand und Grenzen.
