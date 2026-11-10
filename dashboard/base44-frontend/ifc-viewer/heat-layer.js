@@ -62,7 +62,7 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
   function readSelection() {
     if (scenario.mode === 'measured') {
       if (!selected?.reading) {
-        const count = [...readingByGuid.keys()].length;
+        const count = new Set(overlays.filter(mesh => mesh.userData.heatReading).map(mesh => mesh.userData.heatGlobalId)).size;
         readout.textContent = count ? `${count} IFC-Räume mit echten Messwerten · Geschoss wählen und einen eingefärbten Raum anklicken.` : 'Keine echten Raumtemperaturwerte mit passender IFC-Raumzuordnung verfügbar.';
         readout.hidden = false; return;
       }
@@ -79,7 +79,9 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
     readout.hidden = false;
   }
   function update(value) {
+    const previousMode = scenario.mode;
     scenario = normalizeScenario(value);
+    if (previousMode !== scenario.mode) selected = undefined;
     readingByGuid.clear();
     if (scenario.mode === 'measured') {
       for (const reading of (Array.isArray(value?.roomReadings) ? value.roomReadings.slice(0, 1000) : [])) {
@@ -97,17 +99,23 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
       root?.traverse(object => { if (object.isMesh && originals.has(object)) object.material = originals.get(object); });
       ground.visible = false;
       setFloor(selectedFloor);
+      const hint = document.querySelector('#hint');
+      if (hint) hint.textContent = 'Ziehen: drehen · Scrollen: zoomen · eingefärbten Raum anklicken: Messwert';
       selected = undefined;
       readSelection();
       window.parent.postMessage({ type: 'd21-heat-status', matchedRooms: new Set(overlays.map(mesh => mesh.userData.heatGlobalId).filter(id => readingByGuid.has(id))).size, readings: readingByGuid.size }, location.origin);
       render(); return;
     }
     root?.traverse(object => { if (object.isMesh && originals.has(object)) object.material = modelMaterial; });
+    const hint = document.querySelector('#hint');
+    if (hint) hint.textContent = 'Ziehen: drehen · Scrollen: zoomen · Fläche anklicken: simulierte Temperatur';
     const condition = scenarioConditions(scenario);
     uniforms.heatAir.value = condition.air ?? 0; uniforms.heatAvailable.value = condition.available;
     uniforms.heatGain.value = condition.gain; uniforms.heatSun.value.fromArray(condition.direction);
     overlays.forEach(overlay => { overlay.visible = false; });
-    ground.visible = scenario.campus && condition.available; readSelection(); render();
+    ground.visible = scenario.campus && condition.available;
+    if (previousMode !== scenario.mode) readout.hidden = true; else readSelection();
+    render();
   }
   function receive(event) {
     if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'd21-heat-state') update(event.data.scenario);
@@ -117,7 +125,7 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
   document.body.classList.add('heat-mode');
   document.querySelector('#model-mode').textContent = 'Heat map';
   document.querySelector('#home-mode').hidden = true; document.querySelector('#tools').hidden = true;
-  document.querySelector('#hint').textContent = 'Ziehen: drehen · Scrollen: zoomen · eingefärbten Raum anklicken: Messwert';
+
   update(scenario);
   return {
     ground,
