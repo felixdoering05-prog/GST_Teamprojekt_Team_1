@@ -1,3 +1,4 @@
+const {enqueueUpload}=require('./plan-conversion/queue');
 const {accessibleBuilding,accessSQL,notifyBuilding}=require('./collaboration');
 const express = require('express');
 const path = require('node:path');
@@ -73,8 +74,9 @@ function documentRouter(db,requireAccount) {
    const usage=(await client.query('SELECT COALESCE(SUM(d.size),0) AS total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[building.user_id])).rows[0];
    if(Number(usage.total)+req.body.length>MAX_ACCOUNT){await client.query('ROLLBACK');return res.status(413).json({error:'Speicherlimit erreicht: maximal 250 MB pro Konto.'});}
    const doc=(await client.query('INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,building_id,name,mime_type,size,created_at',[req.params.buildingId,name,mime,req.body.length,req.body,uploadKey])).rows[0];
+   const conversion=await enqueueUpload(client,building,req.account.id,doc);
    await notifyBuilding(client,building.id,req.account.id,'file',`${req.account.name.split(' ')[0]} hat „${name}“ hochgeladen.`);
-   await client.query('COMMIT');res.status(201).json(doc);
+   await client.query('COMMIT');res.status(201).json(conversion?{...doc,plan_conversion:conversion}:doc);
   } catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  // Mutations use the same account lock as uploads to keep quota and delete/retry ordering consistent.

@@ -12,11 +12,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { base44 } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
+import PlanConversionPanel from '@/components/rooms/PlanConversionPanel';
 import BuildingFiles from '@/components/rooms/BuildingFiles';
 
 export default function Rooms() {
   const data = useD21Data();
   const { toast } = useToast();
+  const [fileRevision,setFileRevision]=useState(0);
   const [newBuilding,setNewBuilding]=useState(false);
   const [buildingOpen, setBuildingOpen] = useState(false);
   const [floorState, setFloorState] = useState({ open: false, floor: null });
@@ -167,7 +169,7 @@ export default function Rooms() {
         onEdit={() => {setNewBuilding(false);setBuildingOpen(true)}}
       />
 
-      {data.building && <BuildingFiles key={data.building.id} building={data.building} />}
+      {data.building && <><BuildingFiles key={`${data.building.id}-${fileRevision}`} building={data.building} /><PlanConversionPanel key={data.building.id} buildingId={data.building.id} onAdopt={()=>setFileRevision(n=>n+1)} /></>}
 
       {floors.length === 0 ? (
         <EmptyState
