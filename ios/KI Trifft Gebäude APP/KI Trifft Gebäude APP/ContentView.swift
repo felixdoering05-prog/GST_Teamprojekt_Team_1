@@ -63,43 +63,52 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     @Published var busy = false
     @Published var restoring = true
     @Published var error: String?
-    @Published var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? "https://filling-vendor-verification-hop.trycloudflare.com"
+    @Published private(set) var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? "https://filling-vendor-verification-hop.trycloudflare.com"
     private var token: String?
+    private var tokenOrigin: String?
+    private var connectionRevision = UUID()
+    private var origin: String? { CredentialScope.origin(serverURL) }
+    private var sessionKey: String? { origin.map { CredentialScope.key("session",origin:$0) } }
+    private func discardLegacyCredentials() {
+        // The old global entries have no trustworthy origin binding. Never reuse them.
+        try? SecureStore.write(nil,key:"gateway")
+        try? SecureStore.write(nil,key:"session")
+    }
+    private func eraseSession() throws { if let key=sessionKey {try SecureStore.write(nil,key:key)} }
+
     private var credentials: GatewayCredentials? {
         #if DEBUG
         if WorkflowPreview.enabled { return nil }
         #endif
-        guard let data = SecureStore.read("gateway") else { return nil }
+        guard let origin,let data = SecureStore.read(CredentialScope.key("gateway",origin:origin)) else { return nil }
         return try? JSONDecoder().decode(GatewayCredentials.self, from: data)
     }
     func gateway() -> GatewayCredentials? { credentials }
     func configure(url: String, username: String, password: String) throws {
-        let cleaned = url.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let parts = URLComponents(string: cleaned), parts.scheme == "https", parts.host != nil,
-              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
-              parts.path.isEmpty else { throw APIError(status: 0, message: "Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.") }
-        let changed = cleaned != serverURL
-        if changed { try SecureStore.write(nil, key: "session"); token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0 }
-        try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username: username, password: password)), key: "gateway")
+        guard let cleaned=CredentialScope.origin(url) else {throw APIError(status:0,message:"Bitte eine HTTPS-Serveradresse ohne Pfad eingeben.")}
+        let changed=cleaned != origin
+        discardLegacyCredentials()
+        try SecureStore.write(try JSONEncoder().encode(GatewayCredentials(username:username,password:password)),key:CredentialScope.key("gateway",origin:cleaned))
+        if changed {try eraseSession();connectionRevision=UUID();token=nil;tokenOrigin=nil;user=nil;buildings=[];avatarData=nil;aiPreferences = .disabled;presentationMode=false;uiRevision=0}
         serverURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
     }
     func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:Any]? = nil, headers: [String:String] = [:], timeout: TimeInterval = 20) async throws -> T {
-        guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
+        guard let origin,let url = URL(string: origin + "/api/v1/" + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
+        let expectedRevision=connectionRevision
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
-        if let token { request.setValue(token, forHTTPHeaderField: "X-D21-Session") }
-        if let gate = credentials, !gate.username.isEmpty {
-            request.setValue("Basic " + Data("\(gate.username):\(gate.password)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
-        }
-        for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
+        let gate = credentials
+        CredentialScope.authorize(&request, origin: origin, username: gate?.username, password: gate?.password, token: token, tokenOrigin: tokenOrigin)
+        for (key,value) in headers where !["authorization","x-d21-session","host"].contains(key.lowercased()) { request.setValue(value,forHTTPHeaderField:key) }
         // Reject redirects so credentials are never forwarded to a different origin.
         let session = URLSession(configuration: sessionConfiguration(), delegate: NoRedirects(), delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
         let (data, response) = try await session.data(for: request)
+        guard self.origin==origin,connectionRevision==expectedRevision else {throw APIError(status:0,message:"Server wurde gewechselt. Bitte erneut versuchen.")}
         guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
         guard (200..<300).contains(http.statusCode) else {
             let accountError = try? JSONDecoder().decode(APIMessage.self, from: data)
@@ -112,6 +121,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     }
     private func sessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCredentialStorage=nil
+        configuration.httpShouldSetCookies=false
         #if DEBUG
         if WorkflowPreview.enabled { configuration.protocolClasses = [WorkflowPreviewProtocol.self] }
         #endif
@@ -120,14 +131,15 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     func resume() async {
         #if DEBUG
         if WorkflowPreview.enabled {
-            serverURL = "https://d21-preview.invalid"; token = String(repeating: "0", count: 64)
+            serverURL = "https://d21-preview.invalid"; token = String(repeating: "0", count: 64);tokenOrigin=origin
             user = Account(id: 999999, name: "Felix · Vorschau", email: "vorschau@example.invalid")
             await loadBuildings(); restoring = false; return
         }
         #endif
         defer { restoring = false }
-        guard let data = SecureStore.read("session"), let stored = try? JSONDecoder().decode(LoginSession.self, from: data) else { return }
-        token = stored.token
+        discardLegacyCredentials()
+        guard let origin,let sessionKey,let data = SecureStore.read(sessionKey), let stored = try? JSONDecoder().decode(LoginSession.self, from: data) else { return }
+        token = stored.token;tokenOrigin=origin
         do {
             let account: Account = try await request("auth/me")
             user = account
@@ -136,7 +148,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             await refreshAIPreferences()
             await refreshUIPreferences()
         } catch {
-            if (error as? APIError)?.status == 401 { try? SecureStore.write(nil, key: "session"); token = nil }
+            if (error as? APIError)?.status == 401 { try? eraseSession(); token = nil;tokenOrigin=nil }
             self.error = error.localizedDescription
         }
     }
@@ -145,9 +157,12 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         do {
             var body = ["email":email.trimmingCharacters(in: .whitespacesAndNewlines), "password":password]
             if register { body["name"] = name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let expectedRevision=connectionRevision
+            guard let targetOrigin=origin else{throw APIError(status:0,message:"Bitte Serververbindung einrichten.")}
             let session: LoginSession = try await request(register ? "auth/register" : "auth/login", method: "POST", body: body)
-            try SecureStore.write(try JSONEncoder().encode(session), key: "session")
-            token = session.token; user = session.user; avatarData = nil
+            guard connectionRevision==expectedRevision,origin==targetOrigin else{throw APIError(status:0,message:"Server wurde gewechselt. Bitte neu anmelden.")}
+            try SecureStore.write(try JSONEncoder().encode(session),key:CredentialScope.key("session",origin:targetOrigin))
+            token = session.token;tokenOrigin=targetOrigin; user = session.user; avatarData = nil
             await loadBuildings()
             await loadAvatar()
             await refreshAIPreferences()
@@ -204,7 +219,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         try await fileRequest(path: "buildings/\(buildingID)/plan-conversion/jobs/\(jobID)/preview")
     }
     private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
-        guard let url = URL(string: serverURL + "/api/v1/" + path), url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
+        guard let origin,let url = URL(string: origin + "/api/v1/" + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
+        let expectedRevision=connectionRevision
         var request = URLRequest(url: url)
         request.httpMethod = method ?? (data == nil ? "GET" : "POST")
         request.timeoutInterval = 120
@@ -217,16 +233,15 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             allowed.remove(charactersIn: "%/?#&+=")
             request.setValue(name.addingPercentEncoding(withAllowedCharacters: allowed), forHTTPHeaderField: "X-File-Name")
         }
-        if let token { request.setValue(token, forHTTPHeaderField: "X-D21-Session") }
-        if let gate = credentials, !gate.username.isEmpty {
-            request.setValue("Basic " + Data("\(gate.username):\(gate.password)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
-        }
+        let gate = credentials
+        CredentialScope.authorize(&request, origin: origin, username: gate?.username, password: gate?.password, token: token, tokenOrigin: tokenOrigin)
         let session = URLSession(configuration: sessionConfiguration(), delegate: NoRedirects(progress: progress), delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
         let result: Data
         let response: URLResponse
         if let data { (result, response) = try await session.upload(for: request, from: data) }
         else { (result, response) = try await session.data(for: request) }
+        guard self.origin==origin,connectionRevision==expectedRevision else {throw APIError(status:0,message:"Server wurde gewechselt. Bitte erneut versuchen.")}
         guard let http = response as? HTTPURLResponse else { throw APIError(status: 0, message: "Keine gültige Serverantwort.") }
         guard (200..<300).contains(http.statusCode) else {
             let accountError = try? JSONDecoder().decode(APIMessage.self, from: result)
@@ -284,16 +299,23 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         _ = try await fileRequest(path: "profile/avatar", data: data, method: "PUT")
         avatarData = data
     }
+    func deleteAccount(password: String) async throws {
+        let stores = [draftStore()] + buildings.map { draftStore(buildingID: $0.id) }
+        let _: LogoutResult = try await request("auth/account", method: "DELETE", body: ["password": password, "confirmation": "DELETE"])
+        for store in stores { try? store?.clear() }
+        if let origin { try? SecureStore.write(nil, key: CredentialScope.key("gateway", origin: origin)) }
+        invalidateSession()
+    }
     private func invalidateSession() {
-        try? SecureStore.write(nil, key: "session")
-        token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
+        try? eraseSession()
+        token = nil;tokenOrigin=nil;connectionRevision=UUID(); user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
     }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
-            try SecureStore.write(nil, key: "session")
-            token = nil; user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
+            try eraseSession()
+            token = nil;tokenOrigin=nil;connectionRevision=UUID(); user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
         } catch { if user != nil { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription } }
     }
 }
@@ -340,6 +362,7 @@ struct WelcomeView: View {
                         NavigationLink { AuthenticationView(register: true) } label: { Text("Konto erstellen").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.borderedProminent)
                         NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
+                    NavigationLink("Datenschutz und Support") { PrivacyNoticeView() }
                     Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
                     Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung.")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -410,6 +433,7 @@ struct ConnectionView: View {
                     catch { model.error = error.localizedDescription }
                 } }
             }
+            .onChange(of: url) { _, value in if CredentialScope.origin(value) != CredentialScope.origin(model.serverURL) { username = ""; password = "" } }
             .onAppear { url = model.serverURL; username = model.gateway()?.username ?? ""; password = model.gateway()?.password ?? "" }
         }
     }
@@ -560,6 +584,7 @@ struct ProfileView: View {
                     Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
                     LabeledContent("App-Version",value:(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")+" · "+(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))
                 }
+                Section { NavigationLink("Datenschutz und Support") { PrivacyNoticeView() }; NavigationLink("Konto dauerhaft löschen") { DeleteAccountView(account: model) } }
                 Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
                 Section { Button("Serververbindung", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
             }

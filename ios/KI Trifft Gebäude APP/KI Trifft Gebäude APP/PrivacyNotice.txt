@@ -1,0 +1,29 @@
+Datenschutzhinweise zum externen Test
+Stand: 10. November 2026
+
+Verantwortlicher und Support
+Felix Döring
+felix.doering@stud.h-da.de
+
+Diese Hinweise betreffen den von Felix betriebenen Projekt-Testserver der App „KI trifft Gebäude“. Für andere selbst eingetragene Server gelten zusätzlich die Informationen des jeweiligen Betreibers. Dies ist ein Hochschul-Prototyp im Testbetrieb, keine sicherheitskritische Gebäudesteuerung.
+
+Konto und Projektdaten
+Für Anmeldung und Zusammenarbeit speichern wir Name, E-Mail-Adresse und einen gesalzenen Passwort-Hash. Wir speichern kein lesbares Kontopasswort. Profildaten, Kontakte, Einladungen, Gebäudeadressen/-koordinaten, hochgeladene Fotos/Pläne/IFCs, Nachrichten und selbst eingegebene Messdaten werden zur Bereitstellung der von dir verwendeten Funktionen auf dem Projektserver gespeichert. Teile nur Unterlagen und Daten, für die du berechtigt bist. Akzeptierte Mitglieder können geteilte Gebäude und dortige Inhalte sehen. Die Projektadministration kann zu Betriebszwecken registrierte Konten und technische Nutzungsstatistiken einsehen.
+
+KI und Dateien
+KI ist standardmäßig ausgeschaltet. Erst nach Freigabe im Profil werden bewusst gestartete Textanfragen und begrenzter Gebäudekontext an Google Gemini übertragen; Antworten sind fehleranfällig. Die zusätzliche Plananalyse benötigt eine eigene Freigabe je Gebäude. Danach werden neue Bilder/PDFs automatisch beziehungsweise vorhandene ausgewählte Dateien vollständig an Google übertragen. Pläne können Adressen oder personenbezogene Angaben enthalten. Verwende im externen Test möglichst nicht personenbezogene Testunterlagen. Google verarbeitet übermittelte Daten nach den Bedingungen des verwendeten API-Zugangs; die Übertragung kann außerhalb des EWR erfolgen. Eine rein lokale Verarbeitung wird nicht zugesichert.
+
+Karten, Wetter und Geräte
+Bei der Kartenauswahl und Adresssuche in der iPhone-App verarbeitet Apple Karten die Suchangaben und den gewählten Kartenausschnitt. In der 3D-Kartenumgebung werden bei aktivierter Kartenfunktion Kartenausschnitte von OpenStreetMap geladen. Beim bewusst gestarteten Wetterabruf werden Gebäudekoordinaten zur Wetterabfrage bei Open-Meteo verwendet. Anbieter erhalten dabei die für die Funktion erforderlichen Verbindungs-/Standortdaten. Verknüpfte Geräte werden nur entsprechend der Freigabe und deinen Aufträgen gesteuert. Nutze für den Test ausschließlich Geräte, die du gefahrlos bedienen darfst.
+
+Keine Live-Sprache in Build 100
+Diese Testversion enthält weder ElevenLabs-/LiveKit-/WebRTC-SDKs noch eine aktive Mikrofonübertragung. Der Textassistent bleibt optional verfügbar. Frühere oder andere App-Versionen können zusätzliche Sprachfunktionen mit eigenen Hinweisen enthalten.
+
+Lokale Speicherung und Sicherheit
+Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.
+
+Aufbewahrung und Löschung
+Kontodaten und gespeicherte Projektinhalte bleiben bis zur Löschung durch dich oder die Projektadministration bestehen. Nicht übernommene Planentwürfe und technische Geometrie-Diagnosen werden nach sieben Tagen bereinigt. Unter Profil → Konto dauerhaft löschen kannst du dein Konto mit Passwortbestätigung aus der aktiven Datenbank löschen. Dabei werden auch deine eigenen Gebäude samt Dateien und Freigaben sowie deine Nachrichten entfernt; fremde Gebäude bleiben erhalten. Andere Mitglieder verlieren Zugriff auf die von dir besessenen Gebäude. Bereits an Anbieter übermittelte Daten und historische Sicherungskopien werden nicht durch diese Aktion unmittelbar gelöscht; für die Klärung dieser Löschung wende dich an den oben genannten Kontakt.
+
+Deine Anfragen
+Für Auskunft, Berichtigung, Datenexport, Widerruf optionaler KI-Freigaben und weitere Löschanfragen erreichst du Felix unter der angegebenen E-Mail. Freigaben kannst du auch direkt in der App deaktivieren. Bereits erfolgte Übertragungen werden dadurch nicht zurückgerufen. Die datenschutzrechtliche Einordnung und Hochschulfreigabe des weiteren Betriebs ist gesondert zu klären; externe Tests sind keine Freigabe für sensible Gebäudedaten.

@@ -1,6 +1,8 @@
 import SwiftUI
 import AVFoundation
 import Combine
+
+#if canImport(ElevenLabs)
 import ElevenLabs
 
 @MainActor final class BuildingLiveVoice: ObservableObject {
@@ -197,3 +199,19 @@ struct BuildingVoiceView: View {
         .onDisappear { voice.stop() }
     }
 }
+
+#else
+struct BuildingVoiceView: View {
+    let building: Building
+    @ObservedObject var account: AccountModel
+    var body: some View {
+        ContentUnavailableView {
+            Label("Live-Sprache pausiert", systemImage: "mic.slash")
+        } description: {
+            Text("Diese externe Testversion enthält keine Live-Sprachübertragung. Der Textassistent steht weiterhin bereit.")
+        } actions: {
+            NavigationLink("Textassistent öffnen") { BuildingAssistantView(building: building, account: account) }
+        }.navigationTitle("Assistent")
+    }
+}
+#endif
