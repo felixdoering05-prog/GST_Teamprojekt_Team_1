@@ -40,8 +40,10 @@ test('owner and accepted members read exact bytes without database upload or pat
 test('revoked building membership takes effect on the next download',async()=>{
  await db.query('DELETE FROM app_building_members WHERE building_id=$1 AND user_id=$2',[building.id,member.id]);assert.equal((await get(member,'/d21/model')).status,404);
 });
-test('missing configuration, invalid IFC and oversized files fail without exposing the server path',async()=>{
- config.buildingID='';assert.equal((await get(owner)).status,404);config.buildingID=building.id;
+test('missing or unknown building configuration, invalid IFC and oversized files fail without exposing the server path',async()=>{
+ config.buildingID='';assert.equal((await get(owner)).status,503);
+ config.buildingID='999999';assert.equal((await get(owner)).status,503);
+ config.buildingID=building.id;
  const original=config.file;config.file='relative.ifc';assert.equal((await get(owner)).status,503);config.file=path.join(directory,'missing.ifc');assert.equal((await get(owner)).status,503);config.file=original;
  await writeFile(config.file,'not IFC');assert.equal((await get(owner)).status,415);
  await writeFile(config.file,Buffer.alloc(MAX_MODEL+1));assert.equal((await get(owner,'/d21/model')).status,413);await writeFile(config.file,sample);
