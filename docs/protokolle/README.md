@@ -2,7 +2,7 @@
 
 [← Startseite](../../README.md)
 
-Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. **Stand 04.11.2026: Bislang ist in diesem Verzeichnis noch kein freigegebenes Team-Sitzungsprotokoll erfasst.** Entwicklungsprotokolle und technische Arbeitsnachweise unten sind keine Teamtermine. Fehlende Termine und Beschlüsse dürfen nur anhand tatsächlicher Aufzeichnungen nachgetragen werden.
+Hier werden tatsächliche Teamtermine nachvollziehbar dokumentiert. Entwicklungsprotokolle und technische Arbeitsnachweise unten sind keine Teamtermine. Fehlende Termine und Beschlüsse dürfen nur anhand tatsächlicher Aufzeichnungen nachgetragen werden.
 
 ## Neues Protokoll erstellen
 
@@ -18,6 +18,7 @@ Korrekturen nach Freigabe als datierten Nachtrag festhalten. Wichtige Beschlüss
 
 | Datum | Thema / Protokoll | Protokollführung | Status |
 | :--- | :--- | :--- | :--- |
+| 03.11.2026 | [Vorstellung bei Bürgy](2026-11-03-teamtermin.md) | Nicht erfasst | Freigegeben durch Felix Döring am 10.11.2026 |
 
 Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzung gezählt.
 

@@ -16,6 +16,10 @@ Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann
 
 **Stand: 10. November 2026 · iPhone-App: Build 1.0.99 (99), Plananalyse ergänzt; Installation dieses Builds auf physischem Gerät noch nicht bestätigt**
 
+**Nächste Projektpräsentation · Montag, 23. November 2026, 14:00 Uhr · Green Office, Gebäude C10**
+
+[Live-Countdown zur Präsentation öffnen](https://www.timeanddate.com/countdown/generic?iso=20261123T1400&p0=37&msg=KI+trifft+Geb%C3%A4ude)
+
 Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
 
 [Neueste Änderungen](#neueste-änderungen) · [Vorführablauf](#vorführung-vom-6-november) · [Funktionen](#was-bereits-möglich-ist) · [Aufgaben](../../issues) · [Änderungsverlauf](CHANGELOG.md) · [Protokolle](docs/protokolle/README.md)
