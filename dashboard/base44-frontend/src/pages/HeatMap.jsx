@@ -95,7 +95,7 @@ function CampusHeatMap() {
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{season.label} · {scenarioDate(scenario.day)} 2025 · {String(scenario.hour).padStart(2, '0')}:00</span>
         </div>
         {campus.loading ? <div role="status" className="grid h-[560px] place-items-center text-sm text-muted-foreground">Campus und D21-Modell werden vorbereitet …</div> : <>
-          {campus.message && <div role="status" className="flex flex-wrap items-center gap-2 border-b border-border bg-amber-50 px-4 py-2 text-xs text-amber-900"><span>{campus.message} Die Simulation zeigt die Campuskarte; das D21-3D-Modell ist derzeit nicht verfügbar.</span><button type="button" className="min-h-9 underline" onClick={() => setRevision(value => value + 1)}>Modell erneut laden</button></div>}
+          {campus.message && <div role="status" className="flex flex-wrap items-center gap-2 border-b border-border bg-amber-50 px-4 py-2 text-xs text-amber-900"><span>{campus.message} {campus.message.includes('nicht freigegeben') ? 'Die Freigabe erfolgt über die bestehende Gebäudemitgliedschaft: Die zuständige Eigentümerperson muss dieses Konto einladen; danach muss die Einladung angenommen werden.' : 'Bitte die D21-Gebäudezuordnung und IFC-Datei auf dem Projektserver prüfen.'} Die Simulation zeigt bis dahin die Campuskarte; das D21-3D-Modell ist nicht verfügbar.</span><button type="button" className="min-h-9 underline" onClick={() => setRevision(value => value + 1)}>Modell erneut laden</button></div>}
           <IFCModelFrame key={String(model.mapOnly)} document={model} heatmap={heatScenario} />
         </>}
         <div className="border-t border-border bg-card px-5 py-4" aria-label="Temperaturlegende von minus 10 bis 50 Grad Celsius">
