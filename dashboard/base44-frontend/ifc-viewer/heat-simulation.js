@@ -9,9 +9,9 @@ export const HEAT_GRADIENT = `linear-gradient(90deg, ${HEAT_STOPS.map(stop => st
 
 // Room temperatures here are presentation-only scenario values. They are never sensor readings.
 export const ROOM_TEMPERATURE_SCENARIOS = [
-  { id: 'winter', label: 'Wintermorgen', baseTemperature: 19.5, outsideTemperature: 2, solarGain: .7, description: 'Kühler Außenbereich, geringe solare Gewinne' },
-  { id: 'comfort', label: 'Behaglicher Tag', baseTemperature: 21.5, outsideTemperature: 13, solarGain: 1.5, description: 'Milde Außenbedingungen, moderate solare Gewinne' },
-  { id: 'summer', label: 'Sommertag', baseTemperature: 24, outsideTemperature: 31, solarGain: 2.5, description: 'Warmer Außenbereich, stärkere solare Gewinne' },
+  { id: 'winter', label: 'Wintermorgen', baseTemperature: 19.5, outsideTemperature: 2, solarGain: .7, description: 'Kühler Außenbereich, geringer Solaraufschlag' },
+  { id: 'comfort', label: 'Behaglicher Tag', baseTemperature: 21.5, outsideTemperature: 13, solarGain: 1.5, description: 'Milde Außenbedingungen, moderater Solaraufschlag' },
+  { id: 'summer', label: 'Sommertag', baseTemperature: 24, outsideTemperature: 31, solarGain: 2.5, description: 'Warmer Außenbereich, stärkerer Solaraufschlag' },
 ];
 export const SEASONS = [
   { id: 'spring', label: 'Frühling', day: 105, symbol: '01', description: 'Milde Übergänge' },
