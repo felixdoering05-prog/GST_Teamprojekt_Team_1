@@ -8,9 +8,23 @@ Im Web öffnet **BIM-Viewer** standardmäßig den h_da-Campus mit dem originalen
 
 Die Webansicht orientiert sich an den vier bereitgestellten Referenzbildern: orthografische Architekturansicht, helle Umgebung, schwebende Beschriftung und seitliche Geschossauswahl. Es gibt keine Bauphasen, Vergaben oder Terminanzeigen. Die optionale **Beispielcampus-Stilvorschau** ist selbst erzeugte IFC4-Geometrie mit einer erfundenen Umgebung, ausdrücklich kein D21-Modell. Eigene IFC-Dateien behalten ihre exportierte Geometrie und erhalten keine erfundene Umgebung.
 
+### Zuordnung der Referenzgestaltung zum D21-Viewer
+
+| Gestaltung aus der Referenz | D21-Umsetzung | Bestehende Funktion / Konflikt |
+|---|---|---|
+| Großflächiges 3D-Modell im Mittelpunkt | Der IFC-Canvas bleibt vollflächig; die neuen Karten sitzen am Rand und verwenden nur reale Modellmetadaten. | IFC-Geometrie, Modell laden und Kamerasteuerung bleiben erhalten. |
+| Helle, ruhige Szene mit Grün-/Türkisakzenten | Kühle helle Modellumgebung und zurückhaltende Türkisakzente; Glasflächen erhalten klare Rahmen und Kontrast. | Heatmap-Farbskala bleibt fachliche Mess-/Simulationsdarstellung und wird nicht als Dekor umgefärbt. |
+| Schwebende Kennzahlen am oberen Rand | Drei Karten zeigen die tatsächlich geladenen IFC-Geometrien, Geschosse und IFCSPACE-Räume. | Vergabe-, Termin-, Kosten- und Baufortschrittswerte aus der Referenz werden nicht übernommen oder erfunden. |
+| Seitliche Geschossauswahl | Das bestehende Geschossmenü bleibt rechts; aktives Geschoss und Gesamtgebäude sind sichtbar markiert. | Schnittebene und getrenntes Geschoss verwenden dieselben vorhandenen D21-Steuerungen. |
+| Untere Detailkarte für die Auswahl | Das vorhandene Bauteilpanel wird auf breiten Bildschirmen als untere Detailleiste angeordnet; Tablets und Smartphones erhalten eine platzsparende Anordnung. | IFC-Name, Typ, ID, GlobalId, Farbwahl, Ausblenden und Schließen bleiben erhalten. |
+| Kompakte Ansichtssteuerung | Zoom, Linksdrehung/Rechtsdrehung, Draufsicht, Gesamtansicht/Zurücksetzen und Campusübersicht stehen in einer schwebenden Werkzeugleiste. | Freies Drehen und Verschieben per Maus oder Touch bleiben verfügbar. |
+| Auswahl sichtbar hervorheben | Aktives Geschoss bleibt im Menü markiert; ausgewählte IFC-Bauteile behalten ihre bestehende türkise Hervorhebung. | Keine Status- oder Messwerte werden aus der Referenz übernommen. |
+| Responsive Anordnung | Kennzahlen, Geschosse und Detailleiste ordnen sich für Tablet und Smartphone neu an. | Raumlicht, Heatmap, Campusansicht und IFC-Zuordnungen bleiben über ihre vorhandenen Bereiche erreichbar. |
+
+
 **Geschosse:** Ein Geschoss auswählen, um das Gebäude bis zu dieser Etage freizulegen; **Gesamtes Gebäude** hebt den Schnitt auf. **Geschosse trennen** versetzt die exportierten Geschosse vertikal. Die Zuordnung stammt aus `IFCBUILDINGSTOREY`, räumlicher Enthaltung und Aggregationen; fehlen zugeordnete Geometrien, werden keine Etagen erfunden. Schnitthöhen werden aus der bereits transformierten Geometrie ermittelt, damit IFC-Längeneinheiten nicht mit Viewer-Koordinaten vermischt werden. Mehrgeschossige Elemente werden nicht in neue Bauteile zerlegt. Originalmaterialien eigener IFC-Dateien bleiben erhalten.
 
-Persönlich hochgeladene Modelle verwenden auf Website und iPhone dieselben Gebäude, Dokument-IDs und IFC-Dateien in PostgreSQL (`app_documents`). Die vorhandenen Dokument-Endpunkte bleiben unverändert. Das private D21-Original wird separat und schreibgeschützt über `/api/v1/campus/d21` (Metadaten) und `/api/v1/campus/d21/model` (Datei) bereitgestellt; es wird nicht in die App-Datenbank hochgeladen. Zugriff erhalten ausschließlich Eigentümer und angenommene Mitglieder des konfigurierten bestehenden Gebäudes.
+Persönlich hochgeladene Modelle verwenden auf Website und iPhone dieselben Gebäude, Dokument-IDs und IFC-Dateien in PostgreSQL (`app_documents`). Die vorhandenen Dokument-Endpunkte bleiben unverändert. Das private D21-Original wird separat und schreibgeschützt über `/api/v1/campus/d21` (Metadaten) und `/api/v1/campus/d21/model` (Datei) bereitgestellt; es wird nicht in die App-Datenbank hochgeladen. Zugriff erhalten ausschließlich Eigentümer und angenommene Mitglieder des konfigurierten bestehenden Gebäudes. Die Modellroute unterscheidet eine fehlende/ungültige Serverzuordnung (503, Konfigurationsfehler) von fehlender Kontoberechtigung (404). Eine echte Freigabe erfolgt weiterhin ausschließlich über die bestehende Eigentümer-/Mitgliedschaftszuordnung; die Viewer-Änderung öffnet das Modell nicht öffentlich.
 
 Der Browser authentifiziert den Download mit der bestehenden persönlichen Sitzung. Das eingebettete Viewer-Fenster erhält nur IFC-Bytes per `postMessage` mit Prüfung von Ursprung und Absender. Sitzungstoken werden nicht in URLs oder an den Viewer übertragen. Bibliotheken und WASM liegen auf dem eigenen Server; keine externen Viewer-Dienste.
 
