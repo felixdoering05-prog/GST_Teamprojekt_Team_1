@@ -10,7 +10,7 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,enabled=
  let job;
  try{
   await c.query("UPDATE app_plan_jobs SET status='failed',failure_code='worker_interrupted',lease_until=NULL,updated_at=now() WHERE status='running' AND lease_until<now()");
-  await c.query("UPDATE app_plan_jobs SET status=CASE WHEN status='ready' THEN 'rejected' ELSE status END,output_ifc=NULL,preview_png=NULL,updated_at=now() WHERE (output_ifc IS NOT NULL OR preview_png IS NOT NULL) AND updated_at<now()-interval '7 days'");
+  await c.query("UPDATE app_plan_jobs SET status=CASE WHEN status='ready' THEN 'rejected' ELSE status END,output_ifc=NULL,preview_png=NULL,analysis=NULL,updated_at=now() WHERE (output_ifc IS NOT NULL OR preview_png IS NOT NULL OR analysis IS NOT NULL) AND updated_at<now()-interval '7 days'");
   job=(await c.query("UPDATE app_plan_jobs SET status='running',attempts=attempts+1,phase='analysis',lease_until=now()+interval '5 minutes',updated_at=now() WHERE id=(SELECT id FROM app_plan_jobs WHERE status='queued' AND not_before<=now() ORDER BY created_at LIMIT 1) RETURNING *")).rows[0];if(!job)return false;
   if(!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
   let docs;try{docs=await Q.validateSources(c,job);}catch{throw Object.assign(Error(),{code:'source_changed'});}
@@ -31,7 +31,7 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,enabled=
  }catch(e){
   if(!job)throw e;
   const code=Object.hasOwn(FAILURE_MESSAGES,e.code)?e.code:'model_generation_failed';
-  await c.query("UPDATE app_plan_jobs SET status=$2,failure_code=$3,warnings=$4,output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running'",[job.id,code==='needs_input'?'needs_input':code==='consent_changed'?'cancelled':'failed',code,JSON.stringify([FAILURE_MESSAGES[code]])]);
+  await c.query("UPDATE app_plan_jobs SET status=$2,failure_code=$3,warnings=$4,analysis=COALESCE($5::jsonb,analysis),provider_model=COALESCE($6,provider_model),usage=COALESCE($7::jsonb,usage),output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running'",[job.id,code==='needs_input'?'needs_input':code==='consent_changed'?'cancelled':'failed',code,JSON.stringify([FAILURE_MESSAGES[code]]),e.geometry?JSON.stringify(e.geometry):null,e.provider_model||null,e.usage?JSON.stringify(e.usage):null]);
   console.error('plan-job',job.id,code);return true;
  }finally{await c.query('SELECT pg_advisory_unlock(610212)');}
 }

@@ -8,12 +8,13 @@ class PlanError extends Error {constructor(code){super(code);this.code=code;}}
 const bad=()=>{throw new PlanError('invalid_geometry')};
 const keys=(v,list)=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!list.includes(k)))bad();};
 const num=(v,min,max)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)bad();return v;};
+const narrative=v=>{if(typeof v!=='string'||v.length>2000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(v))bad();return v;};
 const text=v=>{if(typeof v!=='string'||v.length>160||/[\x00-\x1f]/.test(v))bad();return v;};
 const point=p=>{if(!Array.isArray(p)||p.length!==2)bad();return p.map(n=>num(n,-100000,100000));};
 const array=(v,max,min=0)=>{if(!Array.isArray(v)||v.length<min||v.length>max)bad();return v;};
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 function validateGeometry(g){
- keys(g,['status','reason','warnings','levels']);if(!['ok','needs_input'].includes(g.status))bad();text(g.reason);array(g.warnings,20).forEach(text);
+ keys(g,['status','reason','warnings','levels']);if(!['ok','needs_input'].includes(g.status))bad();narrative(g.reason);array(g.warnings,20).forEach(narrative);
  if(g.status==='needs_input')throw new PlanError('needs_input');
  const names=new Set();let count=0;
  array(g.levels,4,1).forEach(l=>{

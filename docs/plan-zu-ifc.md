@@ -20,7 +20,7 @@ Zunächst darf nur der Gebäudeeigentümer die Funktion steuern. Uploads anderer
 - Bei fehlender Höhe 2,50 m und 200 mm Deckenstärke **als Annahmen** verwenden. Dach, Dachschrägen und Treppen bleiben aus. Unklare Öffnungen dürfen fehlen.
 - Ohne eindeutigen Grundriss/Maßstab einen Hinweis statt eines erfundenen Modells liefern. Fehlinterpretationen können trotzdem vorkommen: Fachliche Prüfung ist erforderlich.
 
-Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Die IFC allein ist kein vollständiger Herkunftsbericht; Hinweise beim Weitergeben mitgeben. Die Freigabe bestätigt die Übernahme in die Mappe, keine Maßhaltigkeit.
+Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Bei abgelehnter Geometrie wird die begrenzte KI-Antwort für die technische Diagnose nur im privaten Auftrag gespeichert, nicht als Modell freigegeben; diese Diagnose und Vorschauen werden nach sieben Tagen bereinigt. Die IFC allein ist kein vollständiger Herkunftsbericht; Hinweise beim Weitergeben mitgeben. Die Freigabe bestätigt die Übernahme in die Mappe, keine Maßhaltigkeit.
 
 ## Aufbau und Datenhaltung
 
