@@ -7,3 +7,10 @@
 .building-photo figcaption span{font-size:12px;font-weight:400;color:var(--muted)}
 
 .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.dashboard-link{text-decoration:none;white-space:nowrap}
+
+/* Das flache Format blendet nur den weißen Rand der Vorlage aus. */
+.brand-logo {
+  width: clamp(210px, 21vw, 260px);
+  aspect-ratio: 5 / 1;
+  object-fit: cover;
+}
