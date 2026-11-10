@@ -24,7 +24,7 @@ async function consent(enabled=true){const current=(await api()).body;return api
 async function clear(){await db.query('DELETE FROM app_plan_jobs');}
 async function enqueue(ids){return api('/jobs',{document_ids:ids,request_key:randomUUID()});}
 test('strict geometry rejects missing scale, oversized plans and injected commands',()=>{
- assert.equal(validateGeometry(fixture()).status,'ok');
+ assert.equal(validateGeometry(fixture()).status,'ok');const verbose=fixture();verbose.reason='Erklärung zur Planerkennung. '.repeat(15);verbose.warnings=['Eine längere Erläuterung zur angenommenen Höhe. '.repeat(8)];assert.equal(validateGeometry(verbose).status,'ok');
  for(const mutate of [g=>g.levels[0].dimension_evidence=[],g=>g.levels[0].walls[0].thickness=100000,g=>g.levels[0].boundary[0][0]=Infinity,g=>g.commands=['open /etc/passwd'],g=>g.levels[0].walls[0].a=[-99999,0]]){const g=fixture();mutate(g);assert.throws(()=>validateGeometry(g));}
  const g=fixture();g.levels[0].name='EG\\nopen /etc/passwd';const commands=recipe(g,'/tmp/output.png').split('\n');assert.ok(commands.every(c=>!c.startsWith('open ')));assert.throws(()=>validateGeometry({status:'needs_input',reason:'No dimensions',warnings:[],levels:[]}));
 });
@@ -49,6 +49,15 @@ test('debounce batches at most four files without dropping the previous batch',a
  const first=await run([docs[0]],'upload:1');const second=await run(docs.slice(1,4),'upload:2');assert.equal(first.id,second.id);
  const third=await run([docs[4]],'upload:5');assert.notEqual(first.id,third.id);
  const rows=(await db.query('SELECT document_ids FROM app_plan_jobs ORDER BY created_at')).rows;assert.deepEqual(rows.map(r=>r.document_ids.length),[4,1]);await clear();
+});
+test('actual upload endpoint starts owner jobs only after opt-in and leaves uploads intact',async()=>{
+ const previous=process.env.PLAN_CONVERSION_ENABLED;process.env.PLAN_CONVERSION_ENABLED='true';
+ const upload=async(user)=>{const r=await fetch(url.replace('/plan-conversion','/documents'),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':'Automatic.pdf','X-D21-Session':user.token},body:Buffer.from('%PDF-1.4\n% Synthetic plan')});return {status:r.status,body:await r.json()};};
+ try{
+  const first=await upload(owner);assert.equal(first.status,201);assert.equal(first.body.plan_conversion.status,'queued');
+  const member=await upload(other);assert.equal(member.status,201);assert.equal(member.body.plan_conversion,undefined);assert.equal((await api()).body.jobs.length,1);
+  await consent(false);const off=await upload(owner);assert.equal(off.status,201);assert.equal(off.body.plan_conversion,undefined);assert.equal((await api()).body.jobs[0].status,'cancelled');
+ }finally{if(previous===undefined)delete process.env.PLAN_CONVERSION_ENABLED;else process.env.PLAN_CONVERSION_ENABLED=previous;await clear();await consent();}
 });
 test('worker requires consent, keeps output separate, approval appends IFC and is idempotent',async()=>{
  const result=await enqueue([docs[0]]);let calls=0;

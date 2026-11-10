@@ -15,6 +15,7 @@ async function analyzePlans(docs,{fetchProvider=fetch,model=process.env.GEMINI_M
  const json=await boundedJSON(response);const candidate=json.candidates?.[0];
  if(candidate?.finishReason!=='STOP')throw new PlanError('provider_response_invalid');
  let geometry;try{const raw=candidate.content.parts.filter(p=>!p.thought&&typeof p.text==='string').map(p=>p.text).join('');if(raw.length>256*1024)throw Error();geometry=JSON.parse(raw);}catch{throw new PlanError('provider_response_invalid');}
- validateGeometry(geometry);return {geometry,model,usage:json.usageMetadata?{prompt_tokens:json.usageMetadata.promptTokenCount||0,output_tokens:json.usageMetadata.candidatesTokenCount||0}:null};
+ const tokens=v=>Number.isFinite(v)&&v>=0&&v<10000000?v:0;const usage=json.usageMetadata?{prompt_tokens:tokens(json.usageMetadata.promptTokenCount),output_tokens:tokens(json.usageMetadata.candidatesTokenCount)}:null;
+ try{validateGeometry(geometry);}catch(e){if(e.code==='invalid_geometry')e.geometry=geometry;e.usage=usage;e.provider_model=model;throw e;}return {geometry,model,usage};
 }
 module.exports={analyzePlans,boundedJSON};
