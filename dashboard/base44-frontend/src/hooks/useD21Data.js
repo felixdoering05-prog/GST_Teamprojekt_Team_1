@@ -27,7 +27,7 @@ const EMPTY = {
  * Gebäude, Geschosse, Räume, Sensoren, Grenzwerte, Meldungen und
  * die Messwerte der letzten 24 Stunden.
  */
-export default function useD21Data() {
+export default function useD21Data(requestedBuildingID = '') {
   const [state, setState] = useState(EMPTY);
 
   const load = useCallback(async () => {
@@ -49,7 +49,7 @@ export default function useD21Data() {
       let pages = 0;
       let hasMore = true;
       while (hasMore && pages < MAX_PAGES) {
-        const options = { sort: 'measured_at', limit: PAGE_SIZE };
+        const options = { sort: '-measured_at', limit: PAGE_SIZE };
         if (cursor) options.cursor = cursor;
         const page = await base44.entities.Measurement.filter({ measured_at: { $gte: since } }, options);
         series.push(...(page.items || []));
@@ -58,7 +58,7 @@ export default function useD21Data() {
         pages += 1;
       }
 
-      const selected = buildings.find(b => b.id === localStorage.getItem('d21-selected-building')) || buildings[0] || null;
+      const selected = buildings.find(b => b.id === requestedBuildingID) || buildings.find(b => b.id === localStorage.getItem('d21-selected-building')) || buildings[0] || null;
       const belongs = row => row.building_id === selected?.id;
       const thresholds = { ...DEFAULT_THRESHOLDS };
       (thresholdRows || []).forEach((row) => {
@@ -98,7 +98,7 @@ export default function useD21Data() {
     } catch (error) {
       setState((s) => ({ ...s, loading: false, error: error.message || 'Daten konnten nicht geladen werden.' }));
     }
-  }, []);
+  }, [requestedBuildingID]);
 
   useEffect(() => {
     load();

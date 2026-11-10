@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from '@/api/base44Client';
 
-export default function IFCModelFrame({ document, heatmap }) {
+export default function IFCModelFrame({ document, heatmap, onHeatStatus }) {
   const frame = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,7 @@ export default function IFCModelFrame({ document, heatmap }) {
     }
     async function receive(event) {
       if (event.source !== frame.current?.contentWindow || event.origin !== window.location.origin) return;
+      if (event.data?.type === 'd21-heat-status') { onHeatStatus?.(event.data); return; }
       if (event.data?.type === 'd21-ifc-ready') { ready = true; send(); return; }
       if (event.data?.type !== 'd21-scene-request' || typeof event.data.id !== 'string' || event.data.id.length > 100) return;
       if (document.campus) return;
@@ -44,7 +45,7 @@ export default function IFCModelFrame({ document, heatmap }) {
       if (active) { buffer = bytes; send(); }
     }).catch(e => { if (active) { setError(e.message); setLoading(false); if (document.campus) setMapFallback(true); } });
     return () => { active = false; buffer = undefined; window.removeEventListener('message', receive); };
-  }, [document.id, document.example, document.campus, document.mapOnly, attempt]);
+  }, [document.id, document.example, document.campus, document.mapOnly, attempt, onHeatStatus]);
   const mapOnly = document.mapOnly || mapFallback;
   const source = (document.example ? '?example=true' : document.campus ? `?campus=d21${mapOnly ? '&map-only=true' : ''}` : '') + (heatmap ? '&heat=true' : '');
   return <div>

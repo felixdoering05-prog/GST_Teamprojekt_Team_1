@@ -278,6 +278,7 @@ async function open() {
     document.querySelector('#all-floors').setAttribute('aria-pressed', String(selectedFloor === null));
     updateSeparationControl();
     document.querySelectorAll('[data-floor]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.floor) === selectedFloor)));
+    heatLayer?.setFloor(selectedFloor);
     render();
   }
   const floorList = document.querySelector('#floor-list');
@@ -326,8 +327,9 @@ async function open() {
     cancelCommand();
     const cut = floorCut(storeys, selectedFloor, exploded ? gap : 0);
     if (isHeat) {
-      const targets = [...appearance.visibleMeshes, ...(heatLayer?.ground.visible ? [heatLayer.ground] : [])];
-      heatLayer?.select(ray.intersectObjects(targets, false).find(hit => cut === null || hit.point.y <= cut));
+      const targets = [...appearance.visibleMeshes, ...(heatLayer?.targets || []), ...(heatLayer?.ground.visible ? [heatLayer.ground] : [])];
+      const hits = ray.intersectObjects(targets, false).filter(hit => cut === null || hit.point.y <= cut);
+      heatLayer?.select(hits.find(hit => hit.object.userData.heatGlobalId) || hits[0]);
       return;
     }
     appearance.select(ray.intersectObjects(appearance.visibleMeshes, false).find(hit => cut === null || hit.point.y <= cut)?.object.userData.expressID);
@@ -372,6 +374,7 @@ async function open() {
   document.querySelector('#home-mode').onclick = () => mode(true);
   roomEffects = new THREE.Group(); scene.add(roomEffects);
   const spaceIDs = api.GetLineIDsWithType(modelID, IFCSPACE);
+  const heatRoomSpaces = [];
   let roomVertices = 0, roomMeshes = 0;
   for (let n = 0; n < spaceIDs.size(); n++) {
     const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
@@ -379,7 +382,7 @@ async function open() {
     const label = document.createElement('span');
     label.textContent = [text(line.Name), text(line.LongName)].filter(Boolean).join(' · ') || `Raum ${n + 1}`;
     row.append(label);
-    const meshes = [], flat = api.GetFlatMesh(modelID, id);
+    const meshes = [], heatMeshes = [], flat = api.GetFlatMesh(modelID, id);
     for (let i = 0; i < flat.geometries.size(); i++) {
       const placed = flat.geometries.get(i), data = api.GetGeometry(modelID, placed.geometryExpressID);
       try {
@@ -398,9 +401,10 @@ async function open() {
         effect.applyMatrix4(new THREE.Matrix4().fromArray(placed.flatTransformation));
         effect.position.sub(center); effect.visible = false;
         effect.userData.expressID = id; effect.userData.basePosition = effect.position.clone();
-        effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect);
+        effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect); heatMeshes.push(effect);
       } finally { data.delete(); }
     }
+    heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
@@ -424,7 +428,8 @@ async function open() {
   } else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   if (isHeat) {
     const groundY = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
-    heatLayer = mountHeatLayer({ scene, root, groundY, render });
+    heatLayer = mountHeatLayer({ scene, root, groundY, render, roomSpaces: heatRoomSpaces });
+    heatLayer.setFloor(selectedFloor);
     document.querySelector('#model-mode').onclick = () => {};
     document.querySelector('#sync-status')?.remove();
   }

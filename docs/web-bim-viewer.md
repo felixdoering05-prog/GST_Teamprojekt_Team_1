@@ -1,6 +1,6 @@
 # Gemeinsamer IFC-Viewer für Website und iPhone
 
-Stand: 5. November 2026.
+Stand: 10. November 2026.
 
 ## Bedienung
 
@@ -73,3 +73,27 @@ Wetterergänzung geprüft: 18 Viewer-/Wettertests einschließlich ZIP-CRC-Prüfu
 Beim Anlegen oder Bearbeiten eines Gebäudes können optional WGS84-Breitengrad und -Längengrad sowie die Modellrichtung ab Norden hinterlegt werden. Die Koordinaten lassen sich manuell eingeben; die Adresse wird nicht an einen Suchdienst gesendet. Das IFC bleibt unverändert und wird im Viewer auf den Standort bezogen und mit der angegebenen Richtung ausgerichtet. Die Funktion ist länderunabhängig und funktioniert auch für Standorte in Italien.
 
 Die OpenStreetMap-Karte ist pro Gebäude standardmäßig ausgeschaltet. Erst nach gesetztem Einverständnis werden sichtbare Kartenkacheln für diesen Standort geladen; dabei erhält OpenStreetMap Anfragen zum betrachteten Kartenausschnitt. Bestehende Gebäude ohne Koordinaten und Einverständnis behalten ihr bisheriges Verhalten. Die Gebäudefelder werden ergänzend in den vorhandenen Gebäudedaten gespeichert; es ist keine Umstellung oder Löschung vorhandener Projektdaten vorgesehen.
+
+
+## Glassy-Layout und Heatmap-Modi
+
+Die globale Oberfläche verwendet eine gemeinsame Glassy-Sprache mit kühlem blau-grauem Hintergrund, sichtbar abgegrenzten Glasflächen, ruhigen türkisen Akzenten und stärkerer Lesbarkeit. Der Viewer übernimmt die schwebenden, abgerundeten Steuerungsflächen der Referenz; D21-Geschoss-, Bauteil-, Raumlicht- und IFC-Bedienung bleibt projektbezogen.
+
+Die Heatmap hat drei klar getrennte Darstellungen:
+
+- **Raummesswerte:** Es werden ausschließlich Temperaturmessungen mit `source=real`, Qualitätsstatus `ok`, aktivem real gekennzeichneten Temperatur-Sensor, Einheit °C und Zeitstempel aus den letzten 24 Stunden berücksichtigt. Ein Raum wird nur eingefärbt, wenn die Gebäuderaumzuordnung eine IFC GlobalId enthält, die im geladenen Modell exakt vorkommt. Werte werden pro Raum nicht gemittelt oder über Räume interpoliert. Räume ohne passenden Messwert behalten ihre IFC-Originaldarstellung.
+- **Raumsimulation:** Für eine visuelle Präsentation kann ein festes Szenario reproduzierbare Temperaturen je IFC-Raum darstellen. Die Werte werden deterministisch aus Szenario, GlobalId und Geschosslage abgeleitet; der Solaraufschlag dient nur als illustrative Szenarioannahme. Die Werte sind keine Messungen und keine validierte bauphysikalische Prognose, beziehen keine Wetter- oder Sensordaten ein und werden nicht gespeichert.
+- **Campus-Simulation:** Die bestehende DWD-Ansicht bleibt erreichbar. Sie verwendet historische stündliche Lufttemperaturmessungen der DWD-Station Frankfurt/Main aus 2025 als Außenluft-Referenz. Die räumliche Oberflächentemperatur bleibt eine schematische Simulation; sie ist keine Gebäudemessung und keine Raumtemperaturprognose.
+
+Das Backend stellt außerdem standortbezogene Open-Meteo-Wettermodell-/Prognosedaten bereit. Die Raummesswert-Heatmap zeigt sie getrennt als Außenwetter; sie werden nicht zur Berechnung der Raumfarben verwendet. Aktuelle Wetterdaten können ausdrücklich aktualisiert werden. Fehlt ein Standort, eine IFC GlobalId-Zuordnung, ein passender Messwert oder ein Wetterabruf, zeigt die Oberfläche den Datenmangel an, statt Werte zu erzeugen.
+
+### Prüfstatus zum Implementierungsstand
+
+| Bereich | Nachweisbarer Stand |
+|---|---|
+| Gebäudedaten und IFC-Zuordnung | Gebäude, Dateien und IFC-Raumdaten bleiben im vorhandenen Datenpfad; neue Raummesswertanzeige liest bestehende Sensor-/Messdatensätze. |
+| IFC-Geschossauswahl | Vorhandene Geschossauswahl wird für Filterung der eingefärbten Räume weiterverwendet. |
+| Echte Raum-Heatmap | Nur mit gültiger Zuordnung `Room.ifc_global_id ↔ IFCSPACE.GlobalId`, Sensorstatus, Einheit, Qualitätsstatus und frischem `source=real)-Messwert. |
+| Wetter | DWD-Datei: historische Stationsbeobachtung 2025. Open-Meteo-API: Außenwettermodell/Prognose. Beides wird nicht als Innenraummessung ausgegeben. |
+| Unbekannt / noch nachzuweisen | Für jedes reale Gebäude muss geprüft werden, ob Sensoren und Räume in Produktivdaten korrekt mit der IFC GlobalId verbunden sind und ob Live-Messwerte im gewünschten Zeitfenster eintreffen. |
+| Bestandsschutz | Die neue Ansicht verändert keine Gebäude-, Sensor-, Messwert- oder IFC-Datensätze. Sie nutzt nur bestehende Datensätze und ergänzt die Oberfläche. |

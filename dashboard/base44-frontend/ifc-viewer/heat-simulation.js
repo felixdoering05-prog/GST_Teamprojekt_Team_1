@@ -6,6 +6,13 @@ export const HEAT_STOPS = [
   { value: 50, color: '#dc3549' },
 ];
 export const HEAT_GRADIENT = `linear-gradient(90deg, ${HEAT_STOPS.map(stop => stop.color).join(', ')})`;
+
+// Room temperatures here are presentation-only scenario values. They are never sensor readings.
+export const ROOM_TEMPERATURE_SCENARIOS = [
+  { id: 'winter', label: 'Wintermorgen', baseTemperature: 19.5, outsideTemperature: 2, solarGain: .7, description: 'Kühler Außenbereich, geringer Solaraufschlag' },
+  { id: 'comfort', label: 'Behaglicher Tag', baseTemperature: 21.5, outsideTemperature: 13, solarGain: 1.5, description: 'Milde Außenbedingungen, moderater Solaraufschlag' },
+  { id: 'summer', label: 'Sommertag', baseTemperature: 24, outsideTemperature: 31, solarGain: 2.5, description: 'Warmer Außenbereich, stärkerer Solaraufschlag' },
+];
 export const SEASONS = [
   { id: 'spring', label: 'Frühling', day: 105, symbol: '01', description: 'Milde Übergänge' },
   { id: 'summer', label: 'Sommer', day: 196, symbol: '02', description: 'Warme Oberflächen' },
@@ -15,13 +22,34 @@ export const SEASONS = [
 export function normalizeScenario(value = {}) {
   if (!value || typeof value !== 'object') value = {};
   const finite = (number, fallback, min, max) => typeof number === 'number' && Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
-  const scenario = { day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
+  const scenario = { mode: value.mode === 'measured' || value.mode === 'simulated-rooms' ? value.mode : 'simulation', day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
   if (value.source === 'dwd') {
     scenario.source = 'dwd';
     scenario.airTemperature = typeof value.airTemperature === 'number' && Number.isFinite(value.airTemperature) && value.airTemperature >= -90 && value.airTemperature <= 65 ? value.airTemperature : null;
   }
   return scenario;
 }
+function stableRoomFactor(globalId, salt) {
+  let hash = 2166136261;
+  for (const character of `${globalId}:${salt}`) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0xffffffff;
+}
+
+export function simulatedRoomTemperature(globalId, floorIndex = 0, floorCount = 1, presetId = 'comfort') {
+  if (typeof globalId !== 'string' || !globalId.trim()) return null;
+  const preset = ROOM_TEMPERATURE_SCENARIOS.find(item => item.id === presetId) || ROOM_TEMPERATURE_SCENARIOS[1];
+  const count = Number.isFinite(floorCount) && floorCount > 0 ? floorCount : 1;
+  const index = Number.isFinite(floorIndex) && floorIndex >= 0 ? floorIndex : 0;
+  const floorEffect = count > 1 ? (index / (count - 1) - .5) * .9 : 0;
+  const roomOffset = (stableRoomFactor(globalId, 'offset') - .5) * 4.4;
+  const solarEffect = stableRoomFactor(globalId, 'solar') * preset.solarGain;
+  const outdoorEffect = Math.min(.75, Math.max(-.65, (preset.outsideTemperature - 12) * .035));
+  return Math.round((preset.baseTemperature + floorEffect + roomOffset + solarEffect + outdoorEffect) * 10) / 10;
+}
+
 export function seasonForDay(day) {
   if (day >= 79 && day < 171) return SEASONS[0];
   if (day >= 171 && day < 265) return SEASONS[1];
