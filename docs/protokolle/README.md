@@ -18,6 +18,7 @@ Korrekturen nach Freigabe als datierten Nachtrag festhalten. Wichtige Beschlüss
 
 | Datum | Thema / Protokoll | Protokollführung | Status |
 | :--- | :--- | :--- | :--- |
+| 10.11.2026 | [Glaskastensitzung · Teamprojekt App](2026-11-10-teamtermin-glaskasten.md) | Emir (mit ChatGPT-Unterstützung) | Entwurf – Review ausstehend |
 | 03.11.2026 | [Vorstellung bei Bürgy](2026-11-03-teamtermin.md) | Nicht erfasst | Freigegeben durch Felix Döring am 10.11.2026 |
 
 Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzung gezählt.
