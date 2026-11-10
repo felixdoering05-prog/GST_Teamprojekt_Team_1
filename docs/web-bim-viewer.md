@@ -79,9 +79,10 @@ Die OpenStreetMap-Karte ist pro Gebäude standardmäßig ausgeschaltet. Erst nac
 
 Die globale Oberfläche verwendet eine gemeinsame Glassy-Sprache mit kühlem blau-grauem Hintergrund, sichtbar abgegrenzten Glasflächen, ruhigen türkisen Akzenten und stärkerer Lesbarkeit. Der Viewer übernimmt die schwebenden, abgerundeten Steuerungsflächen der Referenz; D21-Geschoss-, Bauteil-, Raumlicht- und IFC-Bedienung bleibt projektbezogen.
 
-Die Heatmap hat zwei klar getrennte Darstellungen:
+Die Heatmap hat drei klar getrennte Darstellungen:
 
 - **Raummesswerte:** Es werden ausschließlich Temperaturmessungen mit `source=real`, Qualitätsstatus `ok`, aktivem real gekennzeichneten Temperatur-Sensor, Einheit °C und Zeitstempel aus den letzten 24 Stunden berücksichtigt. Ein Raum wird nur eingefärbt, wenn die Gebäuderaumzuordnung eine IFC GlobalId enthält, die im geladenen Modell exakt vorkommt. Werte werden pro Raum nicht gemittelt oder über Räume interpoliert. Räume ohne passenden Messwert behalten ihre IFC-Originaldarstellung.
+- **Raumsimulation:** Für eine visuelle Präsentation kann ein festes Szenario reproduzierbare Temperaturen je IFC-Raum darstellen. Die Werte werden deterministisch aus Szenario, GlobalId und Geschosslage abgeleitet, sind weder Messwerte noch eine validierte bauphysikalische Prognose, beziehen keine Wetter- oder Sensordaten ein und werden nicht gespeichert.
 - **Campus-Simulation:** Die bestehende DWD-Ansicht bleibt erreichbar. Sie verwendet historische stündliche Lufttemperaturmessungen der DWD-Station Frankfurt/Main aus 2025 als Außenluft-Referenz. Die räumliche Oberflächentemperatur bleibt eine schematische Simulation; sie ist keine Gebäudemessung und keine Raumtemperaturprognose.
 
 Das Backend stellt außerdem standortbezogene Open-Meteo-Wettermodell-/Prognosedaten bereit. Die Raummesswert-Heatmap zeigt sie getrennt als Außenwetter; sie werden nicht zur Berechnung der Raumfarben verwendet. Aktuelle Wetterdaten können ausdrücklich aktualisiert werden. Fehlt ein Standort, eine IFC GlobalId-Zuordnung, ein passender Messwert oder ein Wetterabruf, zeigt die Oberfläche den Datenmangel an, statt Werte zu erzeugen.
