@@ -180,6 +180,13 @@ async function open() {
   for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) document.getElementById(id).onclick = () => {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, .3, 12); camera.updateProjectionMatrix(); render();
   };
+  for (const [id, angle] of [['rotate-left', Math.PI / 2], ['rotate-right', -Math.PI / 2]]) {
+    document.getElementById(id).onclick = () => {
+      const offset = camera.position.clone().sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+      camera.position.copy(controls.target).add(offset);
+      controls.update(); render();
+    };
+  }
 
   const spatial = readStoreys(api, modelID);
   const floorBounds = new Map();
@@ -433,6 +440,13 @@ async function open() {
     document.querySelector('#model-mode').onclick = () => {};
     document.querySelector('#sync-status')?.remove();
   }
+  const formatCount = value => new Intl.NumberFormat('de-DE').format(value);
+  document.querySelector('#viewer-summary-title').textContent = isCampus ? 'D21 · Hochschule Darmstadt' : isExample ? 'Beispielcampus' : 'IFC-Modell';
+  document.querySelector('#viewer-summary-state').textContent = 'Modell geladen';
+  document.querySelector('#viewer-mesh-count').textContent = formatCount(meshes);
+  document.querySelector('#viewer-floor-count').textContent = formatCount(storeys.length);
+  document.querySelector('#viewer-room-count').textContent = formatCount(spaceIDs.size());
+  document.querySelector('#viewer-summary').hidden = false;
   status.hidden = true;
   render();
   report(`ready:${meshes}`);
