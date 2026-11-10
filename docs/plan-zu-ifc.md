@@ -36,7 +36,7 @@ Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Die IFC allein i
 
 ## Betrieb
 
-Docker Compose startet `plan-worker` neben API/Web/DB. Aktivierung in der privaten Serverkonfiguration: `PLAN_CONVERSION_ENABLED=true`, zusätzlich funktionierender `GEMINI_MODEL` und gemountete Datei `GEMINI_API_KEY_FILE`. Keine Schlüssel in GitHub oder App.
+Docker Compose startet `plan-worker` neben API/Web/DB. Aktivierung in der privaten Serverkonfiguration: `PLAN_CONVERSION_ENABLED=true`, zusätzlich funktionierender `GEMINI_MODEL` und gemountete Datei `GEMINI_API_KEY_FILE`. Keine Schlüssel in GitHub oder App. Einmal als Administrator `python3 dashboard/ops/configure-plan-worker.py` aus dem Repository aufrufen: Der Schlüssel erhält Leserecht ausschließlich für die zusätzliche Worker-Gruppe 61021, der Ordner nur Durchgangsrecht. Nach einer Schlüssel-Neuanlage mit zurückgesetzten Dateirechten erneut ausführen. Die API bleibt root-eigentümerseitig leseberechtigt.
 
 BIMCraft-Download ist auf v0.11.0 mit SHA-256-Prüfung festgelegt; x86_64 und arm64 werden unterstützt. Quellen/Lizenzen: [BIMCraft](https://github.com/IPedrax/BIMCraft) (MIT/Apache-2.0). Die Originaldistribution mit Lizenzdateien bleibt im Container enthalten. [Gemini GenerateContent](https://ai.google.dev/api/generate-content).
 

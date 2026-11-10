@@ -61,6 +61,7 @@ services:
     restart: unless-stopped
     read_only: true
     user: '65534:65534'
+    group_add: ['61021']
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
     tmpfs: ['/tmp:rw,nosuid,noexec,size=128m,mode=1777']
