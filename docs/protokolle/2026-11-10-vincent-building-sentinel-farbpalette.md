@@ -12,6 +12,6 @@ Die Präsentationsseite unter `/projekt/` übernimmt Dunkelblau und Pink aus dem
 ## Stand und Übergabe
 
 - Branch: `feat/vincent-building-sentinel-farbpalette`
-- Pull Request: Link folgt nach dem Öffnen.
-- Stand: lokal geprüft, zur Prüfung vorbereitet.
+- Pull Request: [#117 – Farben auf das Building-Sentinel-Logo abstimmen](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/117).
+- Stand: lokal geprüft und im Pull Request zur Prüfung bereit.
 - Felix kann die Farbpalette nach Review und Merge über `d21-deploy` veröffentlichen. Anschließend `/projekt/` auf Desktop und Mobilgerät prüfen.
