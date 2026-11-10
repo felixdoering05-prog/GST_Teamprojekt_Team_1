@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 34% 96%;
+    --background: 214 28% 91%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -57,7 +57,7 @@
     @apply bg-background text-foreground font-body antialiased;
     line-height: 1.5;
     background-color: hsl(var(--background));
-    background-image: radial-gradient(ellipse at 12% 8%, rgba(65, 181, 192, .13), transparent 34%), radial-gradient(ellipse at 88% 18%, rgba(123, 194, 164, .12), transparent 31%), linear-gradient(135deg, rgba(255,255,255,.3), transparent 58%);
+    background-image: radial-gradient(ellipse at 8% 0%, rgba(52, 137, 172, .23), transparent 36%), radial-gradient(ellipse at 96% 7%, rgba(118, 139, 193, .20), transparent 34%), radial-gradient(ellipse at 55% 100%, rgba(90, 174, 157, .14), transparent 40%), linear-gradient(145deg, #e6edf4 0%, #dce5ef 47%, #e8edf3 100%);
     background-attachment: fixed;
   }
 
@@ -92,11 +92,19 @@
 
   .surface,
   .glass-panel {
-    @apply rounded-2xl border border-white/75 bg-white/65 shadow-[0_12px_34px_rgba(35,52,70,0.1),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl;
+    @apply rounded-2xl border border-white/75 shadow-[0_18px_44px_rgba(27,45,66,0.14),inset_0_1px_0_rgba(255,255,255,0.94)] backdrop-blur-2xl;
+    background: linear-gradient(140deg, rgba(255,255,255,.87), rgba(242,248,252,.70));
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
+  }
+
+  .d21-shell {
+    background: radial-gradient(ellipse at 15% 0%, rgba(79, 150, 181, .18), transparent 38%), radial-gradient(ellipse at 95% 12%, rgba(122, 139, 190, .15), transparent 35%), linear-gradient(150deg, #e4ecf4, #dbe4ed 55%, #e9eef4);
+    background-attachment: fixed;
   }
 
   .d21-sidebar {
-    background: rgba(248, 251, 253, .72);
+    background: linear-gradient(160deg, rgba(248, 252, 255, .83), rgba(228, 238, 247, .70));
     border-right: 1px solid rgba(255, 255, 255, .82);
     box-shadow: 10px 0 34px rgba(36, 61, 79, .06);
     -webkit-backdrop-filter: blur(24px) saturate(145%);
@@ -104,7 +112,7 @@
   }
 
   .d21-topbar {
-    background: rgba(248, 251, 253, .66);
+    background: linear-gradient(135deg, rgba(250, 253, 255, .82), rgba(233, 241, 248, .65));
     border-bottom-color: rgba(255, 255, 255, .82);
     box-shadow: 0 8px 24px rgba(36, 61, 79, .05);
     -webkit-backdrop-filter: blur(20px) saturate(145%);
@@ -115,7 +123,8 @@
     .surface,
     .glass-panel,
     .d21-sidebar,
-    .d21-topbar {
+    .d21-topbar,
+    .d21-shell {
       background: rgba(255, 255, 255, .97);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
