@@ -4,7 +4,7 @@ import { request } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
-import { HEAT_GRADIENT, HEAT_STOPS, SEASONS, heatColor, scenarioConditions, scenarioDate, seasonForDay, surfaceTemperature } from '../../ifc-viewer/heat-simulation.js';
+import { HEAT_GRADIENT, HEAT_STOPS, ROOM_TEMPERATURE_SCENARIOS, SEASONS, heatColor, scenarioConditions, scenarioDate, seasonForDay, surfaceTemperature } from '../../ifc-viewer/heat-simulation.js';
 import { createWeatherProfile } from '../../ifc-viewer/weather-profile.js';
 
 const ICONS = { spring: Leaf, summer: Sun, autumn: Leaf, winter: Snowflake };
@@ -144,7 +144,9 @@ function CampusHeatMap() {
 }
 
 
-function RoomDataHeatMap() {
+function RoomDataHeatMap({ simulated = false }) {
+  const [roomScenarioID, setRoomScenarioID] = useState('comfort');
+  const roomScenario = ROOM_TEMPERATURE_SCENARIOS.find(item => item.id === roomScenarioID) || ROOM_TEMPERATURE_SCENARIOS[1];
   const [buildingID, setBuildingID] = useState(() => localStorage.getItem('d21-selected-building') || '');
   const data = useD21Data(buildingID);
   const [documents, setDocuments] = useState([]);
@@ -214,6 +216,9 @@ function RoomDataHeatMap() {
     return [...latest.values()].map(({ timestamp, ...reading }) => reading);
   }, [data.loading, data.rooms, data.sensors, data.series]);
 
+  const roomHeatmap = useMemo(() => simulated
+    ? { mode: 'simulated-rooms', roomSimulation: { preset: roomScenario.id } }
+    : { mode: 'measured', roomReadings }, [simulated, roomScenario.id, roomReadings]);
   const selectedModel = documents.find(file => file.id === modelID);
   const activeBuilding = data.buildings.find(building => building.id === buildingID) || data.building;
   const buildingWeather = weatherState.weather;
@@ -247,29 +252,43 @@ function RoomDataHeatMap() {
       </Button>
     </section>
 
+    {simulated && <section className="surface flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5" aria-label="Raumtemperatur-Szenario">
+      <div className="max-w-xl">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Präsentationssimulation · keine Messwerte</p>
+        <h3 className="mt-1 text-sm font-semibold">Szenario für die Raumtemperaturen</h3>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Die IFC-Räume erhalten reproduzierbare Beispielwerte. Das Modell nutzt weder Sensor- noch Wetterdaten und speichert keine Simulationswerte.</p>
+      </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Simulationsszenario wählen">
+        {ROOM_TEMPERATURE_SCENARIOS.map(item => <button key={item.id} type="button" aria-pressed={roomScenarioID === item.id} onClick={() => setRoomScenarioID(item.id)} className={`min-h-12 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${roomScenarioID === item.id ? 'border-primary/40 bg-primary/10 text-primary shadow-sm' : 'border-white/80 bg-white/55 text-foreground hover:bg-white/80'}`}>
+          <span className="block text-xs font-semibold">{item.label}</span><span className="block text-[10px] text-muted-foreground">Basis {temperature(item.baseTemperature)} °C</span>
+        </button>)}
+      </div>
+      <p className="w-full text-[11px] text-muted-foreground">Aktive Annahmen: Außen {temperature(roomScenario.outsideTemperature)} °C · solare Gewinne {temperature(roomScenario.solarGain)} °C · {roomScenario.description}. Diese Annahmen sind Teil der Simulation und keine abgerufenen Wetterwerte.</p>
+    </section>}
+
     {data.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{data.error}</p>}
     {documentsState.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{documentsState.error}</p>}
     {activeBuilding && !Number.isFinite(activeBuilding.latitude) && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Für dieses Gebäude sind keine Koordinaten gespeichert. Reale Wetterdaten können erst nach Hinterlegung eines Standorts abgerufen werden.</p>}
 
-    <section className="grid gap-3 sm:grid-cols-3" aria-label="Echte Raumdaten und Außenwetter">
-      <div className="surface p-4"><p className="text-xs text-muted-foreground">Echte Raumwerte mit IFC-ID</p><p className="mt-1 text-2xl font-semibold tabular-nums">{roomReadings.length}</p><p className="mt-1 text-[11px] text-muted-foreground">Temperatur · Qualität „ok“ · maximal 24 Stunden alt</p></div>
-      <div className="surface p-4"><p className="text-xs text-muted-foreground">IFC-Räume mit Messwerten</p><p className="mt-1 text-2xl font-semibold tabular-nums">{heatStatus ? heatStatus.matchedRooms : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{heatStatus ? 'GlobalId stimmt mit dem Modell überein' : 'Wird beim Modellladen ermittelt'}</p></div>
-      <div className="surface p-4"><p className="text-xs text-muted-foreground">Außenwetter · Open-Meteo</p><p className="mt-1 text-2xl font-semibold tabular-nums">{Number.isFinite(currentWeather?.temperature) ? `${temperature(currentWeather.temperature)} °C` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{currentWeather?.time ? `Modell-/Prognosedaten · Stand ${measurementTime(currentWeather.time)}` : weatherState.loading ? 'Wetterdaten werden geladen …' : weatherState.error || 'Noch keine Wetterdaten gespeichert'}</p></div>
+    <section className="grid gap-3 sm:grid-cols-3" aria-label={simulated ? 'Raumsimulation und Außenwetter' : 'Echte Raumdaten und Außenwetter'}>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">{simulated ? 'Szenario-Basiswert' : 'Echte Raumwerte mit IFC-ID'}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{simulated ? `${temperature(roomScenario.baseTemperature)} °C` : roomReadings.length}</p><p className="mt-1 text-[11px] text-muted-foreground">{simulated ? `${roomScenario.label} · Beispielannahme` : 'Temperatur · Qualität „ok“ · maximal 24 Stunden alt'}</p></div>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">{simulated ? 'Simulierte IFC-Räume' : 'IFC-Räume mit Messwerten'}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{heatStatus && Boolean(heatStatus.simulated) === simulated ? heatStatus.matchedRooms : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{simulated ? 'aus IFC-Raumgeometrie · nicht gespeichert' : heatStatus ? 'GlobalId stimmt mit dem Modell überein' : 'Wird beim Modellladen ermittelt'}</p></div>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">Außenwetter · Open-Meteo</p><p className="mt-1 text-2xl font-semibold tabular-nums">{Number.isFinite(currentWeather?.temperature) ? `${temperature(currentWeather.temperature)} °C` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{currentWeather?.time ? `Modell-/Prognosedaten · Stand ${measurementTime(currentWeather.time)}` : weatherState.loading ? 'Wetterdaten werden geladen …' : weatherState.error || 'Noch keine Wetterdaten gespeichert'}{simulated ? ' · getrennt von der Raumsimulation' : ''}</p></div>
     </section>
 
     {weatherState.error && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Außenwetter nicht verfügbar: {weatherState.error}. Innenraumfarben werden davon nicht abgeleitet.</p>}
 
-    {document ? <section className="surface min-w-0 overflow-hidden" aria-label="Raumtemperaturen im IFC-Modell">
+    {document ? <section className="surface min-w-0 overflow-hidden" aria-label={simulated ? 'Simulierte Raumtemperaturen im IFC-Modell' : 'Gemessene Raumtemperaturen im IFC-Modell'}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 px-4 py-3">
-        <div><h3 className="text-sm font-semibold">{activeBuilding?.name} · Raumtemperaturen</h3><p className="text-xs text-muted-foreground">Nur echte, aktuelle Messwerte mit exakter IFC GlobalId-Zuordnung werden eingefärbt.</p></div>
-        <span className="rounded-full border border-emerald-200 bg-emerald-50/90 px-3 py-1 text-xs font-medium text-emerald-800">Messdaten · feste Skala −10 bis 50 °C</span>
+        <div><h3 className="text-sm font-semibold">{activeBuilding?.name} · Raumtemperaturen</h3><p className="text-xs text-muted-foreground">{simulated ? 'Eine reproduzierbare Präsentationssimulation färbt Räume anhand ihrer IFC GlobalId und Geschosslage.' : 'Nur echte, aktuelle Messwerte mit exakter IFC GlobalId-Zuordnung werden eingefärbt.'}</p></div>
+        <span className={`rounded-full border px-3 py-1 text-xs font-medium ${simulated ? 'border-amber-200 bg-amber-50/90 text-amber-900' : 'border-emerald-200 bg-emerald-50/90 text-emerald-800'}`}>{simulated ? 'Simulation · keine Messwerte · nicht gespeichert' : 'Messdaten · feste Skala −10 bis 50 °C'}</span>
       </div>
-      {documentsState.loading ? <div className="grid h-80 place-items-center text-sm text-muted-foreground">IFC-Modell wird gesucht …</div> : <IFCModelFrame document={document} heatmap={{ mode: 'measured', roomReadings }} onHeatStatus={setHeatStatus} />}
+      {documentsState.loading ? <div className="grid h-80 place-items-center text-sm text-muted-foreground">IFC-Modell wird gesucht …</div> : <IFCModelFrame document={document} heatmap={roomHeatmap} onHeatStatus={setHeatStatus} />}
       <div className="border-t border-white/70 bg-white/50 px-5 py-4" aria-label="Feste Temperaturskala">
-        <p className="mb-2 flex justify-between text-xs font-medium"><span>Kalt</span><span>Gemessene Raumtemperatur · °C</span><span>Warm</span></p>
+        <p className="mb-2 flex justify-between text-xs font-medium"><span>Kalt</span><span>{simulated ? 'Simulierte Raumtemperatur · °C' : 'Gemessene Raumtemperatur · °C'}</span><span>Warm</span></p>
         <div className="h-3 rounded-full" style={{ background: HEAT_GRADIENT }} />
         <div className="mt-2 flex justify-between text-[10px] tabular-nums text-muted-foreground">{HEAT_STOPS.map((stop,index)=><span key={stop.value}>{index===0?'≤':index===HEAT_STOPS.length-1?'≥':''}{stop.value}°</span>)}</div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Werte außerhalb der Skala werden an den Grenzen eingefärbt. Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">{simulated ? 'Feste Skala −10 bis 50 °C. Die Temperaturfelder zeigen deterministische Szenariowerte, keine Messung und keine bauphysikalische Prognose. Nicht zugeordnete oder geometrisch fehlende Räume bleiben neutral.' : 'Werte außerhalb der Skala werden an den Grenzen eingefärbt. Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.'}</p>
       </div>
     </section> : <section className="surface grid min-h-72 place-items-center p-8 text-center">
       <div><p className="font-semibold">Kein IFC-Modell für dieses Gebäude gefunden</p><p className="mt-2 max-w-md text-sm text-muted-foreground">{documentsState.loading ? 'Dokumente werden geladen …' : 'Lade zuerst ein IFC-Modell in die Gebäudemappe. Die Messwerte bleiben unverändert.'}</p></div>
@@ -277,7 +296,7 @@ function RoomDataHeatMap() {
 
     <details className="surface px-4 py-3 text-xs text-muted-foreground">
       <summary className="cursor-pointer font-medium text-foreground">Datenherkunft und Grenzen</summary>
-      <p className="mt-3 max-w-4xl leading-relaxed">Raumfarben stammen ausschließlich aus als echt markierten Temperaturmessungen der letzten 24 Stunden mit Qualitätsstatus „ok“, aktiver Temperatur-Sensorzuordnung und Einheit °C. Der Raum muss über seine hinterlegte IFC GlobalId eindeutig im geladenen IFC vorkommen. Werte werden je Raum nicht gemittelt oder über Messlücken interpoliert. Open-Meteo liefert hier Außenwetter-Modell-/Prognosedaten, keine Gebäudemessung; diese Werte beeinflussen die Raumfarben nicht. Die separate DWD-Ansicht enthält historische Frankfurter Stationsmessungen aus 2025 und weiterhin eine ausdrücklich bezeichnete schematische Oberflächensimulation.</p>
+      <p className="mt-3 max-w-4xl leading-relaxed">{simulated ? 'Die Raumsimulation erzeugt stabile, reproduzierbare Beispieltemperaturen ausschließlich aus einer fest eingebauten Szenariovorgabe, der IFC GlobalId und der Geschosslage. Die Farbflächen entsprechen den IFC-Raumgeometrien; der Einzelfarbwert ist keine reale Messung und keine validierte thermische Berechnung. Es werden keine Sensor- oder Wetterdaten verwendet und nichts in der Datenbank gespeichert. Open-Meteo-Außenwetter wird separat angezeigt. Die Campus-Simulation enthält weiterhin historische Frankfurter DWD-Außenluftwerte von 2025 und eine schematische Oberflächendarstellung.' : 'Raumfarben stammen ausschließlich aus als echt markierten Temperaturmessungen der letzten 24 Stunden mit Qualitätsstatus „ok“, aktiver Temperatur-Sensorzuordnung und Einheit °C. Der Raum muss über seine hinterlegte IFC GlobalId eindeutig im geladenen IFC vorkommen. Werte werden je Raum nicht gemittelt oder über Messlücken interpoliert. Open-Meteo liefert hier Außenwetter-Modell-/Prognosedaten, keine Gebäudemessung; diese Werte beeinflussen die Raumfarben nicht. Die separate DWD-Ansicht enthält historische Frankfurter Stationsmessungen aus 2025 und weiterhin eine ausdrücklich bezeichnete schematische Oberflächensimulation.'}</p>
     </details>
   </div>;
 }
@@ -289,13 +308,14 @@ export default function HeatMap() {
       <div>
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">D21 · Heat map</p>
         <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Temperaturverteilung</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Raummesswerte getrennt von der Wetter-basierten Campus-Simulation anzeigen.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Echte Raumdaten, eine transparente Präsentationssimulation und die Wetter-basierte Campus-Simulation getrennt anzeigen.</p>
       </div>
-      <div className="inline-flex rounded-2xl border border-white/80 bg-white/65 p-1 shadow-sm backdrop-blur-xl" role="group" aria-label="Heatmap-Modus">
+      <div className="inline-flex flex-wrap rounded-2xl border border-white/80 bg-white/65 p-1 shadow-sm backdrop-blur-xl" role="group" aria-label="Heatmap-Modus">
         <button type="button" aria-pressed={mode==='rooms'} onClick={()=>setMode('rooms')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='rooms'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Raummesswerte</button>
+        <button type="button" aria-pressed={mode==='room-simulation'} onClick={()=>setMode('room-simulation')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='room-simulation'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Raumsimulation</button>
         <button type="button" aria-pressed={mode==='campus'} onClick={()=>setMode('campus')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='campus'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Campus-Simulation</button>
       </div>
     </div>
-    {mode==='rooms' ? <RoomDataHeatMap /> : <CampusHeatMap />}
+    {mode==='campus' ? <CampusHeatMap /> : <RoomDataHeatMap simulated={mode==='room-simulation'} />}
   </div>;
 }
