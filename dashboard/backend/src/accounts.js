@@ -1,3 +1,5 @@
+const {initPlanConversion}=require('./plan-conversion/queue');
+const {planConversionRouter}=require('./plan-conversion/router');
 const {placementRouter}=require('./placement-check');
 const {initBuildingWeather,buildingWeatherRouter}=require('./building-weather');
 const {initUIPreferences,uiPreferencesRouter}=require('./ui-preferences');
@@ -63,6 +65,7 @@ async function initAccounts(db) {
  await initAIPreferences(db);
  await initUIPreferences(db);
  await initLiveVoice(db);
+ await initPlanConversion(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
 }
 function accountRouter(db,options={}) {
@@ -149,6 +152,7 @@ function accountRouter(db,options={}) {
  router.use(devicesRouter(db,requireAccount));
  router.use(telemetryRouter(db,requireAccount));
  router.use(mapViewRouter(db,requireAccount,options.mapView));
+ router.use(planConversionRouter(db,requireAccount,options.planConversion));
  router.use(placementRouter(db,requireAccount));
  router.use(buildingWeatherRouter(db,requireAccount,options.weather));
  router.use(uiPreferencesRouter(db,requireAccount));

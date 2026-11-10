@@ -13,6 +13,7 @@ function aiPreferencesRouter(db,requireAccount){
   const c=await db.connect();try{await c.query('BEGIN');await c.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
    const old=await aiPreference(c,req.account.id);if(old.revision!==b.revision){await c.query('ROLLBACK');return res.status(409).json({error:'Die Einstellung wurde auf einem anderen Gerät geändert. Bitte neu laden.'});}
    const result=(await c.query(`INSERT INTO app_ai_preferences(user_id,enabled,policy_version,device_control_enabled,revision) VALUES($1,$2,$3,$4,1) ON CONFLICT(user_id) DO UPDATE SET enabled=EXCLUDED.enabled,policy_version=EXCLUDED.policy_version,device_control_enabled=EXCLUDED.device_control_enabled,revision=app_ai_preferences.revision+1,updated_at=now() RETURNING enabled,policy_version,revision,updated_at,device_control_enabled`,[req.account.id,b.enabled,POLICY_VERSION,b.enabled&&b.device_control_enabled===true])).rows[0];
+   if(!b.enabled)await c.query("UPDATE app_plan_jobs SET status='cancelled',failure_code='consent_changed',output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE user_id=$1 AND status IN ('queued','running','ready')",[req.account.id]);
    if(!b.enabled)await c.query("UPDATE app_voice_usage SET status='revoked' WHERE user_id=$1 AND kind='live' AND status='processing'",[req.account.id]);
    await c.query('COMMIT');res.json({...result,current_policy_version:POLICY_VERSION});
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}

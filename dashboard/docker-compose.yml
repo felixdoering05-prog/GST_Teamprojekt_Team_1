@@ -26,6 +26,7 @@ services:
       ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
       ELEVENLABS_API_KEY_FILE: /run/d21-voice/elevenlabs-api-key
+      PLAN_CONVERSION_ENABLED: ${PLAN_CONVERSION_ENABLED:-false}
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_API_KEY_FILE: /run/d21-ai/gemini-api-key
@@ -41,6 +42,32 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+  plan-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.plans
+    environment:
+      DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
+      PLAN_CONVERSION_ENABLED: ${PLAN_CONVERSION_ENABLED:-false}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_API_KEY_FILE: /run/d21-ai/gemini-api-key
+      PLAN_WORK_DIR: /tmp/d21-plans
+    volumes: ['${D21_AI_CONFIG_DIR:-./private-ai}:/run/d21-ai:ro']
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+    read_only: true
+    user: '65534:65534'
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:rw,nosuid,noexec,size=128m,mode=1777']
+    mem_limit: 768m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 240s
   web:
     build: ./base44-frontend
     depends_on: [api]

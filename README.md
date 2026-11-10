@@ -1,5 +1,7 @@
 <div align="center">
 
+**Neu: Plan → IFC-Entwurf (10. November).** Einmalige Freigabe je Gebäude, automatische Analyse neuer Bilder/PDFs mit Google Gemini und separater BIMCraft-Verarbeitung. Vorläufige Entwürfe werden erst nach Prüfung als zusätzliche IFC übernommen. Bestehende Pläne manuell auswählen. [Bedienung, Grenzen und h_da-Umzug](docs/plan-zu-ifc.md). Entwicklung und Tests; Produktivprüfung siehe Arbeitsbericht.
+
 **Neu: iPhone 1.0.98 – IFC automatisch auf der Karte platzieren.** Im Modell unter „Modell auf Karte“ werden Georeferenz und Nordrichtung erkannt. Ein Tipp übernimmt die Platzierung und lädt die 100-m-Kartenumgebung. Fehlt eine belastbare Referenz, einmal die Adresse eingeben; Drehung und Maßstab bleiben unter Details korrigierbar. Kartengrundrisse liefern nur einen Näherungsvorschlag. [Details](docs/automatische-ifc-platzierung.md).
 
 
@@ -12,7 +14,7 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 7. November 2026 · iPhone-App: Build 1.0.98 (98) erstellt; Installation dieses Builds auf physischem Gerät noch nicht bestätigt**
+**Stand: 10. November 2026 · iPhone-App: Build 1.0.99 (99), Plananalyse ergänzt; Installation dieses Builds auf physischem Gerät noch nicht bestätigt**
 
 Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. Februar 2027**
 

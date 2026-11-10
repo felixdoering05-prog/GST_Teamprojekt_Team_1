@@ -1,5 +1,16 @@
 # Änderungsverlauf
 
+## 10. November 2026 – Grundriss zu vorläufigem IFC
+
+- Einmalige Google-Freigabe je Gebäude; nach Aktivierung neue Bilder/PDFs automatisch analysieren. Vorhandene Pläne nur nach Auswahl.
+- Dauerhafte PostgreSQL-Aufträge, getrennter BIMCraft-Worker, Limits und Abbruch bei Widerruf.
+- Web- und iPhone-Oberfläche für Vorschau, Warnungen, Verwerfen und Übernehmen als zusätzliche IFC.
+- Keine automatische Übernahme, kein Ersatz vorhandener Modelle. Lesbare Maße nötig; Dach und Treppen werden nicht rekonstruiert.
+- Konfigurierbare Dienste und Umzugsanleitung für einen späteren h_da-Server.
+
+[Anleitung](docs/plan-zu-ifc.md)
+
+
 ## 05.11.2026 – Automatische IFC-Platzierung (iPhone 1.0.98)
 
 - Ein gemeinsamer Schritt „Automatisch platzieren & Karte laden“, Zahlenfelder unter Details.
