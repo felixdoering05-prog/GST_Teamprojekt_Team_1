@@ -17,7 +17,7 @@ Zunächst darf nur der Gebäudeeigentümer die Funktion steuern. Uploads anderer
 - Bemaßte Grundrisse erkennen; doppelte Fotos desselben Geschosses zusammen interpretieren.
 - Bis zu vier Geschosse, insgesamt 240 gerade Wände, Öffnungen und Raumpunkte beschreiben; feste Größenlimits prüfen.
 - Mindestens zwei ablesbare Gesamtmaße für x/y verlangen. Diese Prüfung sichert das Format und Konsistenz, nicht die Wahrheit der KI-Erkennung.
-- Bei fehlender Höhe 2,50 m und 200 mm Deckenstärke **als Annahmen** verwenden. Dach, Dachschrägen und Treppen bleiben aus. Unklare Öffnungen dürfen fehlen.
+- Bei fehlender Höhe 2,50 m und 200 mm Deckenstärke **als Annahmen** verwenden. Dach, Dachschrägen und Treppen bleiben aus. Unklare Öffnungen dürfen fehlen. Öffnungen ohne passende Wand werden ausdrücklich mit Hinweis weggelassen; es werden dafür keine Wände erfunden. Bei vorhandener gespeicherter Erkennung kann „Erneut prüfen (ohne Google)“ einen neuen Modellversuch starten, ohne die Dateien erneut zum Anbieter zu senden. Auch dieser Versuch zählt zur Auftragsgrenze.
 - Ohne eindeutigen Grundriss/Maßstab einen Hinweis statt eines erfundenen Modells liefern. Fehlinterpretationen können trotzdem vorkommen: Fachliche Prüfung ist erforderlich.
 
 Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Bei abgelehnter Geometrie wird die begrenzte KI-Antwort für die technische Diagnose nur im privaten Auftrag gespeichert, nicht als Modell freigegeben; diese Diagnose und Vorschauen werden nach sieben Tagen bereinigt. Die IFC allein ist kein vollständiger Herkunftsbericht; Hinweise beim Weitergeben mitgeben. Die Freigabe bestätigt die Übernahme in die Mappe, keine Maßhaltigkeit.

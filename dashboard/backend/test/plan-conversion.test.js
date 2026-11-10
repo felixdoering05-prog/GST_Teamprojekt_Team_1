@@ -4,7 +4,7 @@ const express=require('express');
 const {PGlite}=require('@electric-sql/pglite');
 const {randomBytes,createHash,randomUUID}=require('node:crypto');
 const {initAccounts,accountRouter}=require('../src/accounts');
-const {validateGeometry,recipe}=require('../src/plan-conversion/model');
+const {validateGeometry,prepareGeometry,recipe}=require('../src/plan-conversion/model');
 const {analyzePlans}=require('../src/plan-conversion/provider');
 const {processNext}=require('../src/plan-conversion/worker');
 const Q=require('../src/plan-conversion/queue');
@@ -26,6 +26,7 @@ async function enqueue(ids){return api('/jobs',{document_ids:ids,request_key:ran
 test('strict geometry rejects missing scale, oversized plans and injected commands',()=>{
  assert.equal(validateGeometry(fixture()).status,'ok');const verbose=fixture();verbose.reason='Erklärung zur Planerkennung. '.repeat(15);verbose.warnings=['Eine längere Erläuterung zur angenommenen Höhe. '.repeat(8)];assert.equal(validateGeometry(verbose).status,'ok');
  for(const mutate of [g=>g.levels[0].dimension_evidence=[],g=>g.levels[0].walls[0].thickness=100000,g=>g.levels[0].boundary[0][0]=Infinity,g=>g.commands=['open /etc/passwd'],g=>g.levels[0].walls[0].a=[-99999,0]]){const g=fixture();mutate(g);assert.throws(()=>validateGeometry(g));}
+ const unhosted=fixture();unhosted.levels[0].openings=[{kind:'door',at:[2500,2500],width:900,height:2100,sill:0}];assert.throws(()=>validateGeometry(unhosted));const prepared=prepareGeometry(unhosted);assert.equal(prepared.geometry.levels[0].openings.length,0);assert.match(prepared.warnings[0],/1 erkannte Öffnungen/);
  const g=fixture();g.levels[0].name='EG\\nopen /etc/passwd';const commands=recipe(g,'/tmp/output.png').split('\n');assert.ok(commands.every(c=>!c.startsWith('open ')));assert.throws(()=>validateGeometry({status:'needs_input',reason:'No dimensions',warnings:[],levels:[]}));
 });
 test('Gemini receives image bytes only at fixed endpoint and bounded JSON is validated',async()=>{
@@ -71,6 +72,13 @@ test('revocation during provider call prevents generation and model adoption',as
  await enqueue([docs[0]]);let generated=false;
  await processNext(db,{enabled:true,analyze:async()=>{await consent(false);return {geometry:fixture(),model:'test'};},generate:async()=>{generated=true;}});
  assert.equal(generated,false);assert.equal((await api()).body.jobs[0].status,'cancelled');await clear();await consent();
+});
+test('stored rejected geometry can be rebuilt without a new Google request',async()=>{
+ const first=await enqueue([docs[0]]);const geometry=fixture();geometry.levels[0].openings=[{kind:'door',at:[2500,2500],width:900,height:2100,sill:0}];
+ await db.query("UPDATE app_plan_jobs SET status='failed',failure_code='invalid_geometry',analysis=$2,provider_model='prior-model' WHERE id=$1",[first.body.id,JSON.stringify(geometry)]);
+ const rebuilt=await api('/jobs/'+first.body.id+'/rebuild',{request_key:randomUUID()});assert.equal(rebuilt.status,202);
+ let calls=0;await processNext(db,{enabled:true,analyze:async()=>{calls++;},generate:async(g)=>{assert.equal(g.levels[0].openings.length,0);return {ifc:Buffer.from('test-ifc'),preview:Buffer.from('png'),warnings:[]};}});
+ assert.equal(calls,0);const job=(await api()).body.jobs.find(j=>j.id===rebuilt.body.id);assert.equal(job.status,'ready');assert.match(job.warnings[0],/weggelassen/);assert.equal(job.usage,null);await clear();
 });
 test('modified source is rejected and expired running jobs are not resubmitted to Google',async()=>{
  const {body:job}=await enqueue([docs[0]]);await db.query('UPDATE app_documents SET content=$1 WHERE id=$2',[Buffer.from('changed'),docs[0]]);let calls=0;

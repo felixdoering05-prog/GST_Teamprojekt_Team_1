@@ -33,6 +33,7 @@ export default function PlanConversionPanel({buildingId,onAdopt}){
   {state.jobs.map(job=><article key={job.id} className="space-y-3 rounded-xl border p-4">
    <h3 className="font-medium">{labels[job.status]||job.status}</h3><p className="text-sm text-muted-foreground">{new Date(job.created_at).toLocaleString('de-DE')} · {job.document_ids.length} Quelldatei(en)</p>
    {job.warnings.map((w,i)=><p key={i} className="text-sm">{w}</p>)}
+   {job.can_rebuild&&<Button disabled={busy||!state.ai_enabled||!state.settings.enabled} variant="outline" onClick={()=>action(`/jobs/${job.id}/rebuild`,{request_key:crypto.randomUUID()})}>Gespeicherte Erkennung erneut prüfen (ohne Google)</Button>}
    {job.status==='ready'&&<><Preview path={`${base}/jobs/${job.id}/preview`}/><p className="text-sm">Bitte Proportionen und Hinweise prüfen. „Übernehmen“ legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.</p><Button disabled={busy||!state.ai_enabled} onClick={()=>action(`/jobs/${job.id}/approve`,{})}>Entwurf in Gebäudemappe übernehmen</Button></>}
    {['queued','running','ready'].includes(job.status)&&<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>action(`/jobs/${job.id}/reject`,{})}>{job.status==='ready'?'Verwerfen':'Abbrechen'}</Button>}
   </article>)}
