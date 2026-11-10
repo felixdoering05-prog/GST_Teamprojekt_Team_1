@@ -186,6 +186,7 @@ function RoomDataHeatMap() {
   }, [buildingID]);
 
   const roomReadings = useMemo(() => {
+    if (data.loading) return [];
     const sensors = new Map(data.sensors.map(sensor => [sensor.id, sensor]));
     const rooms = new Map(data.rooms.map(room => [room.id, room]));
     const latest = new Map();
@@ -211,7 +212,7 @@ function RoomDataHeatMap() {
       });
     }
     return [...latest.values()].map(({ timestamp, ...reading }) => reading);
-  }, [data.rooms, data.sensors, data.series]);
+  }, [data.loading, data.rooms, data.sensors, data.series]);
 
   const selectedModel = documents.find(file => file.id === modelID);
   const activeBuilding = data.buildings.find(building => building.id === buildingID) || data.building;
