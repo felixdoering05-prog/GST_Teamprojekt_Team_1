@@ -328,7 +328,8 @@ async function open() {
     const cut = floorCut(storeys, selectedFloor, exploded ? gap : 0);
     if (isHeat) {
       const targets = [...appearance.visibleMeshes, ...(heatLayer?.targets || []), ...(heatLayer?.ground.visible ? [heatLayer.ground] : [])];
-      heatLayer?.select(ray.intersectObjects(targets, false).find(hit => cut === null || hit.point.y <= cut));
+      const hits = ray.intersectObjects(targets, false).filter(hit => cut === null || hit.point.y <= cut);
+      heatLayer?.select(hits.find(hit => hit.object.userData.heatGlobalId) || hits[0]);
       return;
     }
     appearance.select(ray.intersectObjects(appearance.visibleMeshes, false).find(hit => cut === null || hit.point.y <= cut)?.object.userData.expressID);
@@ -403,7 +404,7 @@ async function open() {
         effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect); heatMeshes.push(effect);
       } finally { data.delete(); }
     }
-    heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), meshes: heatMeshes });
+    heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
