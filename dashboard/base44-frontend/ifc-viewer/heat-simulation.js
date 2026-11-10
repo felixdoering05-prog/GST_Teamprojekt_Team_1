@@ -15,7 +15,7 @@ export const SEASONS = [
 export function normalizeScenario(value = {}) {
   if (!value || typeof value !== 'object') value = {};
   const finite = (number, fallback, min, max) => typeof number === 'number' && Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
-  const scenario = { day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
+  const scenario = { mode: value.mode === 'measured' ? 'measured' : 'simulation', day: Math.round(finite(value.day, 196, 0, 364)), hour: finite(value.hour, 14, 0, 23), campus: value.campus !== false };
   if (value.source === 'dwd') {
     scenario.source = 'dwd';
     scenario.airTemperature = typeof value.airTemperature === 'number' && Number.isFinite(value.airTemperature) && value.airTemperature >= -90 && value.airTemperature <= 65 ? value.airTemperature : null;
