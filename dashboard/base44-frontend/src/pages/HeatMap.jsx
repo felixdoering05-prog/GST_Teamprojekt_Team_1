@@ -263,7 +263,7 @@ function RoomDataHeatMap({ simulated = false }) {
           <span className="block text-xs font-semibold">{item.label}</span><span className="block text-[10px] text-muted-foreground">Basis {temperature(item.baseTemperature)} °C</span>
         </button>)}
       </div>
-      <p className="w-full text-[11px] text-muted-foreground">Aktive Annahmen: Außen {temperature(roomScenario.outsideTemperature)} °C · solare Gewinne {temperature(roomScenario.solarGain)} °C · {roomScenario.description}. Diese Annahmen sind Teil der Simulation und keine abgerufenen Wetterwerte.</p>
+      <p className="w-full text-[11px] text-muted-foreground">Aktive Annahmen: Außen {temperature(roomScenario.outsideTemperature)} °C · Solaraufschlag bis {temperature(roomScenario.solarGain)} °C · {roomScenario.description}. Diese Annahmen sind Teil der Simulation und keine abgerufenen Wetterwerte.</p>
     </section>}
 
     {data.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{data.error}</p>}
