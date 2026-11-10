@@ -41,5 +41,5 @@ async function enqueueUpload(db,building,user,doc,{enabled=process.env.PLAN_CONV
  try{return await enqueue(db,{building:building.id,user,documentIds:[doc.id],requestKey:'upload:'+doc.id,automatic:true})}catch(e){if([403,413,429].includes(e.status))return {status:'not_queued',reason:e.message};throw e}
 }
 async function validateSources(db,job){const docs=await sourceFiles(db,job.building_id,job.document_ids);if(docs.some(d=>hash(d.content)!==job.source_hashes[String(d.id)]))fail('Eine Quelldatei hat sich geändert. Bitte neuen Auftrag anlegen.',409);return docs;}
-const SUMMARY='id,building_id,status,phase,attempts,document_ids,warnings,failure_code,provider_model,usage,output_document_id,created_at,updated_at';
+const SUMMARY='id,building_id,status,phase,attempts,document_ids,warnings,failure_code,provider_model,usage,output_document_id,created_at,updated_at,(status=\'failed\' AND failure_code=\'invalid_geometry\' AND analysis IS NOT NULL) AS can_rebuild';
 module.exports={initPlanConversion,setting,permitted,sourceFiles,validateSources,enqueue,enqueueUpload,POLICY_VERSION,MAX_BYTES,MIME,SUMMARY,fail};

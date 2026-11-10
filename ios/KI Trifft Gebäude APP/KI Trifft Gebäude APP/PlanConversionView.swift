@@ -5,6 +5,7 @@ struct PlanConversionSetting: Decodable { let enabled: Bool; let revision: Int }
 struct PlanConversionJob: Decodable, Identifiable {
     let id: String
     let status: String
+    let can_rebuild: Bool?
     let warnings: [String]
     let document_ids: [Int]
     var title: String {
@@ -92,6 +93,9 @@ struct PlanConversionView: View {
                     Section(job.title) {
                         Text("\(job.document_ids.count) Quelldatei(en)").font(.caption).foregroundStyle(.secondary)
                         ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, warning in Text(warning).font(.footnote) }
+                        if job.can_rebuild == true {
+                            Button("Gespeicherte Erkennung erneut prüfen (ohne Google)") { Task { await action("/jobs/\(job.id)/rebuild", body: ["request_key": UUID().uuidString.lowercased()]) } }.disabled(busy || !reply.ai_enabled || !reply.settings.enabled)
+                        }
                         if job.status == "ready" {
                             if let image = previews[job.id] { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Vorläufiger IFC-Entwurf") }
                             Text("Bitte Proportionen und Hinweise prüfen. Übernehmen legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.").font(.footnote)

@@ -13,7 +13,7 @@ const text=v=>{if(typeof v!=='string'||v.length>160||/[\x00-\x1f]/.test(v))bad()
 const point=p=>{if(!Array.isArray(p)||p.length!==2)bad();return p.map(n=>num(n,-100000,100000));};
 const array=(v,max,min=0)=>{if(!Array.isArray(v)||v.length<min||v.length>max)bad();return v;};
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
-function validateGeometry(g){
+function validateGeometry(g,{omitUnhosted=false,notes=[]}={}){
  keys(g,['status','reason','warnings','levels']);if(!['ok','needs_input'].includes(g.status))bad();narrative(g.reason);array(g.warnings,20).forEach(narrative);
  if(g.status==='needs_input')throw new PlanError('needs_input');
  const names=new Set();let count=0;
@@ -28,12 +28,13 @@ function validateGeometry(g){
   const inside=p=>{point(p);if(p[0]<Math.min(...xs)-1000||p[0]>Math.max(...xs)+1000||p[1]<Math.min(...ys)-1000||p[1]>Math.max(...ys)+1000)bad();};
   array(l.walls,160,4).forEach(w=>{keys(w,['a','b','thickness']);inside(w.a);inside(w.b);if(dist(w.a,w.b)<100)bad();num(w.thickness,60,1000);});
   count+=l.walls.length;if(count>240)bad();
-  array(l.openings,100).forEach(o=>{keys(o,['kind','at','width','height','sill']);if(!['door','window'].includes(o.kind))bad();inside(o.at);num(o.width,300,5000);num(o.height,300,l.height);num(o.sill,0,l.height-o.height);if(o.kind==='door'&&o.sill!==0)bad();
-   if(!l.walls.some(w=>{const dx=w.b[0]-w.a[0],dy=w.b[1]-w.a[1],length=dist(w.a,w.b),t=((o.at[0]-w.a[0])*dx+(o.at[1]-w.a[1])*dy)/(length*length);return t>=o.width/length/2&&t<=1-o.width/length/2&&dist(o.at,[w.a[0]+t*dx,w.a[1]+t*dy])<50;}))bad();
-  });
+  const accepted=[];array(l.openings,100).forEach(o=>{keys(o,['kind','at','width','height','sill']);if(!['door','window'].includes(o.kind))bad();inside(o.at);num(o.width,300,5000);num(o.height,300,l.height);num(o.sill,0,l.height-o.height);if(o.kind==='door'&&o.sill!==0)bad();
+   if(!l.walls.some(w=>{const dx=w.b[0]-w.a[0],dy=w.b[1]-w.a[1],length=dist(w.a,w.b),t=((o.at[0]-w.a[0])*dx+(o.at[1]-w.a[1])*dy)/(length*length);return t>=o.width/length/2&&t<=1-o.width/length/2&&dist(o.at,[w.a[0]+t*dx,w.a[1]+t*dy])<50;})){if(!omitUnhosted)bad();notes.push('unhosted_opening');return;}accepted.push(o);
+  });if(omitUnhosted)l.openings=accepted;
   array(l.rooms,80).forEach(r=>{keys(r,['name','point']);text(r.name);inside(r.point);});
  });return g;
 }
+function prepareGeometry(g){const notes=[];validateGeometry(g,{omitUnhosted:true,notes});return {geometry:g,warnings:notes.length?[`${notes.length} erkannte Öffnungen lagen außerhalb passender Wände und wurden weggelassen. Türen/Fenster nacharbeiten.`]:[]};}
 function recipe(g,preview){
  validateGeometry(g);const lines=[];const cmd=(c,p)=>lines.push(c+' '+JSON.stringify(p));
  cmd('new',{name:'KI-Planentwurf – ungeprüft',language:'en'});cmd('delete',{ids:[100001]});
@@ -71,4 +72,4 @@ async function generateIFC(g,{root=process.env.PLAN_WORK_DIR||'/tmp/d21-plans',b
   return {ifc:output,preview:png,warnings};
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 }
-module.exports={PlanError,validateGeometry,recipe,generateIFC};
+module.exports={PlanError,validateGeometry,prepareGeometry,recipe,generateIFC};
