@@ -267,8 +267,8 @@ function RoomDataHeatMap() {
       <div className="border-t border-white/70 bg-white/50 px-5 py-4" aria-label="Feste Temperaturskala">
         <p className="mb-2 flex justify-between text-xs font-medium"><span>Kalt</span><span>Gemessene Raumtemperatur · °C</span><span>Warm</span></p>
         <div className="h-3 rounded-full" style={{ background: HEAT_GRADIENT }} />
-        <div className="mt-2 flex justify-between text-[10px] tabular-nums text-muted-foreground">{HEAT_STOPS.map((stop,index)=><span key={stop.value}>{stop.value}°</span>)}</div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.</p>
+        <div className="mt-2 flex justify-between text-[10px] tabular-nums text-muted-foreground">{HEAT_STOPS.map((stop,index)=><span key={stop.value}>{index===0?'≤':index===HEAT_STOPS.length-1?'≥':''}{stop.value}°</span>)}</div>
+        <p className="mt-2 text-[11px] text-muted-foreground">Werte außerhalb der Skala werden an den Grenzen eingefärbt. Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.</p>
       </div>
     </section> : <section className="surface grid min-h-72 place-items-center p-8 text-center">
       <div><p className="font-semibold">Kein IFC-Modell für dieses Gebäude gefunden</p><p className="mt-2 max-w-md text-sm text-muted-foreground">{documentsState.loading ? 'Dokumente werden geladen …' : 'Lade zuerst ein IFC-Modell in die Gebäudemappe. Die Messwerte bleiben unverändert.'}</p></div>
