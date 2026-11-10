@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Flame, Leaf, Snowflake, Sun, Pause, Play, RotateCcw, Thermometer, Layers } from 'lucide-react';
 import { request } from '@/api/base44Client';
+import useD21Data from '@/hooks/useD21Data';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
 import { HEAT_GRADIENT, HEAT_STOPS, SEASONS, heatColor, scenarioConditions, scenarioDate, seasonForDay, surfaceTemperature } from '../../ifc-viewer/heat-simulation.js';
@@ -15,7 +16,7 @@ const EMPTY_READING = { temperature: null, timestamp: null, quality: null, ambig
 const measurementTime = timestamp => timestamp ? new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Berlin' }).format(new Date(timestamp)) : '';
 const measurementUTC = timestamp => timestamp ? new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(new Date(timestamp)) + ' UTC' : '';
 
-export default function HeatMap() {
+function CampusHeatMap() {
   const [scenario, setScenario] = useState({ day: 196, hour: 14, campus: true });
   const [playing, setPlaying] = useState(false);
   const [campus, setCampus] = useState({ loading: true, available: false, message: '' });
@@ -139,5 +140,161 @@ export default function HeatMap() {
       })}</div>
     </section>
     <details className="rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium text-foreground">Wie entstehen die Farben?</summary><p className="mt-3 max-w-4xl leading-relaxed">Die historische stündliche DWD-Lufttemperatur der Wetterstation Frankfurt/Main aus 2025 ersetzt die bisher frei gewählte Umgebungsluft. Die Werte dienen als regionale Referenz und wurden nicht am D21 gemessen. Für die Oberflächen wird weiterhin eine vereinfachte, von Jahreszeit, Tageszeit und Flächenausrichtung abhängige Erwärmung simuliert. Die Campusfläche erhält eine schematische räumliche Variation. Reale Materialeigenschaften und Verschattungen werden nicht berechnet; die Darstellung sagt keine Raumtemperaturen vorher. Fehlende Messwerte werden weder interpoliert noch durch erfundene Temperaturen ersetzt. Alle Ansichten verwenden dieselbe Skala von −10 bis 50 °C. Das private D21-IFC bleibt unverändert; die Einfärbung ist eine lokale Ansicht.</p></details>
+  </div>;
+}
+
+
+function RoomDataHeatMap() {
+  const [buildingID, setBuildingID] = useState(() => localStorage.getItem('d21-selected-building') || '');
+  const data = useD21Data(buildingID);
+  const [documents, setDocuments] = useState([]);
+  const [modelID, setModelID] = useState('');
+  const [documentsState, setDocumentsState] = useState({ loading: false, error: '' });
+  const [weatherState, setWeatherState] = useState({ loading: false, location: null, weather: null, error: '' });
+  const [refreshingWeather, setRefreshingWeather] = useState(false);
+  const [heatStatus, setHeatStatus] = useState(null);
+
+  useEffect(() => {
+    if (!buildingID && data.building?.id) setBuildingID(data.building.id);
+  }, [buildingID, data.building]);
+
+  useEffect(() => {
+    if (!buildingID) return;
+    let active = true;
+    setDocumentsState({ loading: true, error: '' });
+    setDocuments([]);
+    setModelID('');
+    request(`/buildings/${buildingID}/documents`).then(files => {
+      if (!active) return;
+      const models = (files || []).filter(file => file.mime_type === 'application/x-step').sort((a,b) => a.name.localeCompare(b.name));
+      setDocuments(models);
+      setModelID(models[0]?.id || '');
+      setDocumentsState({ loading: false, error: '' });
+    }).catch(error => {
+      if (active) setDocumentsState({ loading: false, error: error.message || 'IFC-Dateien konnten nicht geladen werden.' });
+    });
+    return () => { active = false; };
+  }, [buildingID]);
+
+  useEffect(() => {
+    if (!buildingID) return;
+    let active = true;
+    setWeatherState(current => ({ ...current, loading: true, error: '' }));
+    request(`/buildings/${buildingID}/weather`).then(result => { if (active) setWeatherState({ loading: false, location: result.location, weather: result.weather, error: '' }); })
+      .catch(error => { if (active) setWeatherState({ loading: false, location: null, weather: null, error: error.message || 'Wetterdaten konnten nicht geladen werden.' }); });
+    return () => { active = false; };
+  }, [buildingID]);
+
+  const roomReadings = useMemo(() => {
+    const sensors = new Map(data.sensors.map(sensor => [sensor.id, sensor]));
+    const rooms = new Map(data.rooms.map(room => [room.id, room]));
+    const latest = new Map();
+    const now = Date.now();
+    for (const measurement of data.series) {
+      if (measurement.source !== 'real' || measurement.quality !== 'ok' || measurement.metric !== 'temperature') continue;
+      const timestamp = Date.parse(measurement.measured_at);
+      if (!Number.isFinite(timestamp) || timestamp > now + 5 * 60 * 1000 || now - timestamp > 24 * 60 * 60 * 1000) continue;
+      const sensor = sensors.get(measurement.sensor_id);
+      if (!sensor || sensor.status !== 'aktiv' || sensor.metric !== 'temperature' || sensor.source !== 'real') continue;
+      const roomID = measurement.room_id || sensor.room_id;
+      if (!roomID || (measurement.room_id && sensor.room_id && measurement.room_id !== sensor.room_id)) continue;
+      const room = rooms.get(roomID);
+      const globalId = typeof room?.ifc_global_id === 'string' ? room.ifc_global_id.trim() : '';
+      if (!globalId || !Number.isFinite(measurement.value)) continue;
+      const unit = String(measurement.unit || sensor.unit || '').replaceAll(' ', '').toLowerCase();
+      if (!['°c','c','celsius'].includes(unit)) continue;
+      const current = latest.get(globalId);
+      if (!current || timestamp > current.timestamp) latest.set(globalId, {
+        globalId, roomCode: room.room_code || '', roomName: room.name || '',
+        temperature: measurement.value, unit: '°C', measuredAt: measurement.measured_at,
+        sensorCode: sensor.sensor_code || '', sensorID: sensor.id, source: 'real', timestamp,
+      });
+    }
+    return [...latest.values()].map(({ timestamp, ...reading }) => reading);
+  }, [data.rooms, data.sensors, data.series]);
+
+  const selectedModel = documents.find(file => file.id === modelID);
+  const activeBuilding = data.buildings.find(building => building.id === buildingID) || data.building;
+  const buildingWeather = weatherState.weather;
+  const currentWeather = buildingWeather?.current;
+  const document = selectedModel ? {
+    ...selectedModel, buildingName: activeBuilding?.name, buildingID: activeBuilding?.id,
+    latitude: activeBuilding?.latitude, longitude: activeBuilding?.longitude,
+    model_heading_degrees: activeBuilding?.model_heading_degrees ?? 0,
+    map_provider_consent: activeBuilding?.map_provider_consent === true,
+  } : null;
+
+  if (data.loading && !data.building) return <div className="surface grid min-h-56 place-items-center p-6 text-sm text-muted-foreground">Gebäude- und Messdaten werden geladen …</div>;
+
+  return <div className="space-y-4">
+    <section className="surface flex flex-wrap items-end justify-between gap-4 p-4 sm:p-5" aria-label="Raum-Heatmap auswählen">
+      <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+        <label className="grid gap-1.5 text-xs font-medium">Gebäude
+          <select value={buildingID || data.building?.id || ''} onChange={event => { setHeatStatus(null); setBuildingID(event.target.value); }} className="min-h-10 rounded-xl border border-white/80 bg-white/80 px-3 text-sm text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {data.buildings.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-xs font-medium">IFC-Modell
+          <select value={modelID} onChange={event => setModelID(event.target.value)} disabled={!documents.length} className="min-h-10 rounded-xl border border-white/80 bg-white/80 px-3 text-sm text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {documents.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}
+            {!documents.length && <option value="">Kein IFC-Modell zugeordnet</option>}
+          </select>
+        </label>
+      </div>
+      <Button type="button" variant="outline" onClick={() => { setRefreshingWeather(true); request(`/buildings/${buildingID}/weather/refresh`, { method: 'POST', body: {} }).then(result => setWeatherState({ loading: false, location: result.location, weather: result.weather, error: '' })).catch(error => setWeatherState(current => ({ ...current, error: error.message || 'Wetterdienst nicht verfügbar.' }))).finally(() => setRefreshingWeather(false)); }} disabled={!buildingID || refreshingWeather}>
+        {refreshingWeather ? 'Wetter wird aktualisiert …' : 'Echtes Wetter aktualisieren'}
+      </Button>
+    </section>
+
+    {data.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{data.error}</p>}
+    {documentsState.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{documentsState.error}</p>}
+    {activeBuilding && !Number.isFinite(activeBuilding.latitude) && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Für dieses Gebäude sind keine Koordinaten gespeichert. Reale Wetterdaten können erst nach Hinterlegung eines Standorts abgerufen werden.</p>}
+
+    <section className="grid gap-3 sm:grid-cols-3" aria-label="Echte Raumdaten und Außenwetter">
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">Echte Raumwerte mit IFC-ID</p><p className="mt-1 text-2xl font-semibold tabular-nums">{roomReadings.length}</p><p className="mt-1 text-[11px] text-muted-foreground">Temperatur · Qualität „ok“ · maximal 24 Stunden alt</p></div>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">IFC-Räume mit Messwerten</p><p className="mt-1 text-2xl font-semibold tabular-nums">{heatStatus ? heatStatus.matchedRooms : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{heatStatus ? 'GlobalId stimmt mit dem Modell überein' : 'Wird beim Modellladen ermittelt'}</p></div>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">Außenwetter · Open-Meteo</p><p className="mt-1 text-2xl font-semibold tabular-nums">{Number.isFinite(currentWeather?.temperature) ? `${temperature(currentWeather.temperature)} °C` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{currentWeather?.time ? `Modell-/Prognosedaten · Stand ${measurementTime(currentWeather.time)}` : weatherState.loading ? 'Wetterdaten werden geladen …' : weatherState.error || 'Noch keine Wetterdaten gespeichert'}</p></div>
+    </section>
+
+    {weatherState.error && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Außenwetter nicht verfügbar: {weatherState.error}. Innenraumfarben werden davon nicht abgeleitet.</p>}
+
+    {document ? <section className="surface min-w-0 overflow-hidden" aria-label="Raumtemperaturen im IFC-Modell">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 px-4 py-3">
+        <div><h3 className="text-sm font-semibold">{activeBuilding?.name} · Raumtemperaturen</h3><p className="text-xs text-muted-foreground">Nur echte, aktuelle Messwerte mit exakter IFC GlobalId-Zuordnung werden eingefärbt.</p></div>
+        <span className="rounded-full border border-emerald-200 bg-emerald-50/90 px-3 py-1 text-xs font-medium text-emerald-800">Messdaten · feste Skala −10 bis 50 °C</span>
+      </div>
+      {documentsState.loading ? <div className="grid h-80 place-items-center text-sm text-muted-foreground">IFC-Modell wird gesucht …</div> : <IFCModelFrame document={document} heatmap={{ mode: 'measured', roomReadings }} onHeatStatus={setHeatStatus} />}
+      <div className="border-t border-white/70 bg-white/50 px-5 py-4" aria-label="Feste Temperaturskala">
+        <p className="mb-2 flex justify-between text-xs font-medium"><span>Kalt</span><span>Gemessene Raumtemperatur · °C</span><span>Warm</span></p>
+        <div className="h-3 rounded-full" style={{ background: HEAT_GRADIENT }} />
+        <div className="mt-2 flex justify-between text-[10px] tabular-nums text-muted-foreground">{HEAT_STOPS.map((stop,index)=><span key={stop.value}>{stop.value}°</span>)}</div>
+        <p className="mt-2 text-[11px] text-muted-foreground">Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.</p>
+      </div>
+    </section> : <section className="surface grid min-h-72 place-items-center p-8 text-center">
+      <div><p className="font-semibold">Kein IFC-Modell für dieses Gebäude gefunden</p><p className="mt-2 max-w-md text-sm text-muted-foreground">{documentsState.loading ? 'Dokumente werden geladen …' : 'Lade zuerst ein IFC-Modell in die Gebäudemappe. Die Messwerte bleiben unverändert.'}</p></div>
+    </section>}
+
+    <details className="surface px-4 py-3 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-medium text-foreground">Datenherkunft und Grenzen</summary>
+      <p className="mt-3 max-w-4xl leading-relaxed">Raumfarben stammen ausschließlich aus als echt markierten Temperaturmessungen der letzten 24 Stunden mit Qualitätsstatus „ok“, aktiver Temperatur-Sensorzuordnung und Einheit °C. Der Raum muss über seine hinterlegte IFC GlobalId eindeutig im geladenen IFC vorkommen. Werte werden je Raum nicht gemittelt oder über Messlücken interpoliert. Open-Meteo liefert hier Außenwetter-Modell-/Prognosedaten, keine Gebäudemessung; diese Werte beeinflussen die Raumfarben nicht. Die separate DWD-Ansicht enthält historische Frankfurter Stationsmessungen aus 2025 und weiterhin eine ausdrücklich bezeichnete schematische Oberflächensimulation.</p>
+    </details>
+  </div>;
+}
+
+export default function HeatMap() {
+  const [mode, setMode] = useState('rooms');
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">D21 · Heat map</p>
+        <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Temperaturverteilung</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Raummesswerte getrennt von der Wetter-basierten Campus-Simulation anzeigen.</p>
+      </div>
+      <div className="inline-flex rounded-2xl border border-white/80 bg-white/65 p-1 shadow-sm backdrop-blur-xl" role="group" aria-label="Heatmap-Modus">
+        <button type="button" aria-pressed={mode==='rooms'} onClick={()=>setMode('rooms')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='rooms'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Raummesswerte</button>
+        <button type="button" aria-pressed={mode==='campus'} onClick={()=>setMode('campus')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='campus'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Campus-Simulation</button>
+      </div>
+    </div>
+    {mode==='rooms' ? <RoomDataHeatMap /> : <CampusHeatMap />}
   </div>;
 }
