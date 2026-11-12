@@ -1,6 +1,6 @@
 # App-Einstieg und Werkzeugübersicht – 12. November 2026
 
-Kandidat 1.0.102 (102), noch nicht produktiv aktiviert und nicht in TestFlight hochgeladen.
+Version 1.0.102 (102): nach ausdrücklicher Freigabe veröffentlicht und auf Felix’ iPhone installiert; kein TestFlight-Upload.
 
 ## Anmeldung
 
@@ -40,4 +40,4 @@ Referenzen: [Finanzguru-App](https://finanzguru.de/finanzwissen/finanzguru-app),
 
 ## Validierung
 
-139 Backendtests einschließlich Kontentrennung und tatsächlich begrenzter Passwortarbeit erfolgreich. Zwei Proxy-Skriptprüfungen für exakte Pfadfreigabe, Beibehaltung des Website-Schutzes, Idempotenz und Ablehnung unerwarteter Konfiguration. Simulator-Build erfolgreich; Übersicht mit ausschließlich lokalen Debug-Vorschaudaten visuell geprüft. Produktive Proxy-Aktivierung und vollständiger Anmeldetest ohne Website-Zugang stehen bis zur Freigabe aus.
+139 Backendtests einschließlich Kontentrennung und tatsächlich begrenzter Passwortarbeit erfolgreich. Zwei Proxy-Skriptprüfungen für exakte Pfadfreigabe, Beibehaltung des Website-Schutzes, Idempotenz und Ablehnung unerwarteter Konfiguration. Simulator-Build erfolgreich; Übersicht mit ausschließlich lokalen Debug-Vorschaudaten visuell geprüft. Produktiver Proxy aktiviert und Anmeldung mit dem bestehenden Testkonto ohne Website-Zugang erfolgreich geprüft: geschützte Endpunkte ohne Sitzung 401, Anmeldung und eigene Gebäudeliste mit Sitzung 200, Website weiterhin passwortgeschützt. Anschließend Diagnosesitzung abgemeldet.

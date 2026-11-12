@@ -501,7 +501,7 @@ struct AccountHomeView: View {
                     }
                     Section("Meine und geteilte Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            Button { buildingPreview = building } label: { NativeBuildingCard(building: building) }.buttonStyle(.plain).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
+                            Button { nextArea = "Dashboard"; path.append(building) } label: { NativeBuildingCard(building: building) }.buttonStyle(BuildingTileButtonStyle()).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
                         }
                         if model.buildings.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -525,9 +525,10 @@ struct AccountHomeView: View {
                     }
                 }
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
-                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Übersicht"; path.append(building) } }
+                .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Dashboard"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
                 .task { refreshDraft() }
+                .onChange(of: model.buildings) { _, _ in refreshDraft() }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft() } }
                 .confirmationDialog("Lokalen Entwurf verwerfen?", isPresented: $discardDraft, titleVisibility: .visible) {
                     Button("Entwurf auf diesem iPhone verwerfen", role: .destructive) {

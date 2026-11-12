@@ -7,12 +7,10 @@ struct NativeBuildingCard: View {
             ZStack(alignment: .bottomLeading) {
                 BIMBuildingThumbnail(building:building)
                 HStack { Spacer(); Label(building.is_owner == false ? "Geteilt" : "Dein Gebäude", systemImage: building.is_owner == false ? "person.2" : "checkmark.shield").font(.caption.bold()).padding(9).background(.regularMaterial, in: Capsule()) }.padding(12).frame(maxHeight: .infinity, alignment: .top)
-            }.frame(height: 132)
+            }.frame(height: 112)
             VStack(alignment: .leading, spacing: 10) {
                 Text(building.name).font(.title3.bold()).foregroundStyle(.primary)
                 Label(building.address.isEmpty ? "Adresse noch offen" : building.address, systemImage: "mappin.and.ellipse").font(.subheadline).foregroundStyle(.secondary)
-                Divider()
-                HStack { Text("Gebäude entdecken").font(.subheadline.weight(.semibold)); Spacer(); Image(systemName: "arrow.up.right") }.foregroundStyle(d21Accent)
             }.padding(18)
         }.background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24)).clipShape(RoundedRectangle(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(d21Accent.opacity(0.12)))
@@ -58,29 +56,30 @@ struct BuildingOverviewSummary: View {
     let hasDraft: Bool
     let create: () -> Void
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Label("DEIN GEBÄUDEPASS", systemImage: "building.2.crop.circle").font(.caption.weight(.semibold)).tracking(1.2)
-            Text(buildings.isEmpty ? "Hier beginnt dein\ndigitales Gebäude." : "Alles rund um\ndeine Gebäude.")
-                .font(.system(.title, design: .rounded, weight: .bold)).fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 24) {
-                summary("Gebäude", value: buildings.count)
-                summary("Mit 3D-Modell", value: buildings.filter { $0.model_document_id != nil }.count)
-                summary("Ungelesen", value: unread)
-            }.accessibilityElement(children: .combine)
-            Button(action: create) {
-                Label(hasDraft ? "Entwurf fortsetzen" : "Gebäude hinzufügen", systemImage: hasDraft ? "arrow.clockwise" : "plus")
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)
-                    .foregroundStyle(Color(red: 0.08, green: 0.18, blue: 0.30))
-                    .background(.white, in: RoundedRectangle(cornerRadius: 15))
-            }.buttonStyle(.plain)
-        }
-        .foregroundStyle(.white).padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: [Color(red: 0.07, green: 0.16, blue: 0.29), Color(red: 0.10, green: 0.34, blue: 0.47)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 26))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("DEINE ÜBERSICHT").font(.caption2.weight(.semibold)).tracking(1.4).foregroundStyle(.white.opacity(0.8))
+                    Text("\(buildings.count) Gebäude").font(.system(.title2, design: .rounded, weight: .bold))
+                }
+                Spacer()
+                Button(action: create) { Image(systemName: hasDraft ? "arrow.clockwise" : "plus").font(.title3.weight(.semibold)).frame(width: 46, height: 46).background(.white.opacity(0.17), in: RoundedRectangle(cornerRadius: 16)) }
+                    .buttonStyle(.plain).accessibilityLabel(hasDraft ? "Entwurf fortsetzen" : "Gebäude hinzufügen")
+            }
+            HStack(spacing: 20) {
+                Label("\(buildings.filter { $0.model_document_id != nil }.count) Modelle", systemImage: "cube.transparent")
+                Label("\(unread) Mitteilungen", systemImage: "bell")
+            }.font(.caption).foregroundStyle(.white.opacity(0.85))
+        }.foregroundStyle(.white).padding(22).frame(maxWidth: .infinity, alignment: .leading)
+            .background(LinearGradient(colors: [Color(red: 0.07, green: 0.16, blue: 0.29), Color(red: 0.10, green: 0.34, blue: 0.47)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 24))
     }
-    private func summary(_ title: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(value.formatted()).font(.system(.title2, design: .rounded, weight: .bold))
-            Text(title).font(.caption).foregroundStyle(.white.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
-        }
+}
+
+struct BuildingTileButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }

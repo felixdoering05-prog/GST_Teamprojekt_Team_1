@@ -1,3 +1,4 @@
+const {buildingDeletionRouter}=require('./building-deletion');
 const {PasswordWorkGate}=require('./password-work');
 const {accountDeletionRouter}=require('./account-deletion');
 const {initPlanConversion}=require('./plan-conversion/queue');
@@ -132,6 +133,7 @@ function accountRouter(db,options={}) {
  }));
  router.use(passwordResetRouter(db,{passwordHash:boundedHash,throttle,...options}));
  router.use(accountDeletionRouter(db,requireAccount,verifyPassword));
+ router.use(buildingDeletionRouter(db,requireAccount));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
  router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
