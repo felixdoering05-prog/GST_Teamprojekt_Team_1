@@ -100,6 +100,24 @@ function collaborationRouter(db,requireAccount){
    res.json({ok:true});
   });
  }));
+ r.get('/buildings/:buildingId/structure',wrap(async(req,res)=>{
+  res.set('Cache-Control','private, no-store');
+  const rows=(await db.query(`
+   SELECT r.id,r.entity,r.data->>'name' AS name,r.data->'level' AS level,
+          r.data->>'room_code' AS room_code,r.data->>'floor_id' AS floor_id
+   FROM app_buildings b
+   LEFT JOIN app_twin_records r ON r.user_id=b.user_id
+     AND r.entity IN ('Floor','Room') AND r.data->>'building_id'=b.id::text
+   WHERE b.id=$1 AND ${accessSQL}
+  `,[req.params.buildingId,req.account.id])).rows;
+  if(!rows.length)return fail(res,404,'Gebäude nicht gefunden.');
+  const floors=[],rooms=[];
+  for(const row of rows){
+   if(row.entity==='Floor')floors.push({id:row.id,name:row.name,level:row.level});
+   if(row.entity==='Room')rooms.push({id:row.id,name:row.name,room_code:row.room_code,floor_id:row.floor_id});
+  }
+  res.json({floors,rooms});
+ }));
  r.get('/buildings/:buildingId/members',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return fail(res,404,'Gebäude nicht gefunden.');
   const rows=(await db.query(`SELECT u.id,u.name,'owner' AS status FROM app_users u JOIN app_buildings b ON b.user_id=u.id WHERE b.id=$1 UNION ALL SELECT u.id,u.name,m.status FROM app_users u JOIN app_building_members m ON m.user_id=u.id WHERE m.building_id=$1 ORDER BY id`,[req.params.buildingId])).rows;

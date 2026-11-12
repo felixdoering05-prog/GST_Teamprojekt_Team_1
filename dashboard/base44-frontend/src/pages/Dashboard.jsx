@@ -82,15 +82,22 @@ export default function Dashboard() {
 
   if (!rooms.length) {
     return (
-      <div>
+      <div className="space-y-5">
         <PageHeader title="Dashboard" description="Gebäudeübersicht, Kennzahlen, Warnmeldungen und Raumzustände." />
+        <section className="surface flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="dashboard-start">
+          <div>
+            <h2 id="dashboard-start" className="font-heading font-semibold">Erste Schritte</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Lege dein Gebäude an, lade Dateien hoch oder nimm eine Einladung an.</p>
+          </div>
+          <Button asChild><Link to="/gebaeude?start=1">Erste Schritte öffnen</Link></Button>
+        </section>
         <EmptyState
           icon={Building2}
           title="Noch keine Gebäudedaten vorhanden"
           description="Es sind noch keine Räume und Sensoren angelegt. Sie können den gekennzeichneten Demo-Datensatz erzeugen oder unter „Gebäude & Räume“ mit eigenen Daten beginnen."
           children={
             <>
-              <Button onClick={seed} disabled={seeding}>
+              <Button variant="outline" onClick={seed} disabled={seeding}>
                 {seeding ? 'Wird angelegt …' : 'Demo-Datensatz erzeugen'}
               </Button>
               <Button variant="outline" asChild>
