@@ -1,3 +1,4 @@
+const {unlimitedConversations}=require('./conversation-limits');
 const {cachedWeather}=require('./building-weather');
 const {deviceContext}=require('./assistant-devices');
 const express=require('express');
@@ -28,7 +29,7 @@ function liveVoiceRouter(db,requireAccount,options={}){
    if(!await aiEnabled(c,req.account.id))fail(disabledMessage,403);
    if((await c.query('SELECT 1 FROM app_voice_usage WHERE user_id=$1 AND request_key=$2',[req.account.id,sessionKey])).rows.length)fail('Gesprächsstart bereits verwendet. Bitte bewusst ein neues Gespräch starten.',409);
    const counts=(await c.query("SELECT COUNT(*) total,COUNT(*) FILTER(WHERE user_id=$1 AND kind='live') own,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '2 minutes') active,COUNT(*) FILTER(WHERE user_id=$1 AND kind='live' AND status='processing' AND created_at>now()-interval '2 minutes') own_active FROM app_voice_usage WHERE created_at>now()-interval '24 hours'",[req.account.id])).rows[0];
-   if(Number(counts.own)>=10||Number(counts.total)>=100)fail('Live-Gesprächskontingent für 24 Stunden erreicht.',429);
+   if(!unlimitedConversations(req.account.id)&&(Number(counts.own)>=10||Number(counts.total)>=100))fail('Live-Gesprächskontingent für 24 Stunden erreicht.',429);
    if(Number(counts.active)>=2||Number(counts.own_active)>=1)fail('Es läuft bereits ein Gespräch. Bitte dieses zuerst beenden.',409);
    usage=(await c.query("INSERT INTO app_voice_usage(user_id,building_id,request_key,kind) VALUES($1,$2,$3,'live') RETURNING id",[req.account.id,req.liveBuilding.id,sessionKey])).rows[0].id;
    await c.query('INSERT INTO app_live_voice_sessions(session_key,usage_id,user_id,building_id,preference_revision) VALUES($1,$2,$3,$4,$5)',[sessionKey,usage,req.account.id,req.liveBuilding.id,preference.revision]);await c.query('COMMIT');

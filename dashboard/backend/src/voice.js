@@ -1,3 +1,4 @@
+const {unlimitedConversations}=require('./conversation-limits');
 const express=require('express');
 const {readFileSync}=require('node:fs');
 const {accessibleBuilding}=require('./collaboration');
@@ -32,7 +33,7 @@ function voiceRouter(db,requireAccount,options={}){
   const c=await db.connect();try{await c.query('BEGIN');await c.query('SELECT id FROM app_ai_budget WHERE id=1 FOR UPDATE');
    if((await c.query('SELECT 1 FROM app_voice_usage WHERE user_id=$1 AND request_key=$2',[req.account.id,id.toLowerCase()])).rows.length)fail('Diese Sprachanfrage wurde bereits angenommen. Bitte nicht automatisch wiederholen.',409);
    const counts=(await c.query("SELECT COUNT(*) AS total,COUNT(*) FILTER(WHERE user_id=$1 AND kind=$2) AS own,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '2 minutes') AS active FROM app_voice_usage WHERE created_at>now()-interval '24 hours'",[req.account.id,kind])).rows[0];
-   if(Number(counts.total)>=100||Number(counts.own)>=20)fail('Sprachkontingent für 24 Stunden erreicht.',429);if(Number(counts.active)>=2)fail('Sprachdienst gerade ausgelastet.',503);
+   if(!unlimitedConversations(req.account.id)&&(Number(counts.total)>=100||Number(counts.own)>=20))fail('Sprachkontingent für 24 Stunden erreicht.',429);if(Number(counts.active)>=2)fail('Sprachdienst gerade ausgelastet.',503);
    const row=(await c.query('INSERT INTO app_voice_usage(user_id,building_id,request_key,kind) VALUES($1,$2,$3,$4) RETURNING id',[req.account.id,req.voiceBuilding.id,id.toLowerCase(),kind])).rows[0];await c.query('COMMIT');return row.id;
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }
