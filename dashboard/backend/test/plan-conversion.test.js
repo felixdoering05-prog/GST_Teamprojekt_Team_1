@@ -91,3 +91,13 @@ test('failed interpretation stops honestly and daily job quota is enforced',asyn
  for(let i=0;i<3;i++){await enqueue([docs[1]]);await processNext(db,{enabled:true,analyze:async()=>{throw Object.assign(Error(),{code:'needs_input'});}});}
  assert.equal((await enqueue([docs[1]])).status,429);assert.ok((await api()).body.jobs.every(j=>j.status==='needs_input'));
 });
+
+test('deleting an owned building preserves recent plan quota without retaining its files',async()=>{
+ await clear();await consent();
+ const created=await enqueue([docs[0]]);assert.equal(created.status,202);
+ const r=await fetch(url.replace('/plan-conversion',''),{method:'DELETE',headers:{'Content-Type':'application/json','X-D21-Session':owner.token},body:JSON.stringify({confirmation:'DELETE'})});
+ assert.equal(r.status,200);
+ assert.equal((await db.query('SELECT id FROM app_plan_jobs WHERE id=$1',[created.body.id])).rows.length,0);
+ assert.equal((await db.query('SELECT user_id FROM app_plan_deleted_usage WHERE job_id=$1',[created.body.id])).rows[0].user_id,owner.id);
+ assert.equal((await db.query('SELECT id FROM app_documents WHERE building_id=$1',[building.id])).rows.length,0);
+});

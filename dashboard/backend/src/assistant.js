@@ -153,7 +153,7 @@ function assistantRouter(db,requireAccount,options={}){
     }
    }
    if(commandMode){try{stored=JSON.stringify(validateCommand(JSON.parse(answer)));}catch{const e=new Error('Invalid command response');e.code=502;throw e;}}
-   await db.query("UPDATE app_ai_requests SET status='done',answer=$2,finished_at=now() WHERE id=$1",[state.id,stored]);
+   await db.query("UPDATE app_ai_requests SET status='done',answer=$2,finished_at=now() WHERE id=$1 AND building_id IS NOT NULL",[state.id,stored]);
    await respond(stored,false);
   }catch(error){
    const code=error.name==='TimeoutError'||error.name==='AbortError'?504:[429,502,503].includes(error.code)?error.code:503;

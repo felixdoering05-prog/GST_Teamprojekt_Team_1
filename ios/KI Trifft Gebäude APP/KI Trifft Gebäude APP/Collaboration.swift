@@ -158,65 +158,104 @@ struct BuildingDetailView: View {
     @ObservedObject var model: AccountModel
     @State private var section: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var tabs
     @State private var sharing = false
+    @State private var managing = false
+    @State private var confirmDeletion = false
+    @State private var deleting = false
     @State private var name = ""
     @State private var address = ""
     @State private var problem: String?
     @State private var saving = false
-    init(building: Building, model: AccountModel, initialSection: String = "Übersicht") {
-        self.building = building; self.model = model; _section = State(initialValue: initialSection)
+    init(building: Building, model: AccountModel, initialSection: String = "Dashboard") {
+        self.building = building; self.model = model
+        _section = State(initialValue: initialSection == "Übersicht" ? "Dashboard" : initialSection)
         _name = State(initialValue: building.name); _address = State(initialValue: building.address)
+    }
+    private var isOwner: Bool { model.buildings.first(where: { $0.id == building.id })?.is_owner == true || building.is_owner == true }
+    private let areas = [("Dashboard", "Start", "chart.bar.xaxis"), ("3D", "Modell", "cube.transparent"), ("Geräte", "Geräte", "lightbulb"), ("KI", "KI", "sparkles"), ("Team", "Chat", "bubble.left.and.bubble.right")]
+    private func open(_ area: String) {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { section = area }
     }
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(["Übersicht", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
-                        Button { section = item } label: { Text(item).font(.subheadline.weight(.semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(section == item ? d21Accent : Color(.secondarySystemGroupedBackground), in: Capsule()).foregroundStyle(section == item ? .white : .primary) }.accessibilityAddTraits(section == item ? .isSelected : [])
-                    }
-                }.padding(.horizontal).padding(.vertical, 8)
-            }
-            switch section {
-            case "Dashboard": TelemetryDashboardView(account: model, building: building)
-            case "Dateien": BuildingFilesView(building: building, model: model)
-            case "3D": BuildingModelView(building: building, account: model)
-            case "Heatmap": BuildingHeatmapView(account: model, building: building)
-            case "Geräte": BuildingDevicesView(building: building, account: model)
-            case "Sprache": BuildingVoiceView(building: building, account: model)
-            case "KI": BuildingAssistantView(building: building, account: model)
-            case "Team": BuildingChatView(building: building, account: model)
-            default:
-                Form {
-                    BuildingNextSteps(building: building, account: model, navigate: { section = $0 })
-                    Section("Werkzeuge für dein Gebäude") {
-                        Button("Gebäude-Dashboard", systemImage: "chart.xyaxis.line") { section = "Dashboard" }
-                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Sensorik") } label: { Label("Sensoren und Messwerte", systemImage: "sensor") }
-                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Energie") } label: { Label("Energie und Verbrauch", systemImage: "bolt") }
-                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Analyse") } label: { Label("Auswertung und KI-Analyse", systemImage: "chart.bar.doc.horizontal") }
-                        NavigationLink { BuildingHeatmapView(account: model, building: building) } label: { Label("Heatmap, Wetter und Standort", systemImage: "thermometer.sun") }
-                        Button("Bilder, Pläne und Dokumente", systemImage: "folder") { section = "Dateien" }
-                        if building.is_owner == true {
-                            NavigationLink { PlanConversionView(building: building, account: model, onAdopt: {}) } label: { Label("Aus Grundrissen ein 3D-Modell erstellen", systemImage: "wand.and.stars") }
-                        }
-                        Text("Messwerte und Verbrauch stammen aus deinen hinterlegten Daten. Wetter und illustrative Heatmap bleiben davon getrennt.").font(.footnote).foregroundStyle(.secondary)
-                    }
-                    Section("Gebäudedaten") { DisclosureGroup("Name und Adresse bearbeiten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) } }
-                    Section("Gemeinsam arbeiten") { Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Team" }; Button("Mitglieder einladen", systemImage: "person.badge.plus") { sharing = true } }
-                    Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { section = "KI" }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }
-                    Section { Button("Mitglieder und Freigaben", systemImage: "person.2") { sharing = true } }
-                    if let problem { Section { Text(problem).foregroundStyle(.red) } }
+            HStack(spacing: 4) {
+                ForEach(areas, id: \.0) { item in
+                    Button { open(item.0) } label: {
+                        HStack(spacing: 6) { Image(systemName: item.2).font(.subheadline); if section == item.0 { Text(item.1).font(.caption.weight(.semibold)) } }
+                            .padding(.horizontal, 12).frame(minWidth: 40, minHeight: 42)
+                            .foregroundStyle(section == item.0 ? .white : .secondary)
+                            .background { if section == item.0 { Capsule().fill(d21Accent).matchedGeometryEffect(id: "selected-area", in: tabs) } }
+                    }.buttonStyle(.plain).accessibilityLabel(item.1).accessibilityAddTraits(section == item.0 ? .isSelected : [])
                 }
+            }.padding(5).background(Color(uiColor: .secondarySystemGroupedBackground), in: Capsule()).padding(.horizontal, 16).padding(.vertical, 8)
+            content.id(section).transition(.opacity)
+        }.background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle(name).navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Gebäudeverwaltung", systemImage: "slider.horizontal.3") { managing = true }
+                    Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
+                    Button("Dateien", systemImage: "folder") { open("Dateien") }
+                } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Gebäude verwalten")
             }
-        }.navigationTitle(name).navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { sharing = true } label: { Image(systemName: "person.badge.plus") }.accessibilityLabel("Mitglieder und Gebäudefreigaben") } }
+        }
         .toolbar(.hidden, for: .tabBar)
         .onChange(of: model.buildings) { _, all in if !all.contains(where: { $0.id == building.id }) { dismiss() } }
         .sheet(isPresented: $sharing) { BuildingSharingView(building: building, account: model) }
+        .sheet(isPresented: $managing) { management }
+    }
+    @ViewBuilder private var content: some View {
+        switch section {
+        case "Dateien": BuildingFilesView(building: building, model: model)
+        case "3D": BuildingModelView(building: building, account: model)
+        case "Geräte": BuildingDevicesView(building: building, account: model)
+        case "Heatmap": BuildingHeatmapView(account: model, building: building)
+        case "KI": BuildingAssistantView(building: building, account: model)
+        case "Team", "Chat": BuildingChatView(building: building, account: model)
+        case "Sensorik", "Energie", "Analyse": TelemetryDashboardView(account: model, building: building, initialArea: section)
+        default: BuildingCockpit(building: building, account: model, open: open)
+        }
+    }
+    private var management: some View {
+        NavigationStack {
+            Form {
+                Section("Gebäudedaten") {
+                    TextField("Name", text: $name)
+                    TextField("Adresse", text: $address)
+                    Button(saving ? "Wird gespeichert …" : "Speichern") { Task { await save() } }.disabled(saving || deleting || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                if isOwner {
+                    Section {
+                        NavigationLink { PlanConversionView(building: building, account: model, onAdopt: {}) } label: { Label("3D-Entwurf aus Plänen", systemImage: "wand.and.stars") }
+                        Button("Gebäude dauerhaft löschen", systemImage: "trash", role: .destructive) { confirmDeletion = true }.disabled(saving || deleting)
+                    } footer: { Text("Löscht dieses Gebäude samt hochgeladenen Dateien, Geräten, Messdaten und zugehörigen Chat-/KI-Verläufen. Andere Gebäude bleiben erhalten.") }
+                }
+                if let problem { Section { Text(problem).foregroundStyle(.red) } }
+                if deleting { ProgressView("Gebäude wird gelöscht …") }
+            }.navigationTitle("Gebäude verwalten").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { managing = false }.disabled(saving || deleting) } }
+            .interactiveDismissDisabled(saving || deleting)
+            .confirmationDialog("„\(name)“ endgültig löschen?", isPresented: $confirmDeletion, titleVisibility: .visible) {
+                Button("Gebäude und zugehörige Daten löschen", role: .destructive) { Task { await deleteBuilding() } }
+            } message: { Text("Alle Mitglieder verlieren den Zugriff. Dateien und Chat-/KI-Verläufe dieses Gebäudes werden entfernt. Das kann in der App nicht rückgängig gemacht werden. Bereits heruntergeladene Kopien und historische Backups werden nicht dadurch gelöscht.") }
+        }
     }
     private func save() async {
         saving = true; defer { saving = false }
         do { let _: LogoutResult = try await model.request("buildings/\(building.id)", method: "PATCH", body: ["name":name,"address":address]); await model.loadBuildings(); problem = nil }
         catch { problem = error.localizedDescription }
+    }
+    private func deleteBuilding() async {
+        guard !deleting, isOwner else { return }; deleting = true; defer { deleting = false }
+        do {
+            let _: LogoutResult = try await model.request("buildings/\(building.id)", method: "DELETE", body: ["confirmation":"DELETE"])
+            try? model.draftStore(buildingID: building.id)?.clear()
+            if let store = model.draftStore(), let draft = try? store.load(), draft.building?.id == building.id { try? store.clear() }
+            managing = false; model.buildings.removeAll { $0.id == building.id }; await model.loadBuildings(); dismiss()
+        } catch { problem = error.localizedDescription }
     }
 }
 struct BuildingSharingView: View {
