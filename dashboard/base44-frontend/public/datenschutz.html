@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Datenschutz – KI trifft Gebäude</title><style>body{max-width:800px;margin:40px auto;padding:0 24px;color:#172a40;background:#f6f8fb;font:17px/1.6 system-ui}p{white-space:pre-wrap}a{color:#087b88}</style><main><h1>Datenschutz und Support</h1><p>Datenschutzhinweise zum externen Test
-Stand: 10. November 2026
+Stand: 12. November 2026
 
 Verantwortlicher und Support
 Felix Döring
@@ -16,8 +16,10 @@ KI ist standardmäßig ausgeschaltet. Erst nach Freigabe im Profil werden bewuss
 Karten, Wetter und Geräte
 Bei der Kartenauswahl und Adresssuche in der iPhone-App verarbeitet Apple Karten die Suchangaben und den gewählten Kartenausschnitt. In der 3D-Kartenumgebung werden bei aktivierter Kartenfunktion Kartenausschnitte von OpenStreetMap geladen. Beim bewusst gestarteten Wetterabruf werden Gebäudekoordinaten zur Wetterabfrage bei Open-Meteo verwendet. Anbieter erhalten dabei die für die Funktion erforderlichen Verbindungs-/Standortdaten. Verknüpfte Geräte werden nur entsprechend der Freigabe und deinen Aufträgen gesteuert. Nutze für den Test ausschließlich Geräte, die du gefahrlos bedienen darfst.
 
-Keine Live-Sprache in Build 100
-Diese Testversion enthält weder ElevenLabs-/LiveKit-/WebRTC-SDKs noch eine aktive Mikrofonübertragung. Der Textassistent bleibt optional verfügbar. Frühere oder andere App-Versionen können zusätzliche Sprachfunktionen mit eigenen Hinweisen enthalten.
+Sprachgespräch (ab Version 1.0.106)
+Das Sprachgespräch ist optional und setzt die KI-Freigabe im Profil voraus; vor der ersten Nutzung erklärt die App den Ablauf. Das Mikrofon läuft nur von „Gespräch starten“ bis „Beenden“ (höchstens 2 Minuten), nie im Hintergrund. Der Projektserver prüft Freigabe, Gebäudezugang und Kontingent (10 Gespräche je Konto in 24 Stunden) und stellt eine kurzlebige Zugangsadresse aus. Danach wird deine Stimme per verschlüsselter WebSocket-Verbindung direkt an ElevenLabs übertragen; der ElevenLabs-Sprachagent antwortet in Echtzeit. Er erhält dafür Gebäudenamen, regionale Wetterwerte, deine freigegebenen Lampen und die Namen der zuletzt hochgeladenen Dateien, keine Adresse und keine Dateiinhalte. Für die Antworten nutzt der Agent über ElevenLabs ein Sprachmodell von Google (Gemini). Laut Agent-Konfiguration zeichnet ElevenLabs die Stimme nicht auf und löscht Gesprächsdaten nach einem Tag. Audio wird nicht auf dem iPhone gespeichert. Simulierte Geräte werden nur nach deiner ausdrücklichen Bestätigung geschaltet.
+Ist kein Live-Agent eingerichtet, steht ein Modus „Tippen statt Gespräch“ zur Verfügung: Eine bis zu 30 Sekunden lange Aufnahme wird im Arbeitsspeicher erzeugt, per HTTPS an den Projektserver gesendet, dort über ElevenLabs in Text umgewandelt, wie eine getippte Frage an Google Gemini gegeben und auf Wunsch vorgelesen (20 Erkennungen und 20 Vorlesungen je Konto in 24 Stunden).
+Die App enthält für beide Modi keine Fremdbibliotheken.
 
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.
