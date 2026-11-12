@@ -74,36 +74,62 @@ struct BuildingDevicesView: View {
     @Environment(\.scenePhase) private var scenePhase
     private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"})).sorted() }
     private var visible: [BuildingDevice] { devices.filter { room == "Alle Räume" || $0.roomLabel == room } }
+    private var shownLamps: [ConnectedLamp] { lamps.filter { room == "Alle Räume" || ($0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum") == room } }
     var body: some View {
-        List {
-            Section {
-                Label(building.name, systemImage: "house.fill").font(.headline)
-                Text("\(lamps.count) verbundene Lampen").font(.subheadline).foregroundStyle(.secondary)
-                Button("Vorhandenes Gerät verbinden", systemImage: "link") { connecting = true }.disabled(busy)
-
-            }
-            if let problem { Section { Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); Button("Erneut laden") { Task { await reload() } }.disabled(loading || busy) } }
-            if !lamps.isEmpty {
-                Section("Geräte") { ForEach(lamps.filter { room == "Alle Räume" || $0.location?.room == room }) { lamp in ConnectedLampCard(lamp:lamp,account:account,assign:{selectedLamp=lamp},changed:{await reload()}) } }
-            }
-            if loading && !loaded { Section { ProgressView("Geräte werden geladen …") } }
-            if loaded && devices.isEmpty && lamps.isEmpty {
-                Section {
-                    ContentUnavailableView("Dein erstes Gerät", systemImage: "lightbulb", description: Text("Verbinde ein vorhandenes Gerät und ordne es deinem Gebäude und einem Raum zu."))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                if let problem {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange)
+                        Text(problem).font(.footnote); Spacer(minLength: 0)
+                        Button("Neu laden") { Task { await reload() } }.font(.footnote.weight(.semibold)).disabled(loading || busy)
+                    }.padding(14).d21Card(cornerRadius: 18)
                 }
-            }
-            if !rooms.isEmpty {
-                Section { Picker("Raum", selection: $room) { Text("Alle Räume").tag("Alle Räume"); ForEach(rooms, id: \.self) { Text($0).tag($0) } } }
-            }
-            ForEach(rooms.filter { name in visible.contains { $0.roomLabel == name } }, id: \.self) { name in
-                Section(name) { ForEach(visible.filter { $0.roomLabel == name }) { device in deviceRow(device) } }
-            }
-            Section("Im Modell ansehen") {
-                NavigationLink { IFCLibraryView(model: account, smartHome: true, buildingID: building.id) } label: { Label("Raumlicht im 3D-Modell ansehen", systemImage: "cube.transparent") }
-                Text("Verknüpfe unter Gebäude & Raum einen IFC-Raum, damit das Licht dort in der bestätigten Farbe angezeigt wird. Über das Kartensymbol im Viewer kannst du Straßen und Nachbargebäude laden.").font(.footnote).foregroundStyle(.secondary)
-            }
-
+                if rooms.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(["Alle Räume"] + rooms, id: \.self) { name in
+                                Button { room = name } label: {
+                                    Text(name).font(.subheadline.weight(.semibold)).padding(.horizontal, 14).padding(.vertical, 8)
+                                        .foregroundStyle(room == name ? .white : .primary)
+                                        .background(room == name ? AnyShapeStyle(d21Accent) : AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground)), in: Capsule())
+                                }.buttonStyle(.plain).accessibilityAddTraits(room == name ? .isSelected : [])
+                            }
+                        }
+                    }
+                }
+                if loading && !loaded { HStack(spacing: 12) { ProgressView(); Text("Geräte werden geladen …").foregroundStyle(.secondary) }.padding(18).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 20) }
+                if !shownLamps.isEmpty {
+                    Text("Licht").font(.title3.bold())
+                    VStack(spacing: 12) { ForEach(shownLamps) { lamp in ConnectedLampCard(lamp: lamp, account: account, assign: { selectedLamp = lamp }, changed: { await reload() }) } }
+                }
+                if !visible.isEmpty {
+                    Text("Vorgemerkte Geräte").font(.title3.bold())
+                    VStack(spacing: 10) { ForEach(visible) { device in deviceRow(device) } }
+                }
+                if loaded && devices.isEmpty && lamps.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "lightbulb.2.fill").font(.system(size: 40)).foregroundStyle(d21Accent.gradient)
+                        Text("Dein erstes Gerät").font(.title3.bold())
+                        Text("Verbinde ein vorhandenes Gerät und ordne es deinem Gebäude und einem Raum zu.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button { connecting = true } label: { Label("Gerät verbinden", systemImage: "link") }.buttonStyle(.borderedProminent).tint(d21Accent)
+                    }.padding(24).frame(maxWidth: .infinity).d21Card(cornerRadius: 24)
+                }
+                NavigationLink { IFCLibraryView(model: account, smartHome: true, buildingID: building.id) } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "cube.transparent").font(.body.weight(.semibold)).foregroundStyle(.indigo).frame(width: 40, height: 40).background(Color.indigo.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Raumlicht im 3D-Modell").font(.subheadline.weight(.semibold))
+                            Text("Lampen einem IFC-Raum zuordnen und dort in der bestätigten Farbe sehen").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }.padding(14).d21Card(cornerRadius: 20)
+                }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
+            }.padding(20)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Geräte").navigationBarTitleDisplayMode(.inline)
         .refreshable { if !busy { await reload() } }
         .sheet(isPresented: $adding, onDismiss: { Task { await reload() } }) { AddDeviceView(building: building, account: account) }
@@ -119,16 +145,46 @@ struct BuildingDevicesView: View {
         }
     }
     private func deviceRow(_ device: BuildingDevice) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(device.name, systemImage: device.kind.symbol).font(.headline).foregroundStyle(device.simulated && device.is_on ? d21Accent : .primary)
-            Text(device.kind.title + " · " + (device.simulated ? "Simulation" : "Vorgemerkt · " + device.integration.title)).font(.caption).foregroundStyle(.secondary)
-            if device.simulated && device.kind.switchable {
-                Toggle(device.is_on ? "Simulation: Ein" : "Simulation: Aus", isOn: Binding(get: { device.is_on }, set: { value in Task { await toggle(device, on: value) } })).tint(d21Accent).disabled(busy || loading)
-                    .accessibilityLabel(device.name + ", Simulation")
-                if device.kind == .light { SimulatedLampColor(account:account,device:device,changed:{await reload()}) }
-            } else { Text(device.simulated ? "Keine echten Messwerte · Sensordarstellung vorbereitet" : "Noch nicht verbunden · kein Live-Status").font(.footnote).foregroundStyle(.secondary) }
-            Button("Gebäude & Raum",systemImage:"building.2.crop.circle") { selectedDevice=device }.disabled(busy)
-        }.padding(.vertical, 5)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                Image(systemName: device.kind.symbol).font(.title3.weight(.semibold)).foregroundStyle(device.simulated && device.is_on ? .white : d21Accent)
+                    .frame(width: 46, height: 46).background(device.simulated && device.is_on ? AnyShapeStyle(d21Accent) : AnyShapeStyle(d21Accent.opacity(0.12)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(device.name).font(.headline)
+                    Text(device.roomLabel + " · " + device.kind.title).font(.caption).foregroundStyle(.secondary)
+                    Text(device.simulated ? "Simulation" : "Vorgemerkt · " + device.integration.title).font(.caption2.weight(.semibold)).foregroundStyle(device.simulated ? .orange : .secondary)
+                }
+                Spacer(minLength: 0)
+                if device.simulated && device.kind.switchable {
+                    Toggle("", isOn: Binding(get: { device.is_on }, set: { value in Task { await toggle(device, on: value) } })).labelsHidden().tint(d21Accent).disabled(busy || loading)
+                        .accessibilityLabel(device.name + ", Simulation")
+                }
+                Menu { Button("Gebäude & Raum", systemImage: "building.2.crop.circle") { selectedDevice = device } } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 32, height: 32).contentShape(Rectangle()) }.disabled(busy)
+            }
+            if device.simulated && device.kind == .light { SimulatedLampColor(account: account, device: device, changed: { await reload() }) }
+            else if !(device.simulated && device.kind.switchable) { Text(device.simulated ? "Keine echten Messwerte · Sensordarstellung vorbereitet" : "Noch nicht verbunden · kein Live-Status").font(.footnote).foregroundStyle(.secondary) }
+        }.padding(16).d21Card(cornerRadius: 20)
+    }
+    private var header: some View {
+        let on = lamps.filter { $0.available && $0.is_on == true }.count
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(building.name).font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
+                    Text(lamps.count == 1 ? "1 Lampe" : "\(lamps.count) Lampen").font(.system(.title, design: .rounded, weight: .bold))
+                }
+                Spacer()
+                Image(systemName: on > 0 ? "lightbulb.2.fill" : "lightbulb.2").font(.system(size: 34)).foregroundStyle(on > 0 ? Color.yellow : .white.opacity(0.6)).accessibilityHidden(true)
+            }
+            HStack {
+                Label(on == 1 ? "1 an" : "\(on) an", systemImage: "power").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 7).background(.white.opacity(0.16), in: Capsule())
+                Spacer()
+                Button { connecting = true } label: { Label("Verbinden", systemImage: "link").font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 38).background(.white, in: Capsule()).foregroundStyle(Color(red: 0.07, green: 0.18, blue: 0.31)) }
+                    .buttonStyle(BuildingTileButtonStyle()).disabled(busy).accessibilityLabel("Vorhandenes Gerät verbinden")
+            }
+        }
+        .foregroundStyle(.white).padding(20)
+        .background(LinearGradient(colors: [Color(red: 0.12, green: 0.12, blue: 0.30), Color(red: 0.05, green: 0.36, blue: 0.42)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
     private func reload() async {
         guard !loading else { return }; loading = true; defer { loading = false }

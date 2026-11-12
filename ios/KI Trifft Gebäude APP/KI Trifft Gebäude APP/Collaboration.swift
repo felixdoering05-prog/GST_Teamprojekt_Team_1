@@ -443,31 +443,104 @@ struct BuildingChatView: View {
     @State private var deleteTarget: BuildingMessage?
     @State private var deleting = false
     @Environment(\.scenePhase) private var scenePhase
+    private func mine(_ m: BuildingMessage) -> Bool { m.user_id == account.user?.id }
+    private func messageDate(_ value: String) -> Date? {
+        let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+    private func dayLabel(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) { return "Heute" }
+        if Calendar.current.isDateInYesterday(date) { return "Gestern" }
+        return date.formatted(Date.FormatStyle(locale: Locale(identifier: "de_DE")).weekday(.wide).day().month(.wide))
+    }
+    @ViewBuilder private func bubble(_ message: BuildingMessage, index: Int) -> some View {
+        let own = mine(message)
+        let previous = index > 0 ? messages[index - 1] : nil
+        let date = messageDate(message.created_at)
+        let newDay = date.map { d in previous.flatMap { messageDate($0.created_at) }.map { !Calendar.current.isDate($0, inSameDayAs: d) } ?? true } ?? false
+        let firstOfGroup = newDay || previous?.user_id != message.user_id
+        if newDay, let date {
+            Text(dayLabel(date)).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, 12).padding(.vertical, 5).background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+                .frame(maxWidth: .infinity).padding(.top, 10)
+        }
+        HStack(alignment: .bottom, spacing: 8) {
+            if own { Spacer(minLength: 48) }
+            else if firstOfGroup { ContactInitials(name: message.name, id: message.user_id, size: 30) }
+            else { Color.clear.frame(width: 30, height: 1) }
+            VStack(alignment: own ? .trailing : .leading, spacing: 3) {
+                if firstOfGroup && !own { Text(message.name).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.leading, 4) }
+                Group {
+                    if message.deleted == true { Label("Nachricht gelöscht", systemImage: "trash").italic().foregroundStyle(.secondary) }
+                    else { Text(message.text).textSelection(.enabled).foregroundStyle(own ? .white : .primary) }
+                }
+                .font(.body)
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background {
+                    if message.deleted == true { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(uiColor: .separator), style: StrokeStyle(lineWidth: 1, dash: [4])) }
+                    else if own { UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous).fill(LinearGradient(colors: [d21Accent, Color(red: 0.06, green: 0.40, blue: 0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)) }
+                    else { UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 6, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground)) }
+                }
+                if let date { Text(date.formatted(date: .omitted, time: .shortened)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 4) }
+            }
+            if !own { Spacer(minLength: 48) }
+        }
+        .padding(.top, firstOfGroup ? 8 : 1)
+        .id(message.id)
+        .contextMenu {
+            if message.deleted != true { Button("Text kopieren", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text } }
+            if own && message.deleted != true { Button("Nachricht löschen", systemImage: "trash", role: .destructive) { deleteTarget = message }.disabled(deleting) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel((own ? "Du" : message.name) + ": " + (message.deleted == true ? "Nachricht gelöscht" : message.text))
+    }
+    private var canSend: Bool { !sending && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && text.utf16.count <= 2000 }
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
-                List {
-                    if hasMore && !messages.isEmpty { Button(older ? "Wird geladen …" : "Ältere Nachrichten laden") { Task { await loadOlder() } }.disabled(older) }
-                    if messages.isEmpty && problem == nil { ContentUnavailableView("Euer Gebäude-Gespräch", systemImage: "bubble.left.and.bubble.right", description: Text("Stellt Fragen zu Plänen und haltet Absprachen hier fest.")) }
-                    ForEach(messages) { message in
-                        VStack(alignment: message.user_id == account.user?.id ? .trailing : .leading, spacing: 5) {
-                            Text(message.user_id == account.user?.id ? "Du" : message.name).font(.caption.bold()).foregroundStyle(d21Accent)
-                            if message.deleted == true { Label("Nachricht gelöscht", systemImage: "trash").font(.subheadline).foregroundStyle(.secondary) }
-                            else { Text(message.text).textSelection(.enabled) }
-                            Text(projectDate(message.created_at)).font(.caption2).foregroundStyle(.secondary)
-                        }.frame(maxWidth: .infinity, alignment: message.user_id == account.user?.id ? .trailing : .leading).padding(.vertical, 6).id(message.id)
-                        .contextMenu { if message.user_id == account.user?.id && message.deleted != true { Button("Nachricht löschen", systemImage: "trash", role: .destructive) { deleteTarget = message }.disabled(deleting) } }
-                    }
-                }.listStyle(.plain).refreshable { await load() }
-                .onChange(of: messages.last?.id) { _, id in if let id, !older { proxy.scrollTo(id, anchor: .bottom) } }
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if hasMore && !messages.isEmpty {
+                            Button { Task { await loadOlder() } } label: { Label(older ? "Wird geladen …" : "Ältere Nachrichten", systemImage: "arrow.up.circle") }
+                                .font(.footnote.weight(.semibold)).buttonStyle(.bordered).tint(d21Accent).disabled(older).padding(.vertical, 8)
+                        }
+                        if messages.isEmpty && problem == nil && !loading {
+                            VStack(spacing: 12) {
+                                Image(systemName: "bubble.left.and.text.bubble.right.fill").font(.system(size: 42)).foregroundStyle(d21Accent.gradient)
+                                Text("Euer Gebäude-Chat").font(.title3.bold())
+                                Text("Stellt Fragen zu Plänen und haltet Absprachen fest. Nur Mitglieder dieses Gebäudes lesen mit.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            }.padding(32).frame(maxWidth: .infinity).padding(.top, 40)
+                        }
+                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in bubble(message, index: index) }
+                    }.padding(.horizontal, 14).padding(.bottom, 10)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .defaultScrollAnchor(.bottom)
+                .refreshable { await load() }
+                .onChange(of: messages.last?.id) { _, id in if let id, !older { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .bottom) } } }
             }
-            if let problem { HStack { Text(problem).font(.footnote).foregroundStyle(.red); Button("Erneut laden") { Task { await load() } } }.padding(.horizontal) }
-            HStack(alignment: .bottom) {
-                TextField("Nachricht an das Gebäude", text: $text, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder).disabled(sending)
-                Button { Task { await send() } } label: { Image(systemName: sending ? "hourglass" : "arrow.up.circle.fill").font(.title2) }.accessibilityLabel("Nachricht senden").disabled(sending || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.utf16.count>2000)
-            }.padding().background(.bar)
-            Text("Nur für Gebäudemitglieder · Aktualisierung bei geöffneter App").font(.caption2).foregroundStyle(.secondary).padding(.bottom, 4)
-        }.confirmationDialog("Eigene Nachricht für alle löschen?", isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }), titleVisibility: .visible, presenting: deleteTarget) { target in
+            if let problem {
+                HStack(spacing: 10) { Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange); Text(problem).font(.footnote); Spacer(minLength: 0); Button("Neu laden") { Task { await load() } }.font(.footnote.weight(.semibold)) }
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+            }
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("Nachricht an alle im Gebäude", text: $text, axis: .vertical)
+                    .lineLimit(1...5).disabled(sending)
+                    .padding(.horizontal, 16).padding(.vertical, 11)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color(uiColor: .separator).opacity(0.5)))
+                Button { Task { await send() } } label: {
+                    Group { if sending { ProgressView().tint(.white) } else { Image(systemName: "arrow.up").font(.body.weight(.bold)) } }
+                        .foregroundStyle(.white).frame(width: 42, height: 42)
+                        .background(canSend || sending ? d21Accent : Color(uiColor: .systemGray3), in: Circle())
+                }.buttonStyle(BuildingTileButtonStyle()).accessibilityLabel("Nachricht senden").disabled(!canSend)
+            }
+            .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
+            .background(.bar)
+            Text("Nur für Gebäudemitglieder · aktualisiert sich bei geöffneter App").font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.bottom, 4).background(.bar)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .confirmationDialog("Eigene Nachricht für alle löschen?", isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }), titleVisibility: .visible, presenting: deleteTarget) { target in
             Button("Nachricht löschen", role: .destructive) { Task { await remove(target) } }
             Button("Behalten", role: .cancel) { deleteTarget = nil }
         } message: { _ in Text("Der Text wird durch einen Löschhinweis ersetzt. Die Aktion kann in der App nicht rückgängig gemacht werden.") }
