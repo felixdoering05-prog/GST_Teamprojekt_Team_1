@@ -45,6 +45,8 @@ struct BuildingDraft: Codable {
     var step: BuildingStep = .name
     var building: Building?
     var files: [DraftUpload] = []
+    var generationRequestKey: String? = nil
+    var generationDocumentIDs: [Int]? = nil
     init(building: Building? = nil) {
         id = UUID(); self.building = building
         if let building { name = building.name; address = building.address; step = .overview }

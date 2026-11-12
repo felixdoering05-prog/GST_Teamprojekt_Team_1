@@ -71,6 +71,7 @@ import UniformTypeIdentifiers
         draft.files.removeAll { $0.id == item.id }
         if persist() { try? store.removePayload(item) } else { draft.files = old }
     }
+    var validAccount: Bool { sameAccount }
     private var sameAccount: Bool {
         guard account.serverURL == originalServer, account.user?.id == originalUserID, originalUserID != nil else {
             problem = "Konto oder Server wurde gewechselt. Öffne diesen Entwurf im ursprünglichen Konto erneut."
@@ -162,7 +163,7 @@ struct AddBuildingView: View {
     private var locked: Bool { flow.busy || preparing || flow.account.busy || flow.loadFailed }
     private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
     private func advance(_ next: BuildingStep) { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flow.advance(next) } }
-    private var titles: [BuildingStep: String] { [.name:"Wie heißt dein Gebäude?", .address:"Wo steht dein Gebäude?", .photos:"Zeig uns dein Gebäude", .plans:"Hast du schon einen Plan?", .overview:"Deine Gebäudemappe ist bereit"] }
+    private var titles: [BuildingStep: String] { [.name:"Wie heißt dein Gebäude?", .address:"Wo steht dein Gebäude?", .photos:"Zeig uns dein Gebäude", .plans:"Lade deine Grundrisse hoch", .overview:"Dein Gebäude wird digital"] }
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -192,7 +193,7 @@ struct AddBuildingView: View {
                             #endif
                             UploadQueueView(flow: flow)
                         case .plans:
-                            Text("Wähle einen Grundriss oder Bauplan als IFC, PDF oder DWG. Noch keinen Plan? Überspringe den Schritt einfach.").foregroundStyle(.secondary)
+                            Text("Für einen neuen 3D-Entwurf wähle gut lesbare, bemaßte PDF-Grundrisse. Lade zusammengehörige Geschosse gemeinsam hoch. Im nächsten Schritt startest du die Verarbeitung auf dem Server. Ein vorhandenes IFC kannst du direkt verwenden.").foregroundStyle(.secondary)
                             Button("IFC, PDF oder DWG auswählen", systemImage: "doc.badge.plus") { importing = true }.buttonStyle(.borderedProminent).disabled(locked)
                             Text("Bis 25 MB pro Datei (IFC: 20 MB). IFC-Modelle öffnen sich nach dem Upload in 3D. DWG-Dateien werden gespeichert und lassen sich später an eine CAD-App weitergeben.").font(.footnote).foregroundStyle(.secondary)
                             #if DEBUG
@@ -207,6 +208,9 @@ struct AddBuildingView: View {
                             if flow.draft.pendingCount > 0 { Text("\(flow.draft.pendingCount) Datei(en) sind noch nicht auf dem Server. Du kannst den Upload wiederholen oder diesen Entwurf später fortsetzen.").foregroundStyle(.orange) }
                             else { Text("Dein Gebäude und die bestätigten Uploads sind auch auf der Website mit demselben Konto verfügbar. Fehlende Bilder oder Pläne ergänzt du jederzeit in der Gebäudemappe.").foregroundStyle(.secondary) }
                             UploadQueueView(flow: flow)
+                            if let building = flow.draft.building, flow.draft.pendingCount == 0 {
+                                GuidedGenerationView(flow: flow, building: building)
+                            }
                         }
                     }.id(step).transition(.opacity)
                     if preparing { ProgressView("Dateien werden auf diesem iPhone vorbereitet …") }
@@ -276,7 +280,7 @@ struct AddBuildingView: View {
         case .name: "Weiter zur Adresse"
         case .address: flow.busy ? "Gebäude wird gespeichert …" : "Weiter zu den Fotos"
         case .photos: "Weiter zu den Plänen"
-        case .plans: "Zur Übersicht"
+        case .plans: "Weiter zum 3D-Entwurf"
         case .overview: flow.draft.pendingCount > 0 ? "Ausstehende Dateien erneut übertragen" : "Gebäudemappe öffnen"
         }
     }

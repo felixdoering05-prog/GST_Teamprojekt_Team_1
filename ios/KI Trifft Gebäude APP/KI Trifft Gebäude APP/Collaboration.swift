@@ -13,7 +13,7 @@ struct BuildingMember: Decodable, Identifiable {
 struct ProjectNotice: Decodable, Identifiable {
     let id: Int; let kind: String; let title: String; let building_id: Int?
     let created_at: String; let read_at: String?
-    var icon: String { switch kind { case "chat": "bubble.left.and.bubble.right"; case "file": "doc.badge.plus"; case "invitation": "person.badge.plus"; default: "person.2" } }
+    var icon: String { switch kind { case "chat": "bubble.left.and.bubble.right"; case "file": "doc.badge.plus"; case "plan_ready": "cube.fill"; case "invitation": "person.badge.plus"; default: "person.2" } }
 }
 struct BuildingMessage: Decodable, Identifiable {
     let id: Int; let user_id: Int; let name: String; let text: String; let created_at: String
@@ -131,7 +131,10 @@ struct NotificationsView: View {
                 ForEach(social.notices) { notice in
                     Group {
                         if let id = notice.building_id, let building = account.buildings.first(where: { $0.id == id }) {
-                            NavigationLink { BuildingDetailView(building: building, model: account, initialSection: notice.kind == "chat" ? "Chat" : "Dateien") } label: { noticeLabel(notice) }
+                            NavigationLink {
+                                if notice.kind == "plan_ready" { PlanConversionView(building: building, account: account, onAdopt: {}) }
+                                else { BuildingDetailView(building: building, model: account, initialSection: notice.kind == "chat" ? "Chat" : "Dateien") }
+                            } label: { noticeLabel(notice) }
                                 .simultaneousGesture(TapGesture().onEnded { markRead(notice) })
                         } else {
                             Button { markRead(notice); if notice.kind == "contact" { openContacts() } } label: { noticeLabel(notice) }.foregroundStyle(.primary)

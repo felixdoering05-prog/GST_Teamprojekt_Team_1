@@ -24,7 +24,8 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,enabled=
    await c.query('SELECT id FROM app_buildings WHERE id=$1 FOR UPDATE',[job.building_id]);
    if(!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
    try{await Q.validateSources(c,job);}catch{throw Object.assign(Error(),{code:'source_changed'});}
-   await c.query("UPDATE app_plan_jobs SET status='ready',phase='review',output_ifc=$2,preview_png=$3,warnings=$4,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running'",[job.id,result.ifc,result.preview,JSON.stringify([...(analysis.warnings||[]),...result.warnings])]);
+   const completed=await c.query("UPDATE app_plan_jobs SET status='ready',phase='review',output_ifc=$2,preview_png=$3,warnings=$4,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running' RETURNING id",[job.id,result.ifc,result.preview,JSON.stringify([...(analysis.warnings||[]),...result.warnings])]);
+   if(completed.rows.length)await c.query("INSERT INTO app_notifications(user_id,kind,title,building_id) VALUES($1,'plan_ready',$2,$3)",[job.user_id,'Dein 3D-Gebäudeentwurf ist fertig. Bitte vor der Übernahme prüfen.',job.building_id]);
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e;}
   return true;

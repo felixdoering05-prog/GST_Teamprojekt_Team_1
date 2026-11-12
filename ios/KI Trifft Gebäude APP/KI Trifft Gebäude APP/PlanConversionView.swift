@@ -5,13 +5,15 @@ struct PlanConversionSetting: Decodable { let enabled: Bool; let revision: Int }
 struct PlanConversionJob: Decodable, Identifiable {
     let id: String
     let status: String
+    let request_key: String?
+    let phase: String?
     let can_rebuild: Bool?
     let warnings: [String]
     let document_ids: [Int]
     var title: String {
         switch status {
         case "queued": "Wartet auf Analyse"
-        case "running": "Entwurf wird erstellt …"
+        case "running": phase == "modelling" || phase == "model_only" ? "BIMCraft erstellt das 3D-Modell …" : "KI erkennt deine Grundrisse …"
         case "ready": "Entwurf prüfen"
         case "approved": "In Gebäudemappe übernommen"
         case "rejected": "Verworfen"

@@ -174,10 +174,10 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         do { let value: AIPreferences = try await request("profile/ai"); if user?.id == owner { aiPreferences = value } }
         catch { if user?.id == owner { aiPreferences = .disabled; presentationMode=false;uiRevision=0 } }
     }
-    func saveAIPreferences(_ enabled: Bool) async throws {
+    func saveAIPreferences(_ enabled: Bool, deviceControlEnabled: Bool? = nil) async throws {
         let owner = user?.id
         do {
-            let value: AIPreferences = try await request("profile/ai", method: "PATCH", body: ["enabled":enabled,"device_control_enabled":enabled,"revision":aiPreferences.revision,"policy_version":1])
+            let value: AIPreferences = try await request("profile/ai", method: "PATCH", body: ["enabled":enabled,"device_control_enabled":deviceControlEnabled ?? enabled,"revision":aiPreferences.revision,"policy_version":1])
             if user?.id == owner { aiPreferences = value }
         } catch { await refreshAIPreferences(); throw error }
     }

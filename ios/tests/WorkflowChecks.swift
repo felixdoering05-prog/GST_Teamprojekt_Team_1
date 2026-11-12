@@ -30,7 +30,11 @@ func check(_ condition: @autoclosure () throws -> Bool) rethrows {
         var completed = loaded
         completed.files[0].state = .saved
         completed.files[0].document = BuildingDocument(id: 7, name: "Grundriss.pdf", mime_type: "application/pdf", size: bytes.count)
+        completed.generationRequestKey = UUID().uuidString.lowercased()
+        completed.generationDocumentIDs = [7]
         try alice.save(completed)
+        try check(try alice.load()!.generationRequestKey == completed.generationRequestKey)
+        try check(try alice.load()!.generationDocumentIDs == [7])
         try check(try alice.load()!.pendingCount == 0)
         try check(try alice.load()!.files[0].document?.id == 7)
         do { _ = try alice.stage(data: Data(), name: "leer.pdf", isPhoto: false); fatalError("Empty upload accepted") } catch DraftStorageError.tooLarge {}
