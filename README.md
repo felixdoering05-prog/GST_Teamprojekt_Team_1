@@ -28,6 +28,10 @@ Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. 
 
 </div>
 
+## Neuer App-Kandidat: geführter Gebäudeentwurf (12.11.2026)
+
+Version 1.0.101 führt nach dem Plan-Upload direkt zur serverseitigen Generierung mit Gemini und BIMCraft. Fertige Entwürfe erscheinen als Mitteilung mit direktem Einstieg zur Prüfung. Echte Apple-Push-Nachrichten bei geschlossener App warten noch auf die Hochschulfreigabe. [Ablauf, Grenzen und Prüfstand](docs/protokolle/2026-11-12-gefuehrter-gebaeudeentwurf.md). Noch kein TestFlight-Upload dieser Version.
+
 ## Projektstand · 11. November 2026 (neueste Änderungen zuerst)
 
 | Änderung | Tatsächlicher Stand / Prüfgrenze |

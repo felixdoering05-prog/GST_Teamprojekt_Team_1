@@ -21,7 +21,7 @@ before(async()=>{
 after(async()=>{if(server)await new Promise(r=>server.close(r));await pg?.close();});
 async function api(path='',body,user=owner,method=body?'POST':'GET'){const r=await fetch(url+path,{method,headers:{'Content-Type':'application/json',...(user?{'X-D21-Session':user.token}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,body:await r.json()};}
 async function consent(enabled=true){const current=(await api()).body;return api('',{enabled,revision:current.settings.revision,policy_version:1},owner,'PATCH');}
-async function clear(){await db.query('DELETE FROM app_plan_jobs');}
+async function clear(){await db.query('DELETE FROM app_plan_jobs');await db.query("DELETE FROM app_notifications WHERE kind='plan_ready'");}
 async function enqueue(ids){return api('/jobs',{document_ids:ids,request_key:randomUUID()});}
 test('strict geometry rejects missing scale, oversized plans and injected commands',()=>{
  assert.equal(validateGeometry(fixture()).status,'ok');const verbose=fixture();verbose.reason='Erklärung zur Planerkennung. '.repeat(15);verbose.warnings=['Eine längere Erläuterung zur angenommenen Höhe. '.repeat(8)];assert.equal(validateGeometry(verbose).status,'ok');
@@ -66,12 +66,14 @@ test('worker requires consent, keeps output separate, approval appends IFC and i
  const generate=async()=>({ifc:Buffer.from("ISO-10303-21;\nHEADER;FILE_SCHEMA(('IFC4'));ENDSEC;DATA;#1=IFCWALL($);ENDSEC;END-ISO-10303-21;"),preview:Buffer.from('preview'),warnings:['Test only']});
  const before=Number((await db.query('SELECT count(*) n FROM app_documents')).rows[0].n);
  await processNext(db,{enabled:true,analyze,generate});assert.equal(calls,1);const job=(await api()).body.jobs[0];assert.equal(job.status,'ready');assert.equal(Number((await db.query('SELECT count(*) n FROM app_documents')).rows[0].n),before);
+ const notices=(await db.query("SELECT user_id,building_id FROM app_notifications WHERE kind='plan_ready'")).rows;assert.deepEqual(notices,[{user_id:owner.id,building_id:building.id}]);
+ await processNext(db,{enabled:true,analyze,generate});assert.equal((await db.query("SELECT count(*) n FROM app_notifications WHERE kind='plan_ready'")).rows[0].n,1);
  const approved=await api('/jobs/'+result.body.id+'/approve',{});assert.equal(approved.status,200,JSON.stringify(approved.body));assert.equal((await api('/jobs/'+result.body.id+'/approve',{})).body.document_id,approved.body.document_id);assert.equal(Number((await db.query('SELECT count(*) n FROM app_documents')).rows[0].n),before+1);await clear();
 });
 test('revocation during provider call prevents generation and model adoption',async()=>{
  await enqueue([docs[0]]);let generated=false;
  await processNext(db,{enabled:true,analyze:async()=>{await consent(false);return {geometry:fixture(),model:'test'};},generate:async()=>{generated=true;}});
- assert.equal(generated,false);assert.equal((await api()).body.jobs[0].status,'cancelled');await clear();await consent();
+ assert.equal(generated,false);assert.equal((await api()).body.jobs[0].status,'cancelled');assert.equal((await db.query("SELECT count(*) n FROM app_notifications WHERE kind='plan_ready'")).rows[0].n,0);await clear();await consent();
 });
 test('stored rejected geometry can be rebuilt without a new Google request',async()=>{
  const first=await enqueue([docs[0]]);const geometry=fixture();geometry.levels[0].openings=[{kind:'door',at:[2500,2500],width:900,height:2100,sill:0}];
