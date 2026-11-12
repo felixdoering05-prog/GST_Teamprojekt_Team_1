@@ -33,44 +33,93 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
     var isPlaying: Bool { lock.lock(); defer { lock.unlock() }; return !levels.isEmpty }
     var counts: (sent: Int, played: Int) { lock.lock(); defer { lock.unlock() }; return (sentChunks, playedChunks) }
 
-    func start(inputRate: Double, outputRate: Double) throws {
-        let input = engine.inputNode
-        try input.setVoiceProcessingEnabled(true)
-        let inFormat = input.outputFormat(forBus: 0)
-        // Voice processing may deliver several channels; take channel 0 as mono first, then resample.
-        guard inFormat.sampleRate > 0,
-              let mono = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: inFormat.sampleRate, channels: 1, interleaved: false),
-              let capture = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputRate, channels: 1, interleaved: true),
-              let converter = AVAudioConverter(from: mono, to: capture),
+    private var inputRate = 16_000.0
+    private var tapBuffers = 0
+    private var restarts = 0
+    private var inputDescription = "–"
+    private var observer: NSObjectProtocol?
+
+    var status: String {
+        lock.lock(); defer { lock.unlock() }
+        return "Engine \(engine.isRunning ? "an" : "AUS") · Mikro \(inputDescription) · Puffer \(tapBuffers) · Neustarts \(restarts)"
+    }
+
+    func start(inputRate: Double, outputRate: Double, voiceProcessing: Bool = true) throws {
+        guard let capture = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputRate, channels: 1, interleaved: true),
               let playback = AVAudioFormat(standardFormatWithSampleRate: outputRate, channels: 1) else {
             throw APIError(status: 0, message: "Mikrofon oder Lautsprecher nicht verfügbar.")
         }
         lock.lock()
-        self.converter = converter; captureFormat = capture; playbackFormat = playback; monoFormat = mono; sentChunks = 0; playedChunks = 0
+        captureFormat = capture; playbackFormat = playback; converter = nil; monoFormat = nil
+        self.inputRate = inputRate; sentChunks = 0; playedChunks = 0; tapBuffers = 0; restarts = 0
         chunkBytes = Int(inputRate / 10) * 2; pending = Data(); levels = []; running = true; muted = false
         lock.unlock()
+        // Echo cancellation must be enabled before the graph is built and the engine starts.
+        if voiceProcessing {
+        try engine.inputNode.setVoiceProcessingEnabled(true)
+        engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
+        }
         engine.attach(player)
+        try startGraph()
+        // A route or format change stops AVAudioEngine silently; rebuild and continue.
+        observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
+            self?.restartAfterChange()
+        }
+    }
+
+    private func startGraph() throws {
+        lock.lock(); let playback = playbackFormat; lock.unlock()
+        guard let playback else { return }
+        let input = engine.inputNode
+        input.removeTap(onBus: 0)
+        engine.disconnectNodeOutput(player)
         engine.connect(player, to: engine.mainMixerNode, format: playback)
-        input.installTap(onBus: 0, bufferSize: 1024, format: inFormat) { [weak self] buffer, _ in self?.capture(buffer) }
+        let format = input.outputFormat(forBus: 0)
+        lock.lock(); inputDescription = "\(Int(format.sampleRate)) Hz/\(format.channelCount) Kan."; lock.unlock()
+        input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in self?.capture(buffer) }
         engine.prepare()
         do { try engine.start() } catch { input.removeTap(onBus: 0); throw error }
         player.volume = 1
         player.play()
-        // Make sure the answer is audible on the loudspeaker and not ducked by voice processing.
-        try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
-        input.voiceProcessingOtherAudioDuckingConfiguration = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
+    }
+
+    private func restartAfterChange() {
+        lock.lock(); let active = running; if active { restarts += 1; levels = []; pending = Data(); converter = nil }; lock.unlock()
+        guard active else { return }
+        onOutputLevel?(0)
+        try? startGraph()
     }
 
     func setMuted(_ value: Bool) { lock.lock(); muted = value; pending = Data(); lock.unlock() }
 
-    private func capture(_ buffer: AVAudioPCMBuffer) {
-        lock.lock(); let active = running && !muted; let converter = self.converter; let target = captureFormat; let monoFormat = self.monoFormat; lock.unlock()
-        onInputLevel?(active ? PCMVoiceRecorder.level(of: buffer) : 0)
-        guard active, let converter, let target, let monoFormat, let source = buffer.floatChannelData,
-              let mono = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: buffer.frameLength), let monoData = mono.floatChannelData else { return }
+    /// Channel 0 of any input format as mono Float32 at the input rate.
+    private static func mono(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        let frames = Int(buffer.frameLength)
+        guard frames > 0, let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: buffer.format.sampleRate, channels: 1, interleaved: false),
+              let mono = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: buffer.frameLength), let target = mono.floatChannelData?[0] else { return nil }
         mono.frameLength = buffer.frameLength
-        monoData[0].update(from: source[0], count: Int(buffer.frameLength))
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * target.sampleRate / buffer.format.sampleRate) + 64
+        let stride = buffer.format.isInterleaved ? Int(buffer.format.channelCount) : 1
+        if let source = buffer.floatChannelData?[0] {
+            for i in 0..<frames { target[i] = source[i * stride] }
+        } else if let source = buffer.int16ChannelData?[0] {
+            for i in 0..<frames { target[i] = Float(source[i * stride]) / 32_768 }
+        } else if let source = buffer.int32ChannelData?[0] {
+            for i in 0..<frames { target[i] = Float(source[i * stride]) / 2_147_483_648 }
+        } else { return nil }
+        return mono
+    }
+
+    private func capture(_ buffer: AVAudioPCMBuffer) {
+        lock.lock(); tapBuffers += 1; let active = running && !muted; let target = captureFormat; var converter = self.converter; lock.unlock()
+        guard let mono = Self.mono(buffer) else { onInputLevel?(0); return }
+        onInputLevel?(active ? PCMVoiceRecorder.level(of: mono) : 0)
+        guard active, let target else { return }
+        if converter == nil || converter?.inputFormat.sampleRate != mono.format.sampleRate {
+            converter = AVAudioConverter(from: mono.format, to: target)
+            lock.lock(); self.converter = converter; lock.unlock()
+        }
+        guard let converter else { return }
+        let capacity = AVAudioFrameCount(Double(mono.frameLength) * target.sampleRate / mono.format.sampleRate) + 64
         guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
         var supplied = false
         var error: NSError?
@@ -124,6 +173,7 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
 
     func stop() {
         lock.lock(); let wasRunning = running; running = false; levels = []; pending = Data(); lock.unlock()
+        if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
         guard wasRunning else { return }
         engine.inputNode.removeTap(onBus: 0)
         player.stop(); engine.stop()
@@ -333,7 +383,7 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
             guard generation == ticket else { return }
             tick += 1
             let c = audio.counts
-            diagnostics = "Mikro→KI: \(c.sent) · KI-Audio: \(c.played) · " + receivedEvents.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
+            diagnostics = audio.status + "\nMikro→KI: \(c.sent) · KI-Audio: \(c.played) · " + receivedEvents.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
             if tick % 5 == 0, let lease {
                 do {
                     let status: LeaseStatus = try await account.request("buildings/\(building)/voice/live/\(lease)", timeout: 8)
