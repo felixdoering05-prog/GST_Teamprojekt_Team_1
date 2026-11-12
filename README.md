@@ -28,6 +28,9 @@ Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. 
 
 </div>
 
+**Ideenradar:** [Open-Source-Recherche, neue Ansätze und priorisierte Tests](docs/ideenradar/README.md) · täglich 09:00 und 17:00 Uhr (Europe/Berlin), Berichte über Dokumentations-PRs.
+
+
 ## Neuer App-Kandidat: Dashboard, KI-Chat und Gebäudeverwaltung (12.11.2026)
 
 Version 1.0.103 öffnet Gebäude direkt mit bis zu drei Diagrammen aus vorhandenen Daten, kompakter Symbolnavigation und Werkzeugkarten. Neue KI-Chatansicht mit festem Eingabefeld und kopierbaren Antworten. Gebäude können vom Eigentümer ausdrücklich bestätigt gelöscht werden. Modelländerungen behalten ihre ausdrückliche Bestätigung. Keine Live-Sprache und kein vorgetäuschtes Streaming. [Details und Prüfstand](docs/protokolle/2026-11-12-ki-chatdesign.md). Noch kein TestFlight-Upload.

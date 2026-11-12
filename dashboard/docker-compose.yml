@@ -17,6 +17,7 @@ services:
     environment:
       DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
       D21_ADMIN_USER_IDS: ${D21_ADMIN_USER_IDS:-}
+      PLAN_DAILY_QUOTA_EXEMPT_USER_IDS: ${PLAN_DAILY_QUOTA_EXEMPT_USER_IDS:-}
       D21_ADMIN_SNAPSHOT_FILE: /run/d21-admin/status.json
       D21_CAMPUS_BUILDING_ID: ${D21_CAMPUS_BUILDING_ID:-}
       D21_CAMPUS_MODEL_FILE: /run/d21-models/H_DA_D21_Final.ifc
