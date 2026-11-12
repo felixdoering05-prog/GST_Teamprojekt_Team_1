@@ -8,7 +8,7 @@
 2. Einen eigenen Branch anlegen, zum Beispiel `docs/projektziel` oder `ki/pilotversuch`.
 3. Eine zusammenhängende Änderung bearbeiten und prüfen.
 4. Einen Pull Request mit Ergebnis und Prüfnachweis öffnen.
-5. Ein anderes Teammitglied prüft die Änderung vor dem Zusammenführen.
+5. Die Änderung vor dem Zusammenführen prüfen. Für von Felix beauftragte und erfolgreich geprüfte eigene KI-Änderungen gilt die dauerhafte Freigabe in [AGENTS.md](AGENTS.md): Codex und Claude dürfen den Pull Request ohne erneute Bestätigungsfrage zusammenführen und über den vorgesehenen Weg deployen. Für andere Änderungen bleibt die Gegenprüfung durch ein Teammitglied vorgesehen.
 
 Das ist eine Arbeitsvereinbarung als Vorschlag; technische Branch-Schutzregeln sind noch nicht eingerichtet.
 
