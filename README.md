@@ -16,7 +16,7 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 10. November 2026 · iPhone-App: Build 1.0.100 (100), externe Testversion ohne Live-Sprache; Apple-Verarbeitung und externe Beta-Freigabe gesondert prüfen**
+**Stand: 11. November 2026 · iPhone-App: Build 1.0.100 (100), externe Testversion ohne Live-Sprache; Upload bestätigt, Apple-Freigabe gesondert prüfen**
 
 **Nächste Projektpräsentation · Montag, 23. November 2026, 14:00 Uhr · Green Office, Gebäude C10**
 
@@ -32,6 +32,19 @@ Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. 
 
 Version 1.0.101 führt nach dem Plan-Upload direkt zur serverseitigen Generierung mit Gemini und BIMCraft. Fertige Entwürfe erscheinen als Mitteilung mit direktem Einstieg zur Prüfung. Echte Apple-Push-Nachrichten bei geschlossener App warten noch auf die Hochschulfreigabe. [Ablauf, Grenzen und Prüfstand](docs/protokolle/2026-11-12-gefuehrter-gebaeudeentwurf.md). Noch kein TestFlight-Upload dieser Version.
 
+## Projektstand · 11. November 2026 (neueste Änderungen zuerst)
+
+| Änderung | Tatsächlicher Stand / Prüfgrenze |
+| :--- | :--- |
+| **10.11. · [PR #119](../../pull/119)** | iPhone **1.0.100 (100)** für externe TestFlight-Prüfung vorbereitet: ohne Live-Sprach-SDK, mit Datenschutzhinweisen und passwortbestätigter Kontolöschung. 138 Backendtests und signiertes Archiv dokumentiert; Upload zu App Store Connect am 10.11., **Apple-Freigabe und Installation externer Tester nicht bestätigt**. |
+| **10.11. · [PR #118](../../pull/118)** | D21-Web-IFC-Viewer mit Modellübersicht, Kamerasteuerung und verbesserter responsiver Bedienung. Campuszugriffsfehler werden zwischen fehlender Serverkonfiguration (503) und fehlender Kontoberechtigung (404) unterschieden; **keine automatische Zugriffsfreigabe**. |
+| **10.11. · [PR #117](../../pull/117), [#116](../../pull/116)** | Vincents Landingpage mit Building-Sentinel-Logo und angepasster Farbpalette. |
+| **10.11. · [PR #115](../../pull/115), [#112](../../pull/112)** | Teamprotokolle jetzt vorhanden: **03.11. freigegeben**, **10.11. Entwurf, Review offen**. [Protokollindex](docs/protokolle/README.md). |
+| **10.11. · [PR #113](../../pull/113), [#114](../../pull/114)** | Einheitliche Glass-Optik und **getrennte** Heatmap-Modi: reale, frische, qualitätsgeprüfte Raummesswerte (nur bei korrekter IFC-Raumzuordnung), ausdrücklich simulierte Raumtemperaturen und historische DWD-Campusdaten. Das Feature belegt **noch keinen tatsächlich angebundenen D21-Sensor**. |
+| **10.11. · [PR #108–#111](../../pull/108)** | Grundrissbilder/PDFs können zu **prüfbaren IFC-Entwürfen** verarbeitet werden. Kein automatisch fachlich freigegebenes Gebäudemodell; Fehlerbehandlung und Worker-Zugriff wurden nachgebessert. |
+
+**Aktuelle P1-Nachweise:** Ein erster echter D21-Datenpunkt in der Web-App bleibt bis **13.11.2026** unter [#74](../../issues/74) offen. Sensorzugriff [#102](../../issues/102), Datenschutz [#105](../../issues/105), Hochschul-KI-Infrastruktur [#101](../../issues/101) und Review des Protokollentwurfs vom 10.11. sind weiterhin zu klären. Die ältere Aufgabenübersicht unten ist als historischer Stand vom 6./7. November zu lesen.
+
 ## Neue Arbeitspakete · 6./7. November 2026
 
 Nach der Projektvorstellung wurden neue, **noch offene** Aufgaben für die nächste Phase angelegt. Diese organisatorischen Änderungen sind **keine** bereits abgeschlossenen technischen Integrationen.
@@ -42,12 +55,12 @@ Nach der Projektvorstellung wurden neue, **noch offene** Aufgaben für die näch
 | **P1 · [#105](../../issues/105)** | **Lukas** | Datenschutz und Freigaben für Modelle, Sensorwerte, KI und Sprache klären; formale GitHub-Zuweisung ist noch blockiert. |
 | **P1 · [#102](../../issues/102)** | **Benjamin** | Mit Herrn Jakob Sensoren/Thermostate, Schnittstellen, Datenrechte und ersten Datenpunkt klären. |
 | **P1 · [#74](../../issues/74)** | **Benjamin + Emir** | Bis **13. November** einen **echten** D21-Messwert mit Quelle, Einheit und Zeitstempel in der Web-App nachweisen. |
-| **P1 · [#99](../../issues/99)** | **Team** | Fehlendes freigegebenes Team-Sitzungsprotokoll nachweisen oder die Schließung von #46 begründen. |
+| **Protokolle · [#99](../../issues/99)** | **Team** | Issue inzwischen geschlossen; Protokoll vom 03.11. freigegeben, Entwurf vom 10.11. noch gegenlesen und freigeben. |
 | **P2 · [#103](../../issues/103)** | **Felix** | Mit anderer Revit-Gruppe einen freigegebenen Modell-/IFC-Pilot abstimmen. |
 | **P2 · [#104](../../issues/104)** | **Felix** | Fortführung, Betrieb, Datenschutz und Übergabe nach Projektende klären. |
 | **P2 · [#80](../../issues/80), [#73](../../issues/73)** | **Felix / Revit-Team** | Web-Sprachassistent und dokumentierten Revit-IFC-Serverprozess weiterführen. |
 
-[Zentrale Aufgabenübersicht #106](../../issues/106). Benjamins Gaming-PC ist keine verfügbare Projektinfrastruktur; der bestehende Projektserver läuft, eine Hochschul-Anbindung ist noch offen. Es gibt weiterhin **kein im Protokollindex freigegebenes Team-Sitzungsprotokoll**; technische Arbeitsberichte sind davon zu unterscheiden.
+[Zentrale Aufgabenübersicht #106](../../issues/106). Benjamins Gaming-PC ist keine verfügbare Projektinfrastruktur; der bestehende Projektserver läuft, eine Hochschul-Anbindung ist noch offen. **Protokollstatus am 11.11.:** Der Termin vom 03.11. ist im Index als freigegeben geführt; das Protokoll vom 10.11. ist noch im Review. Technische Arbeitsberichte sind davon zu unterscheiden.
 
 ## Neueste Änderungen
 
@@ -67,7 +80,7 @@ Nach der Projektvorstellung wurden neue, **noch offene** Aufgaben für die näch
 
 **Früherer Prüfstand (vor PR #98):** 117 Backend-Tests und fünf native Viewer-Tests erfolgreich; Web-Build und signierter iPhone-Build erfolgreich. Der signierte Build 1.0.96 ist erstellt; der zuvor bestätigte installierte Stand war 1.0.89. Serverstand nach PR #90 und private Lampenzuordnung wurden geprüft. Die automatisierten Schaltprüfungen verwenden Testlampen; die vollständige Sprachbedienung mit echter Hardware ist vor der Vorführung noch gemeinsam auszuprobieren. Technische Tests ersetzen keine fachliche Modellabnahme.
 
-**Präsentations-Check (06.11.):** Die neue Kartenplatzierung ist als signierter Build vorhanden, aber nicht als auf dem physischen iPhone installiert bestätigt. Die Heatmaps verwenden Wetterdaten bzw. Simulationen, **keine nachgewiesene D21-Sensorik**. Für die Vorführung bitte tatsächlichen Geräte- und Website-Stand prüfen. Die Tabelle freigegebener Team-Sitzungsprotokolle ist weiterhin leer; [Nachweis/Statusklärung #99](../../issues/99) ist offen (das frühere [#46](../../issues/46) ist geschlossen).
+**Präsentations-Check (06.11.):** Die neue Kartenplatzierung ist als signierter Build vorhanden, aber nicht als auf dem physischen iPhone installiert bestätigt. Die Heatmaps verwenden Wetterdaten bzw. Simulationen, **keine nachgewiesene D21-Sensorik**. Für die Vorführung bitte tatsächlichen Geräte- und Website-Stand prüfen. Der Protokollindex enthält inzwischen einen freigegebenen Termin vom 03.11. und einen noch nicht freigegebenen Entwurf vom 10.11.; [#99](../../issues/99) ist geschlossen.
 
 ## Unser Projekt
 
