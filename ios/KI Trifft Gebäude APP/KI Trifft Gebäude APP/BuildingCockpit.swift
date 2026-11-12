@@ -74,10 +74,10 @@ struct BuildingCockpit: View {
                         VoiceOrb(mode: .idle, level: 0).frame(width: 54, height: 54).scaleEffect(0.32).frame(width: 54, height: 54).clipped().accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Mit deinem Gebäude sprechen").font(.subheadline.weight(.semibold))
-                            Text("Frage stellen, Antwort hören").font(.caption).foregroundStyle(.secondary)
+                            Text("Echtzeit-Gespräch, jederzeit unterbrechbar").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
-                        Image(systemName: "mic.circle.fill").font(.title).foregroundStyle(d21Accent)
+                        Image(systemName: "phone.circle.fill").font(.title).foregroundStyle(d21Accent)
                     }.padding(12).d21Card(cornerRadius: 22)
                 }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary).accessibilityLabel("Sprachchat öffnen")
                 Text("Werkzeuge").font(.title3.bold())

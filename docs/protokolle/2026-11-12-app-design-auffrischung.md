@@ -1,6 +1,6 @@
 # App-Design, Kontakte und Sprachchat – 12. November 2026
 
-Kandidat 1.0.105 (105); 1.0.104 war der erste Designschritt. Rein gestalterische Überarbeitung von Startseite und Gebäude-Dashboard; keine Änderung an API, Rechten, Datenquellen oder Texten zu Datenschutz und Datenherkunft.
+Kandidat 1.0.106 (106); 1.0.104 Design, 1.0.105 Kontakte und Tippen-zum-Sprechen. Rein gestalterische Überarbeitung von Startseite und Gebäude-Dashboard; keine Änderung an API, Rechten, Datenquellen oder Texten zu Datenschutz und Datenherkunft.
 
 - Gemeinsame Kartenoberfläche (`d21Card`): gruppierter Hintergrund, kontinuierliche Ecken, im hellen Modus ein sehr leichter Schatten, im Dark Mode ohne Schatten.
 - Übersichtskarte auf der Startseite: größere Gebäudezahl, Modelle und Mitteilungen als Chips mit korrektem Singular/Plural, deutlicher „Neu“-/„Fortsetzen“-Knopf, dezentes Gebäudesymbol im Hintergrund (für VoiceOver ausgeblendet).
@@ -47,3 +47,24 @@ Einstieg: Karte „Mit deinem Gebäude sprechen“ im Gebäude-Dashboard und Wel
 ## Prüfstand 1.0.105
 
 Simulator-Build mit lokalen Vorschaudaten: Kontakte, Kontakt-Blatt, Sprachchat-Ansicht (KI aus / Dienst nicht verfügbar) und Datenfluss-Erklärung geprüft. Der WAV-Encoder wurde gegen den Server-Validator `wavDuration` getestet (akzeptiert). Signierter Release-Build (persönliche Signierung nur als lokale Überschreibung) als 1.0.105 (105) auf Felix' iPhone installiert und gestartet. Eine echte Sprachanfrage gegen den Projektserver wurde nicht ausgeführt (keine beiläufigen produktiven KI-/Sprachaufrufe); sie muss auf dem Gerät mit aktivierter KI-Freigabe geprüft werden.
+
+## Echtzeit-Sprachgespräch (1.0.106)
+
+Felix wünscht ein echtes Gespräch statt Tippen-zum-Sprechen. Umsetzung ohne SDK über die ElevenLabs-Conversational-WebSocket-Schnittstelle:
+
+- **Server:** `POST /api/v1/buildings/:id/voice/live?transport=websocket` holt bei ElevenLabs eine kurzlebige signierte URL (`get-signed-url`) statt des WebRTC-Tokens. Gleiche Prüfungen wie bisher (KI-Freigabe mit Revisionsabgleich, Mitgliedschaft, eindeutige Anfrage-ID, ein Gespräch je Konto, 10 Gespräche/24 h, 120 Sekunden, Heartbeat/DELETE). Die URL wird streng geprüft (`wss://api.elevenlabs.io/v1/convai/conversation`, ohne Zugangsdaten). Ohne Parameter bleibt das alte Verhalten unverändert. Neuer Test in `ai-live.test.js`; 142/142 Backendtests bestanden.
+- **App:** `LiveConversation.swift` – URLSessionWebSocketTask (TLS), AVAudioEngine mit Sprachverarbeitung (Echounterdrückung), 100-ms-PCM-Pakete, Wiedergabe über AVAudioPlayerNode, Unterbrechen (`interruption` verwirft noch nicht gesprochene Audio), Ping/Pong, Live-Mitschrift. Die bisherigen Werkzeuge bleiben gleich abgesichert: `control_lights` über `/assistant/device-actions` nach Lease-Prüfung, `request_device_change` nur nach Bestätigung durch die Person. Animation folgt echtem Mikrofon- bzw. Ausgabepegel; Verbindungsaufbau/Warten mit neutralem Ring.
+- Ist auf dem Server kein Live-Agent eingerichtet (503), wechselt die App automatisch zu „Tippen statt Gespräch“ (1.0.105-Modus).
+- Datenschutz: Erklärung vor dem ersten Gespräch, Mikrofon-Hinweistext und In-App-Datenschutzhinweis beschreiben die direkte verschlüsselte Übertragung an ElevenLabs und den begrenzten Gebäudekontext.
+- Verschlüsselung: Nur TLS über URLSession und Systemkryptografie, keine Fremd-Frameworks → `ITSAppUsesNonExemptEncryption = NO` bleibt zutreffend.
+
+### Voraussetzungen für den Betrieb (Freigabe durch Felix nötig)
+
+1. Backend deployen (`ssh root@185.56.151.249 d21-deploy`) nach geschützter Datenbanksicherung.
+2. Auf dem Server `ELEVENLABS_ENABLED=true` und `ELEVENLABS_AGENT_ID` gesetzt; API-Schlüsseldatei vorhanden.
+3. Im ElevenLabs-Agenten: Ein- und Ausgabeformat PCM (z. B. `pcm_16000`), dynamische Variable `building_context`, Client-Tools `control_lights` und `request_device_change` wie bisher.
+4. Auf dem iPhone mit aktivierter KI-Freigabe ein Gespräch testen.
+
+### Prüfstand 1.0.106
+
+Simulator: Gesprächsansicht, Hinweis ohne KI-Freigabe, Wechsel zu „Tippen statt Gespräch“, Datenschutzerklärung. Release-Build signiert (lokale Überschreibung), Info.plist und Verlinkung geprüft, auf Felix' iPhone installiert und gestartet. Ein echtes Gespräch gegen ElevenLabs wurde noch nicht geführt (Server-Änderung noch nicht deployt).

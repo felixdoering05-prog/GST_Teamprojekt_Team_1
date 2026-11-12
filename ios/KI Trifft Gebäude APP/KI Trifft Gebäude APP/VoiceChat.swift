@@ -227,7 +227,7 @@ nonisolated final class PCMVoiceRecorder: @unchecked Sendable {
     var pendingReadAloud: Bool?
 }
 
-struct BuildingVoiceView: View {
+struct PushToTalkVoiceView: View {
     let building: Building
     @ObservedObject var account: AccountModel
     @StateObject private var voice = BuildingVoiceChat()
