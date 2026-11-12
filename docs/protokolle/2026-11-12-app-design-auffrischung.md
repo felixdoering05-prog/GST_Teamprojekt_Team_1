@@ -1,6 +1,6 @@
-# App-Design auffrischen – 12. November 2026
+# App-Design, Kontakte und Sprachchat – 12. November 2026
 
-Kandidat 1.0.104 (104). Rein gestalterische Überarbeitung von Startseite und Gebäude-Dashboard; keine Änderung an API, Rechten, Datenquellen oder Texten zu Datenschutz und Datenherkunft.
+Kandidat 1.0.106 (106); 1.0.104 Design, 1.0.105 Kontakte und Tippen-zum-Sprechen. Rein gestalterische Überarbeitung von Startseite und Gebäude-Dashboard; keine Änderung an API, Rechten, Datenquellen oder Texten zu Datenschutz und Datenherkunft.
 
 - Gemeinsame Kartenoberfläche (`d21Card`): gruppierter Hintergrund, kontinuierliche Ecken, im hellen Modus ein sehr leichter Schatten, im Dark Mode ohne Schatten.
 - Übersichtskarte auf der Startseite: größere Gebäudezahl, Modelle und Mitteilungen als Chips mit korrektem Singular/Plural, deutlicher „Neu“-/„Fortsetzen“-Knopf, dezentes Gebäudesymbol im Hintergrund (für VoiceOver ausgeblendet).
@@ -14,3 +14,57 @@ Kandidat 1.0.104 (104). Rein gestalterische Überarbeitung von Startseite und Ge
 Simulator-Build (Debug) mit ausschließlich lokalen, synthetischen Vorschaudaten (`-D21WorkflowPreview`), visuell geprüft in hellem und dunklem Erscheinungsbild. Kein KI-Aufruf, keine Geräteschaltung, keine Serveranfrage für die Gestaltung.
 
 Signierter Release-Build mit persönlicher Signierung nur als lokale Build-Überschreibung (Team 4Q7V2BW44C, Bundle-ID `de.felixdoering.kitrifftgebaeude`); die Hochschul-Konfiguration im Projekt bleibt unverändert. Version 1.0.104 (104) auf Felix' iPhone installiert. Kein TestFlight-Upload.
+
+## Kontakte und Mitteilungen (1.0.105)
+
+- Team → Kontakte: Kopfkarte mit Kontaktanzahl, offenen Anfragen und „Hinzufügen“; Anfragen als Karten mit Annehmen/Ablehnen; Kontaktliste mit farbigen Initialen (Farbe aus der Konto-ID, kein Profilbild nötig), Optionsmenü zum Entfernen mit unveränderter Rückfrage; Suche ab sechs Kontakten.
+- „Kontakt hinzufügen“ als eigenes Blatt mit E-Mail-Feld. Server-Endpunkte, Bestätigungspflicht und Hinweis, dass eine Anfrage keinen Gebäudezugriff freigibt, bleiben unverändert.
+- Mitteilungen: farbige Symbolkacheln je Art (Chat, Datei, Planentwurf, Einladung, Kontakt).
+
+## Sprachchat ohne Fremd-SDK (1.0.105)
+
+Die frühere Live-Sprache (ElevenLabs-/LiveKit-/WebRTC-SDK) bleibt entfernt. Neu ist ein TestFlight-tauglicher Sprachchat nur mit Apple-Frameworks:
+
+1. Tippen startet die Aufnahme (AVAudioEngine), erneutes Tippen sendet; automatischer Stopp nach 30 Sekunden.
+2. Die Aufnahme wird im Arbeitsspeicher als PCM-WAV (16 kHz, mono, 16 Bit) erzeugt, nie auf dem Gerät gespeichert, und per HTTPS an `/voice/transcribe` gesendet.
+3. Der erkannte Text geht über den bestehenden Gebäude-Assistenten (`chat: true`, gleiche KI-Freigabe und Kontextprüfung) und erscheint auch im KI-Chat.
+4. Optional („Antworten vorlesen“) liest `/voice/speak` die Antwort vor (höchstens 1200 Zeichen).
+
+Vor der ersten Aufnahme erklärt ein Blatt den Datenfluss (Projektserver, ElevenLabs serverseitig, Google Gemini, Kontingent). Ohne KI-Freigabe oder ohne eingerichteten Sprachdienst auf dem Server erscheint ein Hinweis statt des Mikrofons. Verlassen der Ansicht oder App-Wechsel bricht Aufnahme, Anfragen und Wiedergabe sofort ab; kein Hintergrund-Audio.
+
+Animation: Größe und Wellen der Kugel folgen dem echten Mikrofon- bzw. Wiedergabepegel. Während auf den Server gewartet wird, zeigt sie nur einen neutralen drehenden Ring – kein vorgetäuschtes Sprechen oder Streaming. Bei „Bewegung reduzieren“ bleibt sie statisch.
+
+Einstieg: Karte „Mit deinem Gebäude sprechen“ im Gebäude-Dashboard und Wellen-Symbol oben im KI-Bereich.
+
+## TestFlight, Datenschutz und Verschlüsselung
+
+- `NSMicrophoneUsageDescription` ergänzt (Pflicht für Mikrofonzugriff).
+- Privacy-Manifest: Datentyp Audiodaten (mit Konto verknüpft, App-Funktion, kein Tracking).
+- Datenschutzhinweis in der App: Abschnitt „Keine Live-Sprache in Build 100“ durch „Sprachchat (ab Version 1.0.104)“ ersetzt. **Die Server-Seite `/datenschutz.html` muss Felix entsprechend anpassen.**
+- Verschlüsselung: Die App nutzt weiterhin nur HTTPS über URLSession und Systemkryptografie; keine eingebetteten Fremd-Frameworks (geprüft mit `otool -L` und Bundle-Inhalt). `ITSAppUsesNonExemptEncryption = NO` bleibt für diesen Build zutreffend.
+- Für die App-Store-Connect-Angaben (App-Datenschutz) zusätzlich „Audiodaten – App-Funktionalität – mit Identität verknüpft – kein Tracking“ eintragen.
+
+## Prüfstand 1.0.105
+
+Simulator-Build mit lokalen Vorschaudaten: Kontakte, Kontakt-Blatt, Sprachchat-Ansicht (KI aus / Dienst nicht verfügbar) und Datenfluss-Erklärung geprüft. Der WAV-Encoder wurde gegen den Server-Validator `wavDuration` getestet (akzeptiert). Signierter Release-Build (persönliche Signierung nur als lokale Überschreibung) als 1.0.105 (105) auf Felix' iPhone installiert und gestartet. Eine echte Sprachanfrage gegen den Projektserver wurde nicht ausgeführt (keine beiläufigen produktiven KI-/Sprachaufrufe); sie muss auf dem Gerät mit aktivierter KI-Freigabe geprüft werden.
+
+## Echtzeit-Sprachgespräch (1.0.106)
+
+Felix wünscht ein echtes Gespräch statt Tippen-zum-Sprechen. Umsetzung ohne SDK über die ElevenLabs-Conversational-WebSocket-Schnittstelle:
+
+- **Server:** `POST /api/v1/buildings/:id/voice/live?transport=websocket` holt bei ElevenLabs eine kurzlebige signierte URL (`get-signed-url`) statt des WebRTC-Tokens. Gleiche Prüfungen wie bisher (KI-Freigabe mit Revisionsabgleich, Mitgliedschaft, eindeutige Anfrage-ID, ein Gespräch je Konto, 10 Gespräche/24 h, 120 Sekunden, Heartbeat/DELETE). Die URL wird streng geprüft (`wss://api.elevenlabs.io/v1/convai/conversation`, ohne Zugangsdaten). Ohne Parameter bleibt das alte Verhalten unverändert. Neuer Test in `ai-live.test.js`; 142/142 Backendtests bestanden.
+- **App:** `LiveConversation.swift` – URLSessionWebSocketTask (TLS), AVAudioEngine mit Sprachverarbeitung (Echounterdrückung), 100-ms-PCM-Pakete, Wiedergabe über AVAudioPlayerNode, Unterbrechen (`interruption` verwirft noch nicht gesprochene Audio), Ping/Pong, Live-Mitschrift. Die bisherigen Werkzeuge bleiben gleich abgesichert: `control_lights` über `/assistant/device-actions` nach Lease-Prüfung, `request_device_change` nur nach Bestätigung durch die Person. Animation folgt echtem Mikrofon- bzw. Ausgabepegel; Verbindungsaufbau/Warten mit neutralem Ring.
+- Ist auf dem Server kein Live-Agent eingerichtet (503), wechselt die App automatisch zu „Tippen statt Gespräch“ (1.0.105-Modus).
+- Datenschutz: Erklärung vor dem ersten Gespräch, Mikrofon-Hinweistext und In-App-Datenschutzhinweis beschreiben die direkte verschlüsselte Übertragung an ElevenLabs und den begrenzten Gebäudekontext.
+- Verschlüsselung: Nur TLS über URLSession und Systemkryptografie, keine Fremd-Frameworks → `ITSAppUsesNonExemptEncryption = NO` bleibt zutreffend.
+
+### Voraussetzungen für den Betrieb (Freigabe durch Felix nötig)
+
+1. Backend nach geschützter Datenbanksicherung mit dem dokumentierten Deployment-Skript ausrollen.
+2. Auf dem Server `ELEVENLABS_ENABLED=true` und `ELEVENLABS_AGENT_ID` gesetzt; API-Schlüsseldatei vorhanden.
+3. Im ElevenLabs-Agenten: Ein- und Ausgabeformat PCM (z. B. `pcm_16000`), dynamische Variable `building_context`, Client-Tools `control_lights` und `request_device_change` wie bisher.
+4. Auf dem iPhone mit aktivierter KI-Freigabe ein Gespräch testen.
+
+### Prüfstand 1.0.106
+
+Simulator: Gesprächsansicht, Hinweis ohne KI-Freigabe, Wechsel zu „Tippen statt Gespräch“, Datenschutzerklärung. Release-Build signiert (lokale Überschreibung), Info.plist und Verlinkung geprüft, auf Felix' iPhone installiert und gestartet. Ein echtes Gespräch gegen ElevenLabs wurde noch nicht geführt (Server-Änderung noch nicht deployt).
