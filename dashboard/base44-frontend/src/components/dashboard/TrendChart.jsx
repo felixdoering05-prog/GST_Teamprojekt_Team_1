@@ -21,11 +21,11 @@ export default function TrendChart({ data = [], demoShare = 0 }) {
             <ComposedChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
               <defs>
                 <linearGradient id="tempFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e11d48" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="#e11d48" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#6f835d" stopOpacity={0.26} />
+                  <stop offset="100%" stopColor="#6f835d" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d0cec4" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
               <YAxis yAxisId="temp" domain={[15, 30]} tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} width={44} />
               <YAxis yAxisId="co2" orientation="right" domain={[300, 1700]} tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} width={52} />
@@ -34,8 +34,8 @@ export default function TrendChart({ data = [], demoShare = 0 }) {
                 formatter={(value, name) => [name === 'Temperatur' ? `${value} °C` : `${value} ppm`, name]}
               />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Area yAxisId="temp" type="monotone" dataKey="temperature" name="Temperatur" stroke="#e11d48" strokeWidth={2} fill="url(#tempFill)" connectNulls />
-              <Line yAxisId="co2" type="monotone" dataKey="co2" name="CO₂" stroke="#0891b2" strokeWidth={2} dot={false} connectNulls />
+              <Area yAxisId="temp" type="monotone" dataKey="temperature" name="Temperatur" stroke="#63764f" strokeWidth={2} fill="url(#tempFill)" connectNulls />
+              <Line yAxisId="co2" type="monotone" dataKey="co2" name="CO₂" stroke="#aa7d5d" strokeWidth={2} dot={false} connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
         )}

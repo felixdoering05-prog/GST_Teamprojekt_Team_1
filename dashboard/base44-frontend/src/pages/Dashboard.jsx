@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, BellRing, Building2, Database, Droplets, Gauge, Layers, Radio, RefreshCw, Thermometer, Wind } from 'lucide-react';
+import { Activity, ArrowUpRight, BellRing, Building2, Database, Droplets, Gauge, Layers, Radio, RefreshCw, Thermometer, Wind } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -8,12 +8,13 @@ import EmptyState from '@/components/EmptyState';
 import AlertList from '@/components/dashboard/AlertList';
 import RoomStatusCard from '@/components/dashboard/RoomStatusCard';
 import TrendChart from '@/components/dashboard/TrendChart';
+import DashboardModel from '@/components/dashboard/DashboardModel';
+import '@/components/dashboard/dashboard-glass.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import useD21Data from '@/hooks/useD21Data';
 import { base44 } from '@/api/base44Client';
 import { readingsForRoom, seriesByHour, statusForRoom } from '@/lib/roomMetrics';
-import { METRIC_KEYS } from '@/lib/metrics';
 import { formatNumber } from '@/lib/metrics';
 import { formatDateTime } from '@/lib/dates';
 
@@ -61,7 +62,7 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
+  if (loading && !building) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
@@ -82,8 +83,9 @@ export default function Dashboard() {
 
   if (!rooms.length) {
     return (
-      <div>
+      <div className="glass-dashboard space-y-5">
         <PageHeader title="Dashboard" description="Gebäudeübersicht, Kennzahlen, Warnmeldungen und Raumzustände." />
+        <DashboardModel />
         <EmptyState
           icon={Building2}
           title="Noch keine Gebäudedaten vorhanden"
@@ -109,44 +111,53 @@ export default function Dashboard() {
     { icon: Gauge, label: 'Räume', value: `${rooms.length}` },
     { icon: Activity, label: 'Bruttogrundfläche', value: building?.gross_area_m2 ? `${Number(building.gross_area_m2).toLocaleString('de-DE')} m²` : '–' },
   ];
+  const averageTemperature = avgOf('temperature');
+  const dialFill = Number.isFinite(averageTemperature) ? Math.min(1, Math.max(0, averageTemperature / 40)) : 0;
+  const dialLength = 2 * Math.PI * 64 * .75;
+  const hasReadings = Object.keys(latest).length > 0;
 
   return (
-    <div className="space-y-6">
-      <section className="surface relative overflow-hidden px-5 py-6 sm:px-7 sm:py-7">
-        <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
-              Digitaler Zwilling · Gebäude {building?.name || '–'}
-            </p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Ihr Gebäude im Überblick</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Raumklima, Sensoren und Meldungen an einem Ort.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte aktiv', real: 'Echte Messwerte' }} />
-            <Button variant="outline" size="sm" onClick={data.reload}>
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Aktualisieren
-            </Button>
-          </div>
+    <div className="glass-dashboard space-y-5">
+      <div className="dashboard-heading">
+        <div><p className="eyebrow">Hochschule Darmstadt / Digitaler Zwilling</p><h2>Dein Gebäude im Überblick.</h2><p className="mt-2 text-xs text-muted-foreground">{building?.name || 'Gebäude'} · Raumklima, Modell und Meldungen</p></div>
+        <div className="dashboard-heading-actions">
+          {hasReadings ? <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte', real: 'Projektmesswerte' }} /> : <span className="glass-pill text-xs">Keine Messwerte</span>}
+          <Button variant="outline" size="sm" onClick={data.reload} disabled={loading}><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Wird aktualisiert …' : 'Aktualisieren'}</Button>
         </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt
-          {series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''}
-        </p>
+      </div>
 
-        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-5 sm:grid-cols-4">
+      <div className="dashboard-workspace">
+        <DashboardModel />
+        <section className="climate-card" aria-label="Raumklima aus den Projektmesswerten">
+          <div className="flex items-start justify-between gap-2"><div><h3>Raumklima</h3><p className="climate-subtitle">{building?.name || 'Ausgewähltes Gebäude'} · Ø je Sensor</p></div><span className="climate-heading-icon"><Thermometer className="h-4 w-4" /></span></div>
+          <div className="climate-dial">
+            <svg viewBox="0 0 160 160" role="img" aria-label={`Mittlere Lufttemperatur: ${formatNumber('temperature', averageTemperature)} Grad Celsius`}>
+              <circle cx="80" cy="80" r="64" fill="none" stroke="#ffffff16" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${dialLength} ${2 * Math.PI * 64 - dialLength}`} transform="rotate(135 80 80)" />
+              <circle cx="80" cy="80" r="64" fill="none" stroke="#c8e49c" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${dialLength * dialFill} ${2 * Math.PI * 64 - dialLength * dialFill}`} transform="rotate(135 80 80)" />
+            </svg>
+            <div className="dial-value" aria-hidden="true"><span className="dial-label">Lufttemperatur</span><span className="dial-number">{formatNumber('temperature', averageTemperature)}<span className="dial-unit">°C</span></span></div>
+            <div className="dial-scale" aria-hidden="true"><span>0 °C</span><span>40 °C</span></div>
+          </div>
+          <div className="climate-small-metrics">
+            <div><p className="metric-label"><Wind className="h-3 w-3" />CO₂</p><p className="metric-value">{formatNumber('co2', avgOf('co2'))}<span className="metric-unit">ppm</span></p></div>
+            <div><p className="metric-label"><Droplets className="h-3 w-3" />Luftfeuchte</p><p className="metric-value">{formatNumber('humidity', avgOf('humidity'))}<span className="metric-unit">%</span></p></div>
+          </div>
+          <div className="climate-footer"><p>Deine Sensoren im Detail.<br />Messwerte und Raumzustände.</p><Link to="/sensorik" aria-label="Sensorik und Raumklima öffnen"><ArrowUpRight className="h-4 w-4" /></Link></div>
+        </section>
+      </div>
+
+      <section className="glass-card" aria-label="Gebäudeinformationen">
+        <dl className="dashboard-meta">
           {meta.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.label} className="flex items-start gap-2.5">
-                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+                <span className="meta-icon">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                  <dt className="break-words text-[11px] uppercase tracking-wide text-muted-foreground [hyphens:auto]">{item.label}</dt>
-                  <dd className="break-words text-sm font-medium text-foreground">{item.value}</dd>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
                 </div>
               </div>
             );
@@ -154,10 +165,7 @@ export default function Dashboard() {
         </dl>
       </section>
 
-      <section aria-label="Gebäudekennzahlen" className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6">
-        <StatCard label="Ø Temperatur" value={formatNumber('temperature', avgOf('temperature'))} unit="°C" hint="Sollbereich 19–26 °C" icon={Thermometer} />
-        <StatCard label="Ø CO₂" value={formatNumber('co2', avgOf('co2'))} unit="ppm" hint="Grenzwert 1.000 ppm" icon={Wind} />
-        <StatCard label="Ø Luftfeuchte" value={formatNumber('humidity', avgOf('humidity'))} unit="%" hint="Sollbereich 30–60 %" icon={Droplets} />
+      <section aria-label="Gebäudekennzahlen" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Räume im Sollbereich"
           value={`${okRooms} / ${rooms.length}`}
@@ -166,8 +174,9 @@ export default function Dashboard() {
           tone={criticalRooms ? 'crit' : 'ok'}
         />
         <StatCard label="Offene Meldungen" value={`${openAlerts.length}`} hint="regelbasiert erkannt" icon={BellRing} tone={openAlerts.length ? 'warn' : 'ok'} />
-        <StatCard label="Sensoren aktiv" value={`${activeSensors} / ${sensors.length}`} hint={`${METRIC_KEYS.length} Messgrößen je Raum`} icon={Radio} tone="primary" />
+        <StatCard label="Sensoren aktiv" value={`${activeSensors} / ${sensors.length}`} hint="Zugeordnete Sensoren im Gebäude" icon={Radio} tone="primary" />
       </section>
+      <p className="dashboard-source-note">Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt{series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''} · <Link to="/heat-map" className="underline underline-offset-2">Frankfurter Wetterdaten & Heat map</Link></p>
 
       <section className="grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
@@ -177,10 +186,10 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div className="dashboard-section-heading">
           <div>
-            <h2 className="font-heading text-lg font-semibold text-foreground">Raumzustände</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <h2>Deine Räume</h2>
+            <p>
               Letzter Messwert je Raum, bewertet nach den hinterlegten Grenzwerten
             </p>
           </div>

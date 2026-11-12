@@ -87,6 +87,14 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
     readout.textContent = `${selected.ground ? 'Kartenfläche' : 'Modelloberfläche'} · ${temperature.toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} °C · simuliert`;
     readout.hidden = false;
   }
+  function setFloor(floorID) {
+    selectedFloor = floorID;
+    overlays.forEach(overlay => {
+      const hasReading = Boolean(overlay.userData.heatReading) || Number.isFinite(overlay.userData.heatTemperature);
+      overlay.visible = ['measured', 'simulated-rooms'].includes(scenario.mode) && hasReading && (floorID === null || floorID === undefined || overlay.userData.storey === floorID);
+    });
+    selected = undefined; readSelection(); render();
+  }
   function update(value) {
     const previousMode = scenario.mode;
     scenario = normalizeScenario(value);
@@ -168,14 +176,7 @@ export function mountHeatLayer({ scene, root, groundY = 0, render, roomSpaces = 
   return {
     ground,
     get targets() { return overlays.filter(overlay => overlay.visible && (overlay.userData.heatReading || Number.isFinite(overlay.userData.heatTemperature))); },
-    setFloor(floorID) {
-      selectedFloor = floorID;
-      overlays.forEach(overlay => {
-        const hasReading = Boolean(overlay.userData.heatReading) || Number.isFinite(overlay.userData.heatTemperature);
-        overlay.visible = ['measured', 'simulated-rooms'].includes(scenario.mode) && hasReading && (floorID === null || floorID === undefined || overlay.userData.storey === floorID);
-      });
-      selected = undefined; readSelection(); render();
-    },
+    setFloor,
     select(hit) {
       if (scenario.mode === 'measured') {
         selected = hit?.object?.userData?.heatReading ? { reading: hit.object.userData.heatReading, roomName: hit.object.userData.heatRoomName } : undefined;

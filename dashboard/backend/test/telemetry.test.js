@@ -80,3 +80,26 @@ test('empty analysis does not call Gemini and changed data invalidates prior con
  await request(owner,path()+'/import',batch({rows:[{...batch().rows[0],value:24}]}));
  assert.equal((await request(owner,endpoint,{mode:'measurement-analysis',source:'real',context_hash:review.data.context_hash,consent:'yes',question:'Analyse'})).status,409);assert.equal(calls.length,before);
 });
+test('room heat returns the latest valid real temperature for each accessible room', async () => {
+ const row=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'Heat map test') RETURNING id",[owner.id])).rows[0];
+ await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES($1,$2,'accepted')",[row.id,member.id]);
+ const entities=service(db,owner.id).entities, building_id=String(row.id);
+ const floor=await entities.Floor.create({building_id,name:'EG',level:0,source:'real'});
+ const room=await entities.Room.create({building_id,floor_id:floor.id,room_code:'00.01',name:'Room',source:'real'});
+ const empty=await entities.Room.create({building_id,floor_id:floor.id,room_code:'00.02',name:'Empty',source:'real'});
+ const sensor=await entities.Sensor.create({building_id,room_id:room.id,sensor_code:'HEAT',metric:'temperature',source:'real'});
+ const point={building_id,sensor_id:sensor.id,metric:'temperature',source:'real',quality:'ok'};
+ await entities.Measurement.bulkCreate([
+  {...point,value:20,measured_at:'2026-11-03T12:00:00Z'},
+  {...point,value:22,measured_at:'2026-11-03T08:30:00-05:00'},
+  {...point,value:99,measured_at:'2026-11-03T14:00:00Z',source:'demo'},
+  {...point,value:99,measured_at:'2026-11-03T15:00:00Z',quality:'fehlend'},
+ ]);
+ const endpoint=`/buildings/${building_id}/telemetry/room-temperatures`;
+ assert.equal((await request(outsider,endpoint)).status,404);
+ const result=await request(member,endpoint);
+ assert.equal(result.status,200);
+ assert.deepEqual(result.data.floors,[{id:floor.id,name:'EG',level:0}]);
+ assert.deepEqual(result.data.rooms.find(item=>item.id===room.id).reading,{value:22,measured_at:'2026-11-03T13:30:00.000Z'});
+ assert.equal(result.data.rooms.find(item=>item.id===empty.id).reading,null);
+});

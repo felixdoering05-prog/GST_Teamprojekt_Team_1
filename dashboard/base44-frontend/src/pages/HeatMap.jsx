@@ -4,6 +4,7 @@ import { request } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
+import RoomHeatMap from '@/components/bim/RoomHeatMap';
 import { HEAT_GRADIENT, HEAT_STOPS, ROOM_TEMPERATURE_SCENARIOS, SEASONS, heatColor, scenarioConditions, scenarioDate, seasonForDay, surfaceTemperature } from '../../ifc-viewer/heat-simulation.js';
 import { createWeatherProfile } from '../../ifc-viewer/weather-profile.js';
 
@@ -302,20 +303,21 @@ function RoomDataHeatMap({ simulated = false }) {
 }
 
 export default function HeatMap() {
-  const [mode, setMode] = useState('rooms');
+  const [mode, setMode] = useState('floors');
   return <div className="space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">D21 · Heat map</p>
         <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Temperaturverteilung</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Echte Raumdaten, eine transparente Präsentationssimulation und die Wetter-basierte Campus-Simulation getrennt anzeigen.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Raumtemperaturen im Geschossschnitt und Grundriss ansehen oder eine Simulation öffnen.</p>
       </div>
       <div className="inline-flex flex-wrap rounded-2xl border border-white/80 bg-white/65 p-1 shadow-sm backdrop-blur-xl" role="group" aria-label="Heatmap-Modus">
+        <Button type="button" size="sm" variant={mode === "floors" ? "default" : "ghost"} aria-pressed={mode === "floors"} onClick={() => setMode("floors")}>Geschosspläne</Button>
         <button type="button" aria-pressed={mode==='rooms'} onClick={()=>setMode('rooms')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='rooms'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Raummesswerte</button>
         <button type="button" aria-pressed={mode==='room-simulation'} onClick={()=>setMode('room-simulation')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='room-simulation'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Raumsimulation</button>
         <button type="button" aria-pressed={mode==='campus'} onClick={()=>setMode('campus')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='campus'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Campus-Simulation</button>
       </div>
     </div>
-    {mode==='campus' ? <CampusHeatMap /> : <RoomDataHeatMap simulated={mode==='room-simulation'} />}
+    {mode==='floors' ? <RoomHeatMap /> : mode==='campus' ? <CampusHeatMap /> : <RoomDataHeatMap simulated={mode==='room-simulation'} />}
   </div>;
 }

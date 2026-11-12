@@ -32,7 +32,7 @@ test('anonymous, unrelated and pending accounts cannot discover or download the 
 });
 test('owner and accepted members read exact bytes without database upload or path disclosure',async()=>{
  for(const who of [owner,member]){
-  const metadata=await get(who);assert.equal(metadata.status,200);assert.equal(metadata.headers.get('cache-control'),'private, no-store');const body=await metadata.json();assert.equal(body.size,sample.length);assert.equal(body.read_only,true);assert.equal(JSON.stringify(body).includes(directory),false);
+  const metadata=await get(who);assert.equal(metadata.status,200);assert.equal(metadata.headers.get('cache-control'),'private, no-store');const body=await metadata.json();assert.equal(body.size,sample.length);assert.equal(body.read_only,true);assert.equal(body.building_id,String(building.id));assert.equal(JSON.stringify(body).includes(directory),false);
   const r=await get(who,'/d21/model?file=../../etc/passwd');assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'private, no-store');assert.match(r.headers.get('content-type'),/application\/x-step/);assert.deepEqual(Buffer.from(await r.arrayBuffer()),sample);
  }
  assert.equal(Number((await db.query('SELECT count(*) FROM app_documents')).rows[0].count),0);

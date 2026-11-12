@@ -55,7 +55,10 @@ function modelStateRouter(db,requireAccount,homeAssistantOptions={}){
  r.get('/documents/:modelID/model-state',wrap(async(req,res)=>{
   const doc=await target(db,req);if(!doc)return res.status(404).json({error:'Modell nicht gefunden.'});
   const row=(await db.query('SELECT revision,state FROM app_model_views WHERE document_id=$1',[doc.id])).rows[0];
-  res.set('Cache-Control','private, no-store').json({...row||{revision:0,state:empty()},device_lights:await roomDeviceLights(db,req.account.id,doc.id,homeAssistantOptions),map_view:await modelMapView(db,doc.id)});
+  const mapView=await modelMapView(db,doc.id);
+  const reply={...row||{revision:0,state:empty()},device_lights:await roomDeviceLights(db,req.account.id,doc.id,homeAssistantOptions)};
+  if(!mapView||String(mapView.revision)!==req.query.map_revision)reply.map_view=mapView;
+  res.set('Cache-Control','private, no-store').json(reply);
  }));
  async function change(req,res,commandMode){
   const c=await db.connect();try{

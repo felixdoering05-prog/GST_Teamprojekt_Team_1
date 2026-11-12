@@ -13,12 +13,13 @@ const VALUE_TONE = {
 
 export default function RoomStatusCard({ room, floorLabel, readings, onClick }) {
   const levels = Object.values(readings || {}).map((r) => r.level);
+  const Card = onClick ? 'button' : 'article';
 
   return (
-    <button
-      type="button"
+    <Card
+      type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className="surface w-full p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_32px_-20px_rgba(15,23,42,0.3)]"
+      className={`surface w-full p-4 text-left ${onClick ? 'transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_32px_-20px_rgba(15,23,42,0.3)]' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -53,6 +54,6 @@ export default function RoomStatusCard({ room, floorLabel, readings, onClick }) 
           );
         })}
       </div>
-    </button>
+    </Card>
   );
 }
