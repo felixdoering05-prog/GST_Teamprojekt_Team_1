@@ -24,18 +24,26 @@ struct BuildingCockpit: View {
                         ZStack(alignment: .bottomLeading) {
                             BIMBuildingThumbnail(building: building).frame(height: 120)
                             Label("3D öffnen", systemImage: "arrow.up.right").font(.caption.weight(.semibold)).padding(9).background(.regularMaterial, in: Capsule()).padding(12)
-                        }.clipShape(RoundedRectangle(cornerRadius: 22))
+                        }.clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }.buttonStyle(BuildingTileButtonStyle())
                 } else {
                     Button { open("Dateien") } label: {
-                        HStack { Image(systemName: "cube.transparent").foregroundStyle(d21Accent); Text("3D-Modell hinzufügen").font(.subheadline.weight(.semibold)); Spacer(); Image(systemName: "plus").foregroundStyle(d21Accent) }
-                            .padding(17).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+                        HStack(spacing: 14) {
+                            toolIcon("cube.transparent", color: d21Accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("3D-Modell hinzufügen").font(.subheadline.weight(.semibold))
+                                Text("IFC hochladen oder aus Plänen erzeugen").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "plus.circle.fill").font(.title2).foregroundStyle(d21Accent)
+                        }.padding(14).d21Card(cornerRadius: 22)
                     }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
                 }
                 HStack {
                     Text("Auf einen Blick").font(.title3.bold())
                     Spacer()
-                    if loading { ProgressView().controlSize(.small) }
+                    if loading && snapshot != nil { ProgressView().controlSize(.small) }
+                    else if loading { EmptyView() }
                     else { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Dashboard aktualisieren") }
                 }
                 if let problem {
@@ -49,7 +57,7 @@ struct BuildingCockpit: View {
                             Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundStyle(d21Accent)
                             Text("Deine Messwerte fehlen noch").font(.headline)
                             Button("Sensoren einrichten oder Daten importieren") { open("Sensorik") }.font(.subheadline)
-                        }.frame(maxWidth: .infinity).padding(24).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+                        }.frame(maxWidth: .infinity).padding(24).d21Card(cornerRadius: 22)
                     }
                     if let sensor = metricSensors.first { MetricChartCard(sensor: sensor, snapshot: snapshot) { open("Sensorik") } }
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -57,9 +65,12 @@ struct BuildingCockpit: View {
                         if let energy = snapshot.energy.first { energyCard(energy, snapshot: snapshot) }
                     }
                     if !metricSensors.isEmpty { Text("Importierte Messwerte · nicht unabhängig verifiziert").font(.caption2).foregroundStyle(.secondary) }
-                } else if loading { ProgressView("Messwerte werden geladen …").frame(maxWidth: .infinity).padding(24) }
+                } else if loading {
+                    HStack(spacing: 12) { ProgressView(); Text("Messwerte werden geladen …").font(.subheadline).foregroundStyle(.secondary) }
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(18).d21Card(cornerRadius: 22)
+                }
                 Text("Werkzeuge").font(.title3.bold())
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     tool("Geräte", symbol: "lightbulb", area: "Geräte", color: .orange)
                     tool("KI-Assistent", symbol: "sparkles", area: "KI", color: d21Accent)
                     tool("Pläne & Dateien", symbol: "folder", area: "Dateien", color: .blue)
@@ -79,14 +90,19 @@ struct BuildingCockpit: View {
             }
         }
     }
+    private func toolIcon(_ symbol: String, color: Color) -> some View {
+        Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(color).frame(width: 38, height: 38)
+            .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityHidden(true)
+    }
     private func tool(_ title: String, symbol: String, area: String, color: Color) -> some View {
         Button { open(area) } label: {
-            VStack(alignment: .leading, spacing: 16) {
-                Image(systemName: symbol).font(.title2).foregroundStyle(color).frame(width: 44, height: 44)
-                    .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
-                HStack { Text(title).font(.subheadline.weight(.semibold)); Spacer(minLength: 0); Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary) }
-            }.foregroundStyle(.primary).padding(17).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+            HStack(spacing: 10) {
+                toolIcon(symbol, color: color)
+                Text(title).font(.subheadline.weight(.semibold)).lineLimit(2).minimumScaleFactor(0.85).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }.foregroundStyle(.primary).padding(12).frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+                .d21Card(cornerRadius: 18)
         }.buttonStyle(BuildingTileButtonStyle())
     }
     private func energyCard(_ first: TelemetryEnergy, snapshot: TelemetrySnapshot) -> some View {
@@ -98,7 +114,7 @@ struct BuildingCockpit: View {
                     BarMark(x: .value("Zeitraum", row.period_start), y: .value(row.unit, row.value)).foregroundStyle(.orange.gradient).cornerRadius(4)
                 }.chartXAxis(.hidden).frame(height: 100)
                 Text("Zeitraumwerte · \(first.unit)").font(.caption).foregroundStyle(.secondary)
-            }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+            }.padding(18).d21Card(cornerRadius: 22)
         }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
     }
     private func load() async {
@@ -122,6 +138,9 @@ private struct MetricChartCard: View {
     let open: () -> Void
     private var points: [TelemetryPoint] { Array(snapshot.series(sensor).suffix(48)) }
     private var color: Color { sensor.metric == .temperature ? .orange : sensor.metric == .humidity ? .blue : d21Accent }
+    /// Y range padded around the real values only; the area fill starts at the lower bound, not at zero.
+    private var lowerBound: Double { let v = points.map(\.value); guard let lo = v.min(), let hi = v.max() else { return 0 }; return lo - max((hi - lo) * 0.15, 0.5) }
+    private var upperBound: Double { let v = points.map(\.value); guard let lo = v.min(), let hi = v.max() else { return 1 }; return hi + max((hi - lo) * 0.15, 0.5) }
     var body: some View {
         Button(action: open) {
             VStack(alignment: .leading, spacing: 14) {
@@ -134,11 +153,18 @@ private struct MetricChartCard: View {
                     Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
                 }
                 Chart(points) { point in
-                    LineMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(color).lineStyle(StrokeStyle(lineWidth: 2.5))
-                    PointMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(color).symbolSize(10)
-                }.chartYScale(domain: .automatic(includesZero: false)).chartXAxis { if !compact { AxisMarks(values: .automatic(desiredCount: 3)) } }.chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: compact ? 2 : 3)) }.frame(height: compact ? 70 : 100)
+                    AreaMark(x: .value("Zeit", point.date), yStart: .value(sensor.unit, lowerBound), yEnd: .value(sensor.unit, point.value))
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    LineMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value))
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    if point.id == points.last?.id {
+                        PointMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(color).symbolSize(compact ? 30 : 44)
+                    }
+                }.chartYScale(domain: lowerBound...upperBound).chartXAxis { if !compact { AxisMarks(values: .automatic(desiredCount: 3)) { _ in AxisGridLine().foregroundStyle(.quaternary); AxisValueLabel(format: .dateTime.hour().minute()) } } }.chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: compact ? 2 : 3)) }.frame(height: compact ? 70 : 100)
                 HStack { Text(sensor.name).lineLimit(1); Spacer(); if let last = points.last { Text(last.date, style: .time); if Date().timeIntervalSince(last.date) > 7200 { Image(systemName: "clock.badge.exclamationmark").foregroundStyle(.orange).accessibilityLabel("Messwert älter als zwei Stunden") } } }.font(.caption2).foregroundStyle(.secondary)
-            }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+            }.padding(18).d21Card(cornerRadius: 22)
         }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary).accessibilityElement(children: .combine)
     }
 }
