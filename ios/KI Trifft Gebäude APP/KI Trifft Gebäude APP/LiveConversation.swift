@@ -533,7 +533,9 @@ struct BuildingVoiceView: View {
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 18)
                     }
                     if !live.diagnostics.isEmpty {
-                        Text(live.diagnostics).font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        DisclosureGroup("Verbindungsdetails") {
+                            Text(live.diagnostics).font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        }.font(.caption).tint(.secondary)
                     }
                     if !live.lines.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
