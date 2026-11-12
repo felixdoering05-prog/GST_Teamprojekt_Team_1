@@ -23,27 +23,80 @@ struct ConnectedLampCard: View {
     @State private var level = 100.0
     @State private var busy = false
     @State private var problem: String?
+    @State private var showColor = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let presets: [(String, Color)] = [("Warmweiß", Color(red: 1, green: 0.83, blue: 0.6)), ("Neutral", .white), ("Blau", Color(red: 0.35, green: 0.6, blue: 1)), ("Grün", Color(red: 0.4, green: 0.9, blue: 0.55)), ("Rot", Color(red: 1, green: 0.35, blue: 0.35)), ("Lila", Color(red: 0.7, green: 0.45, blue: 1))]
+    private var isOn: Bool { lamp.available && lamp.is_on == true }
+    private var glow: Color { lamp.supports_rgb == true ? lightColor(lamp.rgb) : Color(red: 1, green: 0.85, blue: 0.5) }
+    private var room: String { lamp.location?.room.isEmpty == false ? lamp.location!.room : "Noch keinem Raum zugeordnet" }
     var body: some View {
-        VStack(alignment:.leading,spacing:12) {
-            Label(lamp.name,systemImage:lamp.available && lamp.is_on == true ? "lightbulb.fill" : "lightbulb").font(.headline).foregroundStyle(.primary)
-            Text((lamp.location?.room.isEmpty == false ? lamp.location!.room : "Noch keinem Raum zugeordnet") + " · " + (lamp.available ? lamp.is_on == true ? "Ein" : "Aus" : "Nicht erreichbar")).font(.subheadline).foregroundStyle(.secondary)
-            Button(lamp.is_on == true ? "Ausschalten" : "Einschalten",systemImage:"power") { Task { await command(["on":lamp.is_on != true]) } }.buttonStyle(.bordered).disabled(!lamp.available || busy)
-            if lamp.supports_rgb == true {
-                ColorPicker("Lichtfarbe",selection:$color,supportsOpacity:false).disabled(busy || !lamp.available)
-                Slider(value:$level,in:1...100,step:1) { Text("Helligkeit") }.disabled(busy || !lamp.available)
-                Button("Farbe anwenden und einschalten") { Task { await command(["on":true,"rgb":lightRGB(color),"brightness":Int((level*255/100).rounded())]) } }.disabled(busy || !lamp.available)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Button { Task { await command(["on": !isOn]) } } label: {
+                    ZStack {
+                        Circle().fill(isOn ? glow.opacity(0.95) : Color(uiColor: .tertiarySystemFill))
+                        if busy { ProgressView() }
+                        else { Image(systemName: isOn ? "lightbulb.max.fill" : "lightbulb").font(.title2.weight(.semibold)).foregroundStyle(isOn ? Color.black.opacity(0.75) : .secondary) }
+                    }
+                    .frame(width: 58, height: 58)
+                    .shadow(color: isOn ? glow.opacity(0.7) : .clear, radius: isOn ? 16 : 0)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: isOn)
+                }.buttonStyle(BuildingTileButtonStyle()).disabled(!lamp.available || busy)
+                    .accessibilityLabel(isOn ? "\(lamp.name) ausschalten" : "\(lamp.name) einschalten")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(lamp.name).font(.headline)
+                    Text(room).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    HStack(spacing: 6) {
+                        Circle().fill(!lamp.available ? Color.orange : isOn ? Color.green : Color.gray).frame(width: 7, height: 7)
+                        Text(!lamp.available ? "Nicht erreichbar" : isOn ? (lamp.brightness.map { "An · \(Int((Double($0) * 100 / 255).rounded())) %" } ?? "An") : "Aus").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+                Menu {
+                    Button("Gebäude & Raum", systemImage: "building.2.crop.circle") { assign() }
+                    if lamp.supports_rgb == true { Button(showColor ? "Farbe ausblenden" : "Farbe & Helligkeit", systemImage: "paintpalette") { showColor.toggle() } }
+                } label: { Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(.secondary).frame(width: 36, height: 36).contentShape(Rectangle()) }
+                    .disabled(busy).accessibilityLabel("Optionen für \(lamp.name)")
             }
-            Button("Gebäude & Raum",systemImage:"building.2.crop.circle") { assign() }.disabled(busy)
-            Text("Echtes Gerät · Status vom Projektserver bestätigt").font(.caption).foregroundStyle(.secondary)
-            if busy { ProgressView("Lichtauftrag …") }
-            if let problem { Text(problem).font(.footnote).foregroundStyle(.orange) }
-        }.padding(.vertical,6)
-        .task(id:(lamp.rgb?.description ?? "") + String(lamp.brightness ?? -1)) { if !busy { color=lightColor(lamp.rgb);level=Double(lamp.brightness ?? 255)*100/255 } }
+            if lamp.supports_rgb == true && showColor {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ForEach(Self.presets, id: \.0) { preset in
+                            Button { color = preset.1 } label: {
+                                Circle().fill(preset.1).frame(width: 30, height: 30)
+                                    .overlay(Circle().strokeBorder(Color.primary.opacity(lightRGB(color) == lightRGB(preset.1) ? 0.8 : 0.12), lineWidth: lightRGB(color) == lightRGB(preset.1) ? 2.5 : 1))
+                            }.buttonStyle(.plain).accessibilityLabel(preset.0)
+                        }
+                        ColorPicker("Eigene Farbe", selection: $color, supportsOpacity: false).labelsHidden()
+                    }
+                    HStack(spacing: 10) {
+                        Image(systemName: "sun.min").foregroundStyle(.secondary)
+                        Slider(value: $level, in: 1...100, step: 1) { Text("Helligkeit") }.tint(d21Accent)
+                        Image(systemName: "sun.max.fill").foregroundStyle(.secondary)
+                        Text("\(Int(level)) %").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 40, alignment: .trailing)
+                    }
+                    Button { Task { await command(["on": true, "rgb": lightRGB(color), "brightness": Int((level * 255 / 100).rounded())]) } } label: {
+                        Label("Anwenden und einschalten", systemImage: "checkmark").frame(maxWidth: .infinity)
+                    }.buttonStyle(.borderedProminent).tint(d21Accent)
+                }.disabled(busy || !lamp.available)
+                .transition(.opacity)
+            }
+            if let problem { Label(problem, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange) }
+            Label("Echtes Gerät · Zustand vom Projektserver bestätigt", systemImage: "checkmark.seal").font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground))
+            if isOn { RoundedRectangle(cornerRadius: 22, style: .continuous).fill(RadialGradient(colors: [glow.opacity(0.22), .clear], center: .topLeading, startRadius: 10, endRadius: 220)) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+        .task(id: (lamp.rgb?.description ?? "") + String(lamp.brightness ?? -1)) { if !busy { color = lightColor(lamp.rgb); level = Double(lamp.brightness ?? 255) * 100 / 255 } }
     }
-    private func command(_ body:[String:Any]) async {
-        guard !busy else { return };busy=true;defer {busy=false}
-        do { let result:ConnectedLampCommand=try await account.request("integrations/home-assistant/lights/\(lamp.key)/command",method:"POST",body:body,headers:["X-Request-ID":UUID().uuidString],timeout:30);problem=result.confirmed ? nil : result.message;await changed() }
-        catch {problem=error.localizedDescription+" Bitte Status neu laden, bevor du erneut schaltest.";await changed()}
+    private func command(_ body: [String: Any]) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { let result: ConnectedLampCommand = try await account.request("integrations/home-assistant/lights/\(lamp.key)/command", method: "POST", body: body, headers: ["X-Request-ID": UUID().uuidString], timeout: 30); problem = result.confirmed ? nil : result.message; await changed() }
+        catch { problem = error.localizedDescription + " Bitte Status neu laden, bevor du erneut schaltest."; await changed() }
     }
 }
 struct AvailableLampPicker: View {

@@ -71,7 +71,7 @@ struct BuildingCockpit: View {
                 }
                 Button { open("Sprache") } label: {
                     HStack(spacing: 14) {
-                        VoiceOrb(mode: .idle, level: 0).frame(width: 54, height: 54).scaleEffect(0.32).frame(width: 54, height: 54).clipped().accessibilityHidden(true)
+                        TalkingBuilding(mode: .idle, level: 0).scaleEffect(0.24).frame(width: 58, height: 66).accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Mit deinem Gebäude sprechen").font(.subheadline.weight(.semibold))
                             Text("Echtzeit-Gespräch, jederzeit unterbrechbar").font(.caption).foregroundStyle(.secondary)
