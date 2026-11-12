@@ -60,7 +60,7 @@ Felix wünscht ein echtes Gespräch statt Tippen-zum-Sprechen. Umsetzung ohne SD
 
 ### Voraussetzungen für den Betrieb (Freigabe durch Felix nötig)
 
-1. Backend deployen (`ssh root@185.56.151.249 d21-deploy`) nach geschützter Datenbanksicherung.
+1. Backend nach geschützter Datenbanksicherung mit dem dokumentierten Deployment-Skript ausrollen.
 2. Auf dem Server `ELEVENLABS_ENABLED=true` und `ELEVENLABS_AGENT_ID` gesetzt; API-Schlüsseldatei vorhanden.
 3. Im ElevenLabs-Agenten: Ein- und Ausgabeformat PCM (z. B. `pcm_16000`), dynamische Variable `building_context`, Client-Tools `control_lights` und `request_device_change` wie bisher.
 4. Auf dem iPhone mit aktivierter KI-Freigabe ein Gespräch testen.
