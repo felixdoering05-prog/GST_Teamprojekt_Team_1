@@ -121,7 +121,7 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
     enum State: Equatable { case idle, connecting, listening, thinking, speaking }
     struct Line: Identifiable { let id = UUID(); let fromUser: Bool; var text: String }
     struct Proposal: Identifiable { let id: String; let device: Int; let revision: Int; let on: Bool; let description: String; let generation: UUID; let deadline: Date }
-    private struct Start: Decodable { let signed_url: String?; let session_id: String; let max_seconds: Int; let dynamic_variables: [String: String] }
+    private struct Start: Decodable { let signed_url: String?; let token: String?; let session_id: String; let max_seconds: Int; let dynamic_variables: [String: String] }
     private struct Prepared: Decodable { let device_id: Int; let revision: Int; let on: Bool; let description: String }
     private struct LeaseStatus: Decodable { let active: Bool }
 
@@ -136,6 +136,8 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
     @Published var secondsLeft = 0
     /// True when the server reports that live conversations are not set up (HTTP 503) → fall back to push-to-talk.
     @Published var unavailable = false
+    /// Remembered for this app run so the quota is not spent on attempts that cannot work.
+    static var serverLacksWebSocket = false
 
     private let audio = LiveAudioEngine()
     private var socket: URLSessionWebSocketTask?
@@ -163,6 +165,7 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
 
     func start(account: AccountModel, building: Building) {
         guard state == .idle else { return }
+        if Self.serverLacksWebSocket { unavailable = true; return }
         let ticket = UUID(); generation = ticket
         self.account = account; buildingID = building.id
         state = .connecting; problem = nil; lines = []; muted = false; interruptedEvent = 0; unavailable = false
@@ -177,6 +180,14 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
                 let start: Start = try await account.request("buildings/\(building.id)/voice/live?transport=websocket", method: "POST", body: [:], headers: ["X-Request-ID": UUID().uuidString], timeout: 25)
                 self.lease = start.session_id
                 guard self.generation == ticket else { await self.closeLease(); return }
+                if start.signed_url == nil && start.token != nil {
+                    // The project server still runs the previous version (WebRTC token only). Release the lease
+                    // right away and switch to push-to-talk instead of failing again and spending the quota.
+                    LiveConversation.serverLacksWebSocket = true
+                    self.unavailable = true
+                    self.stop(message: "Der Projektserver ist für Echtzeit-Gespräche noch nicht aktualisiert. Bis dahin funktioniert „Tippen statt Gespräch“.")
+                    return
+                }
                 guard let raw = start.signed_url, let url = URL(string: raw), url.scheme == "wss", url.host() == "api.elevenlabs.io" else {
                     throw APIError(status: 502, message: "Ungültige Gesprächsverbindung vom Server.")
                 }
@@ -398,7 +409,7 @@ struct BuildingVoiceView: View {
 
     var body: some View {
         Group {
-            if pushToTalk { PushToTalkVoiceView(building: building, account: account) }
+            if pushToTalk { PushToTalkVoiceView(building: building, account: account, note: live.unavailable ? live.problem : nil) }
             else { conversation }
         }
         .onChange(of: live.unavailable) { _, value in if value { pushToTalk = true } }

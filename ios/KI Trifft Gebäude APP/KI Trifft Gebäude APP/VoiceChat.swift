@@ -230,6 +230,7 @@ nonisolated final class PCMVoiceRecorder: @unchecked Sendable {
 struct PushToTalkVoiceView: View {
     let building: Building
     @ObservedObject var account: AccountModel
+    var note: String? = nil
     @StateObject private var voice = BuildingVoiceChat()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("d21.voice.readAloud") private var readAloud = true
@@ -246,6 +247,10 @@ struct PushToTalkVoiceView: View {
                         .contentTransition(.opacity).accessibilityAddTraits(.updatesFrequently)
                 }.padding(.top, 8)
 
+                if let note {
+                    Label(note, systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+                        .padding(14).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 18)
+                }
                 VoiceOrb(phase: voice.phase, level: voice.level).frame(height: 250).accessibilityHidden(true)
 
                 if voice.phase == .listening {
