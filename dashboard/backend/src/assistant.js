@@ -1,3 +1,4 @@
+const {unlimitedConversations}=require('./conversation-limits');
 const {cachedWeather}=require('./building-weather');
 const {deviceContext,executeDeviceActions}=require('./assistant-devices');
 const {modelIndex}=require('./model-state');
@@ -47,7 +48,7 @@ async function reserve(db,user,building,key,hash,model){
   const old=(await c.query('SELECT * FROM app_ai_requests WHERE user_id=$1 AND request_key=$2',[user,key])).rows[0];
   if(old){await c.query('COMMIT');return old.building_id!==Number(building)||old.question_hash!==hash?{error:409}:old.status==='done'?{cached:old.answer,model:old.model}:old.status==='processing'?{error:409,processing:true}:{error:old.error_code||503};}
   const count=(await c.query(`SELECT COUNT(*) AS total,COUNT(*) FILTER(WHERE user_id=$1) AS own,COUNT(*) FILTER(WHERE user_id=$1 AND created_at>now()-interval '1 minute') AS recent,COUNT(*) FILTER(WHERE status='processing') AS active FROM app_ai_requests WHERE created_at>now()-interval '24 hours'`,[user])).rows[0];
-  if(Number(count.total)>=100||Number(count.own)>=20||Number(count.recent)>=3){await c.query('COMMIT');return {error:429};}
+  if(!unlimitedConversations(user)&&(Number(count.total)>=100||Number(count.own)>=20||Number(count.recent)>=3)){await c.query('COMMIT');return {error:429};}
   if(Number(count.active)>=2){await c.query('COMMIT');return {error:503};}
   const row=(await c.query("INSERT INTO app_ai_requests(user_id,building_id,request_key,question_hash,model,status) VALUES($1,$2,$3,$4,$5,'processing') RETURNING id",[user,building,key,hash,model])).rows[0];
   await c.query('COMMIT');return {id:row.id};

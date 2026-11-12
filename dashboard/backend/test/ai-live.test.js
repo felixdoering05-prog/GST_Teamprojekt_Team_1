@@ -48,3 +48,13 @@ test('websocket transport returns only a validated signed ElevenLabs URL under t
  await clear();mode='badurl';const bad=await req(owner,base()+'?transport=websocket','POST',{});assert.equal(bad.status,502);assert.equal(JSON.stringify(bad).includes('evil.example'),false);mode='ok';
  const {signedURL}=require('../src/live-voice');assert.equal(signedURL('wss://api.elevenlabs.io/v1/convai/conversation?agent_id=a&conversation_signature=0123456789'),true);assert.equal(signedURL('https://api.elevenlabs.io/v1/convai/conversation?agent_id=a&conversation_signature=0123456789'),false);assert.equal(signedURL('wss://user:pw@api.elevenlabs.io/v1/convai/conversation?agent_id=a&sig=01234567890'),false);
 });
+
+test('server exception bypasses daily live quota only for selected account and preserves concurrency',async()=>{
+ await clear();process.env.AI_CONVERSATION_UNLIMITED_USER_IDS=String(owner.id);
+ try {
+  for(let i=0;i<100;i++)await db.query("INSERT INTO app_voice_usage(user_id,building_id,request_key,kind,status) VALUES($1,$2,$3,'live','ended')",[owner.id,building,randomUUID()]);
+  assert.equal((await req(owner,base(),'POST',{})).status,200);
+  assert.equal((await req(owner,base(),'POST',{})).status,409);
+  assert.equal((await req(member,base(),'POST',{})).status,429);
+ }finally{delete process.env.AI_CONVERSATION_UNLIMITED_USER_IDS;await clear();}
+});
