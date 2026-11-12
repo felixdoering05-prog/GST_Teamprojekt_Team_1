@@ -7,6 +7,8 @@ const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function initPlanConversion(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_plan_settings(building_id INTEGER PRIMARY KEY REFERENCES app_buildings(id) ON DELETE CASCADE,enabled BOOLEAN NOT NULL DEFAULT false,revision INTEGER NOT NULL DEFAULT 1,policy_version INTEGER NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_plan_jobs(id TEXT PRIMARY KEY,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,request_key TEXT NOT NULL,document_ids INTEGER[] NOT NULL,source_hashes JSONB NOT NULL,settings_revision INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('queued','running','ready','approved','rejected','failed','cancelled','needs_input')),phase TEXT NOT NULL DEFAULT 'analysis',attempts INTEGER NOT NULL DEFAULT 0,not_before TIMESTAMPTZ NOT NULL DEFAULT now(),lease_until TIMESTAMPTZ,analysis JSONB,output_ifc BYTEA,preview_png BYTEA,output_document_id INTEGER REFERENCES app_documents(id) ON DELETE SET NULL,warnings JSONB NOT NULL DEFAULT '[]',failure_code TEXT,provider_model TEXT,usage JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),UNIQUE(user_id,request_key))`);
+ await db.query(`CREATE TABLE IF NOT EXISTS app_plan_deleted_usage(job_id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL)`);
+ await db.query('CREATE INDEX IF NOT EXISTS app_plan_deleted_usage_time_idx ON app_plan_deleted_usage(created_at)');
  await db.query('CREATE INDEX IF NOT EXISTS app_plan_job_poll_idx ON app_plan_jobs(status,not_before,lease_until)');
  await db.query('CREATE INDEX IF NOT EXISTS app_plan_job_owner_idx ON app_plan_jobs(user_id,building_id,created_at)');
 }
@@ -25,7 +27,7 @@ function dailyLimit(user){
 }
 async function quota(db,user){
  await db.query('SELECT pg_advisory_xact_lock(610211)');
- const r=(await db.query("SELECT COUNT(*) FILTER(WHERE user_id=$1) own,COUNT(*) total FROM app_plan_jobs WHERE created_at>now()-interval '24 hours'",[user])).rows[0];
+ const r=(await db.query("SELECT COUNT(*) FILTER(WHERE user_id=$1) own,COUNT(*) total FROM (SELECT user_id,created_at FROM app_plan_jobs UNION ALL SELECT user_id,created_at FROM app_plan_deleted_usage) usage WHERE created_at>now()-interval '24 hours'",[user])).rows[0];
  const limit=dailyLimit(user);
  if(limit!==null&&Number(r.own)>=limit)fail('Plananalyse-Limit erreicht: 3 Aufträge pro Konto innerhalb von 24 Stunden.',429);
  if(Number(r.total)>=10)fail('Projektlimit erreicht: 10 Planaufträge innerhalb von 24 Stunden.',429);

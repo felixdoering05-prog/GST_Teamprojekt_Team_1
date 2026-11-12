@@ -1,3 +1,5 @@
+const {buildingDeletionRouter}=require('./building-deletion');
+const {PasswordWorkGate}=require('./password-work');
 const {accountDeletionRouter}=require('./account-deletion');
 const {initPlanConversion}=require('./plan-conversion/queue');
 const {planConversionRouter}=require('./plan-conversion/router');
@@ -72,16 +74,17 @@ async function initAccounts(db) {
 function accountRouter(db,options={}) {
  const router = express.Router();
  const attempts = new Map();
- let activePasswords = 0;
+ const passwordWork=new PasswordWorkGate(4);
+ const boundedHash=(...args)=>passwordWork.run(()=>passwordHash(...args));
+ const boundedVerify=(...args)=>passwordWork.run(()=>verifyPassword(...args));
  // Bound password work and attempts. Socket address is used rather than trusting client-supplied IP headers.
  const throttle = (req,res,next) => {
   const now = Date.now();
   for(const [key,value] of attempts) if(value.until <= now) attempts.delete(key);
   const key = req.socket.remoteAddress || 'unknown';
   const state = attempts.get(key) || {count:0,until:now+15*60*1000};
-  if(state.count >= 40 || activePasswords >= 4) return res.status(429).json({error:'Zu viele Anmeldeversuche. Bitte später erneut versuchen.'});
-  state.count++;attempts.set(key,state);activePasswords++;
-  res.once('finish',()=>activePasswords--);next();
+  if(state.count >= 40) return res.status(429).json({error:'Zu viele Anmeldeversuche. Bitte später erneut versuchen.'});
+  state.count++;attempts.set(key,state);next();
  };
  const publicUser = u => ({id:u.id,name:u.name,email:u.email});
  const session = async (user,connection=db) => {
@@ -105,7 +108,7 @@ function accountRouter(db,options={}) {
   const password=req.body?.password;
   if(!name||name.length>100||email.length>254||!/^\S+@\S+\.\S+$/.test(email)||typeof password!=='string'||password.length<12||Buffer.byteLength(password)>1024)
    return res.status(400).json({error:'Name, gültige E-Mail und Passwort mit mindestens 12 Zeichen erforderlich.'});
-  const hash=await passwordHash(password);
+  const hash=await boundedHash(password);
   try {
    const user=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id,name,email',[name,email,hash])).rows[0];
    res.status(201).json(await session(user));
@@ -118,7 +121,7 @@ function accountRouter(db,options={}) {
   const user=(await db.query('SELECT * FROM app_users WHERE email=$1',[email])).rows[0];
   // Always perform the same password work, including for unknown email addresses.
   const dummy='00000000000000000000000000000000:'+ '0'.repeat(128);
-  const matches=await verifyPassword(password,user?.password_hash||dummy);
+  const matches=await boundedVerify(password,user?.password_hash||dummy);
   if(!user||!matches)return res.status(401).json({error:'E-Mail oder Passwort ist falsch.'});
   const client=await db.connect();
   try {
@@ -128,8 +131,9 @@ function accountRouter(db,options={}) {
    const result=await session(user,client);await client.query('COMMIT');res.json(result);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
- router.use(passwordResetRouter(db,{passwordHash,throttle,...options}));
+ router.use(passwordResetRouter(db,{passwordHash:boundedHash,throttle,...options}));
  router.use(accountDeletionRouter(db,requireAccount,verifyPassword));
+ router.use(buildingDeletionRouter(db,requireAccount));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
  router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));

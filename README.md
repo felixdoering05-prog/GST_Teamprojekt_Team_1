@@ -28,6 +28,14 @@ Projektvorstellung: **6. November 2026** · Abschlusspräsentation/Abgabe: **5. 
 
 </div>
 
+## Neuer App-Kandidat: Dashboard, KI-Chat und Gebäudeverwaltung (12.11.2026)
+
+Version 1.0.103 öffnet Gebäude direkt mit bis zu drei Diagrammen aus vorhandenen Daten, kompakter Symbolnavigation und Werkzeugkarten. Neue KI-Chatansicht mit festem Eingabefeld und kopierbaren Antworten. Gebäude können vom Eigentümer ausdrücklich bestätigt gelöscht werden. Modelländerungen behalten ihre ausdrückliche Bestätigung. Keine Live-Sprache und kein vorgetäuschtes Streaming. [Details und Prüfstand](docs/protokolle/2026-11-12-ki-chatdesign.md). Noch kein TestFlight-Upload.
+
+## Neuer App-Kandidat: einfacher Einstieg und Gebäude-Werkzeuge (12.11.2026)
+
+Version 1.0.102 entfernt die Servereinrichtung aus dem normalen Einstieg, bündelt die Navigation in Gebäude/Team/Profil und öffnet Sensorik, Energie, Analyse und Wetter direkt beim Gebäude. Neue Kartenübersicht, inspiriert von Finanzguru. PR #123 und der getrennte App-API-Zugang sind veröffentlicht; Kontoanmeldung ohne Website-Passwort geprüft, Version 102 auf Felix’ iPhone installiert. [Ablauf, Datenabgrenzung und Aktivierung](docs/protokolle/2026-11-12-app-einstieg-und-werkzeuge.md). Noch kein TestFlight-Upload.
+
 ## Neuer App-Kandidat: geführter Gebäudeentwurf (12.11.2026)
 
 Version 1.0.101 führt nach dem Plan-Upload direkt zur serverseitigen Generierung mit Gemini und BIMCraft. Fertige Entwürfe erscheinen als Mitteilung mit direktem Einstieg zur Prüfung. Echte Apple-Push-Nachrichten bei geschlossener App warten noch auf die Hochschulfreigabe. [Ablauf, Grenzen und Prüfstand](docs/protokolle/2026-11-12-gefuehrter-gebaeudeentwurf.md). Noch kein TestFlight-Upload dieser Version.

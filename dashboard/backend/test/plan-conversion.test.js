@@ -110,3 +110,13 @@ test('daily exemption is server-configured, account-specific and preserves globa
   process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS='0,-1,abc,999999999999';assert.equal(Q.dailyLimit(owner.id),3);
  }finally{if(previous===undefined)delete process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS;else process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS=previous;await clear();}
 });
+
+test('deleting an owned building preserves recent plan quota without retaining its files',async()=>{
+ await clear();await consent();
+ const created=await enqueue([docs[0]]);assert.equal(created.status,202);
+ const r=await fetch(url.replace('/plan-conversion',''),{method:'DELETE',headers:{'Content-Type':'application/json','X-D21-Session':owner.token},body:JSON.stringify({confirmation:'DELETE'})});
+ assert.equal(r.status,200);
+ assert.equal((await db.query('SELECT id FROM app_plan_jobs WHERE id=$1',[created.body.id])).rows.length,0);
+ assert.equal((await db.query('SELECT user_id FROM app_plan_deleted_usage WHERE job_id=$1',[created.body.id])).rows[0].user_id,owner.id);
+ assert.equal((await db.query('SELECT id FROM app_documents WHERE building_id=$1',[building.id])).rows.length,0);
+});
