@@ -153,11 +153,11 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
 
     var title: String {
         switch state {
-        case .idle: lines.isEmpty ? "Sprich mit deinem Gebäude" : "Gespräch beendet"
+        case .idle: lines.isEmpty ? "Dein Gebäude hört zu, wenn du willst" : "Gespräch beendet"
         case .connecting: "Verbindung wird aufgebaut …"
         case .listening: muted ? "Mikrofon stumm" : "Ich höre zu"
-        case .thinking: "Einen Moment …"
-        case .speaking: "Assistent spricht"
+        case .thinking: "Dein Gebäude überlegt …"
+        case .speaking: "Dein Gebäude spricht"
         }
     }
 
@@ -425,7 +425,12 @@ struct BuildingVoiceView: View {
                         }
                     }.padding(.top, 8)
 
-                    VoiceOrb(mode: orbMode, level: live.state == .speaking ? live.outputLevel : live.inputLevel).frame(height: 250).accessibilityHidden(true)
+                    Button(action: startFromBuilding) {
+                        TalkingBuilding(mode: orbMode, level: live.state == .speaking ? live.outputLevel : live.inputLevel)
+                    }
+                    .buttonStyle(BuildingTileButtonStyle())
+                    .disabled(live.isActive || !account.aiPreferences.active)
+                    .accessibilityLabel(live.isActive ? "Sprechendes Gebäude, Gespräch läuft" : "Gebäude antippen, um das Gespräch zu starten")
 
                     controls
 
@@ -487,13 +492,16 @@ struct BuildingVoiceView: View {
                 callButton("phone.down.fill", "Beenden", color: .red) { live.stop() }
             }
         } else {
-            VStack(spacing: 8) {
-                callButton("phone.fill", "Gespräch starten", color: d21Accent, size: 84) {
-                    UserDefaults.standard.bool(forKey: consentKey) ? live.start(account: account, building: building) : (showConsent = true)
-                }
-                Text("Sprich ganz normal – du kannst den Assistenten jederzeit unterbrechen.").font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Label("Tippe auf dein Gebäude, um zu sprechen", systemImage: "hand.tap.fill").font(.subheadline.weight(.semibold)).foregroundStyle(d21Accent)
+                Text("Sprich ganz normal – du kannst dein Gebäude jederzeit unterbrechen.").font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }
+    }
+
+    private func startFromBuilding() {
+        guard !live.isActive, account.aiPreferences.active else { return }
+        UserDefaults.standard.bool(forKey: consentKey) ? live.start(account: account, building: building) : (showConsent = true)
     }
 
     private func callButton(_ symbol: String, _ label: String, color: Color, size: CGFloat = 72, action: @escaping () -> Void) -> some View {
