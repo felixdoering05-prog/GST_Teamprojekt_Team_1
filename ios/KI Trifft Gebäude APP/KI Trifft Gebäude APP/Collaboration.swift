@@ -171,7 +171,7 @@ struct BuildingDetailView: View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(["Übersicht", "Dashboard", "Dateien", "3D", "Geräte", "Sprache", "KI", "Team"], id: \.self) { item in
+                    ForEach(["Übersicht", "3D", "Geräte", "KI", "Team"], id: \.self) { item in
                         Button { section = item } label: { Text(item).font(.subheadline.weight(.semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(section == item ? d21Accent : Color(.secondarySystemGroupedBackground), in: Capsule()).foregroundStyle(section == item ? .white : .primary) }.accessibilityAddTraits(section == item ? .isSelected : [])
                     }
                 }.padding(.horizontal).padding(.vertical, 8)
@@ -180,6 +180,7 @@ struct BuildingDetailView: View {
             case "Dashboard": TelemetryDashboardView(account: model, building: building)
             case "Dateien": BuildingFilesView(building: building, model: model)
             case "3D": BuildingModelView(building: building, account: model)
+            case "Heatmap": BuildingHeatmapView(account: model, building: building)
             case "Geräte": BuildingDevicesView(building: building, account: model)
             case "Sprache": BuildingVoiceView(building: building, account: model)
             case "KI": BuildingAssistantView(building: building, account: model)
@@ -187,6 +188,18 @@ struct BuildingDetailView: View {
             default:
                 Form {
                     BuildingNextSteps(building: building, account: model, navigate: { section = $0 })
+                    Section("Werkzeuge für dein Gebäude") {
+                        Button("Gebäude-Dashboard", systemImage: "chart.xyaxis.line") { section = "Dashboard" }
+                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Sensorik") } label: { Label("Sensoren und Messwerte", systemImage: "sensor") }
+                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Energie") } label: { Label("Energie und Verbrauch", systemImage: "bolt") }
+                        NavigationLink { TelemetryDashboardView(account: model, building: building, initialArea: "Analyse") } label: { Label("Auswertung und KI-Analyse", systemImage: "chart.bar.doc.horizontal") }
+                        NavigationLink { BuildingHeatmapView(account: model, building: building) } label: { Label("Heatmap, Wetter und Standort", systemImage: "thermometer.sun") }
+                        Button("Bilder, Pläne und Dokumente", systemImage: "folder") { section = "Dateien" }
+                        if building.is_owner == true {
+                            NavigationLink { PlanConversionView(building: building, account: model, onAdopt: {}) } label: { Label("Aus Grundrissen ein 3D-Modell erstellen", systemImage: "wand.and.stars") }
+                        }
+                        Text("Messwerte und Verbrauch stammen aus deinen hinterlegten Daten. Wetter und illustrative Heatmap bleiben davon getrennt.").font(.footnote).foregroundStyle(.secondary)
+                    }
                     Section("Gebäudedaten") { DisclosureGroup("Name und Adresse bearbeiten") { TextField("Gebäudename", text: $name); TextField("Adresse (optional)", text: $address); Button(saving ? "Wird gespeichert …" : "Änderungen speichern") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty) } }
                     Section("Gemeinsam arbeiten") { Button("Gebäude-Chat öffnen", systemImage: "bubble.left.and.bubble.right") { section = "Team" }; Button("Mitglieder einladen", systemImage: "person.badge.plus") { sharing = true } }
                     Section("Unterstützung") { Button("Gebäude-Assistent", systemImage: "sparkles") { section = "KI" }; Text("Fragen zu den hinterlegten Angaben – getrennt vom Teamchat.").font(.footnote).foregroundStyle(.secondary) }

@@ -63,7 +63,10 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     @Published var busy = false
     @Published var restoring = true
     @Published var error: String?
-    @Published private(set) var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? "https://filling-vendor-verification-hop.trycloudflare.com"
+    static let projectServer = "https://filling-vendor-verification-hop.trycloudflare.com"
+    @Published private(set) var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? AccountModel.projectServer
+    private var managedServer: Bool { CredentialScope.origin(serverURL) == CredentialScope.origin(Self.projectServer) }
+    private var apiPrefix: String { managedServer ? "/app-api/v1/" : "/api/v1/" }
     private var token: String?
     private var tokenOrigin: String?
     private var connectionRevision = UUID()
@@ -94,14 +97,14 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         UserDefaults.standard.set(cleaned, forKey: "d21.serverURL")
     }
     func request<T: Decodable>(_ path: String, method: String = "GET", body: [String:Any]? = nil, headers: [String:String] = [:], timeout: TimeInterval = 20) async throws -> T {
-        guard let origin,let url = URL(string: origin + "/api/v1/" + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte die Serververbindung einrichten.") }
+        guard let origin,let url = URL(string: origin + apiPrefix + path),url.scheme == "https" else { throw APIError(status: 0, message: "Der Projektdienst ist gerade nicht erreichbar. Bitte später erneut versuchen.") }
         let expectedRevision=connectionRevision
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
-        let gate = credentials
+        let gate = managedServer ? nil : credentials
         CredentialScope.authorize(&request, origin: origin, username: gate?.username, password: gate?.password, token: token, tokenOrigin: tokenOrigin)
         for (key,value) in headers where !["authorization","x-d21-session","host"].contains(key.lowercased()) { request.setValue(value,forHTTPHeaderField:key) }
         // Reject redirects so credentials are never forwarded to a different origin.
@@ -114,7 +117,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let accountError = try? JSONDecoder().decode(APIMessage.self, from: data)
             if http.statusCode == 401 && accountError != nil { invalidateSession() }
             let message = accountError?.error
-                ?? (http.statusCode == 401 ? "Website-Zugang prüfen: Unter Serververbindung die gemeinsamen Zugangsdaten eingeben." : "Server nicht verfügbar (\(http.statusCode)). Bitte Serveradresse und Bereitstellung prüfen.")
+                ?? (http.statusCode == 401 ? "Anmeldung nicht möglich. Bitte erneut anmelden oder den Support kontaktieren." : "Server nicht verfügbar (\(http.statusCode)). Bitte Serveradresse und Bereitstellung prüfen.")
             throw APIError(status: http.statusCode, message: message)
         }
         return try JSONDecoder().decode(T.self, from: data)
@@ -219,7 +222,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         try await fileRequest(path: "buildings/\(buildingID)/plan-conversion/jobs/\(jobID)/preview")
     }
     private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
-        guard let origin,let url = URL(string: origin + "/api/v1/" + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
+        guard let origin,let url = URL(string: origin + apiPrefix + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
         let expectedRevision=connectionRevision
         var request = URLRequest(url: url)
         request.httpMethod = method ?? (data == nil ? "GET" : "POST")
@@ -233,7 +236,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             allowed.remove(charactersIn: "%/?#&+=")
             request.setValue(name.addingPercentEncoding(withAllowedCharacters: allowed), forHTTPHeaderField: "X-File-Name")
         }
-        let gate = credentials
+        let gate = managedServer ? nil : credentials
         CredentialScope.authorize(&request, origin: origin, username: gate?.username, password: gate?.password, token: token, tokenOrigin: tokenOrigin)
         let session = URLSession(configuration: sessionConfiguration(), delegate: NoRedirects(progress: progress), delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
@@ -357,16 +360,26 @@ struct WelcomeView: View {
                     Text("KI trifft\nGebäude").font(.system(size: 42, weight: .bold))
                     Text("Dein digitaler Gebäudepass.").font(.title3).foregroundStyle(.secondary)
                     Label("Gebäudedaten zentral speichern", systemImage: "externaldrive.badge.icloud")
-                    Label("Dein Konto auf iPhone und Server", systemImage: "person.crop.circle")
+                    Label("Mit deinem Team zusammenarbeiten", systemImage: "person.2")
                     VStack(spacing: 12) {
                         NavigationLink { AuthenticationView(register: true) } label: { Text("Konto erstellen").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.borderedProminent)
                         NavigationLink { AuthenticationView(register: false) } label: { Text("Ich habe bereits ein Konto").frame(maxWidth: .infinity).padding(8) }.buttonStyle(.bordered)
                     }
                     NavigationLink("Datenschutz und Support") { PrivacyNoticeView() }
-                    Button("Serververbindung einrichten", systemImage: "network") { showConnection = true }
                     Text("Projektprototyp · Konten und Gebäude werden auf dem Projektserver gespeichert. Noch keine E-Mail-Bestätigung.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(28)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Projektverbindung wiederherstellen") {
+                            do { try model.configure(url: AccountModel.projectServer, username: "", password: "") }
+                            catch { model.error = error.localizedDescription }
+                        }
+                        Button("Erweitert: eigener Projektserver") { showConnection = true }
+                    } label: { Label("Hilfe", systemImage: "questionmark.circle") }
+                }
             }
             .sheet(isPresented: $showConnection) { ConnectionView() }
         }
@@ -419,10 +432,10 @@ struct ConnectionView: View {
                     TextField("https://…", text: $url).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Text("Die Testadresse kann sich ändern. Hier lässt sie sich aktualisieren.").font(.footnote)
                 }
-                Section("Zusätzlicher Website-Zugang") {
+                Section("Optional: Zugang für einen eigenen Server") {
                     TextField("Website-Benutzername", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
                     SecureField("Website-Passwort", text: $password)
-                    Text("Das sind die gemeinsamen Zugangsdaten der Website, getrennt von deinem persönlichen Konto. Sie werden im Schlüsselbund gespeichert.").font(.footnote)
+                    Text("Für den voreingestellten Projektserver brauchst du diese Felder nicht. Nur ein abweichender, zusätzlich geschützter Server benötigt sie. Sie werden im Schlüsselbund gespeichert.").font(.footnote)
                 }
             }
             .navigationTitle("Serververbindung")
@@ -468,16 +481,12 @@ struct AccountHomeView: View {
     }
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {BuildingHeatmapHome(account:model)}.tabItem{Label("Heatmap",systemImage:"thermometer.sun")}.tag(5)
-            NavigationStack { NativeDashboardEntry(account: model) }.tabItem { Label("Dashboard", systemImage: "chart.bar.xaxis") }.tag(4)
             NavigationStack(path: $path) {
                 List {
                     Section {
-                        Text("Deine Gebäude. Alles an einem Ort.").foregroundStyle(.secondary)
-                        Button { showAdd = true } label: {
-                            Label(savedDraft == nil ? "Neues Gebäude Schritt für Schritt anlegen" : "Gespeicherten Entwurf fortsetzen", systemImage: savedDraft == nil ? "plus.circle.fill" : "arrow.clockwise.circle.fill")
-                                .font(.headline).padding(.vertical, 8)
-                        }
+                        BuildingOverviewSummary(buildings: model.buildings, unread: social.unread, hasDraft: savedDraft != nil) { showAdd = true }
+                            .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 12, trailing: 0))
                     }
                     if let draft = savedDraft {
                         Section("Dein Zwischenstand") {
@@ -528,6 +537,7 @@ struct AccountHomeView: View {
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
             NavigationStack { TeamInboxView(account:model,social:social) }.tabItem { Label("Team",systemImage:"person.2") }.badge(social.unread).tag(1)
+            ProfileView(embedded: true).tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(2)
         }.task {
             await social.reload(model)
             while !Task.isCancelled { do { try await Task.sleep(for: .seconds(20)) } catch { return }; if scenePhase == .active { await social.reload(model) } }
@@ -556,6 +566,7 @@ enum PhotoPreparation {
     }
 }
 struct ProfileView: View {
+    var embedded = false
     @EnvironmentObject var model: AccountModel
     @Environment(\.dismiss) var dismiss
     @State private var photo: PhotosPickerItem?
@@ -586,10 +597,10 @@ struct ProfileView: View {
                 }
                 Section { NavigationLink("Datenschutz und Support") { PrivacyNoticeView() }; NavigationLink("Konto dauerhaft löschen") { DeleteAccountView(account: model) } }
                 Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
-                Section { Button("Serververbindung", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
+                Section { Button("Erweitert: eigener Projektserver", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
             }
             .navigationTitle("Mein Profil").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() }.disabled(uploading) } }
+            .toolbar { if !embedded { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() }.disabled(uploading) } } }
             .interactiveDismissDisabled(uploading)
             .sheet(isPresented: $showConnection) { ConnectionView() }
             .fullScreenCover(isPresented:$showPresentation,onDismiss:{Task{do{try await model.savePresentationMode(false)}catch{model.presentationMode=false}}}) {NativeDemoView()}

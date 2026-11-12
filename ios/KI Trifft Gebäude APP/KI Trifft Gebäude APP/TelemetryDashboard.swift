@@ -37,6 +37,10 @@ struct TelemetryDashboardView: View {
     @State private var importCSV = false
     @State private var addSensor = false
     @Environment(\.scenePhase) private var scenePhase
+    init(account: AccountModel?, building: Building?, localDemo: Bool = false, initialArea: String = "Dashboard") {
+        self.account = account; self.building = building; self.localDemo = localDemo
+        _area = State(initialValue: ["Dashboard", "Sensorik", "Energie", "Analyse"].contains(initialArea) ? initialArea : "Dashboard")
+    }
     private var selectedSensor: TelemetrySensor? { snapshot?.sensors.first { $0.id == sensorID } ?? snapshot?.sensors.first }
     var body: some View {
         List {
