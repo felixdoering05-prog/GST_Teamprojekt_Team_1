@@ -1,3 +1,4 @@
+const {serviceStatusRouter}=require('./service-status');
 const {buildingDeletionRouter}=require('./building-deletion');
 const {PasswordWorkGate}=require('./password-work');
 const {accountDeletionRouter}=require('./account-deletion');
@@ -153,6 +154,7 @@ function accountRouter(db,options={}) {
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ router.use(serviceStatusRouter(db,requireAccount));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use('/campus',campusRouter(db,requireAccount,options.campus));
  router.use(devicesRouter(db,requireAccount));

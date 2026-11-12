@@ -591,6 +591,7 @@ struct ProfileView: View {
                     }.frame(maxWidth: .infinity).padding(.vertical, 16)
                 }
                 Section { NavigationLink { AISettingsView(account: model) } label: { Label("KI-Einstellungen", systemImage: "sparkles") } }
+                Section { NavigationLink { ProjectServiceStatusView(account: model) } label: { Label("Serverstatus", systemImage: "server.rack") } }
                 Section("Darstellung") {
                     Toggle("Vorstellungsmodus",isOn:Binding(get:{model.presentationMode},set:{value in Task{savingMode=true;defer{savingMode=false};do{try await model.savePresentationMode(value);showPresentation=value}catch{problem=error.localizedDescription}}})).disabled(savingMode)
                     Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
