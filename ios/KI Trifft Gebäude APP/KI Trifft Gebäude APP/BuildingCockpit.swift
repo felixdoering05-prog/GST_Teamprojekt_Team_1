@@ -69,6 +69,17 @@ struct BuildingCockpit: View {
                     HStack(spacing: 12) { ProgressView(); Text("Messwerte werden geladen …").font(.subheadline).foregroundStyle(.secondary) }
                         .frame(maxWidth: .infinity, alignment: .leading).padding(18).d21Card(cornerRadius: 22)
                 }
+                Button { open("Sprache") } label: {
+                    HStack(spacing: 14) {
+                        VoiceOrb(mode: .idle, level: 0).frame(width: 54, height: 54).scaleEffect(0.32).frame(width: 54, height: 54).clipped().accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Mit deinem Gebäude sprechen").font(.subheadline.weight(.semibold))
+                            Text("Frage stellen, Antwort hören").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "mic.circle.fill").font(.title).foregroundStyle(d21Accent)
+                    }.padding(12).d21Card(cornerRadius: 22)
+                }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary).accessibilityLabel("Sprachchat öffnen")
                 Text("Werkzeuge").font(.title3.bold())
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     tool("Geräte", symbol: "lightbulb", area: "Geräte", color: .orange)
