@@ -91,3 +91,22 @@ test('failed interpretation stops honestly and daily job quota is enforced',asyn
  for(let i=0;i<3;i++){await enqueue([docs[1]]);await processNext(db,{enabled:true,analyze:async()=>{throw Object.assign(Error(),{code:'needs_input'});}});}
  assert.equal((await enqueue([docs[1]])).status,429);assert.ok((await api()).body.jobs.every(j=>j.status==='needs_input'));
 });
+
+test('daily exemption is server-configured, account-specific and preserves global and pending limits',async()=>{
+ const previous=process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS;
+ await clear();
+ try{
+  process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS=String(owner.id);
+  assert.equal(Q.dailyLimit(owner.id),null);assert.equal(Q.dailyLimit(other.id),3);
+  assert.equal((await api()).body.daily_limit,null);
+  for(let i=0;i<10;i++){
+   const r=await enqueue([docs[0]]);assert.equal(r.status,202,JSON.stringify(r.body));
+   await db.query("UPDATE app_plan_jobs SET status='failed' WHERE id=$1",[r.body.id]);
+  }
+  assert.equal((await enqueue([docs[0]])).status,429);
+  await clear();
+  for(let i=0;i<3;i++)assert.equal((await enqueue([docs[0]])).status,202);
+  assert.equal((await enqueue([docs[0]])).status,429);
+  process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS='0,-1,abc,999999999999';assert.equal(Q.dailyLimit(owner.id),3);
+ }finally{if(previous===undefined)delete process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS;else process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS=previous;await clear();}
+});

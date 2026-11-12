@@ -19,10 +19,16 @@ async function sourceFiles(db,building,ids){
  if(docs.some(d=>!MIME.includes(d.mime_type))||docs.reduce((n,d)=>n+d.size,0)>MAX_BYTES)fail('Plananalyse: JPG, PNG, WebP oder PDF, zusammen maximal 10 MB.',413);
  return docs;
 }
+function dailyLimit(user){
+ const ids=(process.env.PLAN_DAILY_QUOTA_EXEMPT_USER_IDS||'').split(',').map(v=>v.trim()).filter(v=>/^[1-9]\d{0,9}$/.test(v)&&Number(v)<=2147483647).map(Number);
+ return ids.includes(Number(user))?null:3;
+}
 async function quota(db,user){
  await db.query('SELECT pg_advisory_xact_lock(610211)');
  const r=(await db.query("SELECT COUNT(*) FILTER(WHERE user_id=$1) own,COUNT(*) total FROM app_plan_jobs WHERE created_at>now()-interval '24 hours'",[user])).rows[0];
- if(Number(r.own)>=3||Number(r.total)>=10)fail('Plananalyse-Limit erreicht: 3 Aufträge pro Konto / 10 im Projekt innerhalb von 24 Stunden.',429);
+ const limit=dailyLimit(user);
+ if(limit!==null&&Number(r.own)>=limit)fail('Plananalyse-Limit erreicht: 3 Aufträge pro Konto innerhalb von 24 Stunden.',429);
+ if(Number(r.total)>=10)fail('Projektlimit erreicht: 10 Planaufträge innerhalb von 24 Stunden.',429);
  if(Number((await db.query("SELECT count(*) n FROM app_plan_jobs WHERE user_id=$1 AND status IN ('queued','running','ready')",[user])).rows[0].n)>=3)fail('Bitte zuerst vorhandene Planentwürfe prüfen.',429);
 }
 async function enqueue(db,{building,user,documentIds,requestKey,automatic=false}){
@@ -42,4 +48,4 @@ async function enqueueUpload(db,building,user,doc,{enabled=process.env.PLAN_CONV
 }
 async function validateSources(db,job){const docs=await sourceFiles(db,job.building_id,job.document_ids);if(docs.some(d=>hash(d.content)!==job.source_hashes[String(d.id)]))fail('Eine Quelldatei hat sich geändert. Bitte neuen Auftrag anlegen.',409);return docs;}
 const SUMMARY='id,request_key,building_id,status,phase,attempts,document_ids,warnings,failure_code,provider_model,usage,output_document_id,created_at,updated_at,(status=\'failed\' AND failure_code=\'invalid_geometry\' AND analysis IS NOT NULL) AS can_rebuild';
-module.exports={initPlanConversion,setting,permitted,sourceFiles,validateSources,enqueue,enqueueUpload,POLICY_VERSION,MAX_BYTES,MIME,SUMMARY,fail};
+module.exports={dailyLimit,initPlanConversion,setting,permitted,sourceFiles,validateSources,enqueue,enqueueUpload,POLICY_VERSION,MAX_BYTES,MIME,SUMMARY,fail};
