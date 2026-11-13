@@ -104,3 +104,11 @@ test('persistent account quota blocks new calls without affecting other users',a
  const before=calls.length;assert.equal((await question()).status,429);assert.equal(calls.length,before);
  await initAccounts(db);assert.equal((await question()).status,429);
 });
+test('text assistant uses numeric IFC analysis without explicit model selection',async()=>{
+ const doc=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'CountTest.ifc','application/x-step',1,$2) RETURNING id",[building.id,Buffer.from('x')])).rows[0];
+ try {
+  await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[doc.id,JSON.stringify({counts:{IfcSpace:241,IfcBuildingStorey:5},rooms:[{name:'NOT FOR PROVIDER'}]})]);
+  const response=await fetch(url+`/buildings/${building.id}/assistant`,{headers:{'X-D21-Session':owner.token}});
+  const info=await response.json();assert.equal(response.status,200);assert.ok(info.context.ifc_models.some(m=>m.ifc_space_count===241&&m.ifc_storey_count===5));assert.equal(JSON.stringify(info.context).includes('NOT FOR PROVIDER'),false);
+ }finally{await db.query('DELETE FROM app_documents WHERE id=$1',[doc.id]);}
+});

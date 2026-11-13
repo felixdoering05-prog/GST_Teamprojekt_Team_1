@@ -65,7 +65,7 @@ test('live voice gets IFC count without transmitting room names',async()=>{
  await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[doc.id,JSON.stringify({counts:{IfcSpace:241},rooms:[{name:'PRIVATE ROOM NAME'}]})]);
  const reply=await req(owner,base(),'POST',{});assert.equal(reply.status,200);
  const context=JSON.parse(reply.data.dynamic_variables.building_context);
- assert.deepEqual(context.ifc_models,[{model_number:1,ifc_space_count:241}]);assert.equal(JSON.stringify(context).includes('PRIVATE ROOM NAME'),false);
+ assert.equal(context.ifc_models.length,1);assert.equal(context.ifc_models[0].ifc_space_count,241);assert.equal(context.ifc_models[0].ifc_storey_count,0);assert.equal(JSON.stringify(context).includes('PRIVATE ROOM NAME'),false);
  assert.equal((await req(outsider,base(),'POST',{})).status,404);
  await db.query('DELETE FROM app_documents WHERE id=$1',[doc.id]);await clear();
 });
