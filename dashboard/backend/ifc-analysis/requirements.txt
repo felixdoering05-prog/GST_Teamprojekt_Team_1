@@ -1,0 +1,5 @@
+ifcopenshell==0.9.0.post1
+ifctester==0.9.0
+ifcclash==0.9.0
+ifcdiff==0.9.0
+psycopg[binary]==3.3.9

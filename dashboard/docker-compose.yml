@@ -72,6 +72,25 @@ services:
     cpus: 0.5
     pids_limit: 64
     stop_grace_period: 240s
+  ifc-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ifc
+    environment:
+      DATABASE_URL: postgres://d21:${DB_PASSWORD:-localdevonly}@db:5432/d21
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:rw,nosuid,noexec,size=96m,mode=1777']
+    mem_limit: 768m
+    cpus: 0.5
+    pids_limit: 32
   web:
     build: ./base44-frontend
     depends_on: [api]

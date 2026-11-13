@@ -131,3 +131,15 @@ test('IFC signature, schema and 20 MiB limit are checked before storing bytes',a
  const huge=Buffer.alloc(20*1024*1024+1,32);bytes.copy(huge);Buffer.from('END-ISO-10303-21;').copy(huge,huge.length-17);
  assert.equal((await upload('huge.ifc',huge)).status,413);
 });
+
+ test('IFC analysis is authenticated, building-scoped and removed with document',async()=>{
+ const content=Buffer.from("ISO-10303-21;\nHEADER;FILE_SCHEMA(('IFC4'));ENDSEC;DATA;ENDSEC;END-ISO-10303-21;");
+ const doc=(await upload('analysis.ifc',content)).body;
+ assert.equal((await request('/documents/'+doc.id+'/analysis')).status,401);
+ assert.equal((await request('/documents/'+doc.id+'/analysis',null,bob.token)).status,404);
+ assert.equal((await request('/documents/'+doc.id+'/analysis',null,alice.token)).body.status,'queued');
+ await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[doc.id,JSON.stringify({schema:'IFC4',rooms:[]})]);
+ assert.equal((await request('/documents/'+doc.id+'/analysis',null,alice.token)).body.report.schema,'IFC4');
+ await db.query('DELETE FROM app_documents WHERE id=$1',[doc.id]);
+ assert.equal((await db.query('SELECT * FROM app_ifc_analysis WHERE document_id=$1',[doc.id])).rows.length,0);
+ });
