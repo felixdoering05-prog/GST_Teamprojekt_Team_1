@@ -24,6 +24,9 @@ Die App enthält für beide Modi keine Fremdbibliotheken.
 Raumerkennung „Wo bin ich?“ (Testfunktion)
 Für die Raumerkennung nutzt die App Kamera und, falls vorhanden, den LiDAR-Sensor über Apple ARKit. Kamerabilder, Tiefendaten und deine Position werden nur auf dem iPhone ausgewertet und weder gespeichert noch hochgeladen. Das gewählte IFC-Modell wird dafür vom Projektserver geladen; die Raumgrundrisse werden lokal berechnet. Angezeigte Raumklimawerte sind als Simulation gekennzeichnet und keine Messwerte.
 
+Raumscan beim Anlegen eines Gebäudes (Testfunktion)
+Mit Apple RoomPlan erfasst das iPhone per Kamera und LiDAR Wände, Türen, Fenster und Räume. Der Scan wird auf dem iPhone ausgewertet und daraus eine IFC-Datei erzeugt. Erst wenn du sie übernimmst, wird diese IFC-Datei wie ein Plan auf den Projektserver hochgeladen; Kamerabilder und Tiefendaten werden nicht gespeichert oder übertragen.
+
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.
 
