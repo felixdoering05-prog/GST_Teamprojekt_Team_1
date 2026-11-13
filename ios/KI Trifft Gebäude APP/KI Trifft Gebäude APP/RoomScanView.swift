@@ -38,7 +38,7 @@ struct RoomScanView: View {
             if scanner.scanning {
                 Button { scanner.finishRoom() } label: { Label("Raum fertig", systemImage: "checkmark.circle.fill").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).tint(d21Accent).controlSize(.large)
-                Text("Langsam an den Wänden entlang schwenken, Türen und Fenster einmal ins Bild nehmen.").font(.caption).foregroundStyle(.white).shadow(radius: 3)
+                Text("Langsam an den Wänden entlang schwenken, Türen, Fenster und Möbel einmal ganz ins Bild nehmen. Abstand 1–3 m.").font(.caption).foregroundStyle(.white).shadow(radius: 3)
             } else if scanner.processing {
                 ProgressView("Raum wird ausgewertet …").padding(14).background(.regularMaterial, in: Capsule())
             } else if !scanner.rooms.isEmpty {
@@ -52,7 +52,7 @@ struct RoomScanView: View {
                         Button { Task { await save() } } label: { Label(saving ? "IFC wird erstellt …" : "IFC erstellen", systemImage: "cube.transparent") }
                             .buttonStyle(.borderedProminent).tint(d21Accent).disabled(saving)
                     }
-                    Text("Vorläufiger Entwurf aus dem Scan: Wände, Türen, Fenster und Räume als einfache Körper. Maße bitte prüfen.").font(.caption2).foregroundStyle(.secondary)
+                    Text("Entwurf aus dem Scan: Wände (Innenseite wie gescannt), Türen und Fenster als Öffnungen, Räume und Möbel als einfache Körper. Maße bitte prüfen.").font(.caption2).foregroundStyle(.secondary)
                 }.padding(16).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
         }.padding(16)
@@ -81,7 +81,8 @@ struct RoomScanView: View {
     var title: String { scanning ? "Raum \(rooms.count + 1) scannen" : rooms.isEmpty ? "Räume scannen" : "Scan prüfen" }
     var summary: String {
         let walls = rooms.reduce(0) { $0 + $1.walls.count }, doors = rooms.reduce(0) { $0 + $1.doors.count }, windows = rooms.reduce(0) { $0 + $1.windows.count }
-        return "\(walls) Wände · \(doors) Türen · \(windows) Fenster"
+        let objects = rooms.reduce(0) { $0 + $1.objects.count }
+        return "\(walls) Wände · \(doors) Türen · \(windows) Fenster · \(objects) Möbel/Objekte"
     }
 
     func startRoom() {
@@ -107,15 +108,17 @@ struct RoomScanView: View {
         guard !rooms.isEmpty else { throw APIError(status: 0, message: "Bitte zuerst einen Raum scannen.") }
         var result = ScannedBuilding()
         func box(_ s: CapturedRoom.Surface) -> ScannedBuilding.Box { .init(transform: s.transform, width: s.dimensions.x, height: s.dimensions.y, depth: s.dimensions.z) }
-        let walls: [CapturedRoom.Surface], doors: [CapturedRoom.Surface], windows: [CapturedRoom.Surface], floors: [CapturedRoom.Surface], sections: [CapturedRoom.Section]
-        if rooms.count > 1 {
+        let walls: [CapturedRoom.Surface], doors: [CapturedRoom.Surface], windows: [CapturedRoom.Surface], floors: [CapturedRoom.Surface], sections: [CapturedRoom.Section], objects: [CapturedRoom.Object]
+        do {
+            // StructureBuilder also for a single room: it straightens walls and aligns furniture.
             let structure = try await StructureBuilder(options: [.beautifyObjects]).capturedStructure(from: rooms)
-            walls = structure.walls; doors = structure.doors; windows = structure.windows; floors = structure.floors; sections = structure.sections
-        } else {
+            walls = structure.walls; doors = structure.doors; windows = structure.windows; floors = structure.floors; sections = structure.sections; objects = structure.objects
+        } catch where rooms.count == 1 {
             let room = rooms[0]
-            walls = room.walls; doors = room.doors; windows = room.windows; floors = room.floors; sections = room.sections
+            walls = room.walls; doors = room.doors; windows = room.windows; floors = room.floors; sections = room.sections; objects = room.objects
         }
         result.walls = walls.map(box); result.doors = doors.map(box); result.windows = windows.map(box)
+        result.objects = objects.map { ScannedBuilding.Object(box: .init(transform: $0.transform, width: $0.dimensions.x, height: $0.dimensions.y, depth: $0.dimensions.z), category: String(describing: $0.category)) }
         for (index, floor) in floors.enumerated() {
             var corners = floor.polygonCorners.map { c -> SIMD3<Float> in let w = floor.transform * SIMD4(c.x, c.y, c.z, 1); return SIMD3(w.x, w.y, w.z) }
             if corners.count < 3 {

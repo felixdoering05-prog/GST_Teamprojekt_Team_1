@@ -3,10 +3,13 @@ import simd
 
 /// Geometry captured by a room scan, independent of RoomPlan so it can be tested on any platform.
 /// Coordinates are RoomPlan/ARKit world space: metres, Y up, right-handed.
-struct ScannedBuilding {
+nonisolated struct ScannedBuilding {
     struct Box { var transform: simd_float4x4; var width: Float; var height: Float; var depth: Float }
     struct Floor { var corners: [SIMD3<Float>]; var name: String }
+    /// Furniture and fixtures; `category` uses RoomPlan's names (table, chair, sofa, bed, storage, sink, …).
+    struct Object { var box: Box; var category: String }
     var walls: [Box] = []
+    var objects: [Object] = []
     var doors: [Box] = []
     var windows: [Box] = []
     var floors: [Floor] = []
@@ -14,7 +17,7 @@ struct ScannedBuilding {
 
 /// Writes a small, valid IFC4 file (IfcProject → Site → Building → Storey with walls, doors,
 /// windows, floor slabs and IfcSpaces). Geometry uses simple extrusions; it is a draft, not a survey.
-enum RoomScanIFC {
+nonisolated enum RoomScanIFC {
     static func make(_ scan: ScannedBuilding, buildingName: String, storeyName: String = "Erdgeschoss", date: Date = Date()) -> String {
         var w = Writer()
         // RoomPlan (x, y up, z) → IFC (x, -z, y up); floors start at elevation 0.
@@ -32,7 +35,7 @@ enum RoomScanIFC {
         let units = w.add("IFCUNITASSIGNMENT((\(lengthUnit),\(areaUnit),\(volumeUnit),\(angleUnit)))")
         let project = w.add("IFCPROJECT('\(guid())',$,\(str(buildingName)),'LiDAR-Raumscan (Entwurf)',$,$,$,(\(context)),\(units))")
         let sitePlacement = w.add("IFCLOCALPLACEMENT($,\(worldPlacement))")
-        let site = w.add("IFCSITE('\(guid())',$,'Grundstück',$,$,\(sitePlacement),$,$,.ELEMENT.,$,$,$,$,$)")
+        let site = w.add("IFCSITE('\(guid())',$,\(str("Grundstück")),$,$,\(sitePlacement),$,$,.ELEMENT.,$,$,$,$,$)")
         let buildingPlacement = w.add("IFCLOCALPLACEMENT(\(sitePlacement),\(worldPlacement))")
         let building = w.add("IFCBUILDING('\(guid())',$,\(str(buildingName)),$,$,\(buildingPlacement),$,$,.ELEMENT.,$,$,$)")
         let storeyPlacement = w.add("IFCLOCALPLACEMENT(\(buildingPlacement),\(worldPlacement))")
@@ -42,36 +45,90 @@ enum RoomScanIFC {
         w.add("IFCRELAGGREGATES('\(guid())',$,$,$,\(building),(\(storey)))")
 
         var elements: [String] = []
-        /// Places a box (centre transform) as an extruded rectangle standing on its bottom face.
-        func box(_ b: ScannedBuilding.Box, thickness: Float, entity: (String, String) -> String) {
-            let t = b.transform
-            let centre = SIMD3<Float>(t.columns.3.x, t.columns.3.y, t.columns.3.z)
-            let up = SIMD3<Float>(0, 1, 0)
-            let bottom = ifc(centre - up * (b.height / 2))
-            var dir = ifc(SIMD3(t.columns.0.x, t.columns.0.y, t.columns.0.z) + centre) - ifc(centre)
-            dir.z = 0
-            let length = simd_length(dir)
-            guard length > 1e-6, b.width > 0.01, b.height > 0.01 else { return }
-            dir /= length
-            let location = w.add("IFCCARTESIANPOINT((\(num(bottom.x)),\(num(bottom.y)),\(num(bottom.z))))")
-            let ref = w.add("IFCDIRECTION((\(num(dir.x)),\(num(dir.y)),0.))")
+        let profileOrigin = w.add("IFCAXIS2PLACEMENT2D(\(w.add("IFCCARTESIANPOINT((0.,0.))")),$)")
+        /// Extruded rectangle: bottom centre in RoomPlan space, horizontal direction of the width (x/z), size.
+        func solid(bottom: SIMD3<Float>, dir: SIMD2<Float>, width: Float, depth: Float, height: Float) -> (placement: String, product: String)? {
+            guard width > 0.01, height > 0.01, simd_length(dir) > 1e-6 else { return nil }
+            let d = simd_normalize(dir), p = ifc(bottom)
+            let location = w.add("IFCCARTESIANPOINT((\(num(p.x)),\(num(p.y)),\(num(p.z))))")
+            let ref = w.add("IFCDIRECTION((\(num(Double(d.x))),\(num(Double(-d.y))),0.))")
             let axes = w.add("IFCAXIS2PLACEMENT3D(\(location),\(zAxis),\(ref))")
             let placement = w.add("IFCLOCALPLACEMENT(\(storeyPlacement),\(axes))")
-            let profileAxes = w.add("IFCAXIS2PLACEMENT2D(\(w.add("IFCCARTESIANPOINT((0.,0.))")),$)")
-            let profile = w.add("IFCRECTANGLEPROFILEDEF(.AREA.,$,\(profileAxes),\(num(Double(b.width))),\(num(Double(max(thickness, 0.02)))))")
-            let solid = w.add("IFCEXTRUDEDAREASOLID(\(profile),\(worldPlacement),\(zAxis),\(num(Double(b.height))))")
-            let shape = w.add("IFCSHAPEREPRESENTATION(\(context),'Body','SweptSolid',(\(solid)))")
-            let product = w.add("IFCPRODUCTDEFINITIONSHAPE($,$,(\(shape)))")
-            elements.append(w.add(entity(placement, product)))
+            let profile = w.add("IFCRECTANGLEPROFILEDEF(.AREA.,$,\(profileOrigin),\(num(Double(width))),\(num(Double(max(depth, 0.02)))))")
+            let body = w.add("IFCEXTRUDEDAREASOLID(\(profile),\(worldPlacement),\(zAxis),\(num(Double(height))))")
+            let shape = w.add("IFCSHAPEREPRESENTATION(\(context),'Body','SweptSolid',(\(body)))")
+            return (placement, w.add("IFCPRODUCTDEFINITIONSHAPE($,$,(\(shape)))"))
         }
+        func centre(_ b: ScannedBuilding.Box) -> SIMD3<Float> { SIMD3(b.transform.columns.3.x, b.transform.columns.3.y, b.transform.columns.3.z) }
+        func axisX(_ b: ScannedBuilding.Box) -> SIMD2<Float> { SIMD2(b.transform.columns.0.x, b.transform.columns.0.z) }
+
+        // Walls: RoomPlan measures the inner surface. Shift each wall outwards by half its thickness so the
+        // room-side face matches the scan instead of the wall centre.
+        let roomCentres: [SIMD2<Float>] = scan.floors.isEmpty
+            ? [scan.walls.reduce(SIMD2<Float>.zero) { $0 + SIMD2(centre($1).x, centre($1).z) } / Float(max(scan.walls.count, 1))]
+            : scan.floors.map { f in f.corners.reduce(SIMD2<Float>.zero) { $0 + SIMD2($1.x, $1.z) } / Float(max(f.corners.count, 1)) }
+        struct PlacedWall { let id: String; let scanCentre: SIMD3<Float>; let dir: SIMD2<Float>; let normal: SIMD2<Float>; let width: Float; let thickness: Float }
+        var placedWalls: [PlacedWall] = []
         for (i, wall) in scan.walls.enumerated() {
-            box(wall, thickness: wall.depth > 0.05 ? wall.depth : 0.2) { "IFCWALL('\(guid())',$,\(str("Wand \(i + 1)")),$,$,\($0),\($1),$,.STANDARD.)" }
+            let c = centre(wall), dir = axisX(wall)
+            guard simd_length(dir) > 1e-6 else { continue }
+            let thickness: Float = wall.depth > 0.05 ? wall.depth : 0.17
+            var normal = SIMD2<Float>(-simd_normalize(dir).y, simd_normalize(dir).x)
+            let c2 = SIMD2(c.x, c.z)
+            if let room = roomCentres.min(by: { simd_distance($0, c2) < simd_distance($1, c2) }), simd_dot(normal, room - c2) > 0 { normal = -normal }
+            let shifted = c + SIMD3(normal.x, 0, normal.y) * (thickness / 2)
+            guard let g = solid(bottom: shifted - SIMD3(0, wall.height / 2, 0), dir: dir, width: wall.width, depth: thickness, height: wall.height) else { continue }
+            let id = w.add("IFCWALL('\(guid())',$,\(str("Wand \(i + 1)")),$,$,\(g.placement),\(g.product),$,.STANDARD.)")
+            elements.append(id)
+            placedWalls.append(PlacedWall(id: id, scanCentre: c, dir: simd_normalize(dir), normal: normal, width: wall.width, thickness: thickness))
+        }
+
+        // Doors and windows: real openings in the host wall (IfcOpeningElement + voids/fills).
+        func hostWall(_ p: SIMD3<Float>) -> PlacedWall? {
+            let p2 = SIMD2(p.x, p.z)
+            return placedWalls.filter { w in
+                let rel = p2 - SIMD2(w.scanCentre.x, w.scanCentre.z)
+                return abs(simd_dot(rel, w.normal)) < 0.3 && abs(simd_dot(rel, w.dir)) < w.width / 2 + 0.15
+            }.min { abs(simd_dot(p2 - SIMD2($0.scanCentre.x, $0.scanCentre.z), $0.normal)) < abs(simd_dot(p2 - SIMD2($1.scanCentre.x, $1.scanCentre.z), $1.normal)) }
+        }
+        func filling(_ b: ScannedBuilding.Box, entity: (String, String) -> String) {
+            var c = centre(b)
+            let host = hostWall(c)
+            if let host {
+                // Move onto the wall's centre line and cut the wall.
+                let rel = SIMD2(c.x, c.z) - SIMD2(host.scanCentre.x, host.scanCentre.z)
+                let onPlane = SIMD2(host.scanCentre.x, host.scanCentre.z) + host.dir * simd_dot(rel, host.dir) + host.normal * (host.thickness / 2)
+                c = SIMD3(onPlane.x, c.y, onPlane.y)
+                if let o = solid(bottom: c - SIMD3(0, b.height / 2, 0), dir: host.dir, width: b.width, depth: host.thickness + 0.1, height: b.height) {
+                    let opening = w.add("IFCOPENINGELEMENT('\(guid())',$,'Oeffnung',$,$,\(o.placement),\(o.product),$,.OPENING.)")
+                    w.add("IFCRELVOIDSELEMENT('\(guid())',$,$,$,\(host.id),\(opening))")
+                    guard let g = solid(bottom: c - SIMD3(0, b.height / 2, 0), dir: host.dir, width: b.width, depth: 0.05, height: b.height) else { return }
+                    let element = w.add(entity(g.placement, g.product))
+                    w.add("IFCRELFILLSELEMENT('\(guid())',$,$,$,\(opening),\(element))")
+                    elements.append(element)
+                    return
+                }
+            }
+            guard let g = solid(bottom: c - SIMD3(0, b.height / 2, 0), dir: axisX(b), width: b.width, depth: 0.05, height: b.height) else { return }
+            elements.append(w.add(entity(g.placement, g.product)))
         }
         for (i, door) in scan.doors.enumerated() {
-            box(door, thickness: 0.06) { "IFCDOOR('\(guid())',$,\(str("Tür \(i + 1)")),$,$,\($0),\($1),$,\(num(Double(door.height))),\(num(Double(door.width))),.DOOR.,.SINGLE_SWING_LEFT.,$)" }
+            filling(door) { "IFCDOOR('\(guid())',$,\(str("Tür \(i + 1)")),$,$,\($0),\($1),$,\(num(Double(door.height))),\(num(Double(door.width))),.DOOR.,.SINGLE_SWING_LEFT.,$)" }
         }
         for (i, window) in scan.windows.enumerated() {
-            box(window, thickness: 0.06) { "IFCWINDOW('\(guid())',$,\(str("Fenster \(i + 1)")),$,$,\($0),\($1),$,\(num(Double(window.height))),\(num(Double(window.width))),.WINDOW.,.SINGLE_PANEL.,$)" }
+            filling(window) { "IFCWINDOW('\(guid())',$,\(str("Fenster \(i + 1)")),$,$,\($0),\($1),$,\(num(Double(window.height))),\(num(Double(window.width))),.WINDOW.,.SINGLE_PANEL.,$)" }
+        }
+
+        // Furniture and fixtures as boxes with the matching IFC class.
+        var counts: [String: Int] = [:]
+        for object in scan.objects {
+            let b = object.box
+            guard let g = solid(bottom: centre(b) - SIMD3(0, b.height / 2, 0), dir: axisX(b), width: b.width, depth: b.depth, height: b.height) else { continue }
+            let kind = Self.objectClass(object.category)
+            counts[kind.name, default: 0] += 1
+            let name = str("\(kind.name) \(counts[kind.name]!)")
+            let objectType = kind.objectType.map(str) ?? "$"
+            elements.append(w.add("\(kind.entity)('\(guid())',$,\(name),$,\(objectType),\(g.placement),\(g.product),$,.\(kind.type).)"))
         }
 
         // Rooms: floor polygon as slab and as IfcSpace extruded to the typical wall height.
@@ -116,6 +173,29 @@ enum RoomScanIFC {
         END-ISO-10303-21;
 
         """
+    }
+
+    /// RoomPlan object category → IFC4 class, predefined type and German name.
+    static func objectClass(_ category: String) -> (entity: String, type: String, name: String, objectType: String?) {
+        switch category {
+        case "table": ("IFCFURNITURE", "TABLE", "Tisch", nil)
+        case "chair": ("IFCFURNITURE", "CHAIR", "Stuhl", nil)
+        case "sofa": ("IFCFURNITURE", "SOFA", "Sofa", nil)
+        case "bed": ("IFCFURNITURE", "BED", "Bett", nil)
+        case "storage": ("IFCFURNITURE", "SHELF", "Schrank", nil)
+        case "fireplace": ("IFCFURNITURE", "USERDEFINED", "Kamin", "Kamin")
+        case "television": ("IFCELECTRICAPPLIANCE", "USERDEFINED", "Fernseher", "Fernseher")
+        case "refrigerator": ("IFCELECTRICAPPLIANCE", "REFRIGERATOR", "Kühlschrank", nil)
+        case "stove": ("IFCELECTRICAPPLIANCE", "ELECTRICCOOKER", "Herd", nil)
+        case "oven": ("IFCELECTRICAPPLIANCE", "USERDEFINED", "Backofen", "Backofen")
+        case "dishwasher": ("IFCELECTRICAPPLIANCE", "DISHWASHER", "Spülmaschine", nil)
+        case "washerDryer": ("IFCELECTRICAPPLIANCE", "WASHINGMACHINE", "Waschmaschine", nil)
+        case "sink": ("IFCSANITARYTERMINAL", "SINK", "Spüle", nil)
+        case "toilet": ("IFCSANITARYTERMINAL", "TOILETPAN", "WC", nil)
+        case "bathtub": ("IFCSANITARYTERMINAL", "BATH", "Badewanne", nil)
+        case "stairs": ("IFCSTAIR", "NOTDEFINED", "Treppe", nil)
+        default: ("IFCFURNITURE", "NOTDEFINED", "Objekt", nil)
+        }
     }
 
     private struct Writer {
