@@ -1,5 +1,18 @@
 # Recherchejournal
 
+## 13. November 2026, ca. 19:00 MEZ – Abendabgleich
+
+**Neu / präzisiert:** Autodesk **Tandem** als direkten Wettbewerber ergänzt (IFC-/Revit-Import, BMS-/IoT-Streams, raumbezogene Heatmaps); bisher war nur BIM Collaborate Pro erfasst. Siemens-Lizenzbedingungen konkretisiert (Cloud-Angebot laut Datenblatt ab 10 Nutzern/20 GB, 12 Monate; kein EUR-Preis). BuildingMinds beschreibt KI-gestützte Nachrüstungsplanung, kennzeichnet bestimmte Szenarienvergleiche aber als noch nicht verfügbar. Dies sind **Anbieterangaben, keine unabhängigen Praxistests**.
+
+**Projektänderungen seit der Morgenrecherche:** [PR #154](../../pull/154) und [PR #155](../../pull/155) sind gemergt; der KI-/Sprachkontext verwendet nun begrenzte geprüfte IFC-Zählungen statt umfangreicher freier Raumlisten. [PR #153](../../pull/153) (README-Abendstand) ist offen. Keine unabhängige Bestätigung von D21-Livemesswerten oder End-to-End-Sprachfunktion.
+
+**Chancen:** Einfaches Onboarding, überprüfbare Datenherkunft, verständliche Zuordnung IFC-Raum → Sensor und klarer Preis könnten eine Nische sein, müssen aber getestet werden. **Risiken:** Tandem bietet wesentliche Kernfunktionen bereits; Anbieterpreise und reale Gesamtbetriebskosten sind nicht vergleichbar belegt.
+
+**Quellen, abgerufen am 13.11.2026:** [Autodesk Tandem](https://help.autodesk.com/cloudhelp/ENU/Tandem-About/files/Tandem_About_about_tandem_html.html), [Tandem for AEC](https://app.learn-one.autodesk.com/uk/products/bim-collaborate/features/digital-twin), [Tandem Connect](https://www.autodesk.com/dk/products/tandem-connect/buy), [Siemens Lifecycle Twin](https://sid.siemens.com/r/A6V13989089/23513708683_26912673931__de-DE_22822305163), [Siemens-Lizenzdatenblatt](https://assets.new.siemens.com/siemens/assets/api/uuid%3A0251ec0c-76db-46ae-97f3-eddc38f4271a/BuildingX-Data-Sheet-Lifecycle-Twin-2025-03-26_original.pdf), [BuildingMinds KI](https://buildingminds.com/de/digital-twin2/).
+
+**Nächste Prüfung:** verifizierte Preisangebote und direkte Praxisvergleiche (Tandem vs. eigener IFC-Raum/Sensor-Workflow); keine Preise erfinden.
+
+
 Neue Rechercheläufe werden **oben** eingetragen.
 
 ## 13. November 2026, ca. 09:10 MEZ – Erste verifizierte Wettbewerbsübersicht
