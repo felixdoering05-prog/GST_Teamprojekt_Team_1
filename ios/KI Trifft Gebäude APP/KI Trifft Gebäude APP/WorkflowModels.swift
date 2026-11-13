@@ -42,6 +42,8 @@ struct BuildingDraft: Codable {
     let id: UUID
     var name = ""
     var address = ""
+    var latitude: Double? = nil
+    var longitude: Double? = nil
     var step: BuildingStep = .name
     var building: Building?
     var files: [DraftUpload] = []
