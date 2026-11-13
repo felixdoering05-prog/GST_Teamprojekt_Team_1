@@ -130,6 +130,31 @@ struct PlanCalibration {
         return CGPoint(x: Double(mM.x) + c * dx - s * dy, y: Double(mM.y) + s * dx + c * dy)
     }
     func modelHeading(_ arHeading: Float) -> Double { Double(arHeading) + angle }
+    /// Inverse of `model(_:)`: plan point → AR floor coordinates (x, z).
+    func ar(_ model: CGPoint) -> CGPoint {
+        let c = cos(-angle), s = sin(-angle)
+        let arM = CGPoint(x: (arA.x + arB.x) / 2, y: (arA.y + arB.y) / 2), mM = CGPoint(x: (modelA.x + modelB.x) / 2, y: (modelA.y + modelB.y) / 2)
+        let dx = Double(model.x - mM.x), dy = Double(model.y - mM.y)
+        return CGPoint(x: Double(arM.x) + c * dx - s * dy, y: Double(arM.y) + s * dx + c * dy)
+    }
+}
+
+/// Simulated room climate for demos: a stable base per room plus a slow drift over time.
+/// Always presented with a "Simulation" label; these are not measurements.
+enum RoomClimateSim {
+    struct Values { let temperature: Double; let co2: Double; let humidity: Double }
+    private static func unit(_ id: Int, _ salt: Int) -> Double {
+        var h = UInt64(truncatingIfNeeded: id &* 2_654_435_761 &+ salt &* 40_503)
+        h ^= h >> 13; h = h &* 0x5bd1e995; h ^= h >> 15
+        return Double(h % 1000) / 1000
+    }
+    static func values(room id: Int, at date: Date = Date()) -> Values {
+        let t = date.timeIntervalSinceReferenceDate
+        let phase = unit(id, 9) * 2 * .pi
+        return Values(temperature: 20.5 + unit(id, 1) * 3 + 0.35 * sin(t / 90 + phase),
+                      co2: 450 + unit(id, 2) * 650 + 60 * sin(t / 70 + phase * 1.3),
+                      humidity: 38 + unit(id, 3) * 18 + 1.5 * sin(t / 110 + phase * 0.7))
+    }
 }
 
 struct RoomLocatorView: View {
@@ -149,6 +174,7 @@ struct RoomLocatorView: View {
     @State private var devices: [BuildingDevice] = []
     @State private var running = false
     @State private var snapNote: String?
+    @State private var showAR = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var floors: [(id: Int, name: String, base: Double)] { plan?.floors ?? [] }
@@ -167,7 +193,7 @@ struct RoomLocatorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if running { cameraCard }
+                if running && !showAR { cameraCard }
                 if plan == nil { setupCard } else { planCard; if calibration != nil { roomCard } }
                 if let problem { Label(problem, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange).padding(14).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 18) }
                 Label("Kamera und LiDAR werden nur auf dem iPhone ausgewertet. Es werden keine Bilder oder Positionen gespeichert oder hochgeladen.", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
@@ -176,6 +202,11 @@ struct RoomLocatorView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Wo bin ich?").navigationBarTitleDisplayMode(.inline)
         .overlay { if let modelURL, plan == nil { IFCWebView(modelURL: modelURL, onRooms: receive).frame(width: 2, height: 2).opacity(0.01).allowsHitTesting(false) } }
+        .fullScreenCover(isPresented: $showAR) {
+            if let calibration {
+                RoomARExperience(tracker: tracker, calibration: calibration, rooms: plan?.rooms ?? [], floors: floors, currentFloorID: currentFloor?.id, currentRoom: currentRoom) { showAR = false }
+            }
+        }
         .task { await loadModels() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { tracker.stop(); running = false } }
         .onDisappear { tracker.stop(); if let modelURL { try? FileManager.default.removeItem(at: modelURL.deletingLastPathComponent()) } }
@@ -316,6 +347,9 @@ struct RoomLocatorView: View {
                     Text(currentFloor?.name ?? "").font(.caption).foregroundStyle(.secondary)
                 }
             }
+            Button { showAR = true } label: {
+                Label("AR-Ansicht · Simulation", systemImage: "arkit").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+            }.buttonStyle(.borderedProminent).tint(.indigo)
             if let room = currentRoom {
                 let roomLamps = lamps.filter { $0.location?.space_id == room.id }
                 let roomDevices = devices.filter { $0.space_id == room.id }
@@ -330,28 +364,26 @@ struct RoomLocatorView: View {
     }
 }
 
-/// Clearly labelled simulated room climate, deterministic per room (no measurement).
+/// Clearly labelled simulated room climate (see RoomClimateSim).
 private struct SimulatedRoomValues: View {
     let room: LocatorRoom
-    private func value(_ salt: Int, _ low: Double, _ high: Double) -> Double {
-        var h = UInt64(truncatingIfNeeded: room.id &* 2_654_435_761 &+ salt &* 40_503)
-        h ^= h >> 13; h = h &* 0x5bd1e995; h ^= h >> 15
-        return low + Double(h % 1000) / 1000 * (high - low)
-    }
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Simulation · keine Messwerte", systemImage: "testtube.2").font(.caption.weight(.bold)).foregroundStyle(.orange)
-            HStack(spacing: 10) {
-                tile("thermometer.medium", value(1, 20.5, 23.5).formatted(.number.precision(.fractionLength(1))) + " °C", "Temperatur")
-                tile("aqi.medium", Int(value(2, 450, 1100)).formatted() + " ppm", "CO₂")
-                tile("humidity", Int(value(3, 38, 56)).formatted() + " %", "Feuchte")
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            let v = RoomClimateSim.values(room: room.id, at: context.date)
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Simulation · keine Messwerte", systemImage: "testtube.2").font(.caption.weight(.bold)).foregroundStyle(.orange)
+                HStack(spacing: 10) {
+                    tile("thermometer.medium", v.temperature.formatted(.number.precision(.fractionLength(1))) + " °C", "Temperatur")
+                    tile("aqi.medium", Int(v.co2).formatted() + " ppm", "CO₂")
+                    tile("humidity", Int(v.humidity).formatted() + " %", "Feuchte")
+                }
             }
         }
     }
     private func tile(_ symbol: String, _ text: String, _ title: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: symbol).foregroundStyle(d21Accent)
-            Text(text).font(.subheadline.weight(.bold)).monospacedDigit()
+            Text(text).font(.subheadline.weight(.bold)).monospacedDigit().contentTransition(.numericText())
             Text(title).font(.caption2).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(10).background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
