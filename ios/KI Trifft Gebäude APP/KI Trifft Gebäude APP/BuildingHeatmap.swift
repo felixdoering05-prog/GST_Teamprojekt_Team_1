@@ -15,7 +15,7 @@ struct BuildingHeatmapHome:View {
     @ObservedObject var account:AccountModel
     @State private var selected:Int?
     private var building:Building? {account.buildings.first{$0.id==selected} ?? account.buildings.first}
-    var body:some View {VStack(spacing:0){if let building {Picker("Gebäude",selection:Binding(get:{self.building?.id ?? 0},set:{selected=$0})){ForEach(account.buildings){Text($0.name).tag($0.id)}}.pickerStyle(.menu).padding(.horizontal);BuildingHeatmapView(account:account,building:building).id(building.id)}else{ContentUnavailableView("Noch kein Gebäude",systemImage:"thermometer.sun",description:Text("Lege ein Gebäude an oder nimm eine Einladung an."))}}.navigationTitle("Heatmap").navigationBarTitleDisplayMode(.inline)}
+    var body:some View {VStack(spacing:0){if let building {if account.buildings.count > 1 {Picker("Gebäude",selection:Binding(get:{self.building?.id ?? 0},set:{selected=$0})){ForEach(account.buildings){Text($0.name).tag($0.id)}}.pickerStyle(.menu).tint(d21Accent).padding(.horizontal)};BuildingHeatmapView(account:account,building:building).id(building.id)}else{ContentUnavailableView("Noch kein Gebäude",systemImage:"thermometer.sun",description:Text("Lege ein Gebäude an oder nimm eine Einladung an."))}}.navigationTitle("Heatmap").navigationBarTitleDisplayMode(.inline)}
 }
 struct BuildingHeatmapView:View {
     @ObservedObject var account:AccountModel
@@ -31,57 +31,167 @@ struct BuildingHeatmapView:View {
     @State private var previewDirectory:URL?
     private var sample:BuildingWeather.Hour? {guard let a=data?.weather?.hourly,!a.isEmpty else{return nil};return a[min(Int(hour),a.count-1)]}
     private func time(_ s:String)->String {guard let d=weatherDate(s) else{return s};return d.formatted(date:.abbreviated,time:.shortened)}
+    private var isOwner: Bool { building.is_owner != false }
+    private func symbol(_ w: BuildingWeather) -> String {
+        let cloud = w.current.cloud_cover ?? 50
+        return cloud < 20 ? "sun.max.fill" : cloud < 60 ? "cloud.sun.fill" : "cloud.fill"
+    }
+    private func hourLabel(_ s: String) -> String { weatherDate(s)?.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()) ?? s }
+
     var body:some View {
-        List {
-            Section {Text(building.name).font(.headline);Text("Regionale Wetterdaten als Grundlage. Die Einfärbung zeigt illustrative Oberflächentemperaturen, keine gemessenen Raumtemperaturen.").font(.footnote).foregroundStyle(.secondary)}
-            Section("Standort") {
-                if let p=data?.location {Label("Gebäudestandort hinterlegt",systemImage:"mappin.and.ellipse");Text("\(p.latitude,format:.number.precision(.fractionLength(4))), \(p.longitude,format:.number.precision(.fractionLength(4)))").font(.caption).foregroundStyle(.secondary)}else{Text("Für dieses Gebäude fehlt noch der Standort.")}
-                if building.is_owner != false {Button("Standort auswählen",systemImage:"map"){locationSheet=true}.disabled(busy)}
-            }
-            Section("Wetter") {
-                if let w=data?.weather {
-                    LabeledContent("Lufttemperatur",value:w.current.temperature.map{String(format:"%.1f °C",$0)} ?? "Keine Angabe")
-                    LabeledContent("Luftfeuchtigkeit",value:w.current.humidity.map{String(format:"%.0f %%",$0)} ?? "Keine Angabe")
-                    LabeledContent("Wind",value:w.current.wind_speed.map{String(format:"%.1f km/h",$0)} ?? "Keine Angabe")
-                    Text("Wettermodell: \(time(w.current.time))\nAbgerufen: \(time(w.fetched_at))").font(.caption).foregroundStyle(.secondary)
-                    Link(w.attribution,destination:URL(string:"https://open-meteo.com/")!)
-                }else{Text("Noch keine Wetterdaten geladen.").foregroundStyle(.secondary)}
-                Button(busy ? "Wird geladen …" : "Wetterdaten laden",systemImage:"arrow.clockwise"){Task{await refresh()}}.disabled(busy || data?.location==nil)
-                Text("Beim Laden wird der auf etwa 100 m gerundete Standort an Open-Meteo gesendet. Daten werden zwischengespeichert und mit dem Gebäudeteam geteilt. Keine IFC-Datei wird übertragen.").font(.caption).foregroundStyle(.secondary)
-            }
-            if let weather=data?.weather {
-                Section("Wärmeverteilung im Modell") {
-                    if !weather.hourly.isEmpty {Slider(value:$hour,in:0...Double(max(1,weather.hourly.count-1)),step:1);if let sample {Text(time(sample.time)).font(.subheadline);LabeledContent("Prognose Luft",value:sample.temperature.map{String(format:"%.1f °C",$0)} ?? "Kein Wert");LabeledContent("Sonneneinstrahlung",value:sample.radiation.map{String(format:"%.0f W/m²",$0)} ?? "Kein Wert")}}
-                    if documents.isEmpty {Text("Lade ein IFC-Modell in diese Gebäudemappe, um die Flächen einzufärben.").foregroundStyle(.secondary)}else {
-                        Picker("IFC-Modell",selection:$modelID){ForEach(documents){Text($0.name).tag(Optional($0.id))}}
-                        Button("3D-Heatmap öffnen",systemImage:"cube.transparent"){Task{await openModel()}}.disabled(busy || modelID==nil)
-                        if let id=modelID {NavigationLink("Weiße Karte & Platzierung prüfen"){ModelMapPlacementView(account:account,documentID:id)}}
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if data?.location == nil && !busy {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Standort fehlt", systemImage: "mappin.slash").font(.headline)
+                        Text("Für Wetter und Wärmeansicht braucht dein Gebäude einen Standort.").font(.subheadline).foregroundStyle(.secondary)
+                        if isOwner { Button { locationSheet = true } label: { Label("Standort festlegen", systemImage: "map") }.buttonStyle(.borderedProminent).tint(d21Accent) }
+                    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 22)
+                } else {
+                    weatherCard
+                    if let hours = data?.weather?.hourly, !hours.isEmpty { hourStrip(hours) }
+                    openButton
+                    legend
+                    HStack(spacing: 10) {
+                        NavigationLink { BuildingAssistantView(building: building, account: account, initialText: "Analysiere die gespeicherten Wetterdaten für dieses Gebäude. Nenne Quelle, Abrufzeit und Unsicherheiten. Welche allgemeinen Hinweise ergeben sich für Sonneneinstrahlung und Lüftung? Keine Raumtemperaturen oder Einsparungen erfinden.") } label: {
+                            tile("sparkles", "Mit KI besprechen", d21Accent)
+                        }.buttonStyle(BuildingTileButtonStyle()).disabled(data?.weather == nil)
+                        if isOwner { Button { locationSheet = true } label: { tile("mappin.and.ellipse", "Standort ändern", .orange) }.buttonStyle(BuildingTileButtonStyle()) }
                     }
-                    LinearGradient(colors:[.blue,.cyan,.green,.yellow,.orange,.red],startPoint:.leading,endPoint:.trailing).frame(height:10).clipShape(Capsule());HStack{Text("−10 °C");Spacer();Text("50 °C")}.font(.caption)
-                    Text("Feste Farbskala. Vereinfachte Erwärmung anhand Wettermodell, Sonneneinstrahlung und Flächenausrichtung; ohne reale Materialien oder Verschattungsprüfung.").font(.caption).foregroundStyle(.secondary)
                 }
-                Section("KI-Analyse") {NavigationLink{BuildingAssistantView(building:building,account:account,initialText:"Analysiere die gespeicherten Wetterdaten für dieses Gebäude. Nenne Quelle, Abrufzeit und Unsicherheiten. Welche allgemeinen Hinweise ergeben sich für Sonneneinstrahlung und Lüftung? Keine Raumtemperaturen oder Einsparungen erfinden.")}label:{Label("Wetter mit der KI besprechen",systemImage:"sparkles")};Text("Der private Gebäudeassistent erhält die zuletzt geladenen Wetterdaten nach deiner kontoweiten KI-Freigabe. Es werden keine eigenen Modelle trainiert.").font(.caption).foregroundStyle(.secondary)}
-            }
-            if let problem {Section{Text(problem).foregroundStyle(.red);Button("Erneut laden"){Task{await load()}}.disabled(busy)}}
+                if let problem {
+                    HStack { Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange); Text(problem).font(.footnote); Spacer(); Button("Neu laden") { Task { await load() } }.font(.footnote.weight(.semibold)) }
+                        .padding(14).d21Card(cornerRadius: 18)
+                }
+                DisclosureGroup("Hinweise & Datenquelle") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Regionale Wetterdaten von Open-Meteo. Beim Aktualisieren wird der auf etwa 100 m gerundete Standort gesendet; die Daten werden zwischengespeichert und mit dem Gebäudeteam geteilt. Keine IFC-Datei wird übertragen.")
+                        Text("Die Einfärbung zeigt illustrative Oberflächentemperaturen aus Wetter, Sonneneinstrahlung und Flächenausrichtung – keine gemessenen Raumtemperaturen, keine echten Materialien, keine Verschattungsprüfung.")
+                        if let w = data?.weather { Link(w.attribution, destination: URL(string: "https://open-meteo.com/")!) }
+                    }.font(.caption).foregroundStyle(.secondary).padding(.top, 6)
+                }.font(.subheadline).tint(.secondary).padding(14).d21Card(cornerRadius: 18)
+            }.padding(20)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .task{await load()}
         .refreshable{await load()}
         .sheet(isPresented:$locationSheet,onDismiss:{Task{await load()}}){BuildingLocationView(account:account,building:building,initial:data?.location)}
-        .sheet(item:$preview,onDismiss:{if let previewDirectory {try? FileManager.default.removeItem(at:previewDirectory)};previewDirectory=nil;preview=nil}){item in
+        .fullScreenCover(item:$preview,onDismiss:{if let previewDirectory {try? FileManager.default.removeItem(at:previewDirectory)};previewDirectory=nil;preview=nil}){item in
             heatModelView(item)
         }
     }
+
+    private var weatherCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(building.name).font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.8))
+                    if let t = data?.weather?.current.temperature {
+                        Text(t.formatted(.number.precision(.fractionLength(0))) + "°").font(.system(size: 64, weight: .thin, design: .rounded))
+                    } else { Text("–").font(.system(size: 64, weight: .thin, design: .rounded)) }
+                }
+                Spacer()
+                if let w = data?.weather { Image(systemName: symbol(w)).symbolRenderingMode(.multicolor).font(.system(size: 44)) }
+            }
+            HStack(spacing: 8) {
+                if let h = data?.weather?.current.humidity { chip("humidity.fill", "\(Int(h)) %") }
+                if let v = data?.weather?.current.wind_speed { chip("wind", v.formatted(.number.precision(.fractionLength(0))) + " km/h") }
+                Spacer(minLength: 0)
+                Button { Task { await refresh() } } label: {
+                    Label(busy ? "Lädt …" : "Aktualisieren", systemImage: "arrow.clockwise").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(.white.opacity(0.2), in: Capsule())
+                }.buttonStyle(.plain).disabled(busy || data?.location == nil)
+            }
+            if let w = data?.weather { Text("Wettermodell · " + time(w.current.time)).font(.caption2).foregroundStyle(.white.opacity(0.7)) }
+            else { Text("Tippe auf „Aktualisieren“, um Wetterdaten zu laden.").font(.caption).foregroundStyle(.white.opacity(0.85)) }
+        }
+        .foregroundStyle(.white).padding(20)
+        .background(LinearGradient(colors: [Color(red: 0.13, green: 0.42, blue: 0.75), Color(red: 0.36, green: 0.62, blue: 0.86)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+
+    private func hourStrip(_ hours: [BuildingWeather.Hour]) -> some View {
+        let maxRadiation = max(hours.compactMap(\.radiation).max() ?? 1, 1)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Zeitpunkt für die Wärmeansicht").font(.subheadline.weight(.semibold))
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(hours.prefix(48).enumerated()), id: \.offset) { index, h in
+                            let selected = Int(hour) == index
+                            Button { hour = Double(index) } label: {
+                                VStack(spacing: 6) {
+                                    Text(hourLabel(h.time)).font(.caption2.weight(.semibold))
+                                    Text(h.temperature.map { $0.formatted(.number.precision(.fractionLength(0))) + "°" } ?? "–").font(.subheadline.weight(.bold))
+                                    Capsule().fill(Color.orange.opacity(0.85)).frame(width: 6, height: 4 + 26 * CGFloat((h.radiation ?? 0) / maxRadiation)).frame(height: 30, alignment: .bottom)
+                                }
+                                .frame(width: 52).padding(.vertical, 10)
+                                .foregroundStyle(selected ? .white : .primary)
+                                .background(selected ? AnyShapeStyle(d21Accent.gradient) : AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground)), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }.buttonStyle(.plain).id(index).accessibilityLabel("\(hourLabel(h.time)), \(h.temperature.map { String(Int($0)) } ?? "kein Wert") Grad")
+                        }
+                    }
+                }.onAppear { proxy.scrollTo(Int(hour), anchor: .center) }
+            }
+            Label("Balken = Sonneneinstrahlung", systemImage: "sun.max").font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private var openButton: some View {
+        Button { Task { await openModel() } } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "cube.transparent.fill").font(.title2).foregroundStyle(.white).frame(width: 50, height: 50)
+                    .background(LinearGradient(colors: [.blue, .orange, .red], startPoint: .bottomLeading, endPoint: .topTrailing), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("3D-Wärmeansicht öffnen").font(.headline)
+                    Text(documents.isEmpty ? "Lade zuerst ein IFC-Modell in die Gebäudemappe" : (documents.first { $0.id == modelID }?.name ?? "")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if busy { ProgressView() } else { Image(systemName: "chevron.right").foregroundStyle(.tertiary) }
+            }.padding(14).d21Card(cornerRadius: 22)
+        }
+        .buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
+        .disabled(busy || modelID == nil || data?.weather == nil)
+        .contextMenu { if documents.count > 1 { ForEach(documents) { d in Button(d.name) { modelID = d.id } } } }
+    }
+
+    private var legend: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LinearGradient(colors:[.blue,.cyan,.green,.yellow,.orange,.red],startPoint:.leading,endPoint:.trailing).frame(height:8).clipShape(Capsule())
+            HStack { Text("−10 °C"); Spacer(); Text("Oberflächen, illustrativ"); Spacer(); Text("50 °C") }.font(.caption2).foregroundStyle(.secondary)
+        }.padding(.horizontal, 4)
+    }
+
+    private func chip(_ symbol: String, _ text: String) -> some View {
+        Label(text, systemImage: symbol).font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(.white.opacity(0.18), in: Capsule())
+    }
+    private func tile(_ symbol: String, _ title: String, _ color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(color).frame(width: 36, height: 36).background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            Text(title).font(.subheadline.weight(.semibold)).lineLimit(2).multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }.padding(12).frame(maxWidth: .infinity).d21Card(cornerRadius: 18).foregroundStyle(.primary)
+    }
+
     private func heatModelView(_ item:DocumentPreview)->some View {
         NavigationStack {
-            VStack(spacing:8) {
-                if let weather=data?.weather, !weather.hourly.isEmpty {
-                    if let sample {Text(time(sample.time)).font(.caption).foregroundStyle(.secondary)}
-                    Slider(value:$hour,in:0...Double(max(1,weather.hourly.count-1)),step:1).padding(.horizontal)
+            IFCWebView(modelURL:item.url,heat:HeatPresentation(temperature:sample?.temperature,radiation:sample?.radiation,hour:Double(Calendar.current.component(.hour,from:weatherDate(sample?.time ?? "") ?? Date()))),account:account,buildingID:building.id,documentID:item.document.id)
+                .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .bottom) {
+                    if let weather = data?.weather, !weather.hourly.isEmpty {
+                        VStack(spacing: 8) {
+                            HStack {
+                                if let sample { Label(time(sample.time), systemImage: "clock").font(.caption.weight(.semibold)) }
+                                Spacer()
+                                if let t = sample?.temperature { Text(t.formatted(.number.precision(.fractionLength(1))) + " °C").font(.caption.weight(.bold)) }
+                                if let r = sample?.radiation { Label(Int(r).formatted() + " W/m²", systemImage: "sun.max.fill").font(.caption.weight(.semibold)).foregroundStyle(.orange) }
+                            }
+                            Slider(value:$hour,in:0...Double(max(1,weather.hourly.count-1)),step:1).tint(.orange)
+                            LinearGradient(colors:[.blue,.cyan,.green,.yellow,.orange,.red],startPoint:.leading,endPoint:.trailing).frame(height:5).clipShape(Capsule())
+                        }
+                        .padding(14).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous)).padding(.horizontal, 14).padding(.bottom, 20)
+                    }
                 }
-                IFCWebView(modelURL:item.url,heat:HeatPresentation(temperature:sample?.temperature,radiation:sample?.radiation,hour:Double(Calendar.current.component(.hour,from:weatherDate(sample?.time ?? "") ?? Date()))),account:account,buildingID:building.id,documentID:item.document.id)
-            }
-            .navigationTitle("Heatmap · \(building.name)").navigationBarTitleDisplayMode(.inline)
-            .toolbar{Button("Fertig"){preview=nil}}
+                .navigationTitle(building.name).navigationBarTitleDisplayMode(.inline)
+                .toolbar{ToolbarItem(placement:.confirmationAction){Button("Fertig"){preview=nil}}}
         }
     }
     private func load() async {guard !busy else{return};busy=true;defer{busy=false};do{let value:BuildingWeatherReply=try await account.request("buildings/\(building.id)/weather");let docs=try await account.documents(buildingID:building.id);guard !Task.isCancelled else{return};data=value;documents=docs.filter{$0.mime_type=="application/x-step"};if !documents.contains(where:{$0.id==modelID}){modelID=documents.first?.id};problem=nil}catch{problem=error.localizedDescription}}

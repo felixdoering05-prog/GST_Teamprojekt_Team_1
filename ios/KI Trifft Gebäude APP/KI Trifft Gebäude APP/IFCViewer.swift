@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import WebKit
+import MapKit
 import UniformTypeIdentifiers
 
 struct IFCLibraryView: View {
@@ -161,10 +162,103 @@ struct IFCStoredModelView: View {
     var buildingID: Int? = nil
     var documentID: Int? = nil
     @State private var showMap = false
+    @State private var autoPlace = false
+    @State private var canAlign = false
+    @State private var canRotate = false
+    @State private var rotating = false
+    @State private var rotationProblem: String?
+    @State private var reload = 0
+    @StateObject private var viewer = IFCViewerController()
     var body: some View {
-        IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID, documentID: documentID)
-        .toolbar { if let account, let documentID, account.buildings.first(where:{$0.id==buildingID})?.is_owner != false { ToolbarItem(placement:.topBarTrailing) { Button("Kartenumgebung",systemImage:"map") {showMap=true} } } }
-        .sheet(isPresented:$showMap) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
+        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID, controller: viewer).id(reload)
+        .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: viewer, commands: account != nil && buildingID != nil).padding(12) }
+        .overlay(alignment: .bottom) {
+            if canAlign {
+                Button { autoPlace = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "map.fill").font(.title3).foregroundStyle(.white).frame(width: 40, height: 40).background(d21Accent.gradient, in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auf Karte ausrichten").font(.subheadline.weight(.semibold))
+                            Text("Straßen, Nachbargebäude und Schatten anzeigen").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "sparkles").foregroundStyle(d21Accent)
+                    }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }.buttonStyle(.plain).padding(.horizontal, 16).padding(.bottom, 56)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .toolbar {
+            if account != nil, documentID != nil, account?.buildings.first(where:{$0.id==buildingID})?.is_owner != false {
+                ToolbarItem(placement:.topBarTrailing) {
+                    Menu {
+                        if canRotate {
+                            Section("Ausrichtung korrigieren") {
+                                Button("90° nach rechts drehen", systemImage: "rotate.right") { Task { await rotate(by: 90) } }
+                                Button("90° nach links drehen", systemImage: "rotate.left") { Task { await rotate(by: -90) } }
+                                Button("Um 180° drehen", systemImage: "arrow.triangle.2.circlepath") { Task { await rotate(by: 180) } }
+                            }
+                        }
+                        Button("Kartenumgebung bearbeiten", systemImage: "map") { showMap = true }
+                    } label: { if rotating { ProgressView() } else { Image(systemName: "map") } }
+                    .disabled(rotating).accessibilityLabel("Karte und Ausrichtung")
+                }
+            }
+        }
+        .alert("Ausrichtung", isPresented: Binding(get: { rotationProblem != nil }, set: { if !$0 { rotationProblem = nil } })) { Button("OK", role: .cancel) {} } message: { Text(rotationProblem ?? "") }
+        .sheet(isPresented:$showMap, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
+        .sheet(isPresented:$autoPlace, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID,autoStart:true)}}
+        .task { await checkPlacement() }
+    }
+    /// Turns the saved placement (map vs. model) by a quarter or half turn; fixes the 90°/180° ambiguity
+    /// of the automatic outline match. The existing map data is kept.
+    private func rotate(by delta: Double) async {
+        guard let account, let documentID, !rotating else { return }
+        rotating = true; defer { rotating = false }
+        do {
+            let current: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view")
+            guard let view = current.map_view else { return }
+            let heading = (view.heading + delta).truncatingRemainder(dividingBy: 360)
+            let saved: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view", method: "PUT", body: ["latitude": view.latitude, "longitude": view.longitude, "heading": heading < 0 ? heading + 360 : heading, "meters_per_unit": view.meters_per_unit, "revision": view.revision])
+            if saved.map_view?.loaded_at == nil, let revision = saved.map_view?.revision {
+                let _: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view/load", method: "POST", body: ["revision": revision], timeout: 30)
+            }
+            reload += 1
+        } catch { rotationProblem = error.localizedDescription }
+    }
+    /// Offers one-tap alignment when the model has no map placement yet and the person may edit it.
+    private func checkPlacement() async {
+        guard let account, let documentID else { return }
+        do {
+            let meta: GeoreferenceMetadata = try await account.request("documents/\(documentID)/georeference")
+            let value: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view")
+            withAnimation { canAlign = meta.can_edit && value.map_view?.loaded_at == nil }
+            canRotate = meta.can_edit && value.map_view != nil
+        } catch { canAlign = false }
+    }
+}
+
+/// Three small glass buttons instead of a text toolbar inside the model.
+struct IFCFloatingControls: View {
+    @ObservedObject var viewer: IFCViewerController
+    var commands = true
+    var body: some View {
+        VStack(spacing: 10) {
+            button("scope", "Gesamtansicht") { viewer.click("fit") }
+            button("square.dashed", "Draufsicht") { viewer.click("top") }
+            Menu {
+                Button("Alles anzeigen", systemImage: "eye") { viewer.click("show-all") }
+                Button("Farben zurücksetzen", systemImage: "paintbrush") { viewer.click("reset-colors") }
+                if commands { Button("KI-Modellbefehle", systemImage: "sparkles") { viewer.click("command-open") } }
+            } label: { icon("ellipsis") }.accessibilityLabel("Weitere Werkzeuge")
+        }
+    }
+    private func icon(_ symbol: String) -> some View {
+        Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(.primary).frame(width: 44, height: 44)
+            .background(.ultraThinMaterial, in: Circle()).shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+    }
+    private func button(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { icon(symbol) }.buttonStyle(.plain).accessibilityLabel(label)
     }
 }
 
@@ -172,6 +266,7 @@ struct IFCStoredModelView: View {
 struct IFCViewer: View {
     var smartHome = false
     @StateObject private var files = IFCTemporaryFiles()
+    @StateObject private var localViewer = IFCViewerController()
     @State private var importing = false
     @State private var modelURL: URL?
     @State private var modelName = ""
@@ -180,7 +275,8 @@ struct IFCViewer: View {
     var body: some View {
         VStack(spacing: 0) {
             if let modelURL {
-                IFCWebView(modelURL: modelURL, smartHome: smartHome).id(modelURL)
+                IFCWebView(modelURL: modelURL, smartHome: smartHome, controller: localViewer).id(modelURL)
+                    .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: localViewer, commands: false).padding(12) }
                 Text(modelName).font(.caption).lineLimit(1).padding(8)
             } else {
                 ContentUnavailableView {
@@ -238,6 +334,15 @@ private enum IFCError: LocalizedError {
     var errorDescription: String? { switch self { case let .message(text): return text } }
 }
 
+/// Lets native SwiftUI buttons drive the web viewer (fit, top view, show all, reset colours, commands).
+@MainActor final class IFCViewerController: ObservableObject {
+    weak var web: WKWebView?
+    func click(_ id: String) {
+        guard id.allSatisfy({ $0.isLetter || $0 == "-" }) else { return }
+        web?.evaluateJavaScript("document.getElementById('\(id)')?.click()")
+    }
+}
+
 struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
     var heat: HeatPresentation? = nil
@@ -247,6 +352,7 @@ struct IFCWebView: UIViewRepresentable {
     var documentID: Int? = nil
     /// Rooms mode: only reads IfcSpace footprints and hands them over as JSON (no rendering).
     var onRooms: ((Data) -> Void)? = nil
+    var controller: IFCViewerController? = nil
     func makeCoordinator() -> Coordinator { let c = Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat); c.onRooms = onRooms; return c }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -257,6 +363,7 @@ struct IFCWebView: UIViewRepresentable {
         if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
+        controller?.web = web
         web.navigationDelegate = context.coordinator
         web.isOpaque = false
         web.scrollView.isScrollEnabled = false
@@ -334,6 +441,25 @@ struct IFCWebView: UIViewRepresentable {
             }
             let revision: Int; let state: State; let device_lights: [DeviceLight]?; let map_view: MapView?
         }
+        private var groundKey: String?
+        /// Renders a north-up Apple Maps image around the model's anchor and hands it to the viewer as ground.
+        @MainActor func sendGround(_ view: SceneReply.MapView, to web: WKWebView) async {
+            let key = String(format: "%.6f,%.6f", view.latitude, view.longitude)
+            guard groundKey != key else { return }
+            groundKey = key
+            let metres = 260.0
+            let options = MKMapSnapshotter.Options()
+            options.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: view.latitude, longitude: view.longitude),
+                                                span: MKCoordinateSpan(latitudeDelta: metres / 111_320, longitudeDelta: metres / (111_320 * cos(view.latitude * .pi / 180))))
+            options.size = CGSize(width: 1024, height: 1024); options.scale = 2
+            options.pointOfInterestFilter = .excludingAll
+            options.mapType = .mutedStandard
+            options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
+            guard let snapshot = try? await MKMapSnapshotter(options: options).start(), let png = snapshot.image.jpegData(compressionQuality: 0.85) else { groundKey = nil; return }
+            // Square image over a square region: the image covers `metres` on each side.
+            let actual = metres
+            _ = try? await web.callAsyncJavaScript("window.d21SetGround?.(url, metres)", arguments: ["url": "data:image/jpeg;base64," + png.base64EncodedString(), "metres": actual], in: nil, contentWorld: .page)
+        }
         func sceneRequest(_ message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
                   let body = message.body as? [String:Any], let id = body["id"] as? String, id.count <= 100,
@@ -347,6 +473,7 @@ struct IFCWebView: UIViewRepresentable {
                     guard !Task.isCancelled else { return }
                     let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result))
                     _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, result, null)", arguments:["id":id,"result":json], in:nil, contentWorld:.page)
+                    if let view = result.map_view { await self.sendGround(view, to: web) }
                 } catch {
                     guard !Task.isCancelled else { return }
                     _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, null, error)", arguments:["id":id,"error":error.localizedDescription], in:nil, contentWorld:.page)

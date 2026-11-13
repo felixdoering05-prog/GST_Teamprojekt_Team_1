@@ -1,6 +1,7 @@
 import {placementGeometry} from './placement-geometry.js';
 import {mountNativeHeat} from './heat.js';
 import { mountMapEnvironment } from './map-environment.js';
+import { displaySun } from './sun.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -62,7 +63,7 @@ async function open() {
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
   if (roomsMode) { window.webkit?.messageHandlers?.ifcRooms?.postMessage(roomFootprints(api, modelID)); report('ready:rooms'); return; }
   scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#ffffff');
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5d6b75, 2.1));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
   root = new THREE.Group(); scene.add(root);
   let vertices = 0, meshes = 0;
@@ -105,11 +106,14 @@ async function open() {
   if(placementMode){const geometry=placementGeometry(root,bounds,api.GetCoordinationMatrix(modelID));window.webkit?.messageHandlers?.ifcPlacement?.postMessage(geometry);report('ready:placement');return;}
   root.position.sub(center);
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
-  camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, span / 10000, span * 100);
+  // Near/far chosen for depth precision: tiny near planes make stacked ground layers flicker (z-fighting).
+  camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, Math.max(span / 500, .05), span * 40);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+  // The scene is static while the camera moves: compute shadows only when something changes.
+  renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.setSize(innerWidth, innerHeight);
   document.querySelector('#scene').append(renderer.domElement);
   root.updateMatrixWorld(true);
   const centeredBounds = new THREE.Box3().setFromObject(root);
@@ -136,7 +140,33 @@ async function open() {
   }); observer.observe(document.body);
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
   const render = () => renderer.render(scene, camera);
-  const applyMap = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
+  const refreshShadows = () => { renderer.shadowMap.needsUpdate = true; render(); };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mapBase = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
+  // Sun from the building's location: realistic shadow direction; the map group is rotated by the heading.
+  function setSun(view) {
+    const sun = displaySun(view.latitude, view.longitude), unit = view.meters_per_unit || 1;
+    const dir = new THREE.Vector3(Math.sin(sun.azimuth) * Math.cos(sun.altitude), Math.sin(sun.altitude), -Math.cos(sun.azimuth) * Math.cos(sun.altitude))
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), view.heading * Math.PI / 180);
+    const reach = Math.max(span * 1.6, 60 / unit);
+    light.position.copy(dir.multiplyScalar(reach * 2)); light.target.position.set(0, 0, 0); scene.add(light.target);
+    Object.assign(light.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: .1, far: reach * 5 });
+    light.shadow.mapSize.set(2048, 2048); light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.camera.updateProjectionMatrix();
+    light.intensity = sun.live ? 2.8 : 2.4; refreshShadows();
+  }
+  const applyMap = view => { mapBase(view); if (view && Number.isFinite(view.latitude)) setSun(view); else refreshShadows(); };
+  window.d21SetGround = (url, metres) => { mapBase.setGround(url, metres, () => { ground.visible = false; refreshShadows(); }); };
+  // Gentle motion: fly in once, then orbit slowly until the person touches the model.
+  let orbiting = false;
+  function tick() { if (!orbiting || destroyed) return; controls.update(); render(); requestAnimationFrame(tick); }
+  function startOrbit() { if (reduceMotion || heatMode || previewMode) return; controls.autoRotate = true; controls.autoRotateSpeed = .3; orbiting = true; requestAnimationFrame(tick); setTimeout(() => { orbiting = false; controls.autoRotate = false; }, 25000); }
+  controls.addEventListener('start', () => { orbiting = false; controls.autoRotate = false; });
+  if (!reduceMotion && !heatMode) {
+    const end = camera.position.clone(), startPos = end.clone().multiplyScalar(1.9).add(new THREE.Vector3(0, span * .6, 0)), t0 = performance.now();
+    camera.position.copy(startPos);
+    const fly = now => { if (destroyed) return; const k = Math.min(1, (now - t0) / 1800), e = 1 - Math.pow(1 - k, 3); camera.position.lerpVectors(startPos, end, e); controls.update(); render(); if (k < 1 && !orbiting) requestAnimationFrame(fly); else startOrbit(); };
+    requestAnimationFrame(fly);
+  }
   const text = value => typeof value?.value === 'string' ? value.value : '';
   function updateSelection() {
     if(heatMode)return;
@@ -148,7 +178,7 @@ async function open() {
       document.querySelector('#color').value = '#' + appearance.elements.get(id)[0].material.color.getHexString();
     }
     document.querySelector('#show-all').textContent = appearance.hiddenCount ? `Alles anzeigen (${appearance.hiddenCount})` : 'Alles anzeigen';
-    render();
+    renderer.shadowMap.needsUpdate = true; render();
   }
   let synchronization; const roomLights = new Map();
   const changed = operation => synchronization?.change(operation);
@@ -244,7 +274,8 @@ async function open() {
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);
   document.querySelector('#command-execute').disabled = true;
-  if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
+  // The smart-home overlay is retired from the viewer; device control lives under Geräte.
+  document.querySelector('#modes')?.remove(); document.querySelector('#home')?.remove();
   if(heatMode)mountNativeHeat(root,render,applyMap);
   else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   status.hidden = true;

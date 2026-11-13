@@ -321,6 +321,10 @@ struct BuildingDetailView: View {
                     Button("Gebäudeverwaltung", systemImage: "slider.horizontal.3") { managing = true }
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
                     Button("Dateien", systemImage: "folder") { open("Dateien") }
+                    if isOwner {
+                        Divider()
+                        Button("Gebäude löschen", systemImage: "trash", role: .destructive) { confirmDeletion = true }
+                    }
                 } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Gebäude verwalten")
             }
         }
@@ -328,6 +332,9 @@ struct BuildingDetailView: View {
         .onChange(of: model.buildings) { _, all in if !all.contains(where: { $0.id == building.id }) { dismiss() } }
         .sheet(isPresented: $sharing) { BuildingSharingView(building: building, account: model) }
         .sheet(isPresented: $managing) { management }
+        .confirmationDialog("„\(name)“ endgültig löschen?", isPresented: Binding(get: { confirmDeletion && !managing }, set: { if !$0 { confirmDeletion = false } }), titleVisibility: .visible) {
+            Button("Gebäude und zugehörige Daten löschen", role: .destructive) { Task { await deleteBuilding() } }
+        } message: { Text("Alle Mitglieder verlieren den Zugriff. Dateien und Chat-/KI-Verläufe dieses Gebäudes werden entfernt. Das kann in der App nicht rückgängig gemacht werden.") }
     }
     @ViewBuilder private var content: some View {
         switch section {
@@ -373,14 +380,21 @@ struct BuildingDetailView: View {
     }
     private func deleteBuilding() async {
         guard !deleting, isOwner else { return }; deleting = true; defer { deleting = false }
-        do {
-            let _: LogoutResult = try await model.request("buildings/\(building.id)", method: "DELETE", body: ["confirmation":"DELETE"])
-            try? model.draftStore(buildingID: building.id)?.clear()
-            if let store = model.draftStore(), let draft = try? store.load(), draft.building?.id == building.id { try? store.clear() }
-            managing = false; model.buildings.removeAll { $0.id == building.id }; await model.loadBuildings(); dismiss()
-        } catch { problem = error.localizedDescription }
+        do { try await model.deleteOwnedBuilding(building); managing = false; dismiss() }
+        catch { problem = error.localizedDescription }
     }
 }
+extension AccountModel {
+    /// Deletes a building the account owns (server checks session and ownership) and clears local drafts.
+    func deleteOwnedBuilding(_ building: Building) async throws {
+        let _: LogoutResult = try await request("buildings/\(building.id)", method: "DELETE", body: ["confirmation": "DELETE"])
+        try? draftStore(buildingID: building.id)?.clear()
+        if let store = draftStore(), let draft = try? store.load(), draft.building?.id == building.id { try? store.clear() }
+        buildings.removeAll { $0.id == building.id }
+        await loadBuildings()
+    }
+}
+
 struct BuildingSharingView: View {
     let building: Building
     @ObservedObject var account: AccountModel

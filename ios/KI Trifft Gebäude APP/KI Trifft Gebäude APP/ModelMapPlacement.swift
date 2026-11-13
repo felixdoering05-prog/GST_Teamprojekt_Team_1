@@ -11,6 +11,8 @@ struct GeoreferenceProposal:Decodable {let latitude:Double?;let longitude:Double
 struct ModelMapPlacementView: View {
     @ObservedObject var account:AccountModel
     let documentID:Int
+    /// Runs the automatic placement right after the model was measured and closes on success.
+    var autoStart = false
     @Environment(\.dismiss) private var dismiss
     @State private var region=MKCoordinateRegion(center:CLLocationCoordinate2D(latitude:50.9,longitude:10.4),span:MKCoordinateSpan(latitudeDelta:6,longitudeDelta:6))
     @State private var search=""
@@ -49,10 +51,10 @@ struct ModelMapPlacementView: View {
                 }}.disabled(busy || !canEdit)
                 if let result {Section{Text(result).foregroundStyle(d21Accent)}}
                 if let problem {Section{Text(problem).foregroundStyle(.red)}}
-            }.navigationTitle("Modell auf Karte").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(autoStart ? "Wird ausgerichtet …" : "Modell auf Karte").navigationBarTitleDisplayMode(.inline)
             .toolbar{Button("Fertig"){dismiss()}.disabled(busy)}
             .interactiveDismissDisabled(busy)
-            .background {if let preview {PlacementProbe(url:preview.url){value in geometry=value;self.preview=nil;try? FileManager.default.removeItem(at:preview.url.deletingLastPathComponent());Task{await updateProposal();preparing=false}}.frame(width:1,height:1).opacity(0)}}
+            .background {if let preview {PlacementProbe(url:preview.url){value in geometry=value;self.preview=nil;try? FileManager.default.removeItem(at:preview.url.deletingLastPathComponent());Task{await updateProposal();preparing=false;if autoStart{await autoPlace();if problem == nil{dismiss()}}}}.frame(width:1,height:1).opacity(0)}}
             .onDisappear{if let preview{try? FileManager.default.removeItem(at:preview.url.deletingLastPathComponent())}}
             .task {busy=true;defer{busy=false};do {
                 let meta:GeoreferenceMetadata=try await account.request("documents/\(documentID)/georeference");canEdit=meta.can_edit;search=meta.address;originalSearch=meta.address
@@ -61,6 +63,7 @@ struct ModelMapPlacementView: View {
                 else if let point=value.building_location {region.center=CLLocationCoordinate2D(latitude:point.latitude,longitude:point.longitude);hasLocation=true}
                 if hasLocation {region.span=MKCoordinateSpan(latitudeDelta:0.002,longitudeDelta:0.002)}
                 if canEdit {preview=try await account.previewDocument(meta.document)}else{preparing=false}
+                if autoStart && !canEdit {problem="Nur der Eigentümer kann das Modell auf der Karte ausrichten."}
             }catch{problem=error.localizedDescription;preparing=false}}
 
         }

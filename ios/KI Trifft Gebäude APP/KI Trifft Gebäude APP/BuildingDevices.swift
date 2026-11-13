@@ -116,17 +116,7 @@ struct BuildingDevicesView: View {
                         Button { connecting = true } label: { Label("Gerät verbinden", systemImage: "link") }.buttonStyle(.borderedProminent).tint(d21Accent)
                     }.padding(24).frame(maxWidth: .infinity).d21Card(cornerRadius: 24)
                 }
-                NavigationLink { IFCLibraryView(model: account, smartHome: true, buildingID: building.id) } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "cube.transparent").font(.body.weight(.semibold)).foregroundStyle(.indigo).frame(width: 40, height: 40).background(Color.indigo.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Raumlicht im 3D-Modell").font(.subheadline.weight(.semibold))
-                            Text("Lampen einem IFC-Raum zuordnen und dort in der bestätigten Farbe sehen").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                    }.padding(14).d21Card(cornerRadius: 20)
-                }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
+
             }.padding(20)
         }
         .background(Color(uiColor: .systemGroupedBackground))
