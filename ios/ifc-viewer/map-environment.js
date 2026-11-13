@@ -21,7 +21,7 @@ export function mountMapEnvironment(scene,groundY,render){
    if(!coords.some(p=>Math.abs(p[0]*view.meters_per_unit)<=50&&Math.abs(p[1]*view.meters_per_unit)<=50))continue;
    if(feature.kind==='road'){
     for(let i=1;i<coords.length;i++){const a=coords[i-1],b=coords[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);if(length<.001)continue;
-     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#f1f3f5':'#e2e6eb',roughness:1}));road.position.set((a[0]+b[0])/2,.02/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
+     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#f4f5f6':'#fdfdfd',roughness:1}));road.position.set((a[0]+b[0])/2,.02/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
     }
    }else{
     // Omit the footprint containing the model's anchor; the IFC supplies that building.
@@ -29,21 +29,22 @@ export function mountMapEnvironment(scene,groundY,render){
     if(feature.kind==='building'&&contains)continue;
     const shape=new THREE.Shape(coords.map(p=>new THREE.Vector2(p[0],-p[1])));
     const geometry=feature.kind==='building'?new THREE.ExtrudeGeometry(shape,{depth:feature.height/unit,bevelEnabled:false}):new THREE.ShapeGeometry(shape);
-    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#f5f6f7':'#eef3ef',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
+    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#c3c9d1':'#cfdccf',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
    }
   }
   scene.add(group);
   const attribution=document.createElement('a');attribution.href='https://www.openstreetmap.org/copyright';attribution.textContent='© OpenStreetMap-Mitwirkende';attribution.target='_blank';attribution.rel='noopener';note.append(attribution,document.createTextNode(' · Umgebung vereinfacht; fehlende Höhen geschätzt · Position manuell'));render();
  };
- apply.setGround=(url,metres)=>{
+ apply.setGround=(url,metres,changed=render)=>{
   // North-up map image (Apple Maps snapshot from the app) as ground under the model; receives shadows.
   if(!lastView||!Number.isFinite(metres)||metres<=0){pendingGround=[url,metres];return;}
   const size=metres/lastView.meters_per_unit;
   new THREE.TextureLoader().load(url,texture=>{
    texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
    if(groundMesh){groundMesh.geometry.dispose();groundMesh.material.map?.dispose();groundMesh.material.dispose();groundMesh.removeFromParent();}
-   groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshLambertMaterial({map:texture}));
-   groundMesh.rotation.x=-Math.PI/2;groundMesh.receiveShadow=true;placeGround();
+   // Slightly darkened map so the white model stands out.
+   groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshLambertMaterial({map:texture,color:0xcfd3d6}));
+   groundMesh.rotation.x=-Math.PI/2;groundMesh.receiveShadow=true;placeGround();changed();
    if(!note.querySelector('.ground-credit')){const credit=document.createElement('span');credit.className='ground-credit';credit.textContent=' · Kartenboden: Apple Karten';note.append(credit);}
   });
  };

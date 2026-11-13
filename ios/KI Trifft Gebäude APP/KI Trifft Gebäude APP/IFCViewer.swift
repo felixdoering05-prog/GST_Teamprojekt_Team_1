@@ -164,6 +164,9 @@ struct IFCStoredModelView: View {
     @State private var showMap = false
     @State private var autoPlace = false
     @State private var canAlign = false
+    @State private var canRotate = false
+    @State private var rotating = false
+    @State private var rotationProblem: String?
     @State private var reload = 0
     var body: some View {
         IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID).id(reload)
@@ -183,10 +186,43 @@ struct IFCStoredModelView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .toolbar { if let account, let documentID, account.buildings.first(where:{$0.id==buildingID})?.is_owner != false { ToolbarItem(placement:.topBarTrailing) { Button("Kartenumgebung",systemImage:"map") {showMap=true} } } }
+        .toolbar {
+            if account != nil, documentID != nil, account?.buildings.first(where:{$0.id==buildingID})?.is_owner != false {
+                ToolbarItem(placement:.topBarTrailing) {
+                    Menu {
+                        if canRotate {
+                            Section("Ausrichtung korrigieren") {
+                                Button("90° nach rechts drehen", systemImage: "rotate.right") { Task { await rotate(by: 90) } }
+                                Button("90° nach links drehen", systemImage: "rotate.left") { Task { await rotate(by: -90) } }
+                                Button("Um 180° drehen", systemImage: "arrow.triangle.2.circlepath") { Task { await rotate(by: 180) } }
+                            }
+                        }
+                        Button("Kartenumgebung bearbeiten", systemImage: "map") { showMap = true }
+                    } label: { if rotating { ProgressView() } else { Image(systemName: "map") } }
+                    .disabled(rotating).accessibilityLabel("Karte und Ausrichtung")
+                }
+            }
+        }
+        .alert("Ausrichtung", isPresented: Binding(get: { rotationProblem != nil }, set: { if !$0 { rotationProblem = nil } })) { Button("OK", role: .cancel) {} } message: { Text(rotationProblem ?? "") }
         .sheet(isPresented:$showMap, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
         .sheet(isPresented:$autoPlace, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID,autoStart:true)}}
         .task { await checkPlacement() }
+    }
+    /// Turns the saved placement (map vs. model) by a quarter or half turn; fixes the 90°/180° ambiguity
+    /// of the automatic outline match. The existing map data is kept.
+    private func rotate(by delta: Double) async {
+        guard let account, let documentID, !rotating else { return }
+        rotating = true; defer { rotating = false }
+        do {
+            let current: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view")
+            guard let view = current.map_view else { return }
+            let heading = (view.heading + delta).truncatingRemainder(dividingBy: 360)
+            let saved: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view", method: "PUT", body: ["latitude": view.latitude, "longitude": view.longitude, "heading": heading < 0 ? heading + 360 : heading, "meters_per_unit": view.meters_per_unit, "revision": view.revision])
+            if saved.map_view?.loaded_at == nil, let revision = saved.map_view?.revision {
+                let _: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view/load", method: "POST", body: ["revision": revision], timeout: 30)
+            }
+            reload += 1
+        } catch { rotationProblem = error.localizedDescription }
     }
     /// Offers one-tap alignment when the model has no map placement yet and the person may edit it.
     private func checkPlacement() async {
@@ -195,6 +231,7 @@ struct IFCStoredModelView: View {
             let meta: GeoreferenceMetadata = try await account.request("documents/\(documentID)/georeference")
             let value: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view")
             withAnimation { canAlign = meta.can_edit && value.map_view?.loaded_at == nil }
+            canRotate = meta.can_edit && value.map_view != nil
         } catch { canAlign = false }
     }
 }
@@ -377,6 +414,7 @@ struct IFCWebView: UIViewRepresentable {
                                                 span: MKCoordinateSpan(latitudeDelta: metres / 111_320, longitudeDelta: metres / (111_320 * cos(view.latitude * .pi / 180))))
             options.size = CGSize(width: 1024, height: 1024); options.scale = 2
             options.pointOfInterestFilter = .excludingAll
+            options.mapType = .mutedStandard
             options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
             guard let snapshot = try? await MKMapSnapshotter(options: options).start(), let png = snapshot.image.jpegData(compressionQuality: 0.85) else { groundKey = nil; return }
             // Square image over a square region: the image covers `metres` on each side.

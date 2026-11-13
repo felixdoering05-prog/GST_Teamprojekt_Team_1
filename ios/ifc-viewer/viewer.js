@@ -63,7 +63,7 @@ async function open() {
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
   if (roomsMode) { window.webkit?.messageHandlers?.ifcRooms?.postMessage(roomFootprints(api, modelID)); report('ready:rooms'); return; }
   scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#ffffff');
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5d6b75, 2.1));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
   root = new THREE.Group(); scene.add(root);
   let vertices = 0, meshes = 0;
@@ -110,7 +110,9 @@ async function open() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+  // The scene is static while the camera moves: compute shadows only when something changes.
+  renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.setSize(innerWidth, innerHeight);
   document.querySelector('#scene').append(renderer.domElement);
   root.updateMatrixWorld(true);
   const centeredBounds = new THREE.Box3().setFromObject(root);
@@ -137,6 +139,7 @@ async function open() {
   }); observer.observe(document.body);
   window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
   const render = () => renderer.render(scene, camera);
+  const refreshShadows = () => { renderer.shadowMap.needsUpdate = true; render(); };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mapBase = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
   // Sun from the building's location: realistic shadow direction; the map group is rotated by the heading.
@@ -148,14 +151,14 @@ async function open() {
     light.position.copy(dir.multiplyScalar(reach * 2)); light.target.position.set(0, 0, 0); scene.add(light.target);
     Object.assign(light.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: .1, far: reach * 5 });
     light.shadow.mapSize.set(2048, 2048); light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.camera.updateProjectionMatrix();
-    light.intensity = sun.live ? 2.2 : 1.8; render();
+    light.intensity = sun.live ? 2.8 : 2.4; refreshShadows();
   }
-  const applyMap = view => { mapBase(view); if (view && Number.isFinite(view.latitude)) setSun(view); };
-  window.d21SetGround = (url, metres) => mapBase.setGround(url, metres);
+  const applyMap = view => { mapBase(view); if (view && Number.isFinite(view.latitude)) setSun(view); else refreshShadows(); };
+  window.d21SetGround = (url, metres) => { mapBase.setGround(url, metres, refreshShadows); };
   // Gentle motion: fly in once, then orbit slowly until the person touches the model.
   let orbiting = false;
   function tick() { if (!orbiting || destroyed) return; controls.update(); render(); requestAnimationFrame(tick); }
-  function startOrbit() { if (reduceMotion || heatMode || previewMode) return; controls.autoRotate = true; controls.autoRotateSpeed = .45; orbiting = true; requestAnimationFrame(tick); }
+  function startOrbit() { if (reduceMotion || heatMode || previewMode) return; controls.autoRotate = true; controls.autoRotateSpeed = .3; orbiting = true; requestAnimationFrame(tick); setTimeout(() => { orbiting = false; controls.autoRotate = false; }, 25000); }
   controls.addEventListener('start', () => { orbiting = false; controls.autoRotate = false; });
   if (!reduceMotion && !heatMode) {
     const end = camera.position.clone(), startPos = end.clone().multiplyScalar(1.9).add(new THREE.Vector3(0, span * .6, 0)), t0 = performance.now();
@@ -174,7 +177,7 @@ async function open() {
       document.querySelector('#color').value = '#' + appearance.elements.get(id)[0].material.color.getHexString();
     }
     document.querySelector('#show-all').textContent = appearance.hiddenCount ? `Alles anzeigen (${appearance.hiddenCount})` : 'Alles anzeigen';
-    render();
+    renderer.shadowMap.needsUpdate = true; render();
   }
   let synchronization; const roomLights = new Map();
   const changed = operation => synchronization?.change(operation);
