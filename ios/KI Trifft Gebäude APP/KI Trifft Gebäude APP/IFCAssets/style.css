@@ -17,3 +17,9 @@
 #map-attribution{border-radius:999px;background:rgba(255,255,255,.7)}
 #status{border-radius:18px}
 @media (prefers-color-scheme: dark){#tools button,#hint,#map-attribution{background:rgba(28,36,44,.7);color:#9fe3ea;border-color:rgba(255,255,255,.12)}#selection,#commands{background:rgba(24,32,40,.92);color:#e6eef1}}
+/* Decluttered: tools are native app buttons; hint hidden; sync status only on error; tiny attribution */
+#tools,#hint{display:none!important}
+#sync-status{bottom:auto;top:10px;left:10px;right:auto;max-width:70%;border-radius:999px;font-size:11px}
+#sync-status:not(:has(button:not([hidden]))){display:none}
+#map-attribution{left:8px;right:auto;bottom:6px;max-width:70%;font-size:9px;padding:2px 8px;text-align:left;opacity:.8}
+#selection{bottom:16px}

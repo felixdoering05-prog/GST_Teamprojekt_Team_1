@@ -168,8 +168,10 @@ struct IFCStoredModelView: View {
     @State private var rotating = false
     @State private var rotationProblem: String?
     @State private var reload = 0
+    @StateObject private var viewer = IFCViewerController()
     var body: some View {
-        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID).id(reload)
+        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID, controller: viewer).id(reload)
+        .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: viewer, commands: account != nil && buildingID != nil).padding(12) }
         .overlay(alignment: .bottom) {
             if canAlign {
                 Button { autoPlace = true } label: {
@@ -236,10 +238,35 @@ struct IFCStoredModelView: View {
     }
 }
 
+/// Three small glass buttons instead of a text toolbar inside the model.
+struct IFCFloatingControls: View {
+    @ObservedObject var viewer: IFCViewerController
+    var commands = true
+    var body: some View {
+        VStack(spacing: 10) {
+            button("scope", "Gesamtansicht") { viewer.click("fit") }
+            button("square.dashed", "Draufsicht") { viewer.click("top") }
+            Menu {
+                Button("Alles anzeigen", systemImage: "eye") { viewer.click("show-all") }
+                Button("Farben zurücksetzen", systemImage: "paintbrush") { viewer.click("reset-colors") }
+                if commands { Button("KI-Modellbefehle", systemImage: "sparkles") { viewer.click("command-open") } }
+            } label: { icon("ellipsis") }.accessibilityLabel("Weitere Werkzeuge")
+        }
+    }
+    private func icon(_ symbol: String) -> some View {
+        Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(.primary).frame(width: 44, height: 44)
+            .background(.ultraThinMaterial, in: Circle()).shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+    }
+    private func button(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { icon(symbol) }.buttonStyle(.plain).accessibilityLabel(label)
+    }
+}
+
 /// Optional local preview; server-stored models are opened through IFCLibraryView.
 struct IFCViewer: View {
     var smartHome = false
     @StateObject private var files = IFCTemporaryFiles()
+    @StateObject private var localViewer = IFCViewerController()
     @State private var importing = false
     @State private var modelURL: URL?
     @State private var modelName = ""
@@ -248,7 +275,8 @@ struct IFCViewer: View {
     var body: some View {
         VStack(spacing: 0) {
             if let modelURL {
-                IFCWebView(modelURL: modelURL, smartHome: smartHome).id(modelURL)
+                IFCWebView(modelURL: modelURL, smartHome: smartHome, controller: localViewer).id(modelURL)
+                    .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: localViewer, commands: false).padding(12) }
                 Text(modelName).font(.caption).lineLimit(1).padding(8)
             } else {
                 ContentUnavailableView {
@@ -306,6 +334,15 @@ private enum IFCError: LocalizedError {
     var errorDescription: String? { switch self { case let .message(text): return text } }
 }
 
+/// Lets native SwiftUI buttons drive the web viewer (fit, top view, show all, reset colours, commands).
+@MainActor final class IFCViewerController: ObservableObject {
+    weak var web: WKWebView?
+    func click(_ id: String) {
+        guard id.allSatisfy({ $0.isLetter || $0 == "-" }) else { return }
+        web?.evaluateJavaScript("document.getElementById('\(id)')?.click()")
+    }
+}
+
 struct IFCWebView: UIViewRepresentable {
     let modelURL: URL
     var heat: HeatPresentation? = nil
@@ -315,6 +352,7 @@ struct IFCWebView: UIViewRepresentable {
     var documentID: Int? = nil
     /// Rooms mode: only reads IfcSpace footprints and hands them over as JSON (no rendering).
     var onRooms: ((Data) -> Void)? = nil
+    var controller: IFCViewerController? = nil
     func makeCoordinator() -> Coordinator { let c = Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat); c.onRooms = onRooms; return c }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -325,6 +363,7 @@ struct IFCWebView: UIViewRepresentable {
         if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
+        controller?.web = web
         web.navigationDelegate = context.coordinator
         web.isOpaque = false
         web.scrollView.isScrollEnabled = false
