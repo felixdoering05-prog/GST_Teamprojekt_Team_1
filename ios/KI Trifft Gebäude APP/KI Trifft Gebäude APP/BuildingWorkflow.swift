@@ -1,4 +1,5 @@
 import SwiftUI
+import RoomPlan
 import Combine
 import PhotosUI
 import UniformTypeIdentifiers
@@ -152,6 +153,7 @@ struct AddBuildingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var flow: BuildingWorkflowModel
     @State private var photos: [PhotosPickerItem] = []
+    @State private var scanning = false
     @State private var importing = false
     @State private var preparing = false
     let onComplete: (Building) -> Void
@@ -195,6 +197,18 @@ struct AddBuildingView: View {
                         case .plans:
                             Text("Für einen neuen 3D-Entwurf wähle gut lesbare, bemaßte PDF-Grundrisse. Lade zusammengehörige Geschosse gemeinsam hoch. Im nächsten Schritt startest du die Verarbeitung auf dem Server. Ein vorhandenes IFC kannst du direkt verwenden.").foregroundStyle(.secondary)
                             Button("IFC, PDF oder DWG auswählen", systemImage: "doc.badge.plus") { importing = true }.buttonStyle(.borderedProminent).disabled(locked)
+                            if RoomCaptureSession.isSupported {
+                                Button { scanning = true } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "camera.metering.matrix").font(.title3.weight(.semibold)).foregroundStyle(.white).frame(width: 42, height: 42).background(Color.indigo.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Räume mit LiDAR scannen").font(.subheadline.weight(.semibold))
+                                            Text("Wände, Türen und Fenster erfassen und als IFC-Modell anlegen").font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 0)
+                                    }
+                                }.buttonStyle(.plain).disabled(locked)
+                            }
                             Text("Bis 25 MB pro Datei (IFC: 20 MB). IFC-Modelle öffnen sich nach dem Upload in 3D. DWG-Dateien werden gespeichert und lassen sich später an eine CAD-App weitergeben.").font(.footnote).foregroundStyle(.secondary)
                             #if DEBUG
                             if WorkflowPreview.enabled { Button("Testplan hinzufügen") { Task { do { try flow.stage(WorkflowPreview.pdf, name: "Grundriss.pdf", photo: false); await flow.uploadPending() } catch { flow.problem = error.localizedDescription } } } }
@@ -241,6 +255,12 @@ struct AddBuildingView: View {
                     }
                     photos = []; preparing = false
                     await flow.uploadPending()
+                }
+            }
+            .fullScreenCover(isPresented: $scanning) {
+                RoomScanView(buildingName: flow.draft.building?.name ?? flow.draft.name) { data, name in
+                    do { try flow.stage(data, name: name, photo: false); await flow.uploadPending() }
+                    catch { flow.problem = error.localizedDescription }
                 }
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: step == .photos ? [.image] : planTypes, allowsMultipleSelection: true) { result in
