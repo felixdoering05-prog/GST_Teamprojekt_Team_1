@@ -1,3 +1,4 @@
+const {initIFCAnalysis,ifcAnalysisRouter}=require('./ifc-analysis');
 const {serviceStatusRouter}=require('./service-status');
 const {buildingDeletionRouter}=require('./building-deletion');
 const {PasswordWorkGate}=require('./password-work');
@@ -55,7 +56,7 @@ async function initAccounts(db) {
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_buildings_creation_key_idx ON app_buildings(user_id,creation_key) WHERE creation_key IS NOT NULL');
  await initPasswordResets(db);
  await initTwin(db);
- await initDocuments(db);await initModelState(db);
+ await initDocuments(db);await initIFCAnalysis(db);await initModelState(db);
  await initProfile(db);
  await initCollaboration(db);
  await initAssistant(db);
@@ -154,6 +155,7 @@ function accountRouter(db,options={}) {
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use('/campus',campusRouter(db,requireAccount,options.campus));

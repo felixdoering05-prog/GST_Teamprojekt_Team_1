@@ -152,6 +152,9 @@ struct BuildingFilesView: View {
                             }.contentShape(Rectangle())
                         }.buttonStyle(.plain).disabled(locked)
                         Menu {
+                            if document.mime_type == "application/x-step" {
+                                NavigationLink { IFCAnalysisView(document: document, account: model) } label: { Label("Modellprüfung", systemImage: "checkmark.document") }
+                            }
                             Button("Umbenennen", systemImage: "pencil") { renameName = (document.name as NSString).deletingPathExtension; renameTarget = document }
                             Button("Löschen", systemImage: "trash", role: .destructive) { deleteTarget = document }
                         } label: { Image(systemName: "ellipsis.circle").font(.title3).padding(6) }.disabled(locked)
