@@ -43,4 +43,4 @@ Für externe Tester braucht der neue Build eine Beta-App-Review. Im Prüfhinweis
 
 - Externe Freigabe durch Apple ist nicht bestätigt.
 - Frühere Sicherheitsbefunde sind nicht vollständig behoben; keine Produktionsreife oder Datenschutzfreigabe behaupten.
-- Die öffentliche Seite `/datenschutz.html` ist erst nach Merge von PR #131 und einem Deployment aktuell.
+- `/datenschutz.html` ist seit dem 12. November öffentlich ohne Website-Passwort erreichbar (nur diese Seite, nur GET/HEAD; eingerichtet mit `dashboard/ops/configure-public-privacy.py --apply`, Sicherung `d21-tunnel.conf.before-public-privacy`). Diese Adresse in App Store Connect als Datenschutz-URL verwenden. Die vorläufige Cloudflare-Adresse kann sich ändern; dann URL in App Store Connect anpassen.
