@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 import RoomPlan
 import Combine
 import PhotosUI
@@ -44,6 +45,10 @@ import UniformTypeIdentifiers
         busy = true; defer { busy = false }
         if let building = await account.addBuilding(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), address: draft.address.trimmingCharacters(in: .whitespacesAndNewlines), requestID: draft.id) {
             draft.building = building; draft.name = building.name; draft.address = building.address
+            if let lat = draft.latitude, let lon = draft.longitude {
+                // Best effort: the building exists either way; the location can be set later in the heatmap.
+                let _: BuildingLocationReply? = try? await account.request("buildings/\(building.id)/location", method: "PUT", body: ["latitude": lat, "longitude": lon, "revision": 0])
+            }
             advance(.photos)
         } else { problem = account.error; account.error = nil }
     }
@@ -166,75 +171,89 @@ struct AddBuildingView: View {
     private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
     private func advance(_ next: BuildingStep) { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flow.advance(next) } }
     private var titles: [BuildingStep: String] { [.name:"Wie heißt dein Gebäude?", .address:"Wo steht dein Gebäude?", .photos:"Zeig uns dein Gebäude", .plans:"Lade deine Grundrisse hoch", .overview:"Dein Gebäude wird digital"] }
+    private var subtitles: [BuildingStep: String] {
+        [.name: "Ein Name, den du und dein Team wiedererkennen.",
+         .address: "Such die Adresse und setz den Pin aufs Gebäude.",
+         .photos: "Ein Bild vom Eingang oder von außen. Geht auch später.",
+         .plans: "Grundrisse, ein vorhandenes IFC – oder einfach Räume scannen.",
+         .overview: "Alles bereit. Jetzt kann dein 3D-Modell entstehen."]
+    }
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("SCHRITT \(step.rawValue) VON 5").font(.caption.weight(.semibold)).tracking(2).foregroundStyle(d21Accent)
-                        ProgressView(value: Double(step.rawValue), total: 5).tint(d21Accent)
-                        HStack { ForEach(BuildingStep.allCases, id: \.rawValue) { item in Text(item.title).font(.caption2).fontWeight(item == step ? .bold : .regular); if item != .overview { Spacer(minLength: 0) } } }.foregroundStyle(.secondary)
-                    }.accessibilityElement(children: .combine)
-                    VStack(alignment: .leading, spacing: 18) {
-                        Image(systemName: step == .photos ? "photo.circle.fill" : step == .plans ? "doc.circle.fill" : step == .overview ? "checkmark.seal.fill" : "building.2.crop.circle.fill").font(.system(size: 56)).foregroundStyle(d21Accent)
-                        Text(titles[step] ?? "").font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 22) {
+                    BuildingStepHeader(step: step).padding(.top, 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(titles[step] ?? "").font(.system(.largeTitle, design: .rounded, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                        Text(subtitles[step] ?? "").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 16) {
                         switch step {
                         case .name:
-                            Text("Wähle einen Namen, den du später leicht wiedererkennst.").foregroundStyle(.secondary)
-                            TextField("Zum Beispiel: Gebäude D21", text: $flow.draft.name).textFieldStyle(.roundedBorder).disabled(flow.draft.building != nil).accessibilityIdentifier("building-name")
+                            VStack(alignment: .leading, spacing: 8) {
+                                TextField("Zum Beispiel: Gebäude D21", text: $flow.draft.name)
+                                    .font(.title3.weight(.semibold)).padding(16).d21Card(cornerRadius: 18)
+                                    .disabled(flow.draft.building != nil).accessibilityIdentifier("building-name").submitLabel(.next)
+                                    .onSubmit { if !flow.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { advance(.address) } }
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(["Wohnhaus", "Bürogebäude", "Hörsaalgebäude", "Labor", "Schule"], id: \.self) { suggestion in
+                                            Button(suggestion) { flow.draft.name = suggestion }.font(.footnote.weight(.semibold)).buttonStyle(.bordered).tint(d21Accent)
+                                        }
+                                    }
+                                }.disabled(flow.draft.building != nil)
+                            }
                         case .address:
-                            Text("Ergänze Straße und Ort. Du kannst die Adresse auch später ergänzen.").foregroundStyle(.secondary)
-                            TextField("Adresse (optional)", text: $flow.draft.address, axis: .vertical).lineLimit(2...4).textFieldStyle(.roundedBorder).disabled(flow.draft.building != nil).accessibilityIdentifier("building-address")
-                            Text(flow.draft.building == nil ? "Mit Weiter wird dein Gebäude auf dem Projektserver angelegt." : "Dein Gebäude ist bereits auf dem Server gespeichert.").font(.footnote).foregroundStyle(.secondary)
+                            if flow.draft.building == nil {
+                                AddressPicker(address: $flow.draft.address, latitude: $flow.draft.latitude, longitude: $flow.draft.longitude, name: flow.draft.name, locked: locked)
+                                Text("Mit „Gebäude anlegen“ wird dein Gebäude auf dem Projektserver gespeichert. Die Adresse ist optional.").font(.footnote).foregroundStyle(.secondary)
+                            } else {
+                                Label(flow.draft.address.isEmpty ? "Adresse noch offen" : flow.draft.address, systemImage: "house.fill").font(.headline).padding(16).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 18)
+                                Text("Dein Gebäude ist bereits auf dem Server gespeichert.").font(.footnote).foregroundStyle(.secondary)
+                            }
                         case .photos:
-                            Text("Ein Bild vom Eingang oder von außen hilft dir beim Wiedererkennen. Du kannst Fotos auch später hinzufügen.").foregroundStyle(.secondary)
-                            PhotosPicker(selection: $photos, maxSelectionCount: 6, matching: .images) { Label("Fotos auswählen", systemImage: "photo.on.rectangle") }.buttonStyle(.borderedProminent).disabled(locked)
-                            Button("Bild aus Dateien auswählen", systemImage: "folder") { importing = true }.disabled(locked)
+                            PhotosPicker(selection: $photos, maxSelectionCount: 6, matching: .images) {
+                                BuildingOptionTile(symbol: "photo.on.rectangle.angled", color: .pink, title: "Fotos auswählen", subtitle: "Bis zu 6 Bilder aus deiner Mediathek")
+                            }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
+                            Button { importing = true } label: {
+                                BuildingOptionTile(symbol: "folder.fill", color: .blue, title: "Bild aus Dateien", subtitle: "JPG, PNG oder HEIC aus der Dateien-App")
+                            }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
                             #if DEBUG
                             if WorkflowPreview.enabled { Button("Testfoto hinzufügen") { Task { do { try flow.stage(WorkflowPreview.photo, name: "Eingang.jpg", photo: true); await flow.uploadPending() } catch { flow.problem = error.localizedDescription } } } }
                             #endif
-                            UploadQueueView(flow: flow)
+                            DraftPhotoGrid(flow: flow)
+                            if flow.draft.files.contains(where: { $0.isPhoto && $0.state != .saved }) { UploadQueueView(flow: flow, includeSaved: false) }
                         case .plans:
-                            Text("Für einen neuen 3D-Entwurf wähle gut lesbare, bemaßte PDF-Grundrisse. Lade zusammengehörige Geschosse gemeinsam hoch. Im nächsten Schritt startest du die Verarbeitung auf dem Server. Ein vorhandenes IFC kannst du direkt verwenden.").foregroundStyle(.secondary)
-                            Button("IFC, PDF oder DWG auswählen", systemImage: "doc.badge.plus") { importing = true }.buttonStyle(.borderedProminent).disabled(locked)
                             if RoomCaptureSession.isSupported {
                                 Button { scanning = true } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "camera.metering.matrix").font(.title3.weight(.semibold)).foregroundStyle(.white).frame(width: 42, height: 42).background(Color.indigo.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Räume mit LiDAR scannen").font(.subheadline.weight(.semibold))
-                                            Text("Wände, Türen und Fenster erfassen und als IFC-Modell anlegen").font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        Spacer(minLength: 0)
-                                    }
-                                }.buttonStyle(.plain).disabled(locked)
+                                    BuildingOptionTile(symbol: "camera.metering.matrix", color: .indigo, title: "Räume mit LiDAR scannen", subtitle: "Wände, Türen, Fenster und Möbel erfassen – daraus entsteht ein IFC-Modell")
+                                }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
                             }
-                            Text("Bis 25 MB pro Datei (IFC: 20 MB). IFC-Modelle öffnen sich nach dem Upload in 3D. DWG-Dateien werden gespeichert und lassen sich später an eine CAD-App weitergeben.").font(.footnote).foregroundStyle(.secondary)
+                            Button { importing = true } label: {
+                                BuildingOptionTile(symbol: "doc.badge.plus", color: d21Accent, title: "Pläne oder IFC hochladen", subtitle: "Bemaßte PDF-Grundrisse, IFC (bis 20 MB) oder DWG")
+                            }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
+                            Label("Aus PDF-Grundrissen kann im nächsten Schritt ein 3D-Entwurf auf dem Server entstehen. Ein IFC – hochgeladen oder gescannt – öffnet sich direkt in 3D.", systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
                             #if DEBUG
                             if WorkflowPreview.enabled { Button("Testplan hinzufügen") { Task { do { try flow.stage(WorkflowPreview.pdf, name: "Grundriss.pdf", photo: false); await flow.uploadPending() } catch { flow.problem = error.localizedDescription } } } }
                             #endif
                             UploadQueueView(flow: flow)
                         case .overview:
-                            Label(flow.draft.building?.name ?? flow.draft.name, systemImage: "building.2").font(.title3.bold())
-                            Text(flow.draft.address.isEmpty ? "Adresse noch offen" : flow.draft.address).foregroundStyle(.secondary)
-                            Label("\(flow.draft.files.filter { $0.state == .saved && $0.isPhoto }.count) Fotos gespeichert", systemImage: "photo")
-                            Label("\(flow.draft.files.filter { $0.state == .saved && !$0.isPhoto }.count) Pläne gespeichert", systemImage: "doc.text")
-                            if flow.draft.pendingCount > 0 { Text("\(flow.draft.pendingCount) Datei(en) sind noch nicht auf dem Server. Du kannst den Upload wiederholen oder diesen Entwurf später fortsetzen.").foregroundStyle(.orange) }
-                            else { Text("Dein Gebäude und die bestätigten Uploads sind auch auf der Website mit demselben Konto verfügbar. Fehlende Bilder oder Pläne ergänzt du jederzeit in der Gebäudemappe.").foregroundStyle(.secondary) }
-                            UploadQueueView(flow: flow)
-                            if let building = flow.draft.building, flow.draft.pendingCount == 0 {
-                                GuidedGenerationView(flow: flow, building: building)
-                            }
+                            overview
                         }
-                    }.id(step).transition(.opacity)
-                    if preparing { ProgressView("Dateien werden auf diesem iPhone vorbereitet …") }
-                    if flow.localSaved { Label("Zwischenstand auf diesem iPhone gespeichert", systemImage: "iphone.and.arrow.forward").font(.caption).foregroundStyle(.secondary) }
-                }.padding(24)
+                    }
+                }.padding(20).id(step).transition(.opacity)
             }
-            .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Neues Gebäude").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Später fortsetzen") { if flow.persist() { dismiss() } }.disabled(flow.busy || preparing || flow.loadFailed) } }
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle(flow.draft.building == nil ? "Neues Gebäude" : "Gebäude ergänzen").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Später") { flow.persist(); dismiss() }.disabled(flow.busy)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    if flow.localSaved { Image(systemName: "checkmark.icloud").foregroundStyle(.secondary).accessibilityLabel("Zwischenstand auf diesem iPhone gespeichert") }
+                }
+            }
             .safeAreaInset(edge: .bottom) { footer }
             .interactiveDismissDisabled()
             .onChange(of: flow.draft.name) { _, _ in flow.persist() }
@@ -276,8 +295,39 @@ struct AddBuildingView: View {
             }
         }
     }
+    @ViewBuilder private var overview: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let lat = flow.draft.latitude, let lon = flow.draft.longitude {
+                Map(initialPosition: .camera(MapCamera(centerCoordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon), distance: 500, pitch: 50)), interactionModes: []) {
+                    Marker(flow.draft.name, systemImage: "building.2.fill", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)).tint(d21Accent)
+                }.mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll)).frame(height: 150).allowsHitTesting(false)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text(flow.draft.building?.name ?? flow.draft.name).font(.system(.title2, design: .rounded, weight: .bold))
+                Label(flow.draft.address.isEmpty ? "Adresse noch offen" : flow.draft.address, systemImage: "mappin.and.ellipse").font(.subheadline).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    summaryChip("photo", "\(flow.draft.files.filter { $0.state == .saved && $0.isPhoto }.count) Fotos")
+                    summaryChip("doc.text", "\(flow.draft.files.filter { $0.state == .saved && !$0.isPhoto }.count) Pläne")
+                    if flow.draft.files.contains(where: { $0.state == .saved && $0.name.lowercased().hasSuffix(".ifc") }) { summaryChip("cube.fill", "3D-Modell") }
+                }
+            }.padding(16)
+        }.d21Card(cornerRadius: 22)
+        if flow.draft.pendingCount > 0 { Label("\(flow.draft.pendingCount) Datei(en) sind noch nicht auf dem Server. Du kannst den Upload wiederholen oder diesen Entwurf später fortsetzen.", systemImage: "exclamationmark.icloud").font(.footnote).foregroundStyle(.orange) }
+        else { Text("Dein Gebäude und die bestätigten Uploads sind auch auf der Website mit demselben Konto verfügbar. Fehlendes ergänzt du jederzeit in der Gebäudemappe.").font(.footnote).foregroundStyle(.secondary) }
+        UploadQueueView(flow: flow, includeSaved: false)
+        if let building = flow.draft.building, flow.draft.pendingCount == 0 {
+            GuidedGenerationView(flow: flow, building: building)
+        }
+    }
+    private func summaryChip(_ symbol: String, _ text: String) -> some View {
+        Label(text, systemImage: symbol).font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(d21Accent.opacity(0.12), in: Capsule()).foregroundStyle(d21Accent)
+    }
     private var footer: some View {
-        VStack(spacing: 12) {
+        HStack(spacing: 12) {
+            if step.rawValue > 1 {
+                Button { advance(BuildingStep(rawValue: step.rawValue - 1) ?? .name) } label: { Image(systemName: "chevron.left").font(.headline).frame(width: 52, height: 52).background(Color(uiColor: .secondarySystemGroupedBackground), in: Circle()) }
+                    .buttonStyle(.plain).disabled(locked).accessibilityLabel("Zurück")
+            }
             Button {
                 switch step {
                 case .name: advance(.address)
@@ -290,18 +340,23 @@ struct AddBuildingView: View {
                         do { try flow.store.clear(); onComplete(building) } catch { flow.problem = error.localizedDescription }
                     }
                 }
-            } label: { HStack { Text(buttonTitle).font(.headline); Image(systemName: step == .overview ? "folder" : "arrow.right") }.frame(maxWidth: .infinity).padding(.vertical, 12) }
-                .buttonStyle(.borderedProminent).disabled(locked || (step == .name && (flow.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || flow.draft.name.count > 200)) || (step == .address && flow.draft.address.count > 500))
-            if step.rawValue > 1 { Button("Zurück") { advance(BuildingStep(rawValue: step.rawValue - 1) ?? .name) }.disabled(locked) }
-        }.padding().background(.regularMaterial)
+            } label: {
+                HStack(spacing: 8) {
+                    if flow.busy { ProgressView().tint(.white) }
+                    Text(buttonTitle).font(.headline)
+                    if !flow.busy { Image(systemName: step == .overview ? "folder.fill" : "arrow.right") }
+                }.foregroundStyle(.white).frame(maxWidth: .infinity).frame(height: 52).background(primaryDisabled ? AnyShapeStyle(Color(uiColor: .systemGray3)) : AnyShapeStyle(d21Accent.gradient), in: Capsule())
+            }.buttonStyle(BuildingTileButtonStyle()).disabled(primaryDisabled)
+        }.padding(.horizontal, 20).padding(.vertical, 12).background(.bar)
     }
+    private var primaryDisabled: Bool { locked || (step == .name && (flow.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || flow.draft.name.count > 200)) || (step == .address && flow.draft.address.count > 500) }
     private var buttonTitle: String {
         switch step {
-        case .name: "Weiter zur Adresse"
-        case .address: flow.busy ? "Gebäude wird gespeichert …" : "Weiter zu den Fotos"
-        case .photos: "Weiter zu den Plänen"
-        case .plans: "Weiter zum 3D-Entwurf"
-        case .overview: flow.draft.pendingCount > 0 ? "Ausstehende Dateien erneut übertragen" : "Gebäudemappe öffnen"
+        case .name: "Weiter"
+        case .address: flow.busy ? "Wird angelegt …" : flow.draft.building == nil ? "Gebäude anlegen" : "Weiter zu den Fotos"
+        case .photos: "Weiter"
+        case .plans: "Weiter zur Übersicht"
+        case .overview: flow.draft.pendingCount > 0 ? "Erneut übertragen" : "Gebäude öffnen"
         }
     }
 }
