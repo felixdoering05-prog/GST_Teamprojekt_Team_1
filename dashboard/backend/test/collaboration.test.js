@@ -28,11 +28,28 @@ test('owner invites confirmed contacts; invitation alone grants no access',async
  assert.equal((await request(alice,`/buildings/${building.id}/members`,'POST',{user_id:String(eve.id)})).status,400);
  assert.equal((await request(bob,`/buildings/${building.id}/members`,'POST',{user_id:String(eve.id)})).status,404);
  assert.equal((await request(alice,`/buildings/${building.id}/members`,'POST',{user_id:String(bob.id)})).status,200);
- for(const suffix of ['messages','documents'])assert.equal((await request(bob,`/buildings/${building.id}/${suffix}`)).status,404);
+ for(const suffix of ['messages','documents','structure'])assert.equal((await request(bob,`/buildings/${building.id}/${suffix}`)).status,404);
  assert.deepEqual((await request(bob,'/buildings')).body,[]);
  assert.equal((await request(bob,'/building-invitations')).body[0].name,'D21');
  assert.equal((await request(bob,`/buildings/${building.id}/invitation`,'POST',{action:'accept'})).status,200);
  assert.equal((await request(bob,'/buildings')).body[0].is_owner,false);
+});
+test('accepted members can see project rooms and floors without other buildings or private notes',async()=>{
+ const path=`/buildings/${building.id}/structure`;
+ assert.equal((await request(null,path)).status,401);
+ assert.equal((await request(eve,path)).status,404);
+ assert.deepEqual((await request(bob,path)).body,{floors:[],rooms:[]});
+ const other=(await request(alice,'/buildings','POST',{name:'Privat'})).body;
+ const create=(entity,data)=>request(alice,`/twin/${entity}/create`,'POST',{data});
+ const floor=(await create('Floor',{building_id:String(building.id),name:'EG',level:0,notes:'Intern'})).body;
+ const room=(await create('Room',{building_id:String(building.id),floor_id:floor.id,name:'Labor',room_code:'00.01',notes:'Intern'})).body;
+ assert.equal((await create('Floor',{building_id:String(other.id),name:'Privat'})).status,200);
+ const result=await request(bob,path);
+ assert.equal(result.status,200);
+ assert.deepEqual(result.body,{
+  floors:[{id:floor.id,name:'EG',level:0}],
+  rooms:[{id:room.id,name:'Labor',room_code:'00.01',floor_id:floor.id}]
+ });
 });
 test('members share files and editing; uploads consume owner quota',async()=>{
  file=(await request(bob,`/buildings/${building.id}/documents`,'POST',Buffer.from('%PDF-1.4 synthetic'),{'X-File-Name':'Plan.pdf'})).body;assert.ok(file.id);
@@ -67,7 +84,7 @@ test('notification failure rolls back message before returning an error',async()
 test('revocation is enforced and migrations preserve existing files',async()=>{
  assert.equal((await request(eve,`/buildings/${building.id}/members/${bob.id}`,'DELETE')).status,404);
  assert.equal((await request(alice,`/buildings/${building.id}/members/${bob.id}`,'DELETE')).status,200);
- for(const path of [`/documents/${file.id}`,`/buildings/${building.id}/messages`,`/buildings/${building.id}/members`])assert.equal((await request(bob,path)).status,404);
+ for(const path of [`/documents/${file.id}`,`/buildings/${building.id}/messages`,`/buildings/${building.id}/members`,`/buildings/${building.id}/structure`])assert.equal((await request(bob,path)).status,404);
  assert.equal((await request(bob,`/documents/${file.id}`,'DELETE')).status,404);
  assert.equal((await request(bob,`/buildings/${building.id}`,'PATCH',{name:'Verboten'})).status,404);
  await initAccounts(db);assert.equal((await request(alice,`/documents/${file.id}`)).status,200);

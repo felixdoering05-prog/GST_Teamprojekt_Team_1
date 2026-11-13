@@ -6,15 +6,15 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
-export default function BuildingFiles({building}) {
+export default function BuildingFiles({building,onFilesAvailable}) {
  const [files,setFiles]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [pending,setPending]=useState(null),[progress,setProgress]=useState(0),[success,setSuccess]=useState('');
  const [rename,setRename]=useState(null),[newName,setNewName]=useState(''),[remove,setRemove]=useState(null),[preview,setPreview]=useState(null);
- useEffect(()=>{let cancelled=false;request(`/buildings/${building.id}/documents`).then(rows=>{if(!cancelled)setFiles(rows)}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[building.id]);
+ useEffect(()=>{let cancelled=false;request(`/buildings/${building.id}/documents`).then(rows=>{if(!cancelled){setFiles(rows);onFilesAvailable?.(rows.length>0)}}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[building.id,onFilesAvailable]);
  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url)},[preview]);
  async function upload(item){
   setError('');setSuccess('');setBusy(true);setProgress(0);
-  try{const document=await uploadFile(building.id,item.file,item.id,setProgress);setFiles(rows=>[document,...rows.filter(f=>f.id!==document.id)]);setPending(null);setSuccess('Datei auf dem Projektserver gespeichert. Auch in der iPhone-App verfügbar.')}
+  try{const document=await uploadFile(building.id,item.file,item.id,setProgress);setFiles(rows=>[document,...rows.filter(f=>f.id!==document.id)]);onFilesAvailable?.(true);setPending(null);setSuccess('Datei auf dem Projektserver gespeichert. Auch in der iPhone-App verfügbar.')}
   catch(e){setError(e.message)}finally{setBusy(false)}
  }
  function choose(e){
@@ -38,7 +38,7 @@ export default function BuildingFiles({building}) {
  }
  async function deleteFile(){
   setError('');setBusy(true);
-  try{await request(`/documents/${remove.id}`,{method:'DELETE'});setFiles(rows=>rows.filter(f=>f.id!==remove.id));setRemove(null);setSuccess('Datei vom Projektserver gelöscht.')}
+  try{await request(`/documents/${remove.id}`,{method:'DELETE'});const remaining=files.filter(f=>f.id!==remove.id);setFiles(remaining);onFilesAvailable?.(remaining.length>0);setRemove(null);setSuccess('Datei vom Projektserver gelöscht.')}
   catch(e){setError(e.message)}finally{setBusy(false)}
  }
  return <section className="surface space-y-4 p-5">
