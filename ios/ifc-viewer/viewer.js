@@ -293,5 +293,39 @@ function roomFootprints(api, modelID) {
     const storey = storeyOf.get(id);
     rooms.push({ id, name: [label(line.Name), label(line.LongName)].filter(Boolean).join(' · ') || `Raum ${n + 1}`, storey: storeys.get(storey) || '', storey_id: storey || 0, min_y: Math.round(minY * 100) / 100, max_y: Math.round(maxY * 100) / 100, tris });
   }
-  return { rooms, storeys: [...storeys].map(([id, name]) => ({ id, name })), truncated: budget <= 0 };
+  // Walls (bottom faces) and doors (centre + width) for a readable plan; the app assigns them to floors by height.
+  const walls = [], doors = [], r2 = x => Math.round(x * 100) / 100;
+  let wallBudget = 600000;
+  for (const type of [IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR]) {
+    const ids = api.GetLineIDsWithType(modelID, type);
+    for (let n = 0; n < ids.size() && wallBudget > 0; n++) {
+      const id = ids.get(n), flat = api.GetFlatMesh(modelID, id), points = [];
+      for (let i = 0; i < flat.geometries.size(); i++) {
+        const placed = flat.geometries.get(i), data = api.GetGeometry(modelID, placed.geometryExpressID), m = placed.flatTransformation;
+        try {
+          const v = api.GetVertexArray(data.GetVertexData(), data.GetVertexDataSize());
+          const idx = api.GetIndexArray(data.GetIndexData(), data.GetIndexDataSize());
+          for (let t = 0; t + 2 < idx.length; t++) { const k = idx[t]; const x = v[k * 6], y = v[k * 6 + 1], z = v[k * 6 + 2]; points.push(m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]); }
+        } finally { data.delete(); }
+      }
+      // points holds the element's triangles as consecutive x/y/z triples (three vertices per triangle).
+      let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      const coords = points;
+      for (let i = 0; i < coords.length; i += 3) { minX = Math.min(minX, coords[i]); maxX = Math.max(maxX, coords[i]); minY = Math.min(minY, coords[i + 1]); maxY = Math.max(maxY, coords[i + 1]); minZ = Math.min(minZ, coords[i + 2]); maxZ = Math.max(maxZ, coords[i + 2]); }
+      if (!Number.isFinite(minY)) continue;
+      if (type === IFCDOOR) { doors.push({ x: r2((minX + maxX) / 2), z: r2((minZ + maxZ) / 2), w: r2(Math.max(maxX - minX, maxZ - minZ)), min_y: r2(minY), max_y: r2(maxY) }); continue; }
+      const tris = [];
+      for (let i = 0; i + 8 < coords.length; i += 9) {
+        const a = [coords[i], coords[i + 1], coords[i + 2]], b = [coords[i + 3], coords[i + 4], coords[i + 5]], c = [coords[i + 6], coords[i + 7], coords[i + 8]];
+        if (Math.max(a[1], b[1], c[1]) > minY + 0.05) continue;
+        const area = (b[0] - a[0]) * (c[2] - a[2]) - (c[0] - a[0]) * (b[2] - a[2]);
+        if (Math.abs(area) < 1e-4) continue;
+        tris.push(r2(a[0]), r2(a[2]), r2(b[0]), r2(b[2]), r2(c[0]), r2(c[2]));
+      }
+      if (!tris.length) continue;
+      wallBudget -= tris.length;
+      walls.push({ min_y: r2(minY), max_y: r2(maxY), tris });
+    }
+  }
+  return { rooms, walls, doors, storeys: [...storeys].map(([id, name]) => ({ id, name })), truncated: budget <= 0 || wallBudget <= 0 };
 }

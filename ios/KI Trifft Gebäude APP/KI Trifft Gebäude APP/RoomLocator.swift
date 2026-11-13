@@ -38,11 +38,27 @@ struct LocatorRoom: Decodable, Identifiable {
     }
 }
 
+struct LocatorWall: Decodable { let min_y: Double; let max_y: Double; let tris: [Double] }
+struct LocatorDoor: Decodable { let x: Double; let z: Double; let w: Double; let min_y: Double; let max_y: Double
+    var point: CGPoint { CGPoint(x: x, y: z) }
+}
+
 struct LocatorModel: Decodable {
     struct Storey: Decodable { let id: Int; let name: String }
     let rooms: [LocatorRoom]
+    let walls: [LocatorWall]
+    let doors: [LocatorDoor]
     let storeys: [Storey]
     let truncated: Bool
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rooms = try c.decode([LocatorRoom].self, forKey: .rooms)
+        walls = try c.decodeIfPresent([LocatorWall].self, forKey: .walls) ?? []
+        doors = try c.decodeIfPresent([LocatorDoor].self, forKey: .doors) ?? []
+        storeys = try c.decode([Storey].self, forKey: .storeys)
+        truncated = try c.decode(Bool.self, forKey: .truncated)
+    }
+    private enum CodingKeys: String, CodingKey { case rooms, walls, doors, storeys, truncated }
 
     /// Storeys that actually contain rooms, ordered by floor height.
     var floors: [(id: Int, name: String, base: Double)] {
@@ -132,6 +148,7 @@ struct RoomLocatorView: View {
     @State private var lamps: [ConnectedLamp] = []
     @State private var devices: [BuildingDevice] = []
     @State private var running = false
+    @State private var snapNote: String?
     @Environment(\.scenePhase) private var scenePhase
 
     private var floors: [(id: Int, name: String, base: Double)] { plan?.floors ?? [] }
@@ -233,7 +250,7 @@ struct RoomLocatorView: View {
                 if calibration == nil {
                     Picker("Geschoss", selection: $floorID) { ForEach(floors, id: \.id) { Text($0.name).tag(Optional($0.id)) } }.pickerStyle(.menu).tint(d21Accent)
                 } else {
-                    Button("Neu ausrichten", systemImage: "scope") { calibration = nil; pointA = nil }.font(.caption.weight(.semibold))
+                    Button("Neu ausrichten", systemImage: "scope") { calibration = nil; pointA = nil; snapNote = nil }.font(.caption.weight(.semibold))
                 }
             }
             if calibration == nil {
@@ -242,8 +259,11 @@ struct RoomLocatorView: View {
                      : "2. Geh 4–8 Meter geradeaus zu einer zweiten eindeutigen Stelle und tippe sie an.")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
-            FloorPlanView(rooms: floorRooms, highlight: currentRoom?.id, you: modelPoint, heading: youHeading, markers: markers, tap: planTap)
-                .frame(height: 340)
+            FloorPlanView(rooms: floorRooms, walls: floorWalls, doors: floorDoors, highlight: currentRoom?.id, you: modelPoint, heading: youHeading, markers: markers, tap: planTap)
+                .frame(height: 420)
+            Text(calibration == nil ? "Mit zwei Fingern zoomen und verschieben. Ein Tipp nahe einer Tür (orange) rastet in der Türmitte ein." : "Mit zwei Fingern zoomen und verschieben.")
+                .font(.caption2).foregroundStyle(.secondary)
+            if let snapNote { Label(snapNote, systemImage: "scope").font(.caption.weight(.semibold)).foregroundStyle(d21Accent) }
             if let calibration, abs(calibration.scaleCheck - 1) > 0.25 {
                 Label("Die gelaufene Strecke passt nicht zum Abstand im Plan (Faktor \(calibration.scaleCheck.formatted(.number.precision(.fractionLength(2))))). Bitte neu ausrichten und die Punkte genauer antippen.", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
             }
@@ -254,6 +274,9 @@ struct RoomLocatorView: View {
         let id: Int? = currentFloor?.id ?? floorID
         return (plan?.rooms ?? []).filter { $0.storey_id == id }
     }
+    private var floorBase: Double { (currentFloor ?? floors.first { $0.id == floorID })?.base ?? 0 }
+    private var floorWalls: [LocatorWall] { let y = floorBase + 0.3; return (plan?.walls ?? []).filter { $0.min_y <= y && $0.max_y >= y } }
+    private var floorDoors: [LocatorDoor] { let y = floorBase + 0.3; return (plan?.doors ?? []).filter { $0.min_y <= y && $0.max_y >= y } }
     private var youHeading: Double? {
         guard let calibration else { return nil }
         return calibration.modelHeading(tracker.heading)
@@ -267,7 +290,11 @@ struct RoomLocatorView: View {
         return { point in calibrate(point) }
     }
 
-    private func calibrate(_ model: CGPoint) {
+    private func calibrate(_ tapped: CGPoint) {
+        var model = tapped
+        if let door = floorDoors.min(by: { hypot($0.x - tapped.x, $0.z - tapped.y) < hypot($1.x - tapped.x, $1.z - tapped.y) }), hypot(door.x - tapped.x, door.z - tapped.y) < 1.2 {
+            model = door.point; snapNote = "In der Türmitte eingerastet"
+        } else { snapNote = nil }
         guard let ar = arPoint, let y = tracker.position?.y, let floor = floors.first(where: { $0.id == floorID }) else { problem = "Die Ortung läuft noch nicht. Handy kurz langsam schwenken."; return }
         problem = nil
         if let a = pointA {
@@ -330,62 +357,89 @@ private struct SimulatedRoomValues: View {
     }
 }
 
-/// Top-down floor plan of one storey (model x/z), with the live position and calibration taps.
+/// Top-down floor plan of one storey (model x/z) with walls, doors, live position and calibration taps.
+/// Pinch to zoom and drag to pan; taps are mapped back through the current zoom.
 private struct FloorPlanView: View {
     let rooms: [LocatorRoom]
+    let walls: [LocatorWall]
+    let doors: [LocatorDoor]
     let highlight: Int?
     let you: CGPoint?
     let heading: Double?
     let markers: [CGPoint]
     let tap: ((CGPoint) -> Void)?
+    @State private var zoom: CGFloat = 1
+    @State private var pan: CGSize = .zero
+    @GestureState private var pinch: CGFloat = 1
+    @GestureState private var drag: CGSize = .zero
 
     private var bounds: CGRect {
         var minX = Double.infinity, minY = Double.infinity, maxX = -Double.infinity, maxY = -Double.infinity
-        for room in rooms { var i = 0; while i + 1 < room.tris.count { minX = min(minX, room.tris[i]); maxX = max(maxX, room.tris[i]); minY = min(minY, room.tris[i + 1]); maxY = max(maxY, room.tris[i + 1]); i += 2 } }
+        func add(_ t: [Double]) { var i = 0; while i + 1 < t.count { minX = min(minX, t[i]); maxX = max(maxX, t[i]); minY = min(minY, t[i + 1]); maxY = max(maxY, t[i + 1]); i += 2 } }
+        rooms.forEach { add($0.tris) }; walls.forEach { add($0.tris) }
         guard minX.isFinite else { return CGRect(x: 0, y: 0, width: 10, height: 10) }
         return CGRect(x: minX - 1, y: minY - 1, width: maxX - minX + 2, height: maxY - minY + 2)
     }
 
+    private func path(_ t: [Double], _ map: (CGPoint) -> CGPoint) -> Path {
+        var path = Path(); var i = 0
+        while i + 5 < t.count {
+            path.move(to: map(CGPoint(x: t[i], y: t[i + 1])))
+            path.addLine(to: map(CGPoint(x: t[i + 2], y: t[i + 3])))
+            path.addLine(to: map(CGPoint(x: t[i + 4], y: t[i + 5])))
+            path.closeSubpath(); i += 6
+        }
+        return path
+    }
+
     var body: some View {
         GeometryReader { geo in
-            let b = bounds, scale = min(geo.size.width / b.width, geo.size.height / b.height)
-            let ox = (geo.size.width - b.width * scale) / 2, oy = (geo.size.height - b.height * scale) / 2
+            let b = bounds, fit = min(geo.size.width / b.width, geo.size.height / b.height)
+            let z = max(1, min(zoom * pinch, 12)), scale = fit * z
+            let ox = (geo.size.width - b.width * fit) / 2 * z + pan.width + drag.width - (z - 1) * geo.size.width / 2
+            let oy = (geo.size.height - b.height * fit) / 2 * z + pan.height + drag.height - (z - 1) * geo.size.height / 2
             let toView = { (p: CGPoint) in CGPoint(x: ox + (p.x - b.minX) * scale, y: oy + (p.y - b.minY) * scale) }
             let toModel = { (v: CGPoint) in CGPoint(x: (v.x - ox) / scale + b.minX, y: (v.y - oy) / scale + b.minY) }
             ZStack {
                 Canvas { context, _ in
                     for room in rooms {
-                        var path = Path(); var i = 0
-                        while i + 5 < room.tris.count {
-                            path.move(to: toView(CGPoint(x: room.tris[i], y: room.tris[i + 1])))
-                            path.addLine(to: toView(CGPoint(x: room.tris[i + 2], y: room.tris[i + 3])))
-                            path.addLine(to: toView(CGPoint(x: room.tris[i + 4], y: room.tris[i + 5])))
-                            path.closeSubpath(); i += 6
-                        }
-                        let active = room.id == highlight
-                        context.fill(path, with: .color(active ? d21Accent.opacity(0.45) : d21Accent.opacity(0.10)))
-                        context.stroke(path, with: .color(d21Accent.opacity(active ? 0.9 : 0.25)), lineWidth: active ? 1.5 : 0.5)
+                        let p = path(room.tris, toView), active = room.id == highlight
+                        context.fill(p, with: .color(active ? d21Accent.opacity(0.42) : d21Accent.opacity(0.13)))
                     }
-                    if scale > 9 {
-                        for room in rooms { context.draw(Text(room.shortName).font(.system(size: 8)).foregroundStyle(.secondary), at: toView(room.center)) }
+                    for wall in walls { context.fill(path(wall.tris, toView), with: .color(Color.primary.opacity(0.78))) }
+                    let doorSize = max(5, min(12, scale * 0.45))
+                    for door in doors {
+                        let p = toView(door.point)
+                        context.fill(Path(ellipseIn: CGRect(x: p.x - doorSize / 2, y: p.y - doorSize / 2, width: doorSize, height: doorSize)), with: .color(.orange.opacity(0.9)))
+                    }
+                    if scale > 7 {
+                        for room in rooms { context.draw(Text(room.shortName).font(.system(size: min(13, max(8, scale * 0.35)), weight: room.id == highlight ? .bold : .regular)).foregroundStyle(.secondary), at: toView(room.center)) }
                     }
                     for marker in markers {
                         let p = toView(marker)
-                        context.fill(Path(ellipseIn: CGRect(x: p.x - 7, y: p.y - 7, width: 14, height: 14)), with: .color(.orange))
-                        context.draw(Text("A").font(.caption2.bold()).foregroundStyle(.white), at: p)
+                        context.fill(Path(ellipseIn: CGRect(x: p.x - 9, y: p.y - 9, width: 18, height: 18)), with: .color(d21Accent))
+                        context.draw(Text("A").font(.caption.bold()).foregroundStyle(.white), at: p)
                     }
                 }
                 if let you {
                     let p = toView(you)
                     ZStack {
-                        Circle().fill(Color.blue.opacity(0.18)).frame(width: 34, height: 34)
-                        if let heading { Image(systemName: "location.north.fill").font(.system(size: 16, weight: .bold)).foregroundStyle(.blue).rotationEffect(.radians(heading + .pi / 2)) }
+                        Circle().fill(Color.blue.opacity(0.18)).frame(width: 36, height: 36)
+                        if let heading { Image(systemName: "location.north.fill").font(.system(size: 17, weight: .bold)).foregroundStyle(.blue).rotationEffect(.radians(heading + .pi / 2)) }
                         else { Circle().fill(.blue).frame(width: 12, height: 12) }
                     }.position(p).animation(.easeOut(duration: 0.15), value: p)
                 }
             }
             .contentShape(Rectangle())
             .gesture(SpatialTapGesture().onEnded { value in tap?(toModel(value.location)) }, including: tap == nil ? .none : .all)
+            .simultaneousGesture(MagnifyGesture().updating($pinch) { value, state, _ in state = value.magnification }.onEnded { value in zoom = max(1, min(zoom * value.magnification, 12)); if zoom == 1 { pan = .zero } })
+            .simultaneousGesture(DragGesture(minimumDistance: 12).updating($drag) { value, state, _ in if z > 1 { state = value.translation } }.onEnded { value in if z > 1 { pan.width += value.translation.width; pan.height += value.translation.height } })
+            .overlay(alignment: .topTrailing) {
+                if z > 1.01 {
+                    Button { withAnimation(.easeOut(duration: 0.2)) { zoom = 1; pan = .zero } } label: { Image(systemName: "arrow.down.right.and.arrow.up.left").font(.caption.weight(.bold)).padding(8).background(.regularMaterial, in: Circle()) }
+                        .buttonStyle(.plain).padding(8).accessibilityLabel("Zoom zurücksetzen")
+                }
+            }
             .accessibilityLabel(highlight.flatMap { id in rooms.first { $0.id == id }?.name }.map { "Grundriss, du bist in \($0)" } ?? "Grundriss")
         }
         .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
