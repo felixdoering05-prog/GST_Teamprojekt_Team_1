@@ -10,3 +10,5 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 | RADAR-003 | Fehlende Sensordaten von 0 °C unterscheiden | Sensorik und Heatmaps | Jetzt testen | Ausfälle sichtbar machen | 1 h geschätzt | Home Assistant Core Apache-2.0 | [Abendbericht](berichte/2026-11-12-1718.md) | Testvorschlag für #134 |
 
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
+
+Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
