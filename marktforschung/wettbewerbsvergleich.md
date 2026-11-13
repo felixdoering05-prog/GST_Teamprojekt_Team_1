@@ -29,3 +29,16 @@ Quelle: [Projekt-README](../README.md), [PR #133](../../pull/133), [PR #134](../
 4. Kostenmodell mit gleichen Annahmen (Nutzer, Gebäude, Hosting, Hardware, Support), statt ungleicher Listenpreise.
 
 **Bewertungsregel:** Anbieter-Funktionsangaben nur mit URL und Prüfdatum; Preise immer mit Währung, Region, Laufzeit und Preisart. Fehlende Informationen bleiben „nicht bestätigt“.
+
+
+## Ergänzung 13.11.2026, 19:00 MEZ – direkter Wettbewerber Autodesk Tandem
+
+| Anbieter / Produkt | Zielgruppe / Schwerpunkt | Belegte Funktionen | Lizenz / Preisstand | Quelle |
+| :--- | :--- | :--- | :--- | :--- |
+| **Autodesk Tandem / Tandem Connect** | Gebäudebetreiber, Eigentümer, AEC und Systemintegratoren | BIM-basierter digitaler Zwilling, manueller IFC-/Revit-Import, Raum-/Systemkontext; IoT-/BMS-Streams, Heatmaps und Zeitreihendiagramme; Tandem Connect überträgt Betriebsdaten | Abonnement/Produktvarianten; **kein verifizierter EUR-Betrag**. Tandem for AEC ist laut Autodesk im BIM Collaborate Pro-Abo enthalten | [Autodesk Tandem](https://help.autodesk.com/cloudhelp/ENU/Tandem-About/files/Tandem_About_about_tandem_html.html) · [Tandem for AEC](https://app.learn-one.autodesk.com/uk/products/bim-collaborate/features/digital-twin) · [Tandem Connect](https://www.autodesk.com/dk/products/tandem-connect/buy) |
+| **Siemens Building X – Lifecycle Twin (Lizenzdetails)** | Gewerbliche Betreiber / Instandhaltung | 2D/3D, Asset- und Dokumentenverwaltung, Wartungsabläufe; Cloud oder lokal laut Siemens-Hilfe | **Laut Siemens-Datenblatt** Cloud-Angebot mit mindestens 10 Nutzern und 20 GB; 12 Monate Laufzeit, automatische Verlängerung. **Kein verifizierter EUR-Preis** | [Siemens-Hilfe](https://sid.siemens.com/r/A6V13989089/23513708683_26912673931__de-DE_22822305163) · [Siemens-Datenblatt](https://assets.new.siemens.com/siemens/assets/api/uuid%3A0251ec0c-76db-46ae-97f3-eddc38f4271a/BuildingX-Data-Sheet-Lifecycle-Twin-2025-03-26_original.pdf) |
+| **BuildingMinds (KI-Nachrüstungsplanung)** | Immobilienportfolios / Dekarbonisierung | KI-gestützte Empfehlungen für Nachrüstungen und Energie-/CO₂-Szenarien laut Anbieter | Preis **nicht öffentlich verifiziert**; einzelne Szenarienvergleiche ausdrücklich als „demnächst verfügbar“ gekennzeichnet | [BuildingMinds Dekarbonisierung](https://buildingminds.com/de/digital-twin2/) |
+
+**Wettbewerbsrelevanz:** Autodesk Tandem ist ein direkterer Vergleich als Autodesk BIM Collaborate Pro allein: IFC/Revit, raumbezogene Betriebsdaten und Heatmaps sind dort bereits beschrieben. Ein pauschaler USP „IFC + Sensorwerte + Heatmap“ ist daher **nicht belegbar**. Eine differenzierende Positionierung als einfaches, preislich transparentes Campus-/Kleingebäude-Werkzeug bleibt eine **ungetestete Hypothese**.
+
+**GitHub-Abgleich, 19:00 MEZ:** [PR #154](../../pull/154) und [PR #155](../../pull/155) sind in `main` gemergt. Sie ergänzen den KI-/Sprachkontext um **geprüfte IFC-Zählungen**, ohne frei formulierte Raumlisten an den Provider zu übertragen; #155 nennt 154 bestandene Backendtests und einen zusätzlichen Textrouten-Integrationstest. Das belegt **keinen** durchgängig erfolgreichen realen Sprachdialog, keinen D21-Echtmesswert und keinen produktiven Einsatz. Die neuere [README-Änderung #153](../../pull/153) ist weiterhin ein offener PR.
