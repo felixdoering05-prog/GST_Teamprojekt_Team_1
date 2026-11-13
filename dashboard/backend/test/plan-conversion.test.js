@@ -31,7 +31,7 @@ test('strict geometry rejects missing scale, oversized plans and injected comman
 });
 test('Gemini receives image bytes only at fixed endpoint and bounded JSON is validated',async()=>{
  let sent;const result=await analyzePlans([{mime_type:'image/png',content:Buffer.from('test-image')}],{getKey:()=> 'test-only-key',model:'test-model',fetchProvider:async(u,o)=>{sent={u,o};return new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(fixture())}]}}],usageMetadata:{promptTokenCount:12,candidatesTokenCount:34}}),{headers:{'Content-Type':'application/json'}});}});
- assert.equal(result.usage.prompt_tokens,12);assert.equal(sent.o.redirect,'error');assert.ok(sent.u.startsWith('https://generativelanguage.googleapis.com/'));assert.equal(JSON.parse(sent.o.body).contents[0].parts[0].inlineData.data,Buffer.from('test-image').toString('base64'));
+ assert.equal(JSON.parse(sent.o.body).generationConfig.responseJsonSchema.properties.status.enum[1],'needs_input');assert.equal(result.usage.prompt_tokens,12);assert.equal(sent.o.redirect,'error');assert.ok(sent.u.startsWith('https://generativelanguage.googleapis.com/'));assert.equal(JSON.parse(sent.o.body).contents[0].parts[0].inlineData.data,Buffer.from('test-image').toString('base64'));
  await assert.rejects(analyzePlans([],{getKey:()=> 'test',fetchProvider:async()=>new Response('{}',{status:429})}),{code:'provider_limit'});
  await assert.rejects(analyzePlans([],{getKey:()=> 'test',fetchProvider:async()=>new Response('x'.repeat(600000))}),{code:'provider_response_invalid'});
 });
@@ -119,4 +119,8 @@ test('deleting an owned building preserves recent plan quota without retaining i
  assert.equal((await db.query('SELECT id FROM app_plan_jobs WHERE id=$1',[created.body.id])).rows.length,0);
  assert.equal((await db.query('SELECT user_id FROM app_plan_deleted_usage WHERE job_id=$1',[created.body.id])).rows[0].user_id,owner.id);
  assert.equal((await db.query('SELECT id FROM app_documents WHERE building_id=$1',[building.id])).rows.length,0);
+});
+
+test('Gemini missing-scale feedback survives as bounded user guidance',async()=>{
+ await assert.rejects(analyzePlans([],{getKey:()=> 'test',fetchProvider:async()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({status:'needs_input',reason:'Bitte das Gesamtmaß der Nordseite angeben.',warnings:[],levels:[]})}]}}]}))}),e=>e.code==='needs_input'&&e.input_reason==='Bitte das Gesamtmaß der Nordseite angeben.');
 });

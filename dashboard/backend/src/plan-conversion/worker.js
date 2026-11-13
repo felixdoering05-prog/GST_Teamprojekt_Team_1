@@ -32,7 +32,8 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,enabled=
  }catch(e){
   if(!job)throw e;
   const code=Object.hasOwn(FAILURE_MESSAGES,e.code)?e.code:'model_generation_failed';
-  await c.query("UPDATE app_plan_jobs SET status=$2,failure_code=$3,warnings=$4,analysis=COALESCE($5::jsonb,analysis),provider_model=COALESCE($6,provider_model),usage=COALESCE($7::jsonb,usage),output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running'",[job.id,code==='needs_input'?'needs_input':code==='consent_changed'?'cancelled':'failed',code,JSON.stringify([FAILURE_MESSAGES[code]]),e.geometry?JSON.stringify(e.geometry):null,e.provider_model||null,e.usage?JSON.stringify(e.usage):null]);
+  const detail=code==='needs_input'&&typeof e.input_reason==='string'&&e.input_reason.trim().length>0&&e.input_reason.length<=2000&&!/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(e.input_reason)?e.input_reason.trim():null;
+  await c.query("UPDATE app_plan_jobs SET status=$2,failure_code=$3,warnings=$4,analysis=COALESCE($5::jsonb,analysis),provider_model=COALESCE($6,provider_model),usage=COALESCE($7::jsonb,usage),output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running'",[job.id,code==='needs_input'?'needs_input':code==='consent_changed'?'cancelled':'failed',code,JSON.stringify(detail?[FAILURE_MESSAGES[code],detail]:[FAILURE_MESSAGES[code]]),e.geometry?JSON.stringify(e.geometry):null,e.provider_model||null,e.usage?JSON.stringify(e.usage):null]);
   console.error('plan-job',job.id,code);return true;
  }finally{await c.query('SELECT pg_advisory_unlock(610212)');}
 }
