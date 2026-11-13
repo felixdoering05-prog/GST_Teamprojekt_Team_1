@@ -9,3 +9,11 @@
 #map-attribution{position:absolute;bottom:82px;left:12px;right:12px;font-size:10px;text-align:center;color:#52616c;background:#ffffffdd;border-radius:6px;padding:4px;pointer-events:none}#map-attribution:empty{display:none}#map-attribution a{color:inherit;pointer-events:auto}
 
 #home{bottom:128px}
+/* 2026-11 refresh: glass toolbar, rounded cards; smart-home overlay retired */
+#tools{top:12px;left:12px;right:12px;gap:8px}
+#tools button{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.6);box-shadow:0 4px 18px rgba(16,39,49,.12);border-radius:999px;padding:9px 14px;font-weight:600;color:#0b5f6b}
+#selection,#commands{border-radius:20px;box-shadow:0 10px 40px rgba(16,39,49,.18);background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+#hint{border-radius:999px;background:rgba(255,255,255,.75);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+#map-attribution{border-radius:999px;background:rgba(255,255,255,.7)}
+#status{border-radius:18px}
+@media (prefers-color-scheme: dark){#tools button,#hint,#map-attribution{background:rgba(28,36,44,.7);color:#9fe3ea;border-color:rgba(255,255,255,.12)}#selection,#commands{background:rgba(24,32,40,.92);color:#e6eef1}}

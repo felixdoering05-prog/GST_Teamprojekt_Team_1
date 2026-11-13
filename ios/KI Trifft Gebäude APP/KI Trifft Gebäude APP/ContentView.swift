@@ -470,6 +470,8 @@ struct AccountHomeView: View {
     @State private var showProfile = false
     @State private var path: [Building] = []
     @State private var buildingPreview: Building?
+    @State private var deletionTarget: Building?
+    @State private var deletingBuilding = false
     @State private var nextBuilding: Building?
     @State private var nextArea = "Übersicht"
     @State private var savedDraft: BuildingDraft?
@@ -501,7 +503,11 @@ struct AccountHomeView: View {
                     }
                     Section("Meine und geteilte Gebäude") {
                         ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
-                            Button { nextArea = "Dashboard"; path.append(building) } label: { NativeBuildingCard(building: building) }.buttonStyle(BuildingTileButtonStyle()).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
+                            Button { nextArea = "Dashboard"; path.append(building) } label: { NativeBuildingCard(building: building) }.buttonStyle(BuildingTileButtonStyle())
+                                .contextMenu {
+                                    Button("Öffnen", systemImage: "arrow.up.forward.app") { nextArea = "Dashboard"; path.append(building) }
+                                    if building.is_owner != false { Button("Gebäude löschen", systemImage: "trash", role: .destructive) { deletionTarget = building } }
+                                }.listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
                         }
                         if model.buildings.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -512,6 +518,12 @@ struct AccountHomeView: View {
                     }
                 }
                 .navigationTitle("Hallo, \(model.user?.name ?? "")")
+                .confirmationDialog("„\(deletionTarget?.name ?? "")“ endgültig löschen?", isPresented: Binding(get: { deletionTarget != nil }, set: { if !$0 { deletionTarget = nil } }), titleVisibility: .visible, presenting: deletionTarget) { target in
+                    Button("Gebäude und zugehörige Daten löschen", role: .destructive) {
+                        Task { deletingBuilding = true; defer { deletingBuilding = false; deletionTarget = nil }; do { try await model.deleteOwnedBuilding(target) } catch { model.error = error.localizedDescription } }
+                    }
+                } message: { _ in Text("Alle Mitglieder verlieren den Zugriff. Dateien, Modelle und Chat-/KI-Verläufe werden entfernt. Das kann nicht rückgängig gemacht werden.") }
+                .overlay { if deletingBuilding { ProgressView("Gebäude wird gelöscht …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
                 .searchable(text: $search, prompt: "Gebäude suchen")
                 .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model, initialSection: nextArea) }
                 .sheet(item: $buildingPreview, onDismiss: { if let building = nextBuilding { nextBuilding = nil; path.append(building) } }) { building in

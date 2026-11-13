@@ -1,12 +1,19 @@
 import * as THREE from 'three';
 export function localPoint(lon,lat,view){const north=(lat-view.latitude)*111320,east=(lon-view.longitude)*111320*Math.cos(view.latitude*Math.PI/180);return [east/view.meters_per_unit,-north/view.meters_per_unit];}
 export function mountMapEnvironment(scene,groundY,render){
- let previous='',group;
+ let previous='',group,groundMesh,groundGroup,lastView,pendingGround;
  function clear(){if(!group)return;scene.remove(group);group.traverse(x=>{x.geometry?.dispose();x.material?.dispose();});group=null;}
  const note=document.createElement('div');note.id='map-attribution';document.body.append(note);
- return view=>{
+ const placeGround=()=>{
+  if(!groundMesh||!lastView)return;
+  if(!groundGroup){groundGroup=new THREE.Group();scene.add(groundGroup);}
+  groundGroup.position.y=groundY+.012/ (lastView.meters_per_unit||1);groundGroup.rotation.y=lastView.heading*Math.PI/180;
+  if(groundMesh.parent!==groundGroup)groundGroup.add(groundMesh);render();
+ };
+ const apply=view=>{
   const signature=JSON.stringify(view);if(signature===previous)return;previous=signature;clear();note.replaceChildren();
   if(!view?.features||!Array.isArray(view.features)||!Number.isFinite(view.meters_per_unit)||view.meters_per_unit<=0)return;
+  lastView=view;placeGround();if(pendingGround){apply.setGround(...pendingGround);pendingGround=null;}
   group=new THREE.Group();group.position.y=groundY+.03;group.rotation.y=view.heading*Math.PI/180;
   const unit=view.meters_per_unit;
   for(const feature of view.features.slice(0,200)){
@@ -28,4 +35,17 @@ export function mountMapEnvironment(scene,groundY,render){
   scene.add(group);
   const attribution=document.createElement('a');attribution.href='https://www.openstreetmap.org/copyright';attribution.textContent='© OpenStreetMap-Mitwirkende';attribution.target='_blank';attribution.rel='noopener';note.append(attribution,document.createTextNode(' · Umgebung vereinfacht; fehlende Höhen geschätzt · Position manuell'));render();
  };
+ apply.setGround=(url,metres)=>{
+  // North-up map image (Apple Maps snapshot from the app) as ground under the model; receives shadows.
+  if(!lastView||!Number.isFinite(metres)||metres<=0){pendingGround=[url,metres];return;}
+  const size=metres/lastView.meters_per_unit;
+  new THREE.TextureLoader().load(url,texture=>{
+   texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
+   if(groundMesh){groundMesh.geometry.dispose();groundMesh.material.map?.dispose();groundMesh.material.dispose();groundMesh.removeFromParent();}
+   groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshLambertMaterial({map:texture}));
+   groundMesh.rotation.x=-Math.PI/2;groundMesh.receiveShadow=true;placeGround();
+   if(!note.querySelector('.ground-credit')){const credit=document.createElement('span');credit.className='ground-credit';credit.textContent=' · Kartenboden: Apple Karten';note.append(credit);}
+  });
+ };
+ return apply;
 }

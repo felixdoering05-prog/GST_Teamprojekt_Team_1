@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import WebKit
+import MapKit
 import UniformTypeIdentifiers
 
 struct IFCLibraryView: View {
@@ -161,10 +162,40 @@ struct IFCStoredModelView: View {
     var buildingID: Int? = nil
     var documentID: Int? = nil
     @State private var showMap = false
+    @State private var autoPlace = false
+    @State private var canAlign = false
+    @State private var reload = 0
     var body: some View {
-        IFCWebView(modelURL: url, smartHome: smartHome, account: account, buildingID: buildingID, documentID: documentID)
+        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID).id(reload)
+        .overlay(alignment: .bottom) {
+            if canAlign {
+                Button { autoPlace = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "map.fill").font(.title3).foregroundStyle(.white).frame(width: 40, height: 40).background(d21Accent.gradient, in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auf Karte ausrichten").font(.subheadline.weight(.semibold))
+                            Text("Straßen, Nachbargebäude und Schatten anzeigen").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "sparkles").foregroundStyle(d21Accent)
+                    }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }.buttonStyle(.plain).padding(.horizontal, 16).padding(.bottom, 56)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .toolbar { if let account, let documentID, account.buildings.first(where:{$0.id==buildingID})?.is_owner != false { ToolbarItem(placement:.topBarTrailing) { Button("Kartenumgebung",systemImage:"map") {showMap=true} } } }
-        .sheet(isPresented:$showMap) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
+        .sheet(isPresented:$showMap, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
+        .sheet(isPresented:$autoPlace, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID,autoStart:true)}}
+        .task { await checkPlacement() }
+    }
+    /// Offers one-tap alignment when the model has no map placement yet and the person may edit it.
+    private func checkPlacement() async {
+        guard let account, let documentID else { return }
+        do {
+            let meta: GeoreferenceMetadata = try await account.request("documents/\(documentID)/georeference")
+            let value: ModelMapSettingsReply = try await account.request("documents/\(documentID)/map-view")
+            withAnimation { canAlign = meta.can_edit && value.map_view?.loaded_at == nil }
+        } catch { canAlign = false }
     }
 }
 
@@ -334,6 +365,24 @@ struct IFCWebView: UIViewRepresentable {
             }
             let revision: Int; let state: State; let device_lights: [DeviceLight]?; let map_view: MapView?
         }
+        private var groundKey: String?
+        /// Renders a north-up Apple Maps image around the model's anchor and hands it to the viewer as ground.
+        @MainActor func sendGround(_ view: SceneReply.MapView, to web: WKWebView) async {
+            let key = String(format: "%.6f,%.6f", view.latitude, view.longitude)
+            guard groundKey != key else { return }
+            groundKey = key
+            let metres = 260.0
+            let options = MKMapSnapshotter.Options()
+            options.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: view.latitude, longitude: view.longitude),
+                                                span: MKCoordinateSpan(latitudeDelta: metres / 111_320, longitudeDelta: metres / (111_320 * cos(view.latitude * .pi / 180))))
+            options.size = CGSize(width: 1024, height: 1024); options.scale = 2
+            options.pointOfInterestFilter = .excludingAll
+            options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
+            guard let snapshot = try? await MKMapSnapshotter(options: options).start(), let png = snapshot.image.jpegData(compressionQuality: 0.85) else { groundKey = nil; return }
+            // Square image over a square region: the image covers `metres` on each side.
+            let actual = metres
+            _ = try? await web.callAsyncJavaScript("window.d21SetGround?.(url, metres)", arguments: ["url": "data:image/jpeg;base64," + png.base64EncodedString(), "metres": actual], in: nil, contentWorld: .page)
+        }
         func sceneRequest(_ message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
                   let body = message.body as? [String:Any], let id = body["id"] as? String, id.count <= 100,
@@ -347,6 +396,7 @@ struct IFCWebView: UIViewRepresentable {
                     guard !Task.isCancelled else { return }
                     let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result))
                     _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, result, null)", arguments:["id":id,"result":json], in:nil, contentWorld:.page)
+                    if let view = result.map_view { await self.sendGround(view, to: web) }
                 } catch {
                     guard !Task.isCancelled else { return }
                     _ = try? await web.callAsyncJavaScript("window.d21SceneReply(id, null, error)", arguments:["id":id,"error":error.localizedDescription], in:nil, contentWorld:.page)

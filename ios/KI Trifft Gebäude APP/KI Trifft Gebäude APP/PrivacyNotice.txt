@@ -27,6 +27,9 @@ Für die Raumerkennung nutzt die App Kamera und, falls vorhanden, den LiDAR-Sens
 Raumscan beim Anlegen eines Gebäudes (Testfunktion)
 Mit Apple RoomPlan erfasst das iPhone per Kamera und LiDAR Wände, Türen, Fenster und Räume. Der Scan wird auf dem iPhone ausgewertet und daraus eine IFC-Datei erzeugt. Erst wenn du sie übernimmst, wird diese IFC-Datei wie ein Plan auf den Projektserver hochgeladen; Kamerabilder und Tiefendaten werden nicht gespeichert oder übertragen.
 
+3D-Modell auf der Karte
+Ist ein Modell auf der Karte platziert, lädt die App für den Kartenboden einen Kartenausschnitt (etwa 260 × 260 m) um den Gebäudestandort von Apple Karten. Straßen und Nachbargebäude stammen wie bisher aus OpenStreetMap über den Projektserver; die automatische Ausrichtung startet erst nach deinem Tipp auf „Auf Karte ausrichten“. Schatten werden aus dem berechneten Sonnenstand am Standort dargestellt.
+
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.
 
