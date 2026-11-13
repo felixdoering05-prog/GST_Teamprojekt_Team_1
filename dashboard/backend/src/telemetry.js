@@ -46,12 +46,47 @@ async function analysisContext(db,building,source){
  return {mode:'measurement-analysis',building:{name:building.name},source,metrics,thresholds:snapshot.thresholds,truncated:snapshot.truncated,
   limitations:['Begrenzter Ausschnitt zuletzt gespeicherter Werte, keine vollständigen Zeitreihen.','Nur Qualität ok; keine Dateiinhalte, Adresse, Namen von Personen, Chatverläufe oder Zugangsdaten.','Mittelwerte können mehrere Sensoren zusammenfassen. Keine Raumdiagnose, Prognose oder Modelltraining.','real = als Messung importiert, nicht unabhängig verifiziert; demo = Beispieldaten.'],scope:snapshot.scope};
 }
+async function roomTemperatures(db, building) {
+ const params = [building.user_id, String(building.id)];
+ const [rooms, floors, readings] = await Promise.all([
+  db.query(`SELECT id, data->>'room_code' AS room_code, data->>'floor_id' AS floor_id,
+   data->>'ifc_global_id' AS ifc_global_id FROM app_twin_records
+   WHERE user_id=$1 AND data->>'building_id'=$2 AND entity='Room' AND data->>'source' IS DISTINCT FROM 'demo'`, params),
+  db.query(`SELECT id, data->>'name' AS name, data->'level' AS level FROM app_twin_records
+   WHERE user_id=$1 AND data->>'building_id'=$2 AND entity='Floor'`, params),
+  db.query(`SELECT s.data->>'room_id' AS room_id, m.id, m.data->'value' AS value, m.data->>'measured_at' AS measured_at
+   FROM app_twin_records s JOIN app_twin_records m ON m.user_id=s.user_id AND m.data->>'sensor_id'=s.id
+   WHERE s.user_id=$1 AND s.data->>'building_id'=$2 AND s.entity='Sensor'
+    AND s.data->>'metric'='temperature' AND s.data->>'source' IS DISTINCT FROM 'demo'
+    AND s.data->>'room_id' IS NOT NULL AND m.entity='Measurement' AND m.data->>'building_id'=$2
+    AND m.data->>'metric'='temperature' AND m.data->>'source'='real'
+    AND COALESCE(m.data->>'quality','ok')='ok'`, params),
+ ]);
+ const latest = new Map();
+ for (const reading of readings.rows) {
+  const time = Date.parse(reading.measured_at);
+  if (!Number.isFinite(time) || !Number.isFinite(reading.value)) continue;
+  const previous = latest.get(reading.room_id);
+  if (!previous || time > previous.time || (time === previous.time && reading.id > previous.id)) {
+   latest.set(reading.room_id, { time, id: reading.id, value: reading.value });
+  }
+ }
+ return { floors: floors.rows, rooms: rooms.rows.map(room => {
+  const reading = latest.get(room.id);
+  return { ...room, reading: reading ? { value: reading.value, measured_at: new Date(reading.time).toISOString() } : null };
+ }) };
+}
 function telemetryRouter(db,requireAccount){
  const r=express.Router(),base='/buildings/:telemetryBuilding/telemetry';
  r.use(base,requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');if(!/^[1-9]\d*$/.test(req.params.telemetryBuilding)||Number(req.params.telemetryBuilding)>2147483647)return res.status(400).json({error:'Ungültiges Gebäude.'});next();});
  r.get(base,wrap(async(req,res)=>{
   const b=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);if(!b)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   res.json(await telemetrySnapshot(db,b,req.query.source||'real'));
+ }));
+ r.get(base+'/room-temperatures',wrap(async(req,res)=>{
+  const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
+  if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
+  res.json(await roomTemperatures(db,building));
  }));
  r.post(base+'/sensors',wrap(async(req,res)=>{
   const b=req.body||{};

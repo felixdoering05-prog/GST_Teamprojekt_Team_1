@@ -1,67 +1,158 @@
 import * as THREE from 'three';
 import locations from './campus-locations.json';
 import footprint from './d21-footprint.json';
-import { campusPoint, coordinateTile, tilePosition } from './campus-projection.js';
+import { campusPoint } from './campus-projection.js';
+import { D21_WAY, TERRAIN_COLOR, mountCampusTerrain, reliefHeight } from './campus-terrain.js';
 
-// Public map tiles are loaded only when visible; browser HTTP caching remains enabled.
-export function addCampusMap(scene, { groundY = 0, outline = false, center = null } = {}) {
-  const group = new THREE.Group(); group.position.y = groundY - .03; scene.add(group);
-  const tiles = [], labels = [], resources = new Set(); let disposed = false, repaint = () => {};
+const terrainURL = '/campus-data/campus-terrain.json';
+const overviewLabels = new Set(['D21', 'A10', 'A20', 'B10', 'C10', 'D10', 'D22']);
+
+function labelSprite(code, keep) {
+  const primary = code === 'D21';
+  const canvas = document.createElement('canvas');
+  canvas.width = 144;
+  canvas.height = 64;
+  const context = canvas.getContext('2d');
+  context.fillStyle = primary ? '#365c55' : '#f5f8f5';
+  context.strokeStyle = primary ? '#f5f8f5' : '#c4d1cd';
+  context.lineWidth = 3;
+  context.beginPath();
+  context.roundRect(2, 2, 140, 60, 17);
+  context.fill();
+  context.stroke();
+  context.fillStyle = primary ? '#fff' : '#3d5359';
+  context.font = '650 33px system-ui, sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(code, 72, 33);
+  const texture = keep(new THREE.CanvasTexture(canvas));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = keep(new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, toneMapped: false }));
+  const sprite = new THREE.Sprite(material);
+  sprite.renderOrder = primary ? 7 : 6;
+  if (primary) sprite.center.y = -.26;
+  return sprite;
+}
+
+export function addCampusMap(scene, { groundY = 0, outline = false, subdued = false } = {}) {
+  const group = new THREE.Group();
+  group.position.y = groundY - .03;
+  scene.add(group);
+  const resources = new Set();
   const keep = resource => { resources.add(resource); return resource; };
-  const zoom = center ? 19 : 17;
-  const origin = center || undefined;
-  const [centerX, centerY] = center ? coordinateTile(center, zoom) : [0, 0];
-  const [west, north] = center ? [centerX - 1, centerY - 1] : coordinateTile([8.6308, 49.8703], zoom);
-  const [east, south] = center ? [centerX + 1, centerY + 1] : coordinateTile([8.6425, 49.8620], zoom);
-  const tileCount = 2 ** zoom;
-  const geometry = keep(new THREE.PlaneGeometry(1, 1));
-  for (let y = north; y <= south; y++) for (let x = west; x <= east; x++) {
-    const position = tilePosition(x, y, zoom, origin);
-    const material = keep(new THREE.MeshBasicMaterial({ color:'#eceeea', toneMapped:false }));
-    const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(position.x, 0, position.z); mesh.scale.set(position.size, position.size, 1); group.add(mesh);
-    const box = new THREE.Box3(new THREE.Vector3(position.x-position.size/2,groundY-.1,position.z-position.size/2),new THREE.Vector3(position.x+position.size/2,groundY+.1,position.z+position.size/2));
-    tiles.push({mesh,box,x:((x % tileCount) + tileCount) % tileCount,y,state:'idle'});
-  }
+  const background = new THREE.Mesh(
+    keep(new THREE.PlaneGeometry(6000, 6000)),
+    keep(new THREE.MeshBasicMaterial({ color: TERRAIN_COLOR, toneMapped: false })),
+  );
+  background.rotation.x = -Math.PI / 2;
+  background.position.y = -.028;
+  group.add(background);
+
+  let marker;
   if (outline) {
-    const shape = new THREE.Shape(footprint.coordinates.map(coordinate => { const [x,z]=campusPoint(coordinate);return new THREE.Vector2(x,-z); }));
-    const mesh = new THREE.Mesh(keep(new THREE.ShapeGeometry(shape)), keep(new THREE.MeshBasicMaterial({color:'#8baa19',toneMapped:false,side:THREE.DoubleSide})));
-    mesh.rotation.x=-Math.PI/2;mesh.position.y=.08;group.add(mesh);
+    const points = footprint.coordinates.map(coordinate => {
+      const [x, z] = campusPoint(coordinate);
+      return new THREE.Vector2(x, -z);
+    });
+    marker = new THREE.Mesh(
+      keep(new THREE.ShapeGeometry(new THREE.Shape(points))),
+      keep(new THREE.MeshBasicMaterial({ color: '#648e83', toneMapped: false })),
+    );
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.y = .03;
+    group.add(marker);
   }
-  const labelGroup = new THREE.Group(); group.add(labelGroup);
-  for (const building of (center ? [] : locations.buildings)) {
-    if (building.code === 'D21' && !outline) continue;
-    const canvas = document.createElement('canvas');canvas.width=128;canvas.height=56;
-    const context=canvas.getContext('2d');context.fillStyle=building.code==='D21'?'#087f80':'#ffffffeb';context.beginPath();context.roundRect(0,0,128,56,10);context.fill();
-    context.fillStyle=building.code==='D21'?'#fff':'#42502a';context.font='600 32px sans-serif';context.textAlign='center';context.textBaseline='middle';context.fillText(building.code,64,29);
-    const texture=keep(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
-    const sprite=new THREE.Sprite(keep(new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false,toneMapped:false})));sprite.scale.set(14,6.125,1);
-    const [x,z]=campusPoint(building.coordinates);sprite.position.set(x,1,z);sprite.renderOrder=5;labelGroup.add(sprite);labels.push(sprite);
-  }
-  const warning=document.querySelector('#map-status');const retry=document.querySelector('#map-retry');
-  if(retry)retry.onclick=()=>{tiles.forEach(tile=>{if(tile.state==='error')tile.state='idle';});repaint();};
-  const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');
-  const frustum=new THREE.Frustum();
+  const labelGroup = new THREE.Group();
+  group.add(labelGroup);
   const campusBounds = new THREE.Box3();
-  if (center) campusBounds.setFromObject(group).expandByScalar(4);
-  else { for (const building of locations.buildings) { const [x,z]=campusPoint(building.coordinates);campusBounds.expandByPoint(new THREE.Vector3(x,groundY,z)); } campusBounds.expandByScalar(45); }
-  return {
-    bounds:campusBounds,
-    setLabels(visible){labelGroup.visible=visible;},
-    update(camera,render){
-      repaint=render;camera.updateMatrixWorld();frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
-      let failed=false;
-      for(const tile of tiles){
-        tile.mesh.visible=frustum.intersectsBox(tile.box);
-        if(!tile.mesh.visible)continue;
-        if(tile.state==='error')failed=true;
-        if(tile.state!=='idle')continue;
-        tile.state='loading';loader.load(`https://tile.openstreetmap.org/${zoom}/${tile.x}/${tile.y}.png`,texture=>{
-          if(disposed){texture.dispose();return;}keep(texture);texture.colorSpace=THREE.SRGBColorSpace;tile.mesh.material.map=texture;tile.mesh.material.needsUpdate=true;tile.state='ready';repaint();
-        },undefined,()=>{if(!disposed){tile.state='error';repaint();}});
+  const labels = locations.buildings.filter(building => building.code !== 'D21' || outline || !subdued).sort((a, b) =>
+    Number(b.code === 'D21') - Number(a.code === 'D21') ||
+    Number(overviewLabels.has(b.code)) - Number(overviewLabels.has(a.code))).map(building => {
+    const [x, z] = campusPoint(building.coordinates);
+    const sprite = labelSprite(building.code, keep);
+    const primary = building.code === 'D21';
+    sprite.position.set(x, primary ? (outline ? 6 : 16) : 3.5, z);
+    labelGroup.add(sprite);
+    campusBounds.expandByPoint(new THREE.Vector3(x, groundY, z));
+    return { sprite, code: building.code, primary, overview: overviewLabels.has(building.code) };
+  });
+  campusBounds.expandByScalar(45);
+  const warning = document.querySelector('#map-status');
+  const retry = document.querySelector('#map-retry');
+  let request, loaded = false, failed = false, disposed = false, repaint = () => {};
+  const projected = new THREE.Vector3();
+
+  async function load() {
+    request = new AbortController();
+    try {
+      const response = await fetch(terrainURL, { signal: request.signal });
+      if (!response.ok) throw new Error('Campus-Geodaten fehlen.');
+      const data = await response.json();
+      if (disposed) return;
+      mountCampusTerrain(group, data, { outline, subdued }, keep);
+      if (marker) {
+        marker.visible = false;
+        const d21 = data.buildings.find(item => item.id === D21_WAY);
+        if (d21) labels[0].sprite.position.y = reliefHeight(d21, subdued) + 1.3;
       }
-      if(warning)warning.hidden=!failed;
+      loaded = true;
+    } catch {
+      if (!disposed) failed = true;
+    } finally {
+      request = null;
+      if (!disposed && group.visible) repaint();
+    }
+  }
+  if (retry) {
+    retry.disabled = false;
+    retry.onclick = () => { failed = false; repaint(); };
+  }
+
+  function layoutLabels(camera) {
+    if (!labelGroup.visible) return;
+    group.updateMatrixWorld();
+    camera.updateMatrixWorld();
+    const metresPerPixel = (camera.top - camera.bottom) / (camera.zoom * Math.max(innerHeight, 1));
+    const detailed = metresPerPixel < .72;
+    const visible = [];
+    const displayed = new Set();
+    for (const { sprite, code, primary, overview } of labels) {
+      const width = primary ? 50 : 35, height = width / 2.25;
+      projected.setFromMatrixPosition(sprite.matrixWorld).project(camera);
+      const x = (projected.x + 1) * innerWidth / 2;
+      const y = (1 - projected.y) * innerHeight / 2 + (sprite.center.y - .5) * height;
+      sprite.visible = (primary || detailed || overview) && projected.z >= -1 && projected.z <= 1 &&
+        (detailed || !displayed.has(code)) &&
+        x > width / 2 && x < innerWidth - width / 2 && y > height / 2 && y < innerHeight - height / 2 &&
+        !visible.some(label => Math.abs(label.x - x) < (label.width + width) / 2 + 5 &&
+          Math.abs(label.y - y) < (label.height + height) / 2 + 5);
+      if (!sprite.visible) continue;
+      displayed.add(code);
+      visible.push({ x, y, width, height });
+      sprite.scale.set(width * metresPerPixel, height * metresPerPixel, 1);
+    }
+  }
+
+  return {
+    bounds: campusBounds,
+    setVisible(visible) {
+      group.visible = visible;
+      if (!visible && warning) warning.hidden = true;
     },
-    dispose(){disposed=true;scene.remove(group);for(const resource of resources)resource.dispose();}
+    setLabels(visible) { labelGroup.visible = visible; },
+    update(camera, render) {
+      if (!group.visible || disposed) return;
+      repaint = render;
+      if (!request && !loaded && !failed) void load();
+      if (warning) warning.hidden = !failed;
+      layoutLabels(camera);
+    },
+    dispose() {
+      disposed = true;
+      request?.abort();
+      if (retry) retry.onclick = null;
+      scene.remove(group);
+      for (const resource of resources) resource.dispose();
+    },
   };
 }

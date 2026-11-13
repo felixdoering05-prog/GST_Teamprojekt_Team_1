@@ -2,15 +2,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { addCampusMap } from './campus-map.js';
 import { mountHeatLayer } from './heat-layer.js';
+import { TERRAIN_COLOR } from './campus-terrain.js';
 
 // The campus remains usable before a private model is provisioned or when access is denied.
 export function mountCampusOnly() {
-  const scene=new THREE.Scene();scene.background=new THREE.Color('#e5e9ee');
+  const scene=new THREE.Scene();scene.background=new THREE.Color(TERRAIN_COLOR);
   const camera=new THREE.OrthographicCamera(-300,300,300,-300,.1,20000);
   const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   document.querySelector('#scene').append(renderer.domElement);
   const controls=new OrbitControls(camera,renderer.domElement);controls.minZoom=.15;controls.maxZoom=25;controls.maxPolarAngle=Math.PI*.49;
-  const map=addCampusMap(scene,{outline:true});let height=600,lastAspect=innerWidth/innerHeight;
+  const heatMode=new URLSearchParams(location.search).get('heat')==='true';
+  const map=addCampusMap(scene,{outline:true,subdued:heatMode});let height=600,lastAspect=innerWidth/innerHeight;
   function projection(){const aspect=innerWidth/innerHeight;camera.left=-height*aspect/2;camera.right=height*aspect/2;camera.top=height/2;camera.bottom=-height/2;camera.updateProjectionMatrix();}
   function render(){map.update(camera,render);renderer.render(scene,camera);}
   function fit(campus=true,top=false){
@@ -27,7 +29,7 @@ export function mountCampusOnly() {
   document.querySelector('#toggle-labels').onclick=event=>{const visible=event.currentTarget.getAttribute('aria-pressed')!=='true';event.currentTarget.setAttribute('aria-pressed',String(visible));map.setLabels(visible);render();};
   for(const [id,factor]of[['zoom-in',1.25],['zoom-out',.8]])document.getElementById(id).onclick=()=>{camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.15,25);camera.updateProjectionMatrix();render();};
   controls.addEventListener('change',render);
-  const heat = new URLSearchParams(location.search).get('heat') === 'true' ? mountHeatLayer({scene,render}) : null;
+  const heat = heatMode ? mountHeatLayer({scene,render}) : null;
   if(heat){
     const ray=new THREE.Raycaster();let down;
     renderer.domElement.addEventListener('pointerdown',event=>{down=[event.clientX,event.clientY];});

@@ -10,7 +10,7 @@ const TONE_BG = {
 
 export default function StatCard({ label, value, unit, hint, icon: Icon, tone = 'default' }) {
   return (
-    <div className="surface flex h-full flex-col p-4 sm:p-5">
+    <div className="surface dashboard-stat-card flex h-full flex-col p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 text-xs font-medium leading-relaxed text-muted-foreground">{label}</p>
         {Icon ? (

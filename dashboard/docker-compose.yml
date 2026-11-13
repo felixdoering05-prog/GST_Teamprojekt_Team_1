@@ -21,6 +21,7 @@ services:
       D21_ADMIN_SNAPSHOT_FILE: /run/d21-admin/status.json
       D21_CAMPUS_BUILDING_ID: ${D21_CAMPUS_BUILDING_ID:-}
       D21_CAMPUS_MODEL_FILE: /run/d21-models/H_DA_D21_Final.ifc
+      D21_OVERPASS_URL: ${D21_OVERPASS_URL:-}
       D21_HOMEASSISTANT_CONFIG_FILE: /run/d21-homeassistant/config.json
       D21_HOMEASSISTANT_TOKEN_FILE: /run/d21-homeassistant/access-token
       AI_CONVERSATION_UNLIMITED_USER_IDS: ${AI_CONVERSATION_UNLIMITED_USER_IDS:-}

@@ -47,6 +47,10 @@ test('map location is explicit and owner-only; no remote query on read/save',asy
  assert.equal((await req(owner,base+'/load','POST',{revision:1})).status,200);assert.equal(mapCalls.length,1);assert.ok(mapCalls[0].url.startsWith('https://ovp.dresel.systems/api/interpreter?data='));assert.equal(mapCalls[0].options.method,'GET');assert.equal(mapCalls[0].options.redirect,'error');assert.equal((await req(owner,base+'/load','POST',{revision:2})).status,409);
  const rotated=await req(owner,base,'PUT',{...b,heading:90,revision:2});assert.equal(rotated.status,200);assert.equal(rotated.data.map_view.features.length,1);assert.ok(rotated.data.map_view.loaded_at);assert.equal(mapCalls.length,1);
  const view=await req(member,`/documents/${doc}/model-state`);assert.equal(view.data.map_view.heading,90);assert.equal(view.data.map_view.features[0].kind,'road');
+ const cached=await req(member,`/documents/${doc}/model-state?map_revision=${view.data.map_view.revision}`);
+ assert.equal(Object.hasOwn(cached.data,'map_view'),false);
+ const stale=await req(owner,base+'/load','POST',{revision:1});
+ assert.equal(stale.status,409);assert.match(stale.data.error,/inzwischen geändert/);assert.equal(mapCalls.length,1);
 });
 test('OSM simplification bounds geometry, tags and missing heights without executable content',()=>{
  const ring=[{lat:50,lon:8},{lat:50,lon:8.001},{lat:50.001,lon:8.001},{lat:50,lon:8}];const value=simplifyOSM([{type:'way',tags:{building:'yes',name:'<script>bad</script>'},geometry:ring},{type:'way',tags:{highway:'path'},geometry:[{lat:0,lon:0},{lat:0,lon:1}]}],50,8);assert.equal(value.length,1);assert.equal(value[0].height,8);assert.equal(value[0].estimated_height,true);assert.equal(JSON.stringify(value).includes('script'),false);

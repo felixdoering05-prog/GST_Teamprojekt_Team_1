@@ -50,7 +50,15 @@ Lokaler Prüflauf vom 3. November 2026: drei IFC-/Geschosstests, Build und ESLin
 
 Standorte und Gebäudekennungen stammen aus der [h_da-Campuskarte](https://www2.h-da.de/imap/index.html). D21 wird bei 8.63648° Ost, 49.8640005° Nord, Holzhofallee 38 verankert. Die importierte IFC-Site-Koordinate liegt deutlich abseits dieses Standorts und wird nicht für die Platzierung verwendet. Die Modellgröße bleibt unverändert; die ungefähre Drehung folgt der längsten Kante des [OSM-D21-Grundrisses](https://www.openstreetmap.org/way/148028797). Keine vermessungstechnische oder fachlich freigegebene Georeferenzierung.
 
-Die Karte lädt nur im Sichtfeld liegende Rasterkacheln von `tile.openstreetmap.org` mit normalem Browser-Cache; kein Vorabruf, Offline-Download oder fremder Mapbox-Schlüssel. Quellen, ODbL-Lizenz und verwendete öffentliche Standort-/Grundrissdaten sind unter `/campus-data/index.html` verlinkt. Das Original-IFC ist dort nicht enthalten.
+Die Geländeansicht rendert Straßen, Wege, Grünflächen und Gebäudegrundrisse aus einem mitgelieferten OpenStreetMap-Ausschnitt. Der BIM-Viewer lädt den Ausschnitt beim Öffnen von **Gelände**. Die Gebäude der Umgebung erscheinen als vereinfachte flache Körper. Quellen, ODbL-Lizenz und öffentliche Geodaten sind unter `/campus-data/index.html` verlinkt.
+
+Der Import aus der OSM-Map-API lässt sich mit `node scripts/import-campus-terrain.mjs osm.json public/campus-data/campus-terrain.json YYYY-MM-DD` im Web-Frontend wiederholen. Die Quelldatei wird für den Import lokal verwendet. Der veröffentlichte Ausschnitt enthält Geometrie, eine kleine Auswahl Kartenattribute sowie Angaben zur Quelle und Lizenz.
+
+Bei eigenen IFC-Modellen öffnen Gebäudeeigentümer im Web-Viewer **Gelände einrichten**. Ein vollständiger OpenStreetMap- oder Google-Maps-Link mit Koordinaten, ein Koordinatenpaar oder ein eindeutiger IFC-Standort legt den Kartenpunkt fest. **Gelände laden und anzeigen** speichert den Standort zum Modell und lädt bei Bedarf einen rund 400 × 400 Meter großen OSM-Ausschnitt über den Projektserver. Gespeicherte Ausschnitte können auch freigegebene Gebäudemitglieder öffnen. Google-Maps-Links dienen der Koordinateneingabe. Die vereinfachte Ausrichtung am Modellmittelpunkt lässt sich in der Einrichtung drehen.
+
+`D21_OVERPASS_URL` setzt serverseitig den Overpass-Interpreter. Der konfigurierte Dienst bestimmt die Abdeckung. Der bisherige öffentliche Dienst ist die Voreinstellung für den Prototyp. Für einen kommerziellen Betrieb kann der Projektserver auf einen eigenen oder gebuchten Dienst umgestellt werden. Kartenabrufe enthalten nur den ausgewählten Koordinatenausschnitt. Die IFC-Datei und die Kameraposition bleiben im Viewer.
+
+Bei einem bereits freigegebenen Gebäudestandort steht bis zum Speichern des gerenderten Geländes die bisherige Kartenvorschau zur Verfügung.
 
 ### Private Bereitstellung auf dem Projektserver
 
@@ -64,6 +72,8 @@ Keine Modellkopie im öffentlichen Repository, im Website-Build oder in `app_doc
 Der untersuchte Originalstand enthält 6.201 Meshes und 473.055 Vertices und liegt damit unter den mobilen Viewer-Grenzen. Web-IFC meldet bei der Geometrieprüfung sieben nicht triangulierbare BRep-Begrenzungen (`No basis found for brep`); eine vollständige Rekonstruktion jedes IFC-Bauteils ist deshalb nicht zugesichert. Es werden nur tatsächlich gelesene Geschosse/Geometrien angezeigt, einschließlich vorhandener Zwischen- und Bezugsebenen.
 
 ## Heat map und Jahreszeiten
+
+**Geschosspläne** zeigt die Raumtemperatur im isolierten 3D-Schnitt und im 2D-Grundriss desselben Geschosses. In den Plänen stehen die Raumnummern. Die Zuordnung erfolgt über die IFC GlobalId oder eine eindeutige Raumnummer im passenden Geschoss. Beim Auswählen eines Raums erscheinen der letzte gültige Projektmesswert und sein Messzeitpunkt. Räume ohne Zuordnung bleiben grau. Die bisherigen Ansichten für Raummesswerte, Raumsimulation und Campus-Simulation sind weiterhin über ihre eigenen Reiter erreichbar.
 
 Der neue Reiter **Heat map** (`/heat-map`) verwendet D21 und die Campuskarte. Vier Jahreszeiten, ein Tag-im-Jahr-Regler, ein Stundenregler (00–23 Uhr), Start/Pause für den Jahresverlauf, ein Monatsvergleich und eine abschaltbare transparente Campuseinfärbung steuern die Ansicht. Flächen anklicken zeigt den simulierten Wert; der Wert aktualisiert sich mit dem Szenario. Geschossschnitt und Kamerasteuerung bleiben verfügbar. Die Temperaturlegende bleibt von **−10 bis 50 °C** fest: Blau → Türkis → Grün → Gelb → Orange → Rot.
 

@@ -70,12 +70,12 @@ export default function RoomDialog({ open, onOpenChange, room, floors, building,
         <DialogHeader>
           <DialogTitle>{room ? 'Raum bearbeiten' : 'Raum anlegen'}</DialogTitle>
           <DialogDescription>
-            Raum-ID, Name, Nutzung und Fläche werden von allen Ansichten verwendet. Die Revit-Raum-ID ist für die spätere Modellanbindung reserviert.
+            Die Heat Map ordnet Messwerte über die IFC GlobalId oder über eine eindeutige Raum-ID im passenden Geschoss zu.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Raum-ID *" value={form.room_code} onChange={set('room_code')} placeholder="z. B. EG.05" />
+          <TextField label="Raum-ID *" value={form.room_code} onChange={set('room_code')} placeholder="z. B. 00.05" />
           <TextField label="Raumname *" value={form.name} onChange={set('name')} placeholder="z. B. Seminarraum E2" />
           <SelectField
             label="Geschoss"
@@ -88,7 +88,7 @@ export default function RoomDialog({ open, onOpenChange, room, floors, building,
           <TextField label="Fläche in m²" type="number" step="0.1" value={form.area_m2} onChange={set('area_m2')} />
           <TextField label="Maximale Personenzahl" type="number" value={form.occupants_max} onChange={set('occupants_max')} />
           <TextField label="Revit-Raum-ID (reserviert)" value={form.revit_room_id} onChange={set('revit_room_id')} placeholder="z. B. R-EG-05" />
-          <TextField label="IFC GlobalId (reserviert)" value={form.ifc_global_id} onChange={set('ifc_global_id')} placeholder="optional" />
+          <TextField label="IFC GlobalId" value={form.ifc_global_id} onChange={set('ifc_global_id')} placeholder="optional" />
           <TextAreaField label="Notizen" className="sm:col-span-2" value={form.notes} onChange={set('notes')} />
         </div>
 
