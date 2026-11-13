@@ -106,7 +106,8 @@ async function open() {
   if(placementMode){const geometry=placementGeometry(root,bounds,api.GetCoordinationMatrix(modelID));window.webkit?.messageHandlers?.ifcPlacement?.postMessage(geometry);report('ready:placement');return;}
   root.position.sub(center);
   const span = Math.max(...bounds.getSize(new THREE.Vector3()).toArray(), .1);
-  camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, span / 10000, span * 100);
+  // Near/far chosen for depth precision: tiny near planes make stacked ground layers flicker (z-fighting).
+  camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, Math.max(span / 500, .05), span * 40);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -154,7 +155,7 @@ async function open() {
     light.intensity = sun.live ? 2.8 : 2.4; refreshShadows();
   }
   const applyMap = view => { mapBase(view); if (view && Number.isFinite(view.latitude)) setSun(view); else refreshShadows(); };
-  window.d21SetGround = (url, metres) => { mapBase.setGround(url, metres, refreshShadows); };
+  window.d21SetGround = (url, metres) => { mapBase.setGround(url, metres, () => { ground.visible = false; refreshShadows(); }); };
   // Gentle motion: fly in once, then orbit slowly until the person touches the model.
   let orbiting = false;
   function tick() { if (!orbiting || destroyed) return; controls.update(); render(); requestAnimationFrame(tick); }

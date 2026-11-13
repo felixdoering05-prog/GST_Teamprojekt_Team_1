@@ -7,21 +7,21 @@ export function mountMapEnvironment(scene,groundY,render){
  const placeGround=()=>{
   if(!groundMesh||!lastView)return;
   if(!groundGroup){groundGroup=new THREE.Group();scene.add(groundGroup);}
-  groundGroup.position.y=groundY+.012/ (lastView.meters_per_unit||1);groundGroup.rotation.y=lastView.heading*Math.PI/180;
+  groundGroup.position.y=groundY-.02/(lastView.meters_per_unit||1);groundGroup.rotation.y=lastView.heading*Math.PI/180;
   if(groundMesh.parent!==groundGroup)groundGroup.add(groundMesh);render();
  };
  const apply=view=>{
   const signature=JSON.stringify(view);if(signature===previous)return;previous=signature;clear();note.replaceChildren();
   if(!view?.features||!Array.isArray(view.features)||!Number.isFinite(view.meters_per_unit)||view.meters_per_unit<=0)return;
   lastView=view;placeGround();if(pendingGround){apply.setGround(...pendingGround);pendingGround=null;}
-  group=new THREE.Group();group.position.y=groundY+.03;group.rotation.y=view.heading*Math.PI/180;
+  group=new THREE.Group();group.position.y=groundY;group.rotation.y=view.heading*Math.PI/180;
   const unit=view.meters_per_unit;
   for(const feature of view.features.slice(0,200)){
    const coords=feature.geometry.map(p=>localPoint(p[0],p[1],view));
    if(!coords.some(p=>Math.abs(p[0]*view.meters_per_unit)<=50&&Math.abs(p[1]*view.meters_per_unit)<=50))continue;
    if(feature.kind==='road'){
     for(let i=1;i<coords.length;i++){const a=coords[i-1],b=coords[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);if(length<.001)continue;
-     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#f4f5f6':'#fdfdfd',roughness:1}));road.position.set((a[0]+b[0])/2,.02/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
+     const road=new THREE.Mesh(new THREE.BoxGeometry(feature.width/unit,.035/unit,length),new THREE.MeshStandardMaterial({color:feature.width<=2?'#f4f5f6':'#fdfdfd',roughness:1}));road.position.set((a[0]+b[0])/2,.09/unit,(a[1]+b[1])/2);road.rotation.y=Math.atan2(dx,dz);road.receiveShadow=true;group.add(road);
     }
    }else{
     // Omit the footprint containing the model's anchor; the IFC supplies that building.
@@ -29,7 +29,7 @@ export function mountMapEnvironment(scene,groundY,render){
     if(feature.kind==='building'&&contains)continue;
     const shape=new THREE.Shape(coords.map(p=>new THREE.Vector2(p[0],-p[1])));
     const geometry=feature.kind==='building'?new THREE.ExtrudeGeometry(shape,{depth:feature.height/unit,bevelEnabled:false}):new THREE.ShapeGeometry(shape);
-    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#c3c9d1':'#cfdccf',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.04/unit:.005/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
+    geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#c3c9d1':'#cfdccf',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.0:.04/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);
    }
   }
   scene.add(group);
@@ -43,7 +43,7 @@ export function mountMapEnvironment(scene,groundY,render){
    texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
    if(groundMesh){groundMesh.geometry.dispose();groundMesh.material.map?.dispose();groundMesh.material.dispose();groundMesh.removeFromParent();}
    // Slightly darkened map so the white model stands out.
-   groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshLambertMaterial({map:texture,color:0xcfd3d6}));
+   groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshLambertMaterial({map:texture,color:0xcfd3d6,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2}));
    groundMesh.rotation.x=-Math.PI/2;groundMesh.receiveShadow=true;placeGround();changed();
    if(!note.querySelector('.ground-credit')){const credit=document.createElement('span');credit.className='ground-credit';credit.textContent=' · Kartenboden: Apple Karten';note.append(credit);}
   });
