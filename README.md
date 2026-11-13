@@ -1,5 +1,31 @@
 <div align="center">
 
+## Projektstand · 13. November 2026 (neueste Änderungen zuerst)
+
+**Heute fällig:** [#74 – erster echter D21-Datenpunkt](../../issues/74). In der Web-App ist ein Messwert aus dem D21 mit **Quelle, Einheit, Zeitstempel, Berechtigung und Testnachweis** zu belegen. Ein erfolgreicher Abschluss ist bislang nicht dokumentiert; Demo-/Wetter-/Simulationsdaten erfüllen dieses Ziel nicht.
+
+| Letzte Änderung | Nachgewiesener Stand |
+| :--- | :--- |
+| **12.11. · [#137](../../pull/137)** | Web-Einstieg und gemeinsame Gebäudemappen, Einladungen und Rechteprüfung in `main` übernommen; Frontend-Build und gezielte Tests laut PR. |
+| **12.11. · [#133](../../pull/133)** | iPhone **1.0.113**: Serverstatus und eigene Kontingente im Profil. 147 Backendtests und Simulator-Build dokumentiert; **kein TestFlight-Upload oder Geräteinstallation** dieser Version belegt. |
+| **12.11. · [#131](../../pull/131)** | iPhone **1.0.112** für TestFlight hochgeladen, Datenschutzangaben aktualisiert. Upload bedeutet **nicht** externe Apple-Freigabe. |
+| **12.11. · [#130](../../pull/130), [#128](../../pull/128), [#127](../../pull/127)** | Team-Chat, Gerätekarten und Live-Sprachverbindung überarbeitet; Mikrofon-Audio-Fix und iPhone-Build dokumentiert. Vollständig erfolgreicher realer Sprachdialog nicht bestätigt. |
+| **12.11. · [#129](../../pull/129)** | Kontoweise serverseitige Ausnahmen für KI-/Sprachkontingente; Rechte, Anbieter- und Projektlimits bleiben bestehen. |
+| **Offen · [#134](../../pull/134)** | Neue Web-Heatmap mit Raumwerten, 2D-/3D-Geschossansichten und Gelände: Tests laut PR, **noch nicht in `main`**. |
+| **Offen · [#132](../../pull/132)** | Skript für öffentliche Datenschutzseite: laut PR auf dem Server getestet, aber Änderung **noch nicht in `main`**. |
+| **Offen · [#138](../../pull/138)** | Ideenradar mit synthetischen Räumen; **kein echter D21-Messdaten-Nachweis**. |
+
+**Neue Ideen, noch keine implementierten Features:** [#135 – akustische Anlagenzustandsüberwachung](../../issues/135) und [#136 – AR-Raumerkennung/BIM-Overlay](../../issues/136).
+
+**Prioritäten:** **P1** echter D21-Datenpunkt [#74](../../issues/74), Sensorzugang [#102](../../issues/102), Datenschutzfreigaben [#105](../../issues/105), Hochschul-Infrastruktur [#101](../../issues/101); **P2** Revit→IFC→Server [#73](../../issues/73) und Review der offenen PRs #132/#134; **P3** Ideen #135/#136. Keine dieser Aufgaben ohne prüfbaren Abschluss als erledigt markieren.
+
+**Sitzungsprotokolle:** [03.11. freigegeben, 10.11. weiterhin Entwurf](docs/protokolle/README.md). Technische Arbeitsberichte sind keine Team-Sitzungsprotokolle. Den Entwurf nur nach Gegenprüfung der tatsächlichen Beteiligten freigeben.
+
+Die folgenden Abschnitte enthalten den bisherigen historischen Projektstand; für die jeweils jüngsten PRs und tatsächliche Freigaben gilt diese Übersicht.
+
+---
+
+
 **iPhone 1.0.100 (100) – Vorbereitung externer TestFlight-Tests:** erste Testrunde ohne Live-Sprache/Sprach-SDK; Textassistent bleibt. An Server/Port gebundene Zugangsdaten, Datenschutzinformationen und passwortbestätigte Kontolöschung. [Prüfstand und offene Punkte](docs/testflight-externe-beta-100.md). Apples externe Freigabe ist gesondert erforderlich.
 
 **Neu: Plan → IFC-Entwurf (10. November).** Einmalige Freigabe je Gebäude, automatische Analyse neuer Bilder/PDFs mit Google Gemini und separater BIMCraft-Verarbeitung. Vorläufige Entwürfe werden erst nach Prüfung als zusätzliche IFC übernommen. Bestehende Pläne manuell auswählen. [Bedienung, Grenzen und h_da-Umzug](docs/plan-zu-ifc.md). Entwicklung und Tests; Produktivprüfung siehe Arbeitsbericht.
@@ -16,7 +42,7 @@
 
 Passwortgeschützter Projektzugang. Vorläufige Cloudflare-Testadresse; sie kann sich bei einem Tunnel-Neustart ändern. Zugangsdaten werden separat geteilt.
 
-**Stand: 11. November 2026 · iPhone-App: Build 1.0.100 (100), externe Testversion ohne Live-Sprache; Upload bestätigt, Apple-Freigabe gesondert prüfen**
+**Stand: 13. November 2026 · Neuester dokumentierter iPhone-Kandidat: 1.0.113 (Simulator-Build); letzter ausdrücklich belegter TestFlight-Upload: 1.0.112. Apple-Freigabe separat prüfen.**
 
 **Nächste Projektpräsentation · Montag, 23. November 2026, 14:00 Uhr · Green Office, Gebäude C10**
 
