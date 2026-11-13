@@ -245,10 +245,13 @@ struct IFCWebView: UIViewRepresentable {
     var account: AccountModel? = nil
     var buildingID: Int? = nil
     var documentID: Int? = nil
-    func makeCoordinator() -> Coordinator { Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat) }
+    /// Rooms mode: only reads IfcSpace footprints and hands them over as JSON (no rendering).
+    var onRooms: ((Data) -> Void)? = nil
+    func makeCoordinator() -> Coordinator { let c = Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat); c.onRooms = onRooms; return c }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        if onRooms != nil { configuration.userContentController.add(context.coordinator, name: "ifcRooms") }
         if heat != nil {configuration.userContentController.add(context.coordinator,name:"ifcHeatReady")}
         if heat == nil && account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
         if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
@@ -257,12 +260,13 @@ struct IFCWebView: UIViewRepresentable {
         web.navigationDelegate = context.coordinator
         web.isOpaque = false
         web.scrollView.isScrollEnabled = false
-        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html" + (heat != nil ? "?heat=true" : smartHome ? "?mode=smart-home" : ""))!))
+        web.load(URLRequest(url: URL(string: "d21ifc://viewer/index.html" + (onRooms != nil ? "?rooms=true" : heat != nil ? "?heat=true" : smartHome ? "?mode=smart-home" : ""))!))
         return web
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {context.coordinator.heat=heat;if context.coordinator.heatReady {context.coordinator.sendHeat(uiView)}}
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         uiView.configuration.userContentController.removeScriptMessageHandler(forName:"ifcHeatReady")
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcRooms")
         coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
@@ -275,6 +279,7 @@ struct IFCWebView: UIViewRepresentable {
         let documentID: Int?
         var heat:HeatPresentation?
         var heatReady=false
+        var onRooms: ((Data) -> Void)?
         var heatMap:SceneReply.MapView?
         var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
@@ -290,6 +295,10 @@ struct IFCWebView: UIViewRepresentable {
             if message.name=="ifcHeatReady", message.frameInfo.isMainFrame, message.webView?.url?.scheme=="d21ifc",let web=message.webView,heat != nil {
                 heatReady=true;sendHeat(web)
                 if let account,let documentID {sceneTask=Task{@MainActor [weak self,weak web] in guard let self,let web else{return};do{let value:SceneReply=try await account.request("documents/\(documentID)/model-state");guard !Task.isCancelled else{return};self.heatMap=value.map_view;self.sendHeat(web)}catch{}}}
+                return
+            }
+            if message.name == "ifcRooms", message.frameInfo.isMainFrame, message.webView?.url?.scheme == "d21ifc" {
+                if let body = message.body as? [String: Any], let data = try? JSONSerialization.data(withJSONObject: body) { onRooms?(data) }
                 return
             }
             if message.name == "ifcSceneRequest" { sceneRequest(message); return }

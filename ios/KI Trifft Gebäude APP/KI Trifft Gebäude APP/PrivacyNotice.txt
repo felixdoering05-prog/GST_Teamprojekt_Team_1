@@ -21,6 +21,9 @@ Das Sprachgespräch ist optional und setzt die KI-Freigabe im Profil voraus; vor
 Ist kein Live-Agent eingerichtet, steht ein Modus „Tippen statt Gespräch“ zur Verfügung: Eine bis zu 30 Sekunden lange Aufnahme wird im Arbeitsspeicher erzeugt, per HTTPS an den Projektserver gesendet, dort über ElevenLabs in Text umgewandelt, wie eine getippte Frage an Google Gemini gegeben und auf Wunsch vorgelesen (20 Erkennungen und 20 Vorlesungen je Konto in 24 Stunden).
 Die App enthält für beide Modi keine Fremdbibliotheken.
 
+Raumerkennung „Wo bin ich?“ (Testfunktion)
+Für die Raumerkennung nutzt die App Kamera und, falls vorhanden, den LiDAR-Sensor über Apple ARKit. Kamerabilder, Tiefendaten und deine Position werden nur auf dem iPhone ausgewertet und weder gespeichert noch hochgeladen. Das gewählte IFC-Modell wird dafür vom Projektserver geladen; die Raumgrundrisse werden lokal berechnet. Angezeigte Raumklimawerte sind als Simulation gekennzeichnet und keine Messwerte.
+
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.
 

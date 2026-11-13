@@ -4,11 +4,12 @@ import { mountMapEnvironment } from './map-environment.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { IfcAPI, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR, IFCWINDOW, IFCROOF, IFCSLAB } from 'web-ifc';
+import { IfcAPI, IFCRELAGGREGATES, IFCBUILDINGSTOREY, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR, IFCWINDOW, IFCROOF, IFCSLAB } from 'web-ifc';
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 
 const placementMode=new URLSearchParams(location.search).get('placement')==='true';
+const roomsMode=new URLSearchParams(location.search).get('rooms')==='true';
 const heatMode=new URLSearchParams(location.search).get('heat')==='true';
 const previewMode=new URLSearchParams(location.search).get('preview')==='true';
 const darkPreview=new URLSearchParams(location.search).get('theme')==='dark';
@@ -59,6 +60,7 @@ async function open() {
   await api.Init(path => new URL(path, location.href).href, true);
   modelID = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
   if (modelID < 0 || !api.IsModelOpen(modelID)) throw new Error('Das IFC-Format wird nicht unterstützt oder die Datei ist beschädigt.');
+  if (roomsMode) { window.webkit?.messageHandlers?.ifcRooms?.postMessage(roomFootprints(api, modelID)); report('ready:rooms'); return; }
   scene = new THREE.Scene(); scene.background = new THREE.Color(previewMode?(darkPreview?'#132137':'#eaf1fa'):'#ffffff');
   scene.add(new THREE.HemisphereLight(0xffffff, 0x687c86, 2.8));
   const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(10, 20, 15); scene.add(light);
@@ -250,3 +252,46 @@ async function open() {
   report(`ready:${meshes}`);
 }
 open().catch(fail);
+
+// Room footprints for on-device indoor positioning: every IfcSpace as floor triangles (x/z, metres,
+// same coordinates as the viewer before centring) with its storey and vertical extent. Nothing leaves the phone.
+function roomFootprints(api, modelID) {
+  const label = value => (value && typeof value === 'object' && 'value' in value ? String(value.value ?? '') : String(value ?? '')).trim();
+  const storeyOf = new Map(), storeys = new Map();
+  const storeyIDs = api.GetLineIDsWithType(modelID, IFCBUILDINGSTOREY);
+  for (let i = 0; i < storeyIDs.size(); i++) { const id = storeyIDs.get(i); storeys.set(id, label(api.GetLine(modelID, id, false).Name) || `Geschoss ${i + 1}`); }
+  const rels = api.GetLineIDsWithType(modelID, IFCRELAGGREGATES);
+  for (let i = 0; i < rels.size(); i++) {
+    const rel = api.GetLine(modelID, rels.get(i), false), parent = rel.RelatingObject?.value;
+    if (!storeys.has(parent)) continue;
+    for (const child of rel.RelatedObjects || []) storeyOf.set(child.value, parent);
+  }
+  const rooms = [], spaceIDs = api.GetLineIDsWithType(modelID, IFCSPACE);
+  let budget = 400000;
+  for (let n = 0; n < spaceIDs.size() && budget > 0; n++) {
+    const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
+    const tris = []; let minY = Infinity, maxY = -Infinity;
+    const flat = api.GetFlatMesh(modelID, id);
+    for (let i = 0; i < flat.geometries.size(); i++) {
+      const placed = flat.geometries.get(i), data = api.GetGeometry(modelID, placed.geometryExpressID), m = placed.flatTransformation;
+      try {
+        const v = api.GetVertexArray(data.GetVertexData(), data.GetVertexDataSize());
+        const idx = api.GetIndexArray(data.GetIndexData(), data.GetIndexDataSize());
+        const pt = k => { const x = v[k * 6], y = v[k * 6 + 1], z = v[k * 6 + 2]; return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]; };
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+          const a = pt(idx[t]), b = pt(idx[t + 1]), c = pt(idx[t + 2]);
+          minY = Math.min(minY, a[1], b[1], c[1]); maxY = Math.max(maxY, a[1], b[1], c[1]);
+          const area = (b[0] - a[0]) * (c[2] - a[2]) - (c[0] - a[0]) * (b[2] - a[2]);
+          if (Math.abs(area) < 1e-4) continue; // vertical walls of the space volume add nothing to the footprint
+          const r = x => Math.round(x * 100) / 100;
+          tris.push(r(a[0]), r(a[2]), r(b[0]), r(b[2]), r(c[0]), r(c[2]));
+        }
+      } finally { data.delete(); }
+    }
+    if (!tris.length) continue;
+    budget -= tris.length;
+    const storey = storeyOf.get(id);
+    rooms.push({ id, name: [label(line.Name), label(line.LongName)].filter(Boolean).join(' · ') || `Raum ${n + 1}`, storey: storeys.get(storey) || '', storey_id: storey || 0, min_y: Math.round(minY * 100) / 100, max_y: Math.round(maxY * 100) / 100, tris });
+  }
+  return { rooms, storeys: [...storeys].map(([id, name]) => ({ id, name })), truncated: budget <= 0 };
+}
