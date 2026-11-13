@@ -58,3 +58,14 @@ test('server exception bypasses daily live quota only for selected account and p
   assert.equal((await req(member,base(),'POST',{})).status,429);
  }finally{delete process.env.AI_CONVERSATION_UNLIMITED_USER_IDS;await clear();}
 });
+
+test('live voice gets IFC count without transmitting room names',async()=>{
+ await clear();
+ const doc=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'Synthetic.ifc','application/x-step',1,$2) RETURNING id",[building,Buffer.from('x')])).rows[0];
+ await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[doc.id,JSON.stringify({counts:{IfcSpace:241},rooms:[{name:'PRIVATE ROOM NAME'}]})]);
+ const reply=await req(owner,base(),'POST',{});assert.equal(reply.status,200);
+ const context=JSON.parse(reply.data.dynamic_variables.building_context);
+ assert.deepEqual(context.ifc_models,[{model_number:1,ifc_space_count:241}]);assert.equal(JSON.stringify(context).includes('PRIVATE ROOM NAME'),false);
+ assert.equal((await req(outsider,base(),'POST',{})).status,404);
+ await db.query('DELETE FROM app_documents WHERE id=$1',[doc.id]);await clear();
+});
