@@ -80,6 +80,17 @@ struct BuildingCockpit: View {
                         Image(systemName: "phone.circle.fill").font(.title).foregroundStyle(d21Accent)
                     }.padding(12).d21Card(cornerRadius: 22)
                 }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary).accessibilityLabel("Sprachchat öffnen")
+                NavigationLink { RoomLocatorView(building: building, account: account) } label: {
+                    HStack(spacing: 14) {
+                        toolIcon("location.viewfinder", color: .blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Wo bin ich?").font(.subheadline.weight(.semibold))
+                            Text("Raum per LiDAR erkennen und Raumdaten sehen").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }.padding(14).d21Card(cornerRadius: 22)
+                }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
                 Text("Werkzeuge").font(.title3.bold())
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     tool("Geräte", symbol: "lightbulb", area: "Geräte", color: .orange)
