@@ -1,0 +1,7 @@
+FROM python:3.12-slim-bookworm
+WORKDIR /worker
+COPY ifc-analysis/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY ifc-analysis/ ./
+USER 65534:65534
+CMD ["python", "-u", "worker.py"]
