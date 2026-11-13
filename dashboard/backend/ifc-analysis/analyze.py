@@ -7,9 +7,12 @@ from ifctester import ids
 
 def analyze(path):
     model=ifcopenshell.open(path)
-    entities=list(model)
-    if len(entities)>150000: raise ValueError('model_too_complex')
-    counts=collections.Counter(e.is_a() for e in entities)
+    counts=collections.Counter()
+    entity_count=0
+    for entity in model:
+        entity_count+=1
+        if entity_count>500000: raise ValueError('model_too_complex')
+        counts[entity.is_a()]+=1
     log=ifcopenshell.validate.json_logger()
     ifcopenshell.validate.validate(model,log,express_rules=False)
     # Information requirements; this does not prove that rooms are geometrically closed.
@@ -31,7 +34,7 @@ def analyze(path):
     if any(not r['storey'] for r in rooms):issues.append('Mindestens ein Raum ist keinem Geschoss zugeordnet.')
     if log.statements:issues.append('IFC-Struktur enthält Prüfhinweise. Modell vor Verwendung prüfen.')
     unit=ifcopenshell.util.unit.calculate_unit_scale(model)
-    return {'version':1,'schema':model.schema,'entity_count':len(entities),'counts':dict(counts),'length_unit_to_metre':unit,
+    return {'version':1,'schema':model.schema,'entity_count':entity_count,'counts':dict(counts),'length_unit_to_metre':unit,
             'rooms':rooms,'rooms_truncated':counts.get('IfcSpace',0)>500,'schema_issue_count':len(log.statements),
             'information_rules':[{'name':s.name,'passed':bool(s.status)} for s in rules.specifications],
             'warnings':issues,'limitations':['Keine Vermessung oder fachliche Freigabe.','Raumflächen und geschlossene Raumgrenzen noch nicht geometrisch geprüft.','Keine automatische Reparatur, keine Kollisionsprüfung in diesem Basisbericht.']}

@@ -17,7 +17,7 @@ Der Bericht enthält Schema, Typzahlen, Längeneinheit, bis zu 500 Raumkennungen
 
 App: Gebäudedatei → Aktionen → Modellprüfung. Berichte werden bei Öffnen bzw. manueller Aktualisierung geladen. Kein automatisches Reparieren, keine erfundenen Raumgrenzen, keine garantierte Vermessungsgenauigkeit. Schema-Prüfung ohne EXPRESS-Regeln ist keine vollständige fachliche IFC-Abnahme. Fehlende Räume werden als Hinweis dargestellt, nicht generiert.
 
-Pro Modell maximal 120 Sekunden Analyse, 150.000 IFC-Einträge und 512 KiB Ausgabe; Container 768 MiB, 0,5 CPU, schreibgeschützt, temporärer Speicher 96 MiB, ohne Host- oder API-Schlüssel-Mount. Ein Datenbank-Lock verhindert parallele Worker. Fehlgeschlagene Aufträge werden nicht endlos wiederholt. Gelöschte Dokumente löschen den Bericht per FK-Kaskade; ein spätes Worker-Ergebnis legt ihn nicht erneut an.
+Pro Modell maximal 120 Sekunden Analyse, 500.000 IFC-Einträge (nach Messung des vorhandenen Campusmodells mit rund 308.000 Einträgen; Typzählung ohne zusätzliche Entitätenliste) und 512 KiB Ausgabe; Container 768 MiB, 0,5 CPU, schreibgeschützt, temporärer Speicher 96 MiB, ohne Host- oder API-Schlüssel-Mount. Ein Datenbank-Lock verhindert parallele Worker. Fehlgeschlagene Aufträge werden nicht endlos wiederholt. Gelöschte Dokumente löschen den Bericht per FK-Kaskade; ein spätes Worker-Ergebnis legt ihn nicht erneut an.
 
 API: GET /api/v1/documents/:id/analysis, bestehende Kontositzung und Gebäudefreigabe erforderlich, private/no-store. Tabelle app_ifc_analysis additiv; Originaldateien werden nicht migriert oder ersetzt.
 
