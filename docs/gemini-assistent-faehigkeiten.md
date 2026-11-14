@@ -29,6 +29,7 @@ Gemini entscheidet selbst, ob es nachschlägt. Pro Frage sind höchstens 3 Werkz
 | `ifc_elements` | Anzahl je Bauteiltyp (Wände, Türen, Fenster, Decken, Treppen, Stützen …), IFC-Schema, Prüfhinweise, Informationsregeln | „Wie viele Fenster und Türen hat das Modell?“ · „Hat das Modell Strukturprobleme?“ |
 | `measurements` | je Messgröße (Temperatur, CO₂, Luftfeuchte): Anzahl, Min/Max/Mittel, letzter Wert, Trend pro Stunde, Grenzwertüberschreitungen, letzter Wert je Sensor; dazu Energiezeiträume. Echt- und Demodaten bleiben getrennt. | „Wie entwickelt sich die Temperatur?“ · „Gab es CO₂-Überschreitungen?“ |
 | `weather_heat` | Wettermodell für die nächsten 24 Stunden mit Alter der Daten, Temperaturspanne und Sonnenspitze; grobe Wärmeabschätzung mit Heizgradstunden (Basis 15 °C), Stunden über 26 °C und Stunden mit starker Sonne | „Muss heute geheizt werden?“ · „Wann wird es am wärmsten?“ |
+| `ifc_quantities`, `ifc_clashes`, `ifc_find_elements`, `ifc_model_diff` | siehe unten (IfcOpenShell-Werkzeuge) | „Gibt es Kollisionen?“ |
 | `devices` | Geräte des Gebäudes (simuliert oder geplant) mit Raum und Schaltzustand; für dieses Konto freigegebene Home-Assistant-Lampen mit aktuellem Zustand | „Welche Lampen sind gerade an?“ |
 
 Vorschläge (zum Beispiel lüften oder Sonnenschutz) beginnt Gemini mit „Vorschlag:“. Sie sind unverbindlich.
@@ -39,13 +40,20 @@ Die IFC-Analyse auf dem Server (`ifc-analysis/analyze.py`, Bericht-Version 3) nu
 
 Ältere Berichte werden **automatisch im Hintergrund** neu analysiert (`worker.py → reanalyze`). Das passiert nur, wenn keine neuen Uploads oder Scans warten. Der alte Bericht bleibt sichtbar, bis der neue fertig ist. Schlägt ein Versuch fehl, wird er markiert und für diese Version nicht wiederholt.
 
-### Weitere passende Werkzeuge (IfcOpenShell auf GitHub)
+### IfcOpenShell-Werkzeuge (im Hintergrund berechnet)
 
-- **ifc5d** (PyPI 0.9.0): Mengenermittlung nach den Standard-`Qto_*`-Regeln für Wände, Decken und Räume. Sinnvoll für Wand- und Fensterflächen.
-- **ifcdiff** (bereits installiert): vergleicht zwei Modellversionen und zeigt, was sich geändert hat.
-- **ifcclash** (bereits installiert): Kollisionsprüfung zwischen Bauteilen.
-- **ifcopenshell.util.selector**: Abfragesprache wie `IfcWall, Name=/Außen/`. Darauf ließe sich ein späteres Werkzeug „Bauteile suchen“ aufbauen.
-- **ifctester** (bereits installiert): IDS-Prüfungen, erweiterbar um weitere Informationsanforderungen.
+Der `ifc-worker` wertet jedes IFC-Modell zusätzlich mit `ifc-analysis/insights.py` aus. Das passiert nur, wenn keine Uploads, Scans oder Neuanalysen warten, und neueste Modelle kommen zuerst. Gemini liest nur die gespeicherten Ergebnisse (Tabellen `app_ifc_insights` und `app_ifc_diffs`).
+
+| Werkzeug für Gemini | Bibliothek | Liefert |
+|---|---|---|
+| `ifc_quantities` | **ifc5d** (Regelsatz IFC4QtoBaseQuantities) | Wand-, Decken-, Fenster- und Raumflächen sowie Volumen je Bauteiltyp; Wand- und Fensterflächen je Geschoss; Fensterflächenanteil der Außenwände |
+| `ifc_clashes` | **ifcclash** | Durchdringungen zwischen Tragwerk (Wände, Decken, Stützen, Träger, Dach) und Ausstattung, Technik, Treppen oder Geländern mit 1 cm Toleranz; höchstens 50 Treffer, die tiefsten zuerst |
+| `ifc_find_elements` | **ifcopenshell.util.selector** | Bauteilindex (höchstens 3000) mit Klasse, Name, Geschoss, Typ, Material, außen und tragend; Gemini filtert danach |
+| `ifc_model_diff` | **ifcdiff** | neuestes gegen vorheriges Modell eines Gebäudes: hinzugefügte, gelöschte und geänderte Bauteile. Ohne gemeinsame GlobalIds heißt es „vermutlich verschiedene Modelle“. |
+
+Beispielfragen: „Wie viel Fensterfläche hat das EG?“ · „Gibt es Kollisionen im Modell?“ · „Welche Außenwände sind tragend?“ · „Was hat sich seit der letzten Version geändert?“
+
+Grenzen: Die Ergebnisse sind Prüfhinweise, keine Vermessung, keine Abrechnung nach VOB oder DIN 277 und keine fachliche Freigabe. Die Auswertung hat ein Zeitlimit von 240 s je Modell; ist sie zu groß, liefert das Werkzeug eine Fehlermeldung statt geratener Werte.
 
 ## Grenzen (bewusst)
 

@@ -43,6 +43,50 @@ def reanalyze(db):
     if state=='ready':db.execute("UPDATE app_ifc_analysis SET report=%s,updated_at=now() WHERE document_id=%s AND status='ready'",(Jsonb(report),document))
     else:db.execute("UPDATE app_ifc_analysis SET report=report||%s WHERE document_id=%s AND status='ready'",(Jsonb({'reanalysis_failed_version':CURRENT_VERSION}),document))
     return True
+def run_insights(args,contents):
+    # Same isolation as the analysis: subprocess, timeout, bounded output.
+    try:
+        with tempfile.TemporaryDirectory(prefix='insight-') as folder:
+            paths=[]
+            for i,content in enumerate(contents):
+                paths.append(folder+f'/model{i}.ifc')
+                with open(paths[-1],'wb') as out:out.write(bytes(content))
+            with open(folder+'/result.json','w+b') as output:
+                completed=subprocess.run([sys.executable,'/worker/insights.py',*args,*paths],stdout=output,stderr=subprocess.DEVNULL,timeout=240,check=False)
+                if completed.returncode==0 and output.tell()<=2*1024*1024:
+                    output.seek(0);return 'ready',json.load(output)
+    except Exception:pass
+    return 'failed',{'error':'Auswertung fehlgeschlagen oder Zeitlimit erreicht.'}
+def process_insights(db):
+    # Quantities (ifc5d), clashes (ifcclash) and element index (selector) for the assistant; newest models first.
+    if not db.execute("SELECT to_regclass('app_ifc_insights') IS NOT NULL").fetchone()[0]:return False
+    with db.transaction():
+        db.execute("UPDATE app_ifc_insights SET status='failed',data=%s,updated_at=now() WHERE status='running' AND updated_at<now()-interval '6 minutes'",(Jsonb({'error':'Auswertung unterbrochen.'}),))
+        row=db.execute("SELECT d.id FROM app_documents d LEFT JOIN app_ifc_insights i ON i.document_id=d.id WHERE d.mime_type='application/x-step' AND i.document_id IS NULL ORDER BY d.id DESC LIMIT 1").fetchone()
+        if not row:return False
+        document=row[0]
+        db.execute("INSERT INTO app_ifc_insights(document_id,status) VALUES(%s,'running')",(document,))
+    content=db.execute('SELECT content FROM app_documents WHERE id=%s',(document,)).fetchone()
+    if not content:return True
+    state,data=run_insights(['insights'],[content[0]])
+    db.execute("UPDATE app_ifc_insights SET status=%s,data=%s,updated_at=now() WHERE document_id=%s AND status='running'",(state,Jsonb(data),document))
+    return True
+def process_diff(db):
+    # ifcdiff: newest IFC model of each building against the previous one.
+    if not db.execute("SELECT to_regclass('app_ifc_diffs') IS NOT NULL").fetchone()[0]:return False
+    with db.transaction():
+        db.execute("UPDATE app_ifc_diffs SET status='failed',data=%s,updated_at=now() WHERE status='running' AND updated_at<now()-interval '6 minutes'",(Jsonb({'error':'Vergleich unterbrochen.'}),))
+        row=db.execute("""WITH ranked AS (SELECT id,building_id,row_number() OVER(PARTITION BY building_id ORDER BY id DESC) AS rn FROM app_documents WHERE mime_type='application/x-step')
+            SELECT o.id,n.id FROM ranked n JOIN ranked o ON o.building_id=n.building_id AND o.rn=2 WHERE n.rn=1
+            AND NOT EXISTS(SELECT 1 FROM app_ifc_diffs x WHERE x.old_document_id=o.id AND x.new_document_id=n.id) ORDER BY n.id DESC LIMIT 1""").fetchone()
+        if not row:return False
+        old,new=row
+        db.execute("INSERT INTO app_ifc_diffs(old_document_id,new_document_id,status) VALUES(%s,%s,'running')",(old,new))
+    contents=[db.execute('SELECT content FROM app_documents WHERE id=%s',(d,)).fetchone() for d in (old,new)]
+    if not all(contents):return True
+    state,data=run_insights(['diff'],[c[0] for c in contents])
+    db.execute("UPDATE app_ifc_diffs SET status=%s,data=%s,updated_at=now() WHERE old_document_id=%s AND new_document_id=%s AND status='running'",(state,Jsonb(data),old,new))
+    return True
 SCAN_FAILURES={'scan_invalid':'Der Scan konnte nicht in ein IFC-Modell umgewandelt werden. Bitte erneut scannen.','output_too_large':'Das erzeugte Modell ist zu groß.','worker_interrupted':'Verarbeitung unterbrochen. Bitte erneut senden.'}
 def process_scan(db):
     # LiDAR room scans from the iPhone: JSON in, IFC4 out. Same isolation as the analysis (subprocess, timeout, size limits).
@@ -80,6 +124,6 @@ while True:
             while True:
                 worked=process_scan(db)
                 # New uploads and scans first; older reports are upgraded only when nothing else waits.
-                if not process(db) and not worked and not reanalyze(db):time.sleep(2)
+                if not process(db) and not worked and not reanalyze(db) and not process_insights(db) and not process_diff(db):time.sleep(2)
     except Exception:
         print('ifc-worker: waiting for database/schema',flush=True);time.sleep(5)

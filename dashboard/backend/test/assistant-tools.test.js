@@ -16,8 +16,9 @@ before(async()=>{
  await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES($1,$2,'accepted')",[building.id,member.id]);
  const ifc=async(b,rooms,counts)=>{const d=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'Modell.ifc','application/x-step',3,$2) RETURNING id",[b,Buffer.from('ISO')])).rows[0];
   await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[d.id,JSON.stringify({version:2,schema:'IFC4',entity_count:900,counts,rooms,schema_issue_count:0,warnings:[],information_rules:[{name:'IFCSPACE names',passed:true}]})]);return d;};
- await ifc(building.id,[{name:'Büro 1',storey:'EG',area_m2:20.5,area_source:'geometrie',height_m:2.6,volume_m3:53.3},{name:'Flur',storey:'EG',area_m2:12},{name:'Labor',storey:'OG',area_m2:null}],{IfcSpace:3,IfcWall:14,IfcDoor:5,IfcBuildingStorey:2,IfcCartesianPoint:800});
- await ifc(other.id,[{name:'GEHEIMRAUM',storey:'EG',area_m2:99}],{IfcSpace:1});
+ const first=await ifc(building.id,[{name:'Büro 1',storey:'EG',area_m2:20.5,area_source:'geometrie',height_m:2.6,volume_m3:53.3},{name:'Flur',storey:'EG',area_m2:12},{name:'Labor',storey:'OG',area_m2:null}],{IfcSpace:3,IfcWall:14,IfcDoor:5,IfcBuildingStorey:2,IfcCartesianPoint:800});
+ const foreign=await ifc(other.id,[{name:'GEHEIMRAUM',storey:'EG',area_m2:99}],{IfcSpace:1});
+ globalThis.docs={first,foreign};
  const rec=(user,entity,data)=>db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[randomUUID(),user,entity,JSON.stringify(data)]);
  const sensor=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[sensor,owner.id,'Sensor',JSON.stringify({building_id:String(building.id),name:'Fühler Büro',sensor_code:'T1',metric:'temperature',unit:'°C',source:'real',room_id:'R1'})]);
  for(let i=0;i<6;i++)await rec(owner.id,'Measurement',{building_id:String(building.id),sensor_id:sensor,sensor_code:'T1',metric:'temperature',unit:'°C',value:20+i,measured_at:new Date(Date.UTC(2026,10,14,8+i)).toISOString(),source:'real',quality:'ok'});
@@ -41,9 +42,9 @@ async function ask(user,q='Wie groß ist das EG?'){
  return request(user,`/buildings/${building.id}/assistant`,{question:q,consent:'yes',context_hash:info.body.context_hash,chat:true},randomUUID());
 }
 test('declarations are read-only and the chat offers them to Gemini',async()=>{
- assert.deepEqual(toolDeclarations.map(t=>t.name),['ifc_rooms','ifc_elements','measurements','weather_heat','devices']);
+ assert.deepEqual(toolDeclarations.map(t=>t.name),['ifc_rooms','ifc_elements','measurements','weather_heat','devices','ifc_quantities','ifc_clashes','ifc_find_elements','ifc_model_diff']);
  calls=[];script=[{text:'Hallo.'}];const r=await ask(owner,'Hallo');assert.equal(r.status,200);
- assert.ok(calls[0].body.tools[0].functionDeclarations.length===5);assert.match(calls[0].body.systemInstruction.parts[0].text,/Vorschlag:/);
+ assert.ok(calls[0].body.tools[0].functionDeclarations.length===9);assert.match(calls[0].body.systemInstruction.parts[0].text,/Vorschlag:/);
  assert.equal(r.body.answer,'Hallo.');
 });
 test('tool loop answers room areas for a member and returns the model turn unchanged',async()=>{
@@ -83,4 +84,25 @@ test('tools are scoped, bounded and describe limits',async()=>{
  assert.match((await runTool(db,ctx,'ifc_rooms',{model_number:3})).error,/Kein IFC-Modell/);
  assert.match((await runTool(db,ctx,'delete_everything',{})).error,/Unbekannt/);
  assert.equal(trend([{value:1,measured_at:'2026-01-01T00:00:00Z'}]),null);
+});
+
+test('ifc5d, ifcclash, selector and ifcdiff results are served from background insights',async()=>{
+ const ctx={user:member.id,building:building.id};
+ assert.match((await runTool(db,ctx,'ifc_quantities',{})).error,/Hintergrundauswertung/);
+ assert.match((await runTool(db,ctx,'ifc_model_diff',{})).error,/mindestens zwei/);
+ const items=[{id:'a',c:'IfcWall',n:'Außenwand Süd',s:'EG',m:'Beton',x:true,l:true},{id:'b',c:'IfcWallStandardCase',n:'Innenwand',s:'EG',m:'Kalksandstein',x:false,l:false},{id:'c',c:'IfcWindow',n:'Fenster 1',s:'OG',m:null,x:true,l:null}];
+ await db.query("INSERT INTO app_ifc_insights(document_id,status,data) VALUES($1,'ready',$2)",[docs.first.id,JSON.stringify({version:1,elements:{items,total:3},quantities:{by_type:{IfcWall:{count:2,NetSideArea_m2:40}},window_to_external_wall_ratio:0.2},clashes:{count:1,items:[{a:{class:'IfcWall',name:'Außenwand Süd'},b:{class:'IfcStair',name:'Treppe'},type:'pierce',depth_m:1.9}]}})]);
+ await db.query("INSERT INTO app_ifc_insights(document_id,status,data) VALUES($1,'ready',$2)",[docs.foreign.id,JSON.stringify({elements:{items:[{c:'IfcWall',n:'GEHEIMWAND'}]}})]);
+ assert.equal((await runTool(db,ctx,'ifc_quantities',{})).by_type.IfcWall.NetSideArea_m2,40);
+ assert.equal((await runTool(db,ctx,'ifc_clashes',{})).items[0].b.name,'Treppe');
+ const walls=await runTool(db,ctx,'ifc_find_elements',{ifc_class:'IfcWall'});assert.equal(walls.match_count,2);
+ const ext=await runTool(db,ctx,'ifc_find_elements',{is_external:true,material:'beton'});assert.deepEqual(ext.items.map(e=>e.name),['Außenwand Süd']);
+ assert.equal((await runTool(db,ctx,'ifc_find_elements',{storey:'OG'})).items[0].class,'IfcWindow');
+ assert.equal(JSON.stringify(await runTool(db,ctx,'ifc_find_elements',{})).includes('GEHEIMWAND'),false);
+ const second=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'Modell-v2.ifc','application/x-step',3,$2) RETURNING id",[building.id,Buffer.from('ISO')])).rows[0];
+ assert.match((await runTool(db,ctx,'ifc_model_diff',{})).error,/läuft noch/);
+ await db.query("INSERT INTO app_ifc_diffs(old_document_id,new_document_id,status,data) VALUES($1,$2,'ready',$3)",[docs.first.id,second.id,JSON.stringify({common_count:0,added_count:5,deleted_count:3,changed_count:0,added:[],deleted:[],changed:[]})]);
+ const diff=await runTool(db,ctx,'ifc_model_diff',{});assert.equal(diff.added_count,5);assert.equal(diff.likely_different_models,true);
+ assert.match((await runTool(db,ctx,'ifc_quantities',{})).error,/Hintergrundauswertung/,'newest model (no insights yet) is model 1');
+ assert.equal((await runTool(db,ctx,'ifc_quantities',{model_number:2})).by_type.IfcWall.count,2);
 });

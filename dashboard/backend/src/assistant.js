@@ -10,7 +10,7 @@ const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {analysisContext}=require('./telemetry');
 const {aiEnabled,disabledMessage}=require('./ai-preferences');
-const {toolDeclarations,toolInstruction,runTool,LABELS,MAX_ROUNDS,MAX_CALLS_PER_ROUND}=require('./assistant-tools');
+const {initAssistantTools,toolDeclarations,toolInstruction,runTool,LABELS,MAX_ROUNDS,MAX_CALLS_PER_ROUND}=require('./assistant-tools');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const MODEL='gemini-3.5-flash-lite';
 const NOTICE='KI-Antworten können fehlerhaft sein. Grundlage sind die angezeigten Angaben und gegebenenfalls IFC-Typzahlen. Keine ausgewerteten Pläne oder geometrische Prüfung.';
@@ -32,6 +32,7 @@ async function initAssistant(db){
  document_id INTEGER REFERENCES app_documents(id) ON DELETE SET NULL,request_key TEXT NOT NULL,
  question TEXT NOT NULL,answer TEXT NOT NULL,command JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),UNIQUE(user_id,request_key))`);
  await db.query('CREATE INDEX IF NOT EXISTS app_ai_conversation_idx ON app_ai_conversations(user_id,building_id,id)');
+ await initAssistantTools(db);
 }
 async function contextFor(db,building,documentID){
  const totals=(await db.query('SELECT COUNT(*) AS count,COALESCE(SUM(size),0) AS bytes FROM app_documents WHERE building_id=$1',[building.id])).rows[0];
