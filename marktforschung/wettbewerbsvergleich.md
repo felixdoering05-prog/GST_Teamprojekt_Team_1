@@ -42,3 +42,15 @@ Quelle: [Projekt-README](../README.md), [PR #133](../../pull/133), [PR #134](../
 **Wettbewerbsrelevanz:** Autodesk Tandem ist ein direkterer Vergleich als Autodesk BIM Collaborate Pro allein: IFC/Revit, raumbezogene Betriebsdaten und Heatmaps sind dort bereits beschrieben. Ein pauschaler USP „IFC + Sensorwerte + Heatmap“ ist daher **nicht belegbar**. Eine differenzierende Positionierung als einfaches, preislich transparentes Campus-/Kleingebäude-Werkzeug bleibt eine **ungetestete Hypothese**.
 
 **GitHub-Abgleich, 19:00 MEZ:** [PR #154](../../pull/154) und [PR #155](../../pull/155) sind in `main` gemergt. Sie ergänzen den KI-/Sprachkontext um **geprüfte IFC-Zählungen**, ohne frei formulierte Raumlisten an den Provider zu übertragen; #155 nennt 154 bestandene Backendtests und einen zusätzlichen Textrouten-Integrationstest. Das belegt **keinen** durchgängig erfolgreichen realen Sprachdialog, keinen D21-Echtmesswert und keinen produktiven Einsatz. Die neuere [README-Änderung #153](../../pull/153) ist weiterhin ein offener PR.
+
+
+## Ergänzung 14.11.2026, 09:00 MEZ – Bentley iTwin und Tandem Free
+
+| Anbieter / Produkt | Zielgruppe / Funktionen | Lizenz / Preisstand | Offizielle Quelle |
+| :--- | :--- | :--- | :--- |
+| **Bentley iTwin Platform** | Entwickler und Integratoren; digitale Zwillinge mit Engineering-, Realitäts- und Sensordaten, APIs und Visualisierung | **Community kostenlos**, aber nur privat/nicht kommerziell/nicht produktiv (100 Credits/Monat, 10 GB Cloud-Daten); **Standard 199 USD/Monat** (200 Credits), **Premium 499 USD/Monat** (500 Credits), zusätzliche Credits **1,20 USD**; Enterprise auf Anfrage. Entwicklerplattform-Preise, nicht fertiges Endkundenprodukt | [Plattform](https://developer.bentley.com/) · [Preise](https://developer.bentley.com/pricing/) |
+| **Autodesk Tandem Free – Konkretisierung** | Gebäude-/Betriebsteams; Free-Stufe bis 500 Assets, 100 Mio. Datenpunkte, drei Facilities; Bezahlstufe bis 10.000 Assets und 1 Mrd. Datenpunkte | Free-Stufe bestätigt; **deutscher EUR-Preis für Bezahlstufe nicht verifiziert** (dynamische Preisplatzhalter auf geprüfter Tarifseite); kommerzielle Nutzungsbedingungen gesondert prüfen | [Autodesk Tarifvergleich](https://www.autodesk.com/sg/products/Tandem/buy) · [Autodesk Tandem Free](https://help.autodesk.com/cloudhelp/ENU/Tandem-About/files/Tandem_About_access_tandem_free_html.html) |
+
+**Wettbewerbsfolgerung:** Ein pauschaler Preisvorteil unserer App ist nicht belegt. Tandem hat eine kostenlose Einstiegsstufe; Bentleys kostenlose Community-Lizenz ist ausdrücklich nicht kommerziell/produktiv. Kosten von API-Plattform, SaaS-Produkt und selbst gehosteter App sind ohne einheitliches Nutzungsszenario nicht direkt vergleichbar.
+
+**Projektabgleich (14.11.):** Zuletzt in main gemergt: [#152](../../pull/152) strukturiertes Gemini-Geometrieschema, [#154](../../pull/154) geprüfte IFC-Raumanzahlen für Sprache, [#155](../../pull/155) gemeinsame IFC-Fakten für KI-Text und Sprache. [README-PR #153](../../pull/153) und [Marktforschungs-PR #156](../../pull/156) bleiben offen. D21-Echtmesswert und realer Ende-zu-Ende-Vergleich sind nicht bestätigt.
