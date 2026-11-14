@@ -1,5 +1,17 @@
 <div align="center">
 
+## Projektpflege · 14. November 2026, morgens
+
+**Seit der Abendprüfung zusätzlich in `main` bestätigt:** [PR #152](../../pull/152) (strukturierte Gemini-Planerkennung, 151 Backendtests; Genauigkeit an echten Plänen **nicht** nachgewiesen), [#154](../../pull/154) (geprüfte IFC-Raumanzahlen im Sprachkontext, ohne Raumlisten) und [#155](../../pull/155) (gemeinsame begrenzte IFC-Fakten für Text und Sprache; 154 Backendtests und gezielter Integrationstest). Die Zahlen beschreiben Softwaretests laut PR, **keine** Abnahme am echten D21-Modell oder realen Sensoren. Die Funktionen sind gemergt; erneute Live-/Geräteprüfung bleibt getrennt.
+
+**P1 – überfällig seit 13.11.:** [#74](../../issues/74) erster echter D21-Messwert mit Quelle, Einheit, Zeitstempel, Zugriff und Demo; weiterhin offen. Daneben [#102](../../issues/102) Sensorzugang, [#105](../../issues/105) Datenschutzfreigaben und [#101](../../issues/101) Hochschul-KI-Infrastruktur. **P2:** [#73](../../issues/73) Revit→IFC→Server und echte Modell-/Gerätetests nach #144/#150/#151; Protokoll vom 10.11. gegenprüfen. **P3:** [#135](../../issues/135) akustische Überwachung und [#136](../../issues/136) weiterführende AR-Raumerkennung. Prototypen ersetzen nicht die Abnahmekriterien.
+
+**Sitzungsprotokolle:** [03.11. freigegeben; 10.11. Entwurf](docs/protokolle/README.md), Review weiterhin offen. Kein weiterer belegter Teamtermin im Index. Keine Inhalte oder Anwesenheiten ergänzt.
+
+**Dokumentationsstand:** [PR #153](../../pull/153) enthält diese Aktualisierung und wartet auf Review/Merge. [PR #156](../../pull/156) ist eine separate offene Marktforschungsänderung. Historische Abschnitte unten sind ausdrücklich datierte Momentaufnahmen; die früheren Aussagen zu #134 als „offen“ sind überholt (seit 13.11. gemergt). **Projektboard:** Spalten über die verfügbare GitHub-Schnittstelle nicht verifizierbar, daher keine Board-Änderungen.
+
+---
+
 ## Projektpflege · 13. November 2026, abends
 
 **Neu seit der letzten Prüfung (nachweislich in `main` gemergt):**
