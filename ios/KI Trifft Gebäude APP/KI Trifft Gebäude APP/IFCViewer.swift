@@ -169,8 +169,32 @@ struct IFCStoredModelView: View {
     @State private var rotationProblem: String?
     @State private var reload = 0
     @StateObject private var viewer = IFCViewerController()
+    @State private var picked: BuildingIssue.Point?
+    @State private var reportAt: IssueLocation?
+    @State private var openIssue: BuildingIssue?
+    private var building: Building? { account?.buildings.first { $0.id == buildingID } }
     var body: some View {
-        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID, controller: viewer).id(reload)
+        IFCWebView(modelURL: url, account: account, buildingID: buildingID, documentID: documentID, controller: viewer,
+                   onIssue: { id in Task { await showIssue(id) } }, onPick: { point in withAnimation(.snappy) { picked = point } }).id(reload)
+        .overlay(alignment: .topLeading) {
+            // Top left: the component panel of the web view occupies the bottom edge.
+            if let picked, let documentID {
+                Button { reportAt = IssueLocation(documentID: documentID, spaceID: nil, room: "", point: picked) } label: {
+                    Label("Mangel hier melden", systemImage: "exclamationmark.bubble.fill").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14).frame(minHeight: 44).background(.regularMaterial, in: Capsule()).foregroundStyle(.red)
+                }.buttonStyle(.plain).padding(12).transition(.scale.combined(with: .opacity))
+            }
+        }
+        .sheet(isPresented: Binding(get: { reportAt != nil }, set: { if !$0 { reportAt = nil } })) {
+            if let account, let building {
+                IssueReportSheet(building: building, account: account, location: reportAt) { _ in picked = nil; viewer.refreshIssues() }
+            }
+        }
+        .sheet(item: $openIssue) { issue in
+            if let account, let building {
+                IssueDetailSheet(issue: issue, building: building, account: account, changed: { _ in viewer.refreshIssues() }, deleted: { _ in viewer.refreshIssues() })
+            }
+        }
         .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: viewer, commands: account != nil && buildingID != nil).padding(12) }
         .overlay(alignment: .bottom) {
             if canAlign {
@@ -209,6 +233,10 @@ struct IFCStoredModelView: View {
         .sheet(isPresented:$showMap, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID)}}
         .sheet(isPresented:$autoPlace, onDismiss: { reload += 1; Task { await checkPlacement() } }) {if let account,let documentID {ModelMapPlacementView(account:account,documentID:documentID,autoStart:true)}}
         .task { await checkPlacement() }
+    }
+    private func showIssue(_ id: Int) async {
+        guard let account, let buildingID, let issue = try? await account.issues(buildingID: buildingID).first(where: { $0.id == id }) else { return }
+        openIssue = issue
     }
     /// Turns the saved placement (map vs. model) by a quarter or half turn; fixes the 90°/180° ambiguity
     /// of the automatic outline match. The existing map data is kept.
@@ -341,6 +369,8 @@ private enum IFCError: LocalizedError {
         guard id.allSatisfy({ $0.isLetter || $0 == "-" }) else { return }
         web?.evaluateJavaScript("document.getElementById('\(id)')?.click()")
     }
+    /// Reloads the defect markers (after a new report or a status change).
+    func refreshIssues() { web?.evaluateJavaScript("window.d21RequestIssues?.()") }
 }
 
 struct IFCWebView: UIViewRepresentable {
@@ -353,7 +383,10 @@ struct IFCWebView: UIViewRepresentable {
     /// Rooms mode: only reads IfcSpace footprints and hands them over as JSON (no rendering).
     var onRooms: ((Data) -> Void)? = nil
     var controller: IFCViewerController? = nil
-    func makeCoordinator() -> Coordinator { let c = Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat); c.onRooms = onRooms; return c }
+    /// Defect markers: tap on a marker (issue id) and tap on geometry (model point, nil = empty space).
+    var onIssue: ((Int) -> Void)? = nil
+    var onPick: ((BuildingIssue.Point?) -> Void)? = nil
+    func makeCoordinator() -> Coordinator { let c = Coordinator(modelURL: modelURL, account: account, buildingID: buildingID, documentID: documentID, heat:heat); c.onRooms = onRooms; c.onIssue = onIssue; c.onPick = onPick; return c }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
@@ -361,6 +394,7 @@ struct IFCWebView: UIViewRepresentable {
         if heat != nil {configuration.userContentController.add(context.coordinator,name:"ifcHeatReady")}
         if heat == nil && account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
         if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
+        if heat == nil && account != nil && buildingID != nil && documentID != nil && onIssue != nil { for name in ["ifcIssueRequest", "ifcIssue", "ifcPick"] { configuration.userContentController.add(context.coordinator, name: name) } }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
         controller?.web = web
@@ -376,6 +410,7 @@ struct IFCWebView: UIViewRepresentable {
         uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcRooms")
         coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
+        coordinator.issueTask?.cancel(); for name in ["ifcIssueRequest", "ifcIssue", "ifcPick"] { uiView.configuration.userContentController.removeScriptMessageHandler(forName: name) }
         uiView.stopLoading(); uiView.navigationDelegate = nil
 
     }
@@ -390,6 +425,9 @@ struct IFCWebView: UIViewRepresentable {
         var heatMap:SceneReply.MapView?
         var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
+        var issueTask: Task<Void, Never>?
+        var onIssue: ((Int) -> Void)?
+        var onPick: ((BuildingIssue.Point?) -> Void)?
         init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?, heat:HeatPresentation? = nil) { self.heat=heat;self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
         @MainActor func sendHeat(_ web:WKWebView) {
             guard let heat,heatReady else{return}
@@ -409,6 +447,7 @@ struct IFCWebView: UIViewRepresentable {
                 return
             }
             if message.name == "ifcSceneRequest" { sceneRequest(message); return }
+            if ["ifcIssueRequest", "ifcIssue", "ifcPick"].contains(message.name) { issueMessage(message); return }
             guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
                   web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],
                   let id = body["id"], UUID(uuidString: id) != nil, let question = body["question"],
@@ -459,6 +498,31 @@ struct IFCWebView: UIViewRepresentable {
             // Square image over a square region: the image covers `metres` on each side.
             let actual = metres
             _ = try? await web.callAsyncJavaScript("window.d21SetGround?.(url, metres)", arguments: ["url": "data:image/jpeg;base64," + png.base64EncodedString(), "metres": actual], in: nil, contentWorld: .page)
+        }
+        /// Loads this model's located defects into the viewer and forwards marker / geometry taps.
+        func issueMessage(_ message: WKScriptMessage) {
+            guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer" else { return }
+            switch message.name {
+            case "ifcIssue":
+                if let id = message.body as? Int, id > 0 { onIssue?(id) }
+            case "ifcPick":
+                if let p = message.body as? [String: Double], let x = p["x"], let y = p["y"], let z = p["z"], [x, y, z].allSatisfy(\.isFinite) { onPick?(.init(x: x, y: y, z: z)) } else { onPick?(nil) }
+            default:
+                guard let account, let buildingID, let documentID else { return }
+                issueTask?.cancel()
+                issueTask = Task { @MainActor [weak web] in
+                    guard let list = try? await account.issues(buildingID: buildingID), !Task.isCancelled, let web else { return }
+                    let markers: [[String: Any]] = list.compactMap { issue in
+                        guard issue.document_id == documentID, let p = issue.point else { return nil }
+                        return ["id": issue.id, "status": issue.status, "point": ["x": p.x, "y": p.y, "z": p.z]]
+                    }
+                    _ = try? await web.callAsyncJavaScript("window.d21SetIssues?.(list)", arguments: ["list": markers], in: nil, contentWorld: .page)
+                    if let focus = IssueFocus.shared.issueID, markers.contains(where: { ($0["id"] as? Int) == focus }) {
+                        IssueFocus.shared.issueID = nil
+                        _ = try? await web.callAsyncJavaScript("window.d21FocusIssue?.(id)", arguments: ["id": focus], in: nil, contentWorld: .page)
+                    }
+                }
+            }
         }
         func sceneRequest(_ message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
