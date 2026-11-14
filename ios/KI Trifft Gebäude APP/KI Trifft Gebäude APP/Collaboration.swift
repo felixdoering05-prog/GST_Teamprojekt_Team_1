@@ -323,6 +323,7 @@ struct BuildingDetailView: View {
                     Button("Gebäudeverwaltung", systemImage: "slider.horizontal.3") { managing = true }
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
                     Button("Dateien", systemImage: "folder") { open("Dateien") }
+                    Button("Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
                     if isOwner {
                         Divider()
                         Button("Gebäude löschen", systemImage: "trash", role: .destructive) { confirmDeletion = true }
@@ -341,6 +342,7 @@ struct BuildingDetailView: View {
     @ViewBuilder private var content: some View {
         switch section {
         case "Dateien": BuildingFilesView(building: building, model: model)
+        case "Mängel": BuildingIssuesView(building: building, account: model, open: open)
         case "3D": BuildingModelView(building: building, account: model)
         case "Geräte": BuildingDevicesView(building: building, account: model)
         case "Heatmap": BuildingHeatmapView(account: model, building: building)
