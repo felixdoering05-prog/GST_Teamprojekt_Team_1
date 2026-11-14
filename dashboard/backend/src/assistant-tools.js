@@ -8,6 +8,8 @@ const {deviceContext}=require('./assistant-devices');
 const {homeAssistantService}=require('./home-assistant');
 const {METRIC_META}=require('./twin/thresholdRules');
 const MAX_RESULT=24000;
+const CURRENT_REPORT_VERSION=3; // keep in sync with ifc-analysis/worker.py CURRENT_VERSION
+
 const MAX_ROUNDS=3;
 const MAX_CALLS_PER_ROUND=4;
 const text=(v,max=100)=>typeof v==='string'?v.slice(0,max):null;
@@ -38,7 +40,7 @@ async function ifcRoomsTool(db,building,args){
  const m=await model(db,building,args);if(m.error)return m;
  const storey=text(args.storey,160)?.trim().toLocaleLowerCase('de');
  const all=Array.isArray(m.report.rooms)?m.report.rooms:[];
- const rooms=all.filter(r=>!storey||String(r.storey||'').toLocaleLowerCase('de')===storey).map(r=>({name:text(r.name,100)||'(ohne Namen)',long_name:text(r.long_name,100)||null,storey:text(r.storey,100),area_m2:Number.isFinite(r.area_m2)?r.area_m2:null}));
+ const rooms=all.filter(r=>!storey||String(r.storey||'').toLocaleLowerCase('de')===storey).map(r=>({name:text(r.name,100)||'(ohne Namen)',long_name:text(r.long_name,100)||null,storey:text(r.storey,100),area_m2:Number.isFinite(r.area_m2)?r.area_m2:null,area_source:r.area_source==='ifc_mengen'?'IFC-Mengenangabe':r.area_source==='geometrie'?'aus Raumgeometrie berechnet':Number.isFinite(r.area_m2)?'IFC-Mengenangabe':null,height_m:Number.isFinite(r.height_m)?r.height_m:null,volume_m3:Number.isFinite(r.volume_m3)?r.volume_m3:null}));
  const storeys=new Map();
  for(const r of all){const key=text(r.storey,100)||'(ohne Geschoss)';const s=storeys.get(key)||{storey:key,room_count:0,area_m2:0,rooms_with_area:0};s.room_count++;if(Number.isFinite(r.area_m2)){s.area_m2+=r.area_m2;s.rooms_with_area++;}storeys.set(key,s);}
  const withArea=all.filter(r=>Number.isFinite(r.area_m2));
@@ -46,7 +48,7 @@ async function ifcRoomsTool(db,building,args){
   storeys:[...storeys.values()].slice(0,50).map(s=>({...s,area_m2:s.rooms_with_area?round(s.area_m2):null})),
   total_area_m2:withArea.length?round(withArea.reduce((a,r)=>a+r.area_m2,0)):null,rooms_with_area:withArea.length,
   rooms:rooms.slice(0,150),rooms_listed:Math.min(rooms.length,150),rooms_matching:rooms.length,
-  meaning:'IfcSpace-Einträge (auch Flure/Technikflächen). Flächen nur, wenn im IFC als NetFloorArea/GrossFloorArea hinterlegt; null = unbekannt. Keine Vermessung.'+((m.report.version||1)<2?' Dieser Bericht enthält noch keine Flächenangaben.':'')};
+  meaning:'IfcSpace-Einträge (auch Flure/Technikflächen). Fläche bevorzugt aus hinterlegten IFC-Mengen, sonst aus der Raumgeometrie (Grundriss-Projektion); Höhe = lichte Höhe des Raumkörpers. Keine Vermessung und keine Wohnflächenberechnung nach WoFlV/DIN 277 (Dachschrägen nicht reduziert). null = unbekannt.'+((m.report.version||1)<CURRENT_REPORT_VERSION?' Dieser Bericht ist älter und wird automatisch im Hintergrund neu analysiert; Flächen fehlen bis dahin. Bitte in einigen Minuten erneut fragen.':'')};
 }
 async function ifcElementsTool(db,building,args){
  const m=await model(db,building,args);if(m.error)return m;
