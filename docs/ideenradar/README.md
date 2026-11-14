@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [14.11.2026 09:04 · Datensicherung beim Hochschulserverumzug](berichte/2026-11-14-0904.md)
+
 - [13.11.2026 17:00 · IFC-Viewer ohne Kartenboden testen](berichte/2026-11-13-1700.md)
 
 - [13.11.2026 09:11 · Bewegungsreduktion im Sprachassistenten bereits berücksichtigt](berichte/2026-11-13-0911.md)

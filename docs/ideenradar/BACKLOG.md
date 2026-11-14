@@ -13,3 +13,5 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
 Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
+
+[14.11.2026 · Datensicherung beim Hochschulserverumzug](berichte/2026-11-14-0904.md): im Projektplan bereits berücksichtigt.
