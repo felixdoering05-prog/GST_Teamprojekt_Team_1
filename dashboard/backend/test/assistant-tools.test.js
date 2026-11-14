@@ -16,7 +16,7 @@ before(async()=>{
  await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES($1,$2,'accepted')",[building.id,member.id]);
  const ifc=async(b,rooms,counts)=>{const d=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'Modell.ifc','application/x-step',3,$2) RETURNING id",[b,Buffer.from('ISO')])).rows[0];
   await db.query("INSERT INTO app_ifc_analysis(document_id,status,report) VALUES($1,'ready',$2)",[d.id,JSON.stringify({version:2,schema:'IFC4',entity_count:900,counts,rooms,schema_issue_count:0,warnings:[],information_rules:[{name:'IFCSPACE names',passed:true}]})]);return d;};
- await ifc(building.id,[{name:'Büro 1',storey:'EG',area_m2:20.5},{name:'Flur',storey:'EG',area_m2:12},{name:'Labor',storey:'OG',area_m2:null}],{IfcSpace:3,IfcWall:14,IfcDoor:5,IfcBuildingStorey:2,IfcCartesianPoint:800});
+ await ifc(building.id,[{name:'Büro 1',storey:'EG',area_m2:20.5,area_source:'geometrie',height_m:2.6,volume_m3:53.3},{name:'Flur',storey:'EG',area_m2:12},{name:'Labor',storey:'OG',area_m2:null}],{IfcSpace:3,IfcWall:14,IfcDoor:5,IfcBuildingStorey:2,IfcCartesianPoint:800});
  await ifc(other.id,[{name:'GEHEIMRAUM',storey:'EG',area_m2:99}],{IfcSpace:1});
  const rec=(user,entity,data)=>db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[randomUUID(),user,entity,JSON.stringify(data)]);
  const sensor=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[sensor,owner.id,'Sensor',JSON.stringify({building_id:String(building.id),name:'Fühler Büro',sensor_code:'T1',metric:'temperature',unit:'°C',source:'real',room_id:'R1'})]);
@@ -72,6 +72,7 @@ test('model commands stay without tools',async()=>{
 });
 test('tools are scoped, bounded and describe limits',async()=>{
  const ctx={user:member.id,building:building.id};
+ const rooms=await runTool(db,ctx,'ifc_rooms',{});assert.equal(rooms.rooms[0].area_source,'aus Raumgeometrie berechnet');assert.equal(rooms.rooms[0].height_m,2.6);assert.match(rooms.meaning,/im Hintergrund neu analysiert/);
  const elements=await runTool(db,ctx,'ifc_elements',{});assert.equal(elements.element_counts.IfcWall,14);assert.equal(elements.element_counts.IfcCartesianPoint,undefined);
  const m=await runTool(db,ctx,'measurements',{metric:'temperature'});const t=m.metrics[0];
  assert.equal(t.count,6);assert.equal(t.last.value,25);assert.equal(t.trend.direction,'steigend');assert.equal(t.trend.per_hour,1);assert.equal(t.threshold_breaches.critical,0);assert.equal(t.threshold_breaches.warning,0);

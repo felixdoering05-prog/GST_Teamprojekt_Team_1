@@ -33,9 +33,19 @@ Gemini entscheidet selbst, ob es nachschlägt. Pro Frage sind höchstens 3 Werkz
 
 Vorschläge (zum Beispiel lüften oder Sonnenschutz) beginnt Gemini mit „Vorschlag:“. Sie sind unverbindlich.
 
-### Raumflächen
+### Raumflächen, Höhen, Volumen
 
-Die IFC-Analyse auf dem Server (`ifc-analysis/analyze.py`, Bericht-Version 2) liest jetzt die im IFC hinterlegten Mengen `NetFloorArea` bzw. `GrossFloorArea` (z. B. aus `Qto_SpaceBaseQuantities`) und rechnet sie in m² um. Es gibt keine eigene Geometrieberechnung: Fehlt die Angabe, bleibt die Fläche `null` (unbekannt). Modelle, die vor diesem Update analysiert wurden, haben noch Version 1 und damit keine Flächen. Die Raumliste und die Bauteilzahlen funktionieren für sie trotzdem.
+Die IFC-Analyse auf dem Server (`ifc-analysis/analyze.py`, Bericht-Version 3) nutzt für die Fläche vorrangig hinterlegte Mengen (`NetFloorArea`/`GrossFloorArea`). Fehlen diese, berechnet sie die Fläche aus der Raumgeometrie mit IfcOpenShell (`ifcopenshell.util.shape`: Grundriss-Projektion, Volumen, lichte Höhe). Das ist keine Wohnflächenberechnung nach WoFlV oder DIN 277, Dachschrägen werden nicht reduziert. Bei mehr als 60 Sekunden Rechenzeit bleiben die Werte der übrigen Räume `null`.
+
+Ältere Berichte werden **automatisch im Hintergrund** neu analysiert (`worker.py → reanalyze`). Das passiert nur, wenn keine neuen Uploads oder Scans warten. Der alte Bericht bleibt sichtbar, bis der neue fertig ist. Schlägt ein Versuch fehl, wird er markiert und für diese Version nicht wiederholt.
+
+### Weitere passende Werkzeuge (IfcOpenShell auf GitHub)
+
+- **ifc5d** (PyPI 0.9.0): Mengenermittlung nach den Standard-`Qto_*`-Regeln für Wände, Decken und Räume. Sinnvoll für Wand- und Fensterflächen.
+- **ifcdiff** (bereits installiert): vergleicht zwei Modellversionen und zeigt, was sich geändert hat.
+- **ifcclash** (bereits installiert): Kollisionsprüfung zwischen Bauteilen.
+- **ifcopenshell.util.selector**: Abfragesprache wie `IfcWall, Name=/Außen/`. Darauf ließe sich ein späteres Werkzeug „Bauteile suchen“ aufbauen.
+- **ifctester** (bereits installiert): IDS-Prüfungen, erweiterbar um weitere Informationsanforderungen.
 
 ## Grenzen (bewusst)
 

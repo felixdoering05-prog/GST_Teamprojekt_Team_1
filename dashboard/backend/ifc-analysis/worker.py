@@ -3,6 +3,20 @@ import psycopg
 from psycopg.types.json import Jsonb
 # One serial worker; automatic discovery includes existing uploads, scans and accepted plan outputs.
 # Failed jobs remain visible and are not retried endlessly.
+CURRENT_VERSION=3
+def run_analysis(content):
+    state='failed';report={'error':'IFC-Analyse fehlgeschlagen oder Zeitlimit erreicht.'}
+    try:
+        with tempfile.TemporaryDirectory(prefix='ifc-') as folder:
+            path=folder+'/model.ifc'
+            with open(path,'wb') as out:out.write(bytes(content))
+            # File descriptors avoid unbounded captured subprocess output.
+            with open(folder+'/report.json','w+b') as output:
+                completed=subprocess.run([sys.executable,'/worker/analyze.py',path],stdout=output,stderr=subprocess.DEVNULL,timeout=120,check=False)
+                if completed.returncode==0 and output.tell()<=512*1024:
+                    output.seek(0);report=json.load(output);report['source_sha256']=hashlib.sha256(bytes(content)).hexdigest();state='ready'
+    except Exception:pass
+    return state,report
 def process(db):
     with db.transaction():
         db.execute("UPDATE app_ifc_analysis SET status='failed',report=%s,updated_at=now() WHERE status='running' AND updated_at<now()-interval '5 minutes'",(Jsonb({'error':'Analyse unterbrochen.'}),))
@@ -12,18 +26,22 @@ def process(db):
         db.execute("INSERT INTO app_ifc_analysis(document_id,status) VALUES(%s,'running')",(document,))
     content=db.execute('SELECT content FROM app_documents WHERE id=%s',(document,)).fetchone()
     if not content:return True
-    state='failed';report={'error':'IFC-Analyse fehlgeschlagen oder Zeitlimit erreicht.'}
-    try:
-        with tempfile.TemporaryDirectory(prefix='ifc-') as folder:
-            path=folder+'/model.ifc'
-            with open(path,'wb') as out:out.write(bytes(content[0]))
-            # File descriptors avoid unbounded captured subprocess output.
-            with open(folder+'/report.json','w+b') as output:
-                completed=subprocess.run([sys.executable,'/worker/analyze.py',path],stdout=output,stderr=subprocess.DEVNULL,timeout=120,check=False)
-                if completed.returncode==0 and output.tell()<=512*1024:
-                    output.seek(0);report=json.load(output);report['source_sha256']=hashlib.sha256(bytes(content[0])).hexdigest();state='ready'
-    except Exception:pass
+    state,report=run_analysis(content[0])
     db.execute("UPDATE app_ifc_analysis SET status=%s,report=%s,updated_at=now() WHERE document_id=%s AND status='running'",(state,Jsonb(report),document))
+    return True
+def reanalyze(db):
+    # Background upgrade of older ready reports (e.g. room areas). Non-destructive: the old report stays
+    # visible until the new one is ready; a failed attempt is only marked and never retried for this version.
+    row=db.execute("""SELECT document_id FROM app_ifc_analysis WHERE status='ready'
+        AND COALESCE((report->>'version')::int,1)<%s AND COALESCE((report->>'reanalysis_failed_version')::int,0)<%s
+        ORDER BY document_id DESC LIMIT 1""",(CURRENT_VERSION,CURRENT_VERSION)).fetchone()
+    if not row:return False
+    document=row[0]
+    content=db.execute('SELECT content FROM app_documents WHERE id=%s',(document,)).fetchone()
+    if not content:return True
+    state,report=run_analysis(content[0])
+    if state=='ready':db.execute("UPDATE app_ifc_analysis SET report=%s,updated_at=now() WHERE document_id=%s AND status='ready'",(Jsonb(report),document))
+    else:db.execute("UPDATE app_ifc_analysis SET report=report||%s WHERE document_id=%s AND status='ready'",(Jsonb({'reanalysis_failed_version':CURRENT_VERSION}),document))
     return True
 SCAN_FAILURES={'scan_invalid':'Der Scan konnte nicht in ein IFC-Modell umgewandelt werden. Bitte erneut scannen.','output_too_large':'Das erzeugte Modell ist zu groß.','worker_interrupted':'Verarbeitung unterbrochen. Bitte erneut senden.'}
 def process_scan(db):
@@ -61,6 +79,7 @@ while True:
             if not db.execute('SELECT pg_try_advisory_lock(610213)').fetchone()[0]:time.sleep(5);continue
             while True:
                 worked=process_scan(db)
-                if not process(db) and not worked:time.sleep(2)
+                # New uploads and scans first; older reports are upgraded only when nothing else waits.
+                if not process(db) and not worked and not reanalyze(db):time.sleep(2)
     except Exception:
         print('ifc-worker: waiting for database/schema',flush=True);time.sleep(5)
