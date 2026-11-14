@@ -8,6 +8,7 @@ struct BuildingCockpit: View {
     @State private var snapshot: TelemetrySnapshot?
     @State private var problem: String?
     @State private var loading = false
+    @State private var issues: [BuildingIssue]?
     @Environment(\.scenePhase) private var scenePhase
     private var metricSensors: [TelemetrySensor] {
         guard let snapshot else { return [] }
@@ -80,6 +81,20 @@ struct BuildingCockpit: View {
                         Image(systemName: "phone.circle.fill").font(.title).foregroundStyle(d21Accent)
                     }.padding(12).d21Card(cornerRadius: 22)
                 }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary).accessibilityLabel("Sprachchat öffnen")
+                Button { open("Mängel") } label: {
+                    HStack(spacing: 14) {
+                        toolIcon("exclamationmark.bubble", color: .red)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Mängel").font(.subheadline.weight(.semibold))
+                            Text(issueSummary).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if let count = openIssues, count > 0 {
+                            Text("\(count)").font(.subheadline.weight(.bold)).monospacedDigit().foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 4).background(Color.red, in: Capsule())
+                        }
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }.padding(14).d21Card(cornerRadius: 22)
+                }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
                 NavigationLink { RoomLocatorView(building: building, account: account) } label: {
                     HStack(spacing: 14) {
                         toolIcon("location.viewfinder", color: .blue)
@@ -112,6 +127,11 @@ struct BuildingCockpit: View {
             }
         }
     }
+    private var openIssues: Int? { issues.map { $0.filter { $0.state != .done }.count } }
+    private var issueSummary: String {
+        guard let open = openIssues else { return "Schäden mit Foto und Ort melden" }
+        return open == 0 ? "Keine offenen Mängel · melden mit Foto und Ort" : open == 1 ? "1 offener Mangel" : "\(open) offene Mängel"
+    }
     private func toolIcon(_ symbol: String, color: Color) -> some View {
         Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(color).frame(width: 38, height: 38)
             .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -141,6 +161,7 @@ struct BuildingCockpit: View {
     }
     private func load() async {
         guard !loading else { return }; loading = true; defer { loading = false }
+        if let list = try? await account.issues(buildingID: building.id) { issues = list }
         do {
             let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry?source=real")
             guard !Task.isCancelled else { return }
