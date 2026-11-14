@@ -11,9 +11,11 @@ struct NativeBuildingCard: View {
                     .font(.caption2.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6)
                     .background(.ultraThinMaterial, in: Capsule()).padding(12)
             }.frame(height: 128).clipped()
+            // The preview strip has a fixed height; cap its labels so they never cover each other.
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(building.name).font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(.primary).lineLimit(2)
+                    Text(building.name).font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(.primary).lineLimit(3)
                     Label(building.address.isEmpty ? "Adresse noch offen" : building.address, systemImage: "mappin.and.ellipse").font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
@@ -78,22 +80,25 @@ struct BuildingOverviewSummary: View {
     let unread: Int
     let hasDraft: Bool
     let create: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
     private var models: Int { buildings.filter { $0.model_document_id != nil }.count }
+    /// With accessibility text sizes the header and chips stack instead of truncating.
+    private var stacked: Bool { typeSize.isAccessibilitySize }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
+            (stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14)) : AnyLayout(HStackLayout(alignment: .top))) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Deine Übersicht").font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
-                    Text(buildings.count == 1 ? "1 Gebäude" : "\(buildings.count) Gebäude").font(.system(.largeTitle, design: .rounded, weight: .bold)).minimumScaleFactor(0.7).lineLimit(1)
+                    Text(buildings.count == 1 ? "1 Gebäude" : "\(buildings.count) Gebäude").font(.system(.largeTitle, design: .rounded, weight: .bold)).minimumScaleFactor(0.7).lineLimit(stacked ? 2 : 1)
                 }
-                Spacer()
+                if !stacked { Spacer() }
                 Button(action: create) {
                     Label(hasDraft ? "Fortsetzen" : "Neu", systemImage: hasDraft ? "arrow.clockwise" : "plus")
                         .font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 40)
                         .background(.white, in: Capsule()).foregroundStyle(Color(red: 0.07, green: 0.18, blue: 0.31))
                 }.buttonStyle(BuildingTileButtonStyle()).accessibilityLabel(hasDraft ? "Entwurf fortsetzen" : "Gebäude hinzufügen")
             }
-            HStack(spacing: 8) {
+            (stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                 chip("\(models)", models == 1 ? "Modell" : "Modelle", symbol: "cube.transparent")
                 chip("\(unread)", unread == 1 ? "Mitteilung" : "Mitteilungen", symbol: unread > 0 ? "bell.badge" : "bell")
             }

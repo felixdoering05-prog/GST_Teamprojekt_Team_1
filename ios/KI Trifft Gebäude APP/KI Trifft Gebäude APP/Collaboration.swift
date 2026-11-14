@@ -307,6 +307,8 @@ struct BuildingDetailView: View {
                     }.buttonStyle(.plain).accessibilityLabel(item.1).accessibilityAddTraits(isSelected(item.0) ? .isSelected : [])
                 }
             }.padding(5).background(Color(uiColor: .secondarySystemGroupedBackground), in: Capsule()).padding(.horizontal, 16).padding(.vertical, 8)
+            // Size cap like the system tab bar so the selected label never breaks into single letters.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             content.id(section).transition(.opacity)
         }.background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(name).navigationBarTitleDisplayMode(.inline)

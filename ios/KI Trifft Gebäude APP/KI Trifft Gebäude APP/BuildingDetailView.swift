@@ -39,14 +39,14 @@ struct BuildingFilesView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Label(building.name, systemImage: "building.2.fill").font(.title2.bold()).foregroundStyle(d21Accent)
                     Text(building.address.isEmpty ? "Adresse noch offen" : building.address).foregroundStyle(.secondary)
-                    Label("\(documents.count) Dateien auf dem Projektserver", systemImage: "checkmark.icloud").font(.caption).foregroundStyle(.secondary)
+                    Label(documents.count == 1 ? "1 Datei auf dem Projektserver" : "\(documents.count) Dateien auf dem Projektserver", systemImage: "checkmark.icloud").font(.caption).foregroundStyle(.secondary)
                 }.padding(.vertical, 10)
             } header: { Text("Deine Gebäudemappe") }
             Section("3D-Modell") {
                 if building.is_owner != false {
                     NavigationLink { PlanConversionView(building: building, account: model, onAdopt: { Task { await reload() } }) } label: { Label("Aus Plänen einen 3D-Entwurf erstellen", systemImage: "wand.and.stars") }
                 }
-                Text("IFC-Datei unten hochladen. Gespeicherte Modelle lassen sich hier und im IFC-Tab in 3D öffnen.").font(.footnote).foregroundStyle(.secondary)
+                Text("IFC-Datei unten hochladen. Gespeicherte Modelle lassen sich hier in 3D öffnen.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Bilder und Pläne ergänzen") {
                 PhotosPicker(selection: $photos, maxSelectionCount: 6, matching: .images) { Label("Fotos auswählen", systemImage: "photo.on.rectangle") }.disabled(locked || flow.loadFailed)

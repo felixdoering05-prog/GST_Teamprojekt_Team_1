@@ -149,7 +149,7 @@ struct BuildingDevicesView: View {
                     Toggle("", isOn: Binding(get: { device.is_on }, set: { value in Task { await toggle(device, on: value) } })).labelsHidden().tint(d21Accent).disabled(busy || loading)
                         .accessibilityLabel(device.name + ", Simulation")
                 }
-                Menu { Button("Gebäude & Raum", systemImage: "building.2.crop.circle") { selectedDevice = device } } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 32, height: 32).contentShape(Rectangle()) }.disabled(busy)
+                Menu { Button("Gebäude & Raum", systemImage: "building.2.crop.circle") { selectedDevice = device } } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 32, height: 32).contentShape(Rectangle()) }.accessibilityLabel("Optionen für \(device.name)").disabled(busy)
             }
             if device.simulated && device.kind == .light { SimulatedLampColor(account: account, device: device, changed: { await reload() }) }
             else if !(device.simulated && device.kind.switchable) { Text(device.simulated ? "Keine echten Messwerte · Sensordarstellung vorbereitet" : "Noch nicht verbunden · kein Live-Status").font(.footnote).foregroundStyle(.secondary) }
@@ -166,15 +166,21 @@ struct BuildingDevicesView: View {
                 Spacer()
                 Image(systemName: on > 0 ? "lightbulb.2.fill" : "lightbulb.2").font(.system(size: 34)).foregroundStyle(on > 0 ? Color.yellow : .white.opacity(0.6)).accessibilityHidden(true)
             }
-            HStack {
-                Label(on == 1 ? "1 an" : "\(on) an", systemImage: "power").font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 7).background(.white.opacity(0.16), in: Capsule())
-                Spacer()
-                Button { connecting = true } label: { Label("Verbinden", systemImage: "link").font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 38).background(.white, in: Capsule()).foregroundStyle(Color(red: 0.07, green: 0.18, blue: 0.31)) }
-                    .buttonStyle(BuildingTileButtonStyle()).disabled(busy).accessibilityLabel("Vorhandenes Gerät verbinden")
+            // Side by side when it fits; stacked with very large text instead of breaking words.
+            ViewThatFits(in: .horizontal) {
+                HStack { onChip(on); Spacer(); connectButton }
+                VStack(alignment: .leading, spacing: 10) { onChip(on); connectButton }
             }
         }
         .foregroundStyle(.white).padding(20)
         .background(LinearGradient(colors: [Color(red: 0.12, green: 0.12, blue: 0.30), Color(red: 0.05, green: 0.36, blue: 0.42)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+    private func onChip(_ on: Int) -> some View {
+        Label(on == 1 ? "1 an" : "\(on) an", systemImage: "power").font(.caption.weight(.semibold)).fixedSize().padding(.horizontal, 10).padding(.vertical, 7).background(.white.opacity(0.16), in: Capsule())
+    }
+    private var connectButton: some View {
+        Button { connecting = true } label: { Label("Verbinden", systemImage: "link").font(.subheadline.weight(.semibold)).fixedSize().padding(.horizontal, 14).frame(minHeight: 38).background(.white, in: Capsule()).foregroundStyle(Color(red: 0.07, green: 0.18, blue: 0.31)) }
+            .buttonStyle(BuildingTileButtonStyle()).disabled(busy).accessibilityLabel("Vorhandenes Gerät verbinden")
     }
     private func reload() async {
         guard !loading else { return }; loading = true; defer { loading = false }
