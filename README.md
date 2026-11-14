@@ -40,13 +40,13 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 14. November 2026.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 14. November 2026, Abendprüfung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Version **1.0.113** als Build dokumentiert; letzter ausdrücklich belegter TestFlight-Upload **1.0.112**. Externe Apple-Freigabe nicht bestätigt |
-| **Web & IFC** | Gemeinsame Gebäudemappen, Viewer, Heatmaps und Modellanalyse werden weiterentwickelt; einzelne Funktionen benötigen noch Tests mit dem echten D21-Modell |
-| **KI** | Geprüfte IFC-Fakten können in Text- und Sprachkontext einfließen; keine ungeprüfte Vollanalyse des Gebäudes behaupten |
+| **iPhone-App** | Bis **1.0.127** sind Änderungen am LiDAR-Raumscan mit serverseitigem IFC4-Export gemergt ([#160](../../pull/160)); Qualitätsverbesserungen aus [#159](../../pull/159). Ein erfolgreicher TestFlight-Upload oder echter Gerätetest dieser Version ist hier **nicht bestätigt**. Mängelmelder **1.0.128** befindet sich noch im offenen [PR #163](../../pull/163) |
+| **Web & IFC** | Gemeinsame Gebäudemappen, Viewer und Heatmaps; IFC-Analyse v3 ergänzt Raumflächen aus Geometrie, Höhe, Volumen und Hintergrund-Neuanalyse ([#162](../../pull/162)). Modellabhängige Ergebnisse müssen am echten D21-Modell validiert werden |
+| **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
 | **D21-Messdaten** | Erster echter Datenpunkt mit Quelle, Einheit, Zeitstempel und Zugriffsfreigabe noch **nicht als abgeschlossen nachgewiesen** |
 | **Revit-Anbindung** | Modell-/IFC-Arbeit vorhanden; reproduzierbarer automatischer Revit→Server-Prozess noch offen |
 
@@ -62,6 +62,10 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 5. **P2 · [#73](../../issues/73)** – Revit-/IFC-Übergabe zum Server reproduzierbar dokumentieren.
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
+
+### 🗒️ Protokolle und Review
+
+Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** ist weiterhin **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Weitere Termine nur mit tatsächlichem Nachweis aufnehmen. Der ältere [README-PR #153](../../pull/153) ist wegen Konflikten mit der inzwischen übernommenen Neugestaltung [#158](../../pull/158) **nicht direkt mergefähig**; Inhalte vor einem Schließen oder Neuaufsetzen prüfen. Der [Mängelmelder-PR #163](../../pull/163) wartet auf Review und Integration.
 
 ## 🧩 So funktioniert das System
 
