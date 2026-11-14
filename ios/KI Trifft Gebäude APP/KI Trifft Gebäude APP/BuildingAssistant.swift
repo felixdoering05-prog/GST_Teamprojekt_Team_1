@@ -75,7 +75,10 @@ struct BuildingAssistantView: View {
             }
         }
         .background(Color(uiColor: .systemBackground))
-        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // Keep the pinned input bar from covering half of the conversation at the largest text sizes.
+            composer.dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        }
         .task { await load() }
         .onDisappear { sendTask?.cancel() }
         .sheet(isPresented: $showInfo) { information }

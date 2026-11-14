@@ -55,7 +55,7 @@ struct IFCLibraryView: View {
                     Label(smartHome ? "Licht im Modell simulieren" : "Deine Gebäude in 3D", systemImage: smartHome ? "lightbulb" : "cube.transparent").font(.title2.bold())
                     Text(smartHome ? "Öffne ein IFC-Modell mit exportierten Räumen. Schalte das simulierte Licht pro Raum und sieh die Markierung im Modell. Keine Verbindung zu echten Lampen." : "Gespeichert auf dem Projektserver. Öffne dein Modell und entdecke die Bauteile.").foregroundStyle(.secondary)
                     if !library.entries.isEmpty {
-                        Text("\(library.entries.count) Modell(e) · \(library.buildings.count) Gebäude").font(.caption).foregroundStyle(.secondary)
+                        Text((library.entries.count == 1 ? "1 Modell" : "\(library.entries.count) Modelle") + " · \(library.buildings.count) Gebäude").font(.caption).foregroundStyle(.secondary)
                     }
                     #if DEBUG
                     if WorkflowPreview.enabled { Label("VORSCHAU · Lokale Testdaten", systemImage: "testtube.2").font(.caption.bold()).foregroundStyle(.orange) }
