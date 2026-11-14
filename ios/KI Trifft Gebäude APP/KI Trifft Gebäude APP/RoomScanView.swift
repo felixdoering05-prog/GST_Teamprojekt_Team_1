@@ -3,18 +3,27 @@ import RoomPlan
 import simd
 import Combine
 
-// LiDAR room scan with Apple RoomPlan. Rooms are scanned one after another in the same AR session,
-// merged with StructureBuilder and written as an IFC4 draft (RoomScanIFC). Scanning happens on the
-// device; only the resulting IFC file is uploaded when the person adds it to the building.
+// LiDAR room scan with Apple RoomPlan. Rooms are scanned one after another in the same AR session and
+// merged with StructureBuilder. The merged structure goes to the project server, which builds the IFC4
+// (RoomScanServer); the person checks it before it is added to the building. Without a server connection
+// the IFC4 draft is written on the device (RoomScanIFC) and uploaded like any other file.
 
 struct RoomScanView: View {
     let buildingName: String
-    /// Receives the IFC file data and a file name; returns when the file has been handed over.
+    /// Server-side IFC generation; nil keeps the scan on the device only.
+    var account: AccountModel? = nil
+    var buildingID: Int? = nil
+    /// Called after the person added the server-generated IFC to the building.
+    var serverDocument: (BuildingDocument) -> Void = { _ in }
+    /// Receives the on-device IFC file data and a file name (fallback); returns when the file has been handed over.
     let completion: (Data, String) async -> Void
     @Environment(\.dismiss) private var dismiss
     @StateObject private var scanner = RoomScanController()
     @State private var storeyName = "Erdgeschoss"
     @State private var saving = false
+    @State private var serverJob: RoomScanJob?
+    @State private var serverStatus: String?
+    @State private var serverProblem: String?
 
     var body: some View {
         NavigationStack {
@@ -29,6 +38,13 @@ struct RoomScanView: View {
         }
     }
 
+    private var storey: String {
+        let s = storeyName.trimmingCharacters(in: .whitespacesAndNewlines); return s.isEmpty ? "Erdgeschoss" : s
+    }
+    private var name: String {
+        let n = buildingName.trimmingCharacters(in: .whitespacesAndNewlines); return n.isEmpty ? "Gebäude" : n
+    }
+
     @ViewBuilder private var controls: some View {
         VStack(spacing: 12) {
             if let problem = scanner.problem {
@@ -38,34 +54,119 @@ struct RoomScanView: View {
             if scanner.scanning {
                 Button { scanner.finishRoom() } label: { Label("Raum fertig", systemImage: "checkmark.circle.fill").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).tint(d21Accent).controlSize(.large)
-                Text("Langsam an den Wänden entlang schwenken, Türen, Fenster und Möbel einmal ganz ins Bild nehmen. Abstand 1–3 m.").font(.caption).foregroundStyle(.white).shadow(radius: 3)
+                Text("Langsam an den Wänden entlang schwenken, Türen, Fenster und Möbel einmal ganz ins Bild nehmen. Abstand 1–3 m. Bei Innenwänden beide Seiten scannen – dann misst der Server die Wandstärke.").font(.caption).foregroundStyle(.white).shadow(radius: 3)
             } else if scanner.processing {
                 ProgressView("Raum wird ausgewertet …").padding(14).background(.regularMaterial, in: Capsule())
+            } else if let job = serverJob, job.status == "ready" {
+                review(job)
+            } else if let status = serverStatus {
+                ProgressView(status).padding(14).background(.regularMaterial, in: Capsule())
             } else if !scanner.rooms.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Label(scanner.rooms.count == 1 ? "1 Raum gescannt" : "\(scanner.rooms.count) Räume gescannt", systemImage: "square.split.bottomrightquarter").font(.headline)
                     Text(scanner.summary).font(.caption).foregroundStyle(.secondary)
+                    if let serverProblem {
+                        Label(serverProblem, systemImage: "server.rack").font(.caption).foregroundStyle(.orange)
+                    }
                     TextField("Geschoss, z. B. Erdgeschoss", text: $storeyName).textFieldStyle(.roundedBorder)
                     HStack {
-                        Button { scanner.startRoom() } label: { Label("Nächster Raum", systemImage: "plus") }.buttonStyle(.bordered).disabled(saving)
+                        Button { serverProblem = nil; scanner.startRoom() } label: { Label("Nächster Raum", systemImage: "plus") }.buttonStyle(.bordered).disabled(saving)
                         Spacer()
-                        Button { Task { await save() } } label: { Label(saving ? "IFC wird erstellt …" : "IFC erstellen", systemImage: "cube.transparent") }
+                        Button { Task { await create() } } label: { Label(saving ? "IFC wird erstellt …" : "IFC erstellen", systemImage: "cube.transparent") }
                             .buttonStyle(.borderedProminent).tint(d21Accent).disabled(saving)
                     }
-                    Text("Entwurf aus dem Scan: Wände (Innenseite wie gescannt), Türen und Fenster als Öffnungen, Räume und Möbel als einfache Körper. Maße bitte prüfen.").font(.caption2).foregroundStyle(.secondary)
+                    if serverProblem != nil && account != nil {
+                        Button { Task { await saveOnDevice() } } label: { Label("Stattdessen auf dem iPhone erstellen", systemImage: "iphone") }.font(.caption).disabled(saving)
+                    }
+                    Text(account != nil && buildingID != nil
+                         ? "Der Projektserver erzeugt aus dem Scan ein IFC: Räume mit Namen und Fläche, Wände mit Stärke, Türen und Fenster als Öffnungen, Möbel. Ohne Verbindung entsteht der Entwurf auf dem iPhone."
+                         : "Entwurf aus dem Scan: Wände (Innenseite wie gescannt), Türen und Fenster als Öffnungen, Räume und Möbel als einfache Körper. Maße bitte prüfen.").font(.caption2).foregroundStyle(.secondary)
                 }.padding(16).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
         }.padding(16)
     }
 
-    private func save() async {
+    /// Result check before the IFC becomes a document of the building.
+    @ViewBuilder private func review(_ job: RoomScanJob) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("IFC-Entwurf vom Server", systemImage: "checkmark.seal").font(.headline)
+            if let c = job.summary?.counts {
+                Text("\(c.rooms) Räume · \(c.walls) Wände\((c.shared_walls ?? 0) > 0 ? " (\(c.shared_walls!) Innenwände gemessen)" : "") · \(c.doors) Türen · \(c.windows) Fenster · \(c.objects) Möbel/Objekte").font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(job.summary?.rooms ?? []) { room in
+                        HStack {
+                            Text(room.name).font(.subheadline.weight(.semibold))
+                            if room.type != room.name && !room.name.hasPrefix(room.type) { Text(room.type).font(.caption).foregroundStyle(.secondary) }
+                            Spacer()
+                            Text(String(format: "%.1f m²", room.area_m2)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(job.warnings ?? [], id: \.self) { Label($0, systemImage: "info.circle").font(.caption2).foregroundStyle(.secondary) }
+                }
+            }.frame(maxHeight: 180)
+            HStack {
+                Button(role: .destructive) { Task { await reject(job) } } label: { Label("Verwerfen", systemImage: "trash") }.buttonStyle(.bordered).disabled(saving)
+                Spacer()
+                Button { Task { await approve(job) } } label: { Label(saving ? "Wird hinzugefügt …" : "Zum Gebäude hinzufügen", systemImage: "plus.circle.fill") }
+                    .buttonStyle(.borderedProminent).tint(d21Accent).disabled(saving)
+            }
+        }.padding(16).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func create() async {
+        guard let account, let buildingID else { await saveOnDevice(); return }
+        saving = true; serverProblem = nil
+        defer { saving = false; serverStatus = nil }
+        do {
+            let scan = try await scanner.merged()
+            serverStatus = "Scan wird an den Projektserver gesendet …"
+            var job = try await account.submitRoomScan(buildingID: buildingID, payload: try scan.serverPayload(buildingName: name, storey: storey), requestID: UUID())
+            serverStatus = "Server erstellt das IFC-Modell …"
+            let deadline = Date().addingTimeInterval(180)
+            while job.pending {
+                guard Date() < deadline else { throw APIError(status: 0, message: "Der Server braucht gerade zu lange.") }
+                try await Task.sleep(for: .seconds(2))
+                job = try await account.roomScan(buildingID: buildingID, id: job.id)
+            }
+            if job.status == "ready" { serverJob = job }
+            else { serverProblem = (job.warnings?.first ?? "Der Server konnte kein IFC erzeugen.") + " Du kannst den Entwurf auf dem iPhone erstellen." }
+        } catch is CancellationError {
+        } catch where RoomScanServerError.unreachable(error) {
+            // Fallback: the on-device writer needs no connection to the project server.
+            saving = false; serverStatus = nil
+            await saveOnDevice(note: "Projektserver nicht erreichbar – das IFC wurde auf dem iPhone erstellt.")
+        } catch {
+            serverProblem = error.localizedDescription
+        }
+    }
+
+    private func approve(_ job: RoomScanJob) async {
+        guard let account, let buildingID else { return }
+        saving = true; defer { saving = false }
+        do {
+            let result = try await account.approveRoomScan(buildingID: buildingID, id: job.id)
+            serverDocument(result.document ?? BuildingDocument(id: result.document_id, name: "Raumscan \(storey).ifc", mime_type: "application/x-step", size: 0, building_id: buildingID))
+            dismiss()
+        } catch { scanner.problem = error.localizedDescription }
+    }
+
+    private func reject(_ job: RoomScanJob) async {
+        guard let account, let buildingID else { return }
+        saving = true; defer { saving = false }
+        try? await account.rejectRoomScan(buildingID: buildingID, id: job.id)
+        serverJob = nil
+    }
+
+    private func saveOnDevice(note: String? = nil) async {
         saving = true; defer { saving = false }
         do {
             let scan = try await scanner.merged()
-            let name = buildingName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Gebäude" : buildingName
-            let text = RoomScanIFC.make(scan, buildingName: name, storeyName: storeyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Erdgeschoss" : storeyName)
+            let text = RoomScanIFC.make(scan, buildingName: name, storeyName: storey)
             let safe = name.replacingOccurrences(of: "/", with: "-").prefix(60)
             await completion(Data(text.utf8), "Raumscan \(safe).ifc")
+            if let note { scanner.problem = note; try? await Task.sleep(for: .seconds(2)) }
             dismiss()
         } catch { scanner.problem = error.localizedDescription }
     }
@@ -108,16 +209,16 @@ struct RoomScanView: View {
         guard !rooms.isEmpty else { throw APIError(status: 0, message: "Bitte zuerst einen Raum scannen.") }
         var result = ScannedBuilding()
         func box(_ s: CapturedRoom.Surface) -> ScannedBuilding.Box { .init(transform: s.transform, width: s.dimensions.x, height: s.dimensions.y, depth: s.dimensions.z) }
-        let walls: [CapturedRoom.Surface], doors: [CapturedRoom.Surface], windows: [CapturedRoom.Surface], floors: [CapturedRoom.Surface], sections: [CapturedRoom.Section], objects: [CapturedRoom.Object]
+        let walls: [CapturedRoom.Surface], doors: [CapturedRoom.Surface], windows: [CapturedRoom.Surface], openings: [CapturedRoom.Surface], floors: [CapturedRoom.Surface], sections: [CapturedRoom.Section], objects: [CapturedRoom.Object]
         do {
             // StructureBuilder also for a single room: it straightens walls and aligns furniture.
             let structure = try await StructureBuilder(options: [.beautifyObjects]).capturedStructure(from: rooms)
-            walls = structure.walls; doors = structure.doors; windows = structure.windows; floors = structure.floors; sections = structure.sections; objects = structure.objects
+            walls = structure.walls; doors = structure.doors; windows = structure.windows; openings = structure.openings; floors = structure.floors; sections = structure.sections; objects = structure.objects
         } catch where rooms.count == 1 {
             let room = rooms[0]
-            walls = room.walls; doors = room.doors; windows = room.windows; floors = room.floors; sections = room.sections; objects = room.objects
+            walls = room.walls; doors = room.doors; windows = room.windows; openings = room.openings; floors = room.floors; sections = room.sections; objects = room.objects
         }
-        result.walls = walls.map(box); result.doors = doors.map(box); result.windows = windows.map(box)
+        result.walls = walls.map(box); result.doors = doors.map(box); result.windows = windows.map(box); result.openings = openings.map(box)
         result.objects = objects.map { ScannedBuilding.Object(box: .init(transform: $0.transform, width: $0.dimensions.x, height: $0.dimensions.y, depth: $0.dimensions.z), category: String(describing: $0.category)) }
         for (index, floor) in floors.enumerated() {
             var corners = floor.polygonCorners.map { c -> SIMD3<Float> in let w = floor.transform * SIMD4(c.x, c.y, c.z, 1); return SIMD3(w.x, w.y, w.z) }
@@ -126,8 +227,9 @@ struct RoomScanView: View {
                 let hx = floor.dimensions.x / 2, hy = floor.dimensions.y / 2
                 corners = [SIMD3(-hx, -hy, 0), SIMD3(hx, -hy, 0), SIMD3(hx, hy, 0), SIMD3(-hx, hy, 0)].map { c in let w = floor.transform * SIMD4(c.x, c.y, c.z, 1); return SIMD3(w.x, w.y, w.z) }
             }
-            let name = sections.first { Self.inside(SIMD2($0.center.x, $0.center.z), corners.map { SIMD2($0.x, $0.z) }) }.map { Self.label($0.label) } ?? "Raum \(index + 1)"
-            result.floors.append(.init(corners: corners, name: name))
+            let section = sections.first { Self.inside(SIMD2($0.center.x, $0.center.z), corners.map { SIMD2($0.x, $0.z) }) }
+            let name = section.map { Self.label($0.label) } ?? "Raum \(index + 1)"
+            result.floors.append(.init(corners: corners, name: name, label: section.map { String(describing: $0.label) }))
         }
         // Unique names when several rooms share a label.
         var seen: [String: Int] = [:]

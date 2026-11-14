@@ -1,10 +1,14 @@
 const express=require('express');
 const {accessSQL}=require('./collaboration');
+// LiDAR room scans are produced by the same ifc-worker and are wired in here with the IFC analysis.
+const {initRoomScan,roomScanRouter}=require('./room-scan');
 async function initIFCAnalysis(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_ifc_analysis(document_id INTEGER PRIMARY KEY REFERENCES app_documents(id) ON DELETE CASCADE,status TEXT NOT NULL CHECK(status IN ('running','ready','failed')),report JSONB,updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+ await initRoomScan(db);
 }
 function ifcAnalysisRouter(db,requireAccount){
  const r=express.Router();
+ r.use(roomScanRouter(db,requireAccount));
  r.get('/documents/:analysisDocument/analysis',requireAccount,async(req,res,next)=>{
   res.set('Cache-Control','private, no-store');
   try{

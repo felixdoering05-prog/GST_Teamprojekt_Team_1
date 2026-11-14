@@ -221,7 +221,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     func planPreview(buildingID: Int, jobID: String) async throws -> Data {
         try await fileRequest(path: "buildings/\(buildingID)/plan-conversion/jobs/\(jobID)/preview")
     }
-    private func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
+    func fileRequest(path: String, data: Data? = nil, name: String? = nil, method: String? = nil, uploadID: UUID? = nil, progress: (@MainActor @Sendable (Double) -> Void)? = nil, voiceConsent: Bool = false, contentType: String = "application/octet-stream", requestID: UUID? = nil) async throws -> Data {
         guard let origin,let url = URL(string: origin + apiPrefix + path),url.scheme == "https" else { throw APIError(status: 0, message: "Bitte Serververbindung prüfen.") }
         let expectedRevision=connectionRevision
         var request = URLRequest(url: url)
