@@ -1,5 +1,22 @@
 # Recherchejournal
 
+## 14. November 2026, ca. 09:00 MEZ – Bentley iTwin und Freemium-Preise
+
+**Neuer Wettbewerber:** Bentley iTwin Platform, offizielle APIs für digitale Zwillinge mit Sensor- und Engineering-Daten. Offizielle Entwicklerpreise: Community kostenlos (nur privat/nicht kommerziell/nicht produktiv, 100 Credits/Monat), Standard **199 USD/Monat**, Premium **499 USD/Monat**, Zusatzcredits **1,20 USD**. Kein Endkundenproduktpreis.
+
+**Autodesk Tandem Free präzisiert:** Kostenloser Einstieg mit 500 Assets, 100 Mio. Datenpunkten und drei Facilities. Bezahlstufe mit 10.000 Assets und bis zu 1 Mrd. Datenpunkten; **kein verifizierter EUR-Preis** auf der geprüften Seite.
+
+**Projektabgleich:** Letzter gefundener Merge in main: [#155](../../pull/155), davor [#154](../../pull/154) und [#152](../../pull/152). [README-PR #153](../../pull/153) und [Marktforschungs-PR #156](../../pull/156) offen. Keine nachgewiesenen produktiven D21-Echtmesswerte oder Marktpreisvorteile.
+
+**Chance:** einfacher, raumbezogener IFC-zu-Sensor-Workflow für kleine Campus-/Gebäudeteams, **noch ungetestete Positionierung**. **Risiko:** Freemium-Angebote und etablierte API-Plattformen decken bereits wesentliche Teilfunktionen ab.
+
+**Quellen (Abruf 14.11.2026):** [Bentley Plattform](https://developer.bentley.com/), [Bentley Preise](https://developer.bentley.com/pricing/), [Autodesk Tandem Tarife](https://www.autodesk.com/sg/products/Tandem/buy), [Tandem Free Hilfe](https://help.autodesk.com/cloudhelp/ENU/Tandem-About/files/Tandem_About_access_tandem_free_html.html).
+
+**Nächster Test:** Tandem Free, Bentley und eigene App mit gleicher Aufgabe vergleichen: IFC-Raum öffnen, echten Sensorwert mit Quelle und Zeitstempel zeigen; Einrichtungsschritte, Rechte und Gesamtkosten erfassen.
+
+---
+
+
 ## 13. November 2026, ca. 19:00 MEZ – Abendabgleich
 
 **Neu / präzisiert:** Autodesk **Tandem** als direkten Wettbewerber ergänzt (IFC-/Revit-Import, BMS-/IoT-Streams, raumbezogene Heatmaps); bisher war nur BIM Collaborate Pro erfasst. Siemens-Lizenzbedingungen konkretisiert (Cloud-Angebot laut Datenblatt ab 10 Nutzern/20 GB, 12 Monate; kein EUR-Preis). BuildingMinds beschreibt KI-gestützte Nachrüstungsplanung, kennzeichnet bestimmte Szenarienvergleiche aber als noch nicht verfügbar. Dies sind **Anbieterangaben, keine unabhängigen Praxistests**.
