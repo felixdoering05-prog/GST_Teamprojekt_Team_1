@@ -5,13 +5,16 @@ import simd
 /// Coordinates are RoomPlan/ARKit world space: metres, Y up, right-handed.
 nonisolated struct ScannedBuilding {
     struct Box { var transform: simd_float4x4; var width: Float; var height: Float; var depth: Float }
-    struct Floor { var corners: [SIMD3<Float>]; var name: String }
+    /// `label` is RoomPlan's section label (bathroom, bedroom, …) when one was detected.
+    struct Floor { var corners: [SIMD3<Float>]; var name: String; var label: String? = nil }
     /// Furniture and fixtures; `category` uses RoomPlan's names (table, chair, sofa, bed, storage, sink, …).
     struct Object { var box: Box; var category: String }
     var walls: [Box] = []
     var objects: [Object] = []
     var doors: [Box] = []
     var windows: [Box] = []
+    /// Wall openings without a door leaf (passages).
+    var openings: [Box] = []
     var floors: [Floor] = []
 }
 

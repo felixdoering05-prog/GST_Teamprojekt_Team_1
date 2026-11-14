@@ -109,6 +109,12 @@ import UniformTypeIdentifiers
             if !persist() { return }
         }
     }
+    /// A document that the server created (e.g. the IFC from a LiDAR room scan) appears in the list like an upload.
+    func recordServerDocument(_ document: BuildingDocument) {
+        draft.files.append(DraftUpload(id: UUID(), name: document.name, isPhoto: false, state: .saved, document: document))
+        lastSavedID = document.id
+        _ = persist()
+    }
     func clearCompletedQueue() {
         guard !busy, existingBuilding != nil else { return }
         let saved = draft.files.filter { $0.state == .saved }
@@ -277,7 +283,7 @@ struct AddBuildingView: View {
                 }
             }
             .fullScreenCover(isPresented: $scanning) {
-                RoomScanView(buildingName: flow.draft.building?.name ?? flow.draft.name) { data, name in
+                RoomScanView(buildingName: flow.draft.building?.name ?? flow.draft.name, account: flow.account, buildingID: flow.draft.building?.id, serverDocument: flow.recordServerDocument) { data, name in
                     do { try flow.stage(data, name: name, photo: false); await flow.uploadPending() }
                     catch { flow.problem = error.localizedDescription }
                 }

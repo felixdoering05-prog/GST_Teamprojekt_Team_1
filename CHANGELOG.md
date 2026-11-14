@@ -1,5 +1,13 @@
 # Änderungsverlauf
 
+## 14. November 2026 – LiDAR-Raumscan mit Server-IFC (iPhone 1.0.127)
+
+- Der Raumscan schickt die RoomPlan-Struktur an den Projektserver; der IFC-Worker erzeugt mit ifcopenshell ein IFC4 mit Raumvolumen, Wandstärken, Tür-/Fensteröffnungen und Möbeln.
+- Raumnamen und -typen aus RoomPlan-Labels und erkannten Möbeln, ohne KI. Prüfen und Übernehmen in der App.
+- Ohne Serververbindung entsteht das IFC wie bisher auf dem iPhone.
+
+[Anleitung](docs/lidar-raumscan-server.md)
+
 ## 10. November 2026 – Grundriss zu vorläufigem IFC
 
 - Einmalige Google-Freigabe je Gebäude; nach Aktivierung neue Bilder/PDFs automatisch analysieren. Vorhandene Pläne nur nach Auswahl.
