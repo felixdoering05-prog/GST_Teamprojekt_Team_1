@@ -21,13 +21,13 @@ Diese Übersicht ergänzt [gemini-gebaeudeassistent.md](gemini-gebaeudeassistent
 
 ## Neu: lesende Werkzeuge im Chat
 
-Gemini entscheidet selbst, ob es nachschlägt. Pro Frage sind höchstens 3 Werkzeugrunden mit je bis zu 4 Aufrufen möglich. In der letzten Runde muss Gemini antworten. Unter der Antwort steht dann zum Beispiel „Abgefragt: IFC-Raumliste, Messwerte.“
+Gemini entscheidet selbst, ob es nachschlägt. Pro Frage sind höchstens 3 Werkzeugrunden mit je bis zu 4 Aufrufen möglich; weitere Aufrufe einer Runde bekommen eine Fehlermeldung statt die ganze Antwort abzubrechen. In der letzten Runde muss Gemini antworten. Unter der Antwort steht dann zum Beispiel „Abgefragt: IFC-Raumliste, Messwerte.“
 
 | Werkzeug | Liefert | Beispielfragen |
 |---|---|---|
-| `ifc_rooms` | IfcSpace-Räume mit Name, Langname und Geschoss, Fläche in m² (wenn im IFC hinterlegt), Summen je Geschoss und insgesamt; höchstens 150 Räume | „Welche Räume hat das OG?“ · „Wie groß ist das EG?“ |
+| `ifc_rooms` | IfcSpace-Räume mit Name, Langname und Geschoss, Fläche in m² (wenn im IFC hinterlegt), Summen je Geschoss und insgesamt; höchstens 150 Räume. Filter `name` (Raumnummer/-name, exakter Treffer bevorzugt) und `storey` (Teilwort; „Erdgeschoss“ findet „EG“). Ohne Treffer: `no_match` mit vorhandenen Geschossen und Raumnamen | „Wie groß ist Raum 1.12?“ · „Welche Räume hat das OG?“ |
 | `ifc_elements` | Anzahl je Bauteiltyp (Wände, Türen, Fenster, Decken, Treppen, Stützen …), IFC-Schema, Prüfhinweise, Informationsregeln | „Wie viele Fenster und Türen hat das Modell?“ · „Hat das Modell Strukturprobleme?“ |
-| `measurements` | je Messgröße (Temperatur, CO₂, Luftfeuchte): Anzahl, Min/Max/Mittel, letzter Wert, Trend pro Stunde, Grenzwertüberschreitungen, letzter Wert je Sensor; dazu Energiezeiträume. Echt- und Demodaten bleiben getrennt. | „Wie entwickelt sich die Temperatur?“ · „Gab es CO₂-Überschreitungen?“ |
+| `measurements` | je Messgröße (Temperatur, CO₂, Luftfeuchte): Anzahl, Min/Max/Mittel, letzter Wert, Trend pro Stunde, Grenzwertüberschreitungen, letzter Wert je Sensor; dazu Energiezeiträume. Echt- und Demodaten bleiben getrennt. Zeitraum `period` = `today` (seit Mitternacht deutscher Zeit), `24h`, `7d` oder `all`; Zeiten zusätzlich in Ortszeit. | „Wie entwickelt sich die Temperatur?“ · „Gab es CO₂-Überschreitungen?“ |
 | `weather_heat` | Wettermodell für die nächsten 24 Stunden mit Alter der Daten, Temperaturspanne und Sonnenspitze; grobe Wärmeabschätzung mit Heizgradstunden (Basis 15 °C), Stunden über 26 °C und Stunden mit starker Sonne | „Muss heute geheizt werden?“ · „Wann wird es am wärmsten?“ |
 | `ifc_quantities`, `ifc_clashes`, `ifc_find_elements`, `ifc_model_diff` | siehe unten (IfcOpenShell-Werkzeuge) | „Gibt es Kollisionen?“ |
 | `devices` | Geräte des Gebäudes (simuliert oder geplant) mit Raum und Schaltzustand; für dieses Konto freigegebene Home-Assistant-Lampen mit aktuellem Zustand | „Welche Lampen sind gerade an?“ |

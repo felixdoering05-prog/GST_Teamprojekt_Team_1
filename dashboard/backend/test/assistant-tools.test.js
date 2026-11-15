@@ -4,7 +4,7 @@ const express=require('express');
 const {PGlite}=require('@electric-sql/pglite');
 const {randomBytes,createHash,randomUUID}=require('node:crypto');
 const {initAccounts,accountRouter}=require('../src/accounts');
-const {runTool,trend,toolDeclarations}=require('../src/assistant-tools');
+const {runTool,trend,toolDeclarations,localMidnight,measurementsTool}=require('../src/assistant-tools');
 let db,server,url,owner,member,outsider,building,other,calls=[],script=[];
 const mockKey='test-key-not-a-real-gemini-key';
 before(async()=>{
@@ -62,7 +62,10 @@ test('rounds are bounded: final round disables function calling',async()=>{
  calls=[];script=[1,2,3].map(()=>({call:{name:'devices',args:{}}})).concat([{text:'Genug.'}]);
  const r=await ask(owner,'Welche Geräte?');assert.equal(r.status,200);assert.equal(calls.length,4);
  assert.deepEqual(calls[3].body.toolConfig,{functionCallingConfig:{mode:'NONE'}});assert.equal(calls[2].body.toolConfig,undefined);
- calls=[];script=[{calls:[1,2,3,4,5].map(()=>({name:'devices',args:{}}))}];assert.equal((await ask(owner,'Viel?')).status,502);
+ calls=[];script=[{calls:[1,2,3,4,5].map(()=>({name:'devices',args:{}}))},{text:'Antwort trotz fünf Aufrufen.'}];
+ const many=await ask(owner,'Viel?');assert.equal(many.status,200);assert.match(many.body.answer,/Antwort trotz/);
+ const responses=calls[1].body.contents.at(-1).parts.map(p=>p.functionResponse.response.result);
+ assert.equal(responses.length,5,'every call gets a response');assert.ok(responses[0].devices);assert.match(responses[4].error,/Höchstens 4/);
 });
 test('model commands stay without tools',async()=>{
  calls=[];script=[{text:JSON.stringify({action:'hide',target:'walls',color:null,summary:'Wände ausblenden'})}];
@@ -105,4 +108,39 @@ test('ifc5d, ifcclash, selector and ifcdiff results are served from background i
  const diff=await runTool(db,ctx,'ifc_model_diff',{});assert.equal(diff.added_count,5);assert.equal(diff.likely_different_models,true);
  assert.match((await runTool(db,ctx,'ifc_quantities',{})).error,/Hintergrundauswertung/,'newest model (no insights yet) is model 1');
  assert.equal((await runTool(db,ctx,'ifc_quantities',{model_number:2})).by_type.IfcWall.count,2);
+});
+
+test('chat prompt says tool data overrides the static unknown-data rules and gives local time',async()=>{
+ calls=[];script=[{text:'Ok.'}];await ask(owner,'Wie warm ist es?');
+ const prompt=calls[0].body.systemInstruction.parts[0].text;
+ assert.match(prompt,/gelten nur, solange du das passende Werkzeug nicht aufgerufen hast/);assert.match(prompt,/keine Schätz-, Norm- oder Erfahrungswerte/);assert.match(prompt,/Jetzt ist \d{2}\.\d{2}\.\d{4}/);
+});
+test('room lookup by number, storey aliases and honest no-match',async()=>{
+ const ctx={user:member.id,building:building.id};
+ // Rooms of the first model: Büro 1 (EG), Flur (EG), Labor (OG).
+ const one=await runTool(db,ctx,'ifc_rooms',{name:'Raum Büro 1',model_number:2});
+ assert.deepEqual(one.rooms.map(r=>r.name),['Büro 1']);assert.equal(one.rooms[0].area_m2,20.5);
+ assert.equal((await runTool(db,ctx,'ifc_rooms',{storey:'Erdgeschoss',model_number:2})).rooms_matching,2,'Erdgeschoss matches EG');
+ assert.equal((await runTool(db,ctx,'ifc_rooms',{storey:'eg',model_number:2})).rooms_matching,2);
+ const none=await runTool(db,ctx,'ifc_rooms',{name:'9.99',model_number:2});
+ assert.equal(none.rooms_matching,0);assert.match(none.no_match,/Nicht raten/);assert.deepEqual(none.available_storeys,['EG','OG']);assert.ok(none.available_room_names.includes('Labor'));
+ assert.equal((await runTool(db,ctx,'ifc_rooms',{model_number:2})).no_match,undefined,'no hint without filter');
+});
+test('element search normalises class names and explains empty results',async()=>{
+ const ctx={user:member.id,building:building.id};
+ assert.equal((await runTool(db,ctx,'ifc_find_elements',{model_number:2,ifc_class:'wall'})).match_count,2);
+ assert.equal((await runTool(db,ctx,'ifc_find_elements',{model_number:2,ifc_class:'IFCWINDOW',storey:'Obergeschoss'})).match_count,1);
+ const none=await runTool(db,ctx,'ifc_find_elements',{model_number:2,ifc_class:'IfcColumn'});
+ assert.equal(none.match_count,0);assert.ok(none.available_classes.includes('IfcWindow'));assert.deepEqual(none.available_storeys.sort(),['EG','OG']);
+});
+test('measurements can be limited to today in German local time',async()=>{
+ const b=(await db.query('SELECT * FROM app_buildings WHERE id=$1',[building.id])).rows[0];
+ // Six temperature values 14.11.2026 08:00–13:00 UTC = 09:00–14:00 Berlin.
+ assert.equal(localMidnight(new Date('2026-11-14T22:30:00Z')).toISOString(),'2026-11-13T23:00:00.000Z');
+ const sameDay=await measurementsTool(db,b,{metric:'temperature',period:'today'},new Date('2026-11-14T15:00:00Z'));
+ assert.equal(sameDay.metrics[0].count,6);assert.equal(sameDay.metrics[0].last.at_local,'14.11.2026, 14:00');assert.equal(sameDay.period,'today');
+ const nextDay=await measurementsTool(db,b,{metric:'temperature',period:'today'},new Date('2026-11-15T09:00:00Z'));
+ assert.equal(nextDay.metrics[0].count,0);assert.match(nextDay.metrics[0].note,/ältere Werte/);assert.equal(nextDay.metrics[0].latest_stored.value,25);
+ const co2=await measurementsTool(db,b,{metric:'co2'});assert.equal(co2.metrics[0].count,0);assert.match(co2.metrics[0].note,/Keine Messwerte/);
+ assert.equal((await measurementsTool(db,b,{period:'bogus'})).period,'all');
 });
