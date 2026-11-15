@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [15.11.2026 21:43 · Mängel mit BCF im richtigen IFC-Raum wiederfinden](berichte/2026-11-15-2143.md)
+
 - [14.11.2026 09:04 · Datensicherung beim Hochschulserverumzug](berichte/2026-11-14-0904.md)
 
 - [13.11.2026 17:00 · IFC-Viewer ohne Kartenboden testen](berichte/2026-11-13-1700.md)
