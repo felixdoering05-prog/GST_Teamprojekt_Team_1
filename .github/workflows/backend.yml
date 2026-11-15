@@ -1,0 +1,79 @@
+name: Backend
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Backend (Node-Tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: dashboard/backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/backend/package-lock.json
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: hashFiles('dashboard/backend/plan-extract/requirements.txt') != ''
+        with:
+          python-version: '3.12'
+      # Wenn der Python-Planextraktor im Repo liegt, läuft auch der Ende-zu-Ende-Test
+      # in test/plan-vector.test.js (er liest PLAN_PYTHON).
+      - name: Python-Umgebung für den Planextraktor
+        if: hashFiles('dashboard/backend/plan-extract/requirements.txt') != ''
+        run: |
+          python -m venv "$RUNNER_TEMP/plan-venv"
+          "$RUNNER_TEMP/plan-venv/bin/pip" install --quiet -r plan-extract/requirements.txt
+          echo "PLAN_PYTHON=$RUNNER_TEMP/plan-venv/bin/python" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm test
+
+  python:
+    name: Backend (Python-Tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: dashboard/backend/**/requirements.txt
+      # Jedes Python-Modul unter dashboard/backend mit requirements.txt bekommt eine
+      # eigene virtuelle Umgebung; Tests liegen entweder im Modulordner (test_*.py)
+      # oder im Unterordner tests/.
+      - name: Python-Module testen
+        working-directory: dashboard/backend
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r req; do
+            dir=$(dirname "$req")
+            if [ -d "$dir/tests" ]; then start=tests; else start=.; fi
+            if ! find "$dir/$start" -maxdepth 1 -name 'test_*.py' | grep -q .; then
+              echo "::notice::$dir hat keine test_*.py, übersprungen"; continue
+            fi
+            found=1
+            echo "::group::$dir"
+            venv="$RUNNER_TEMP/venv-$(basename "$dir")"
+            python -m venv "$venv"
+            "$venv/bin/pip" install --quiet -r "$req"
+            (cd "$dir" && "$venv/bin/python" -m unittest discover -v -s "$start" -p 'test_*.py')
+            echo "::endgroup::"
+          done < <(find . -name requirements.txt -not -path '*/node_modules/*' | sort)
+          [ "$found" = 1 ] || { echo "::error::Keine Python-Tests gefunden"; exit 1; }
