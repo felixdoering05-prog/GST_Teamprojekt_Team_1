@@ -1,5 +1,20 @@
 # Recherchejournal
 
+## 14. November 2026, ca. 19:00 MEZ – Abendprüfung: Tandem Connect und Siemens-Campusreferenz
+
+**Offizielle Quellen erneut geprüft:** Autodesk Tandem [Produktvergleich](https://www.autodesk.com/products/tandem/compare) und [Nutzungsbedingungen](https://www.autodesk.com/company/terms-of-use/en/offering-types-and-benefits); [Siemens Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/); [Bentley-Preise](https://developer.bentley.com/pricing/). Abrufdatum **14.11.2026**. Die Angaben sind Herstellerangaben, keine unabhängigen Funktionstests.
+
+**Neue Erkenntnis:** Tandem Connect Free hat keine Produktions-Pipelines; Standard nennt 10 Produktions-Plugins je Paket und MQTT-Broker als Zusatzpaket. Tandem Free ist in den Nutzungsbedingungen auf interne geschäftliche Zwecke begrenzt. Siemens nennt die University of Wollongong als konkreten Campus-Anwendungsfall mit Lifecycle Twin, Energy Manager und Operations Manager. **Kein neuer, bislang unbekannter Anbieter** in diesem Lauf; neue verifizierte Produkt-/Lizenzdetails.
+
+**Preise:** Bentley Community kostenlos nur nicht kommerziell/nicht produktiv; Standard 199 USD/Monat, Premium 499 USD/Monat (Plattformtarife). Autodesk Tandem Free kostenlos, bezahlter deutscher EUR-Preis und Tandem-Connect-Zusatzkosten weiterhin nicht verifiziert; Siemens EUR-Preis nicht verifiziert. Widersprüchliche Sandbox-Plugin-Zahlen zwischen Autodesk-Vergleich und Terms vor Vertragsentscheidung klären.
+
+**GitHub-Abgleich:** README auf main beschreibt IFC-/Web-/iPhone-Prototyp und private Home-Assistant-Integration. Neuere PRs #160, #161, #162, #164 betreffen LiDAR→IFC, Gemini-Lesewerkzeuge und IFC-Geometrieanalyse. PR #163 (Mängelmelder) und #165 (README) waren bei der Prüfung offen. **Echter D21-Messwert, vollständige produktive Sprachsteuerung, unabhängiger D21-IFC-Praxistest nicht nachgewiesen.**
+
+**Chance:** belegbarer, schlanker Raum→Sensor→Rechte-Workflow statt Featurelisten-USP. **Risiko:** Campuspositionierung durch Siemens und günstiger Einstieg durch Tandem bereits besetzt. **Nächster Schritt:** Vergleichsversuch mit identischer Messwert-/Raum-/Rechte-Aufgabe und dokumentierten Vollkosten.
+
+---
+
+
 ## 14. November 2026, ca. 09:00 MEZ – Bentley iTwin und Freemium-Preise
 
 **Neuer Wettbewerber:** Bentley iTwin Platform, offizielle APIs für digitale Zwillinge mit Sensor- und Engineering-Daten. Offizielle Entwicklerpreise: Community kostenlos (nur privat/nicht kommerziell/nicht produktiv, 100 Credits/Monat), Standard **199 USD/Monat**, Premium **499 USD/Monat**, Zusatzcredits **1,20 USD**. Kein Endkundenproduktpreis.
