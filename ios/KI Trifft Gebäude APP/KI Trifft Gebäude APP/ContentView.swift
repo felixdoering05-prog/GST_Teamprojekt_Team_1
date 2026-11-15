@@ -643,8 +643,8 @@ struct DocumentPreviewView: View {
             Group {
                 if item.document.mime_type == "application/x-step" {
                     IFCStoredModelView(url: item.url, smartHome: smartHome, account: account, buildingID: item.document.building_id, documentID: item.document.id)
-                } else if item.document.mime_type == "application/acad" {
-                    ContentUnavailableView("DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener DWG-Viewer ist noch nicht enthalten."))
+                } else if ["application/acad", "application/dxf"].contains(item.document.mime_type) {
+                    ContentUnavailableView(item.document.mime_type == "application/dxf" ? "DXF-Plan gespeichert" : "DWG-Plan gespeichert", systemImage: "cube.transparent", description: Text("Zur Ansicht über die Teilen-Schaltfläche in einer geeigneten CAD-App öffnen. Ein eigener CAD-Viewer ist noch nicht enthalten."))
                 } else { NativeFilePreview(url: item.url) }
             }
             .navigationTitle(item.document.name).navigationBarTitleDisplayMode(.inline)

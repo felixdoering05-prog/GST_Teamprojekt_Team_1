@@ -22,7 +22,7 @@ struct GuidedGenerationView: View {
             let documents = try await flow.account.documents(buildingID: building.id)
             guard flow.validAccount else { return }
             reply = next
-            files = documents.filter { ["image/jpeg", "image/png", "image/webp", "application/pdf"].contains($0.mime_type) }
+            files = documents.filter { planConversionMimeTypes.contains($0.mime_type) }
             if loading {
                 // Exterior photos are never silently selected as floor plans.
                 let uploadedPlanIDs = Set(flow.draft.files.filter { !$0.isPhoto && $0.state == .saved }.compactMap { $0.document?.id })
@@ -67,8 +67,9 @@ struct GuidedGenerationView: View {
                     Label(job.title, systemImage: job.status == "ready" ? "checkmark.circle.fill" : "cube.transparent").foregroundStyle(d21Accent)
                     if ["queued", "running"].contains(job.status) {
                         ProgressView()
-                        Text("Gemini erkennt den Grundriss, BIMCraft erstellt daraus auf dem Server einen IFC-Entwurf. Du kannst die App verlassen. Eine Fertigmeldung erscheint in deinen Mitteilungen beim nächsten Öffnen. Push bei geschlossener App ist noch nicht eingerichtet.").font(.footnote).foregroundStyle(.secondary)
+                        Text("Der Server vermisst Vektorpläne (PDF, DXF, DWG) exakt; Bilder erkennt Gemini. Daraus entsteht ein IFC-Entwurf. Du kannst die App verlassen. Eine Fertigmeldung erscheint in deinen Mitteilungen beim nächsten Öffnen. Push bei geschlossener App ist noch nicht eingerichtet.").font(.footnote).foregroundStyle(.secondary)
                     }
+                    if let quality = job.quality { PlanQualityView(quality: quality) }
                     ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, message in Text(message).font(.footnote).foregroundStyle(.secondary) }
                     NavigationLink(job.status == "ready" ? "3D-Entwurf prüfen und übernehmen" : "Auftrag und Details öffnen") {
                         PlanConversionView(building: building, account: flow.account, onAdopt: {})
@@ -76,7 +77,7 @@ struct GuidedGenerationView: View {
                 } else if !reply.available {
                     Text("Die Modellgenerierung ist auf diesem Server noch nicht verfügbar. Deine Pläne bleiben gespeichert.").font(.footnote)
                 } else if files.isEmpty {
-                    Text("Für die Generierung fehlt noch ein PDF- oder Bildgrundriss. Du kannst zurückgehen und einen Plan ergänzen. Ein vorhandenes IFC lässt sich direkt in der Gebäudemappe öffnen.").font(.footnote)
+                    Text("Für die Generierung fehlt noch ein Grundriss (PDF, DXF, DWG oder Bild). Du kannst zurückgehen und einen Plan ergänzen. Ein vorhandenes IFC lässt sich direkt in der Gebäudemappe öffnen.").font(.footnote)
                 } else {
                     Text("Wähle bis zu vier zusammengehörige Grundrisse, insgesamt maximal 10 MB. Außenfotos werden nicht automatisch ausgewählt.").font(.footnote).foregroundStyle(.secondary)
                     ForEach(files) { file in
@@ -106,7 +107,7 @@ struct GuidedGenerationView: View {
         .confirmationDialog("Grundrisse mit KI verarbeiten?", isPresented: $confirming, titleVisibility: .visible) {
             Button("Freigeben und Entwurf erstellen") { Task { await start() } }
         } message: {
-            Text("Die ausgewählten Dateien werden vollständig an Google Gemini übertragen. Damit aktivierst du KI für dein Konto und die automatische Plananalyse für dieses Gebäude; später hochgeladene Bilder und PDFs werden ebenfalls analysiert. Nur Pläne verwenden, die du dafür freigeben darfst. Maximal 3 Aufträge je Konto in 24 Stunden. Abschaltbar unter Plan → 3D-Entwurf.")
+            Text("Ausgewählte Bilder und PDFs werden vollständig an Google Gemini übertragen; DXF/DWG werden nur auf dem Server vermessen. Damit aktivierst du KI für dein Konto und die automatische Plananalyse für dieses Gebäude; später hochgeladene Pläne werden ebenfalls analysiert. Nur Pläne verwenden, die du dafür freigeben darfst. Maximal 3 Aufträge je Konto in 24 Stunden. Abschaltbar unter Plan → 3D-Entwurf.")
         }
     }
 }
