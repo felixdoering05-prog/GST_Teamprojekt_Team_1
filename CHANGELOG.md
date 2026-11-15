@@ -1,5 +1,15 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Widget und Siri-Kurzbefehle (iPhone 1.0.130)
+
+- Home-Bildschirm-Widget (klein/mittel): Lieblingsgebäude mit letztem Temperatur-/CO₂-Messwert, gespeichertem Wetter und ungelesenen Mitteilungen. Tippen öffnet das Gebäude.
+- Das Widget hat keine Sitzung und ruft keinen Server auf. Die App schreibt nach dem Laden eine kleine Zusammenfassung in die App Group und lädt die Widgets neu; beim Abmelden wird sie gelöscht.
+- Lieblingsgebäude = zuletzt geöffnetes Gebäude oder im Widget gewählt.
+- Siri/Kurzbefehle: „Frag mein Gebäude …“ (Frage wird nur eingetragen), „Öffne Gebäude X“, „Wo bin ich?“ (Raumortung).
+- Release-Build signiert jetzt mit `KTG_BUNDLE_ID_BASE=…` statt `PRODUCT_BUNDLE_IDENTIFIER=…`, weil die Extension `<Basis>.widgets` braucht.
+
+[Anleitung](docs/ios-widget-siri.md)
+
 ## 14. November 2026 – LiDAR-Raumscan mit Server-IFC (iPhone 1.0.127)
 
 - Der Raumscan schickt die RoomPlan-Struktur an den Projektserver; der IFC-Worker erzeugt mit ifcopenshell ein IFC4 mit Raumvolumen, Wandstärken, Tür-/Fensteröffnungen und Möbeln.

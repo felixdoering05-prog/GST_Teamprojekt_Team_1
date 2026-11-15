@@ -1,5 +1,5 @@
 Datenschutzhinweise zum externen Test
-Stand: 12. November 2026
+Stand: 16. November 2026
 
 Verantwortlicher und Support
 Felix Döring
@@ -29,6 +29,10 @@ Mit Apple RoomPlan erfasst das iPhone per Kamera und LiDAR Wände, Türen, Fenst
 
 3D-Modell auf der Karte
 Ist ein Modell auf der Karte platziert, lädt die App für den Kartenboden einen Kartenausschnitt (etwa 260 × 260 m) um den Gebäudestandort von Apple Karten. Straßen und Nachbargebäude stammen wie bisher aus OpenStreetMap über den Projektserver; die automatische Ausrichtung startet erst nach deinem Tipp auf „Auf Karte ausrichten“. Schatten werden aus dem berechneten Sonnenstand am Standort dargestellt.
+
+Widget und Siri-Kurzbefehle (ab Version 1.0.130)
+Das optionale Home-Bildschirm-Widget zeigt für ein Gebäude den letzten Innen-Messwert (Temperatur, CO₂), das zuletzt auf dem Projektserver gespeicherte Wetter und die Zahl ungelesener Mitteilungen. Dafür schreibt die App nach dem Laden eine kleine Zusammenfassung (Gebäudenamen und -nummern, diese Werte, keine Adressen, Dateien, Nachrichtentexte oder Zugangsdaten) in einen geschützten Speicherbereich auf dem iPhone, den nur die App und ihr Widget lesen können. Das Widget hat keine eigene Anmeldung und stellt keine Serververbindung her. Der Home-Bildschirm ist für alle sichtbar, die dein entsperrtes iPhone sehen; entferne das Widget, wenn du das nicht möchtest. Beim Abmelden oder Löschen des Kontos wird die Zusammenfassung gelöscht.
+Siri und Kurzbefehle öffnen nur die App: „Frag mein Gebäude …“ trägt die Frage in den Gebäude-Assistenten ein, gesendet wird sie erst nach deinem Tipp auf Senden. Die Spracherkennung der Siri-Eingabe erfolgt durch Apple nach dessen Bedingungen. Für die Gebäudeauswahl kennt Siri nur die Gebäudenamen aus der Zusammenfassung.
 
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.

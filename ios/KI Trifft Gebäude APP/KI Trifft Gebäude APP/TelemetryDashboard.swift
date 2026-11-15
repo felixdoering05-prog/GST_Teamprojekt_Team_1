@@ -148,6 +148,7 @@ struct TelemetryDashboardView: View {
             else if let account, let building { value = try await account.request("buildings/\(building.id)/telemetry?source=\(originalSource)") }
             else { return }
             guard !Task.isCancelled, originalSource == source, operation == ticket else { return }; snapshot = value; problem = nil
+            if !localDemo, let building { WidgetSnapshotWriter.telemetry(value, buildingID: building.id) }
         } catch { if !Task.isCancelled, source == originalSource, operation == ticket { problem = error.localizedDescription } }
     }
 }

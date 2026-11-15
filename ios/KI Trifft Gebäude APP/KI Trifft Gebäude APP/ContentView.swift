@@ -205,7 +205,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     }
     func fetchBuildings() async throws -> [Building] { try await request("buildings") }
     func loadBuildings() async {
-        do { buildings = try await request("buildings") }
+        do { buildings = try await request("buildings"); WidgetSnapshotWriter.buildings(buildings, accountID: user?.id) }
         catch { self.error = error.localizedDescription }
     }
     func addBuilding(name: String, address: String, requestID: UUID? = nil) async -> Building? {
@@ -310,14 +310,14 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         invalidateSession()
     }
     private func invalidateSession() {
-        try? eraseSession()
+        try? eraseSession(); WidgetSnapshotWriter.clear()
         token = nil;tokenOrigin=nil;connectionRevision=UUID(); user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
     }
     func logout() async {
         busy = true; defer { busy = false }
         do {
             let _: LogoutResult = try await request("auth/logout", method: "POST")
-            try eraseSession()
+            try eraseSession(); WidgetSnapshotWriter.clear()
             token = nil;tokenOrigin=nil;connectionRevision=UUID(); user = nil; buildings = []; avatarData = nil; aiPreferences = .disabled; presentationMode=false;uiRevision=0
         } catch { if user != nil { self.error = "Abmelden nicht abgeschlossen: " + error.localizedDescription } }
     }
@@ -477,6 +477,24 @@ struct AccountHomeView: View {
     @State private var savedDraft: BuildingDraft?
     @State private var discardDraft = false
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var router = AppRouter.shared
+    @State private var locating: Building?
+    /// Performs a pending widget, deep-link or Siri request once the buildings are known.
+    private func consumeRoute() {
+        guard let route = router.route, !model.buildings.isEmpty else { return }
+        router.route = nil
+        let favorite = WidgetSnapshot.load()?.favoriteID
+        func resolve(_ id: Int?) -> Building? { model.buildings.first { $0.id == id } ?? model.buildings.first { $0.id == favorite } ?? model.buildings.first }
+        switch route {
+        case .building(let id, let area):
+            guard let building = resolve(id) else { return }
+            selectedTab = 0; nextArea = area; showAdd = false; showProfile = false
+            if path.isEmpty { path = [building] } else { path = []; Task { path = [building] } }
+        case .locate(let id):
+            guard let building = resolve(id) else { return }
+            selectedTab = 0; locating = building
+        }
+    }
     private func refreshDraft() {
         do { savedDraft = try model.draftStore()?.load() }
         catch { model.error = "Der gespeicherte Entwurf konnte nicht gelesen werden. Er bleibt erhalten. " + error.localizedDescription }
@@ -525,7 +543,7 @@ struct AccountHomeView: View {
                 } message: { _ in Text("Alle Mitglieder verlieren den Zugriff. Dateien, Modelle und Chat-/KI-Verläufe werden entfernt. Das kann nicht rückgängig gemacht werden.") }
                 .overlay { if deletingBuilding { ProgressView("Gebäude wird gelöscht …").padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
                 .searchable(text: $search, prompt: "Gebäude suchen")
-                .navigationDestination(for: Building.self) { BuildingDetailView(building: $0, model: model, initialSection: nextArea) }
+                .navigationDestination(for: Building.self) { building in BuildingDetailView(building: building, model: model, initialSection: nextArea).onAppear { WidgetSnapshotWriter.opened(building, account: model) } }
                 .sheet(item: $buildingPreview, onDismiss: { if let building = nextBuilding { nextBuilding = nil; path.append(building) } }) { building in
                     BuildingQuickSheet(building: building) { area in nextArea = area; nextBuilding = building; buildingPreview = nil }
                 }
@@ -551,7 +569,18 @@ struct AccountHomeView: View {
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
             NavigationStack { TeamInboxView(account:model,social:social) }.tabItem { Label("Team",systemImage:"person.2") }.badge(social.unread).tag(1)
             ProfileView(embedded: true).tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(2)
-        }.task {
+        }
+        .onChange(of: router.route) { _, _ in consumeRoute() }
+        .onChange(of: model.buildings) { _, _ in consumeRoute() }
+        .onChange(of: social.unread) { _, count in WidgetSnapshotWriter.unread(count) }
+        .fullScreenCover(item: $locating) { building in
+            NavigationStack {
+                RoomLocatorView(building: building, account: model)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { locating = nil } } }
+            }
+        }
+        .task {
+            consumeRoute()
             await social.reload(model)
             while !Task.isCancelled { do { try await Task.sleep(for: .seconds(20)) } catch { return }; if scenePhase == .active { await social.reload(model) } }
         }
