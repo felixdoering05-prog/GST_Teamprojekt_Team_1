@@ -1,5 +1,17 @@
 # Recherchejournal
 
+## 15. November 2026, ca. 19:00 MEZ – Archibus und BuildingMinds im Betriebsvergleich
+
+**Neue Wettbewerber in dieser Vergleichsrunde (nicht als neue Produkteinführung behauptet):** Archibus Digital Twins mit Revit-Modellen aus Autodesk Construction Cloud/Build, Autodesk-APS-basiertem BIM-Viewer und Verknüpfung von Assets; sowohl SaaS als auch Non-SaaS, jedoch nur mit kostenpflichtiger Digital-Twins-Lizenz. BuildingMinds mit Digital Building Twin und API-Integration für BMS, IoT, Smart Meter, CAFM und Energiemanagement sowie KI-gestützter Nachrüstplanung. Hersteller kennzeichnet einzelne Szenarienvergleiche und Wirkungsnachweise als noch nicht verfügbar. **Keine verifizierten EUR-Listenpreise** für diese Angebote. Aussagen beruhen auf Anbieterquellen, nicht auf unabhängigen Produkttests.
+
+**Quellen (Abruf 15.11.2026):** [Archibus BIM Viewer](https://help.archibus.com/user_en/Subsystems/webc/Content/web_user/bim_viewer/bim_viewer.htm), [Archibus BIM-Viewer-Definition](https://help.archibus.com/user_en/Subsystems/webc/Content/shared_gloss/bim_viewer_def.htm), [BuildingMinds Daten](https://buildingminds.com/de/daten), [BuildingMinds KI-Nachrüstung](https://buildingminds.com/de/digital-twin2/).
+
+**Projektabgleich:** Hauptbranch-README beschreibt IFC-/Web-/iPhone-Prototyp, Gemini-/ElevenLabs-Funktionen und private Home-Assistant-Geräte. PR #167 ergänzt Marktanalyse; PR #163 Mängelmelder ist noch offen. Echtes D21-Telemetrie-zu-IFC-End-to-End-Szenario und Preisvorteil **nicht bestätigt**.
+
+**Chance:** Niedrigschwellige Bedienung für kleine Gebäudeteams und verifizierbare Raum-Sensor-Zuordnung; **Risiko:** Archibus verbindet bereits BIM und Assetmanagement, BuildingMinds IoT und Energiedaten. **Nächster Test:** Revit/IFC-Raum, reale Messwerte, Rollenrechte und Implementierungskosten mit gleicher Testaufgabe vergleichen.
+
+---
+
 ## 15. November 2026, ca. 09:00 MEZ – Neue Anbieter Lexi und Scope3D; Autodesk-Lizenzmodelle getrennt
 
 **Neue direkte Wettbewerber:** [Twiniti Lexi](https://lexi.twiniti.ai/) bietet laut offizieller Produktseite **Lexi Lite kostenlos** als 3D-Viewer (APS/Fragments) mit KI-Modellchat; **Lexi Plus** kostenpflichtig und auf Warteliste, ohne verifizierten Preis. [Scope3D](https://scope3d.com/) bewirbt IFC/Revit/PDF-zu-3D-Twin, KI-Copilot, IFC-Export und Betriebsfunktionen. Veröffentlichte Einstiegspreise **ab 750 USD einmalig pro Gebäude plus ab 59 USD/Monat**; tatsächlicher Vertrag, Steuer, Funktionsumfang und Praxistauglichkeit **nicht unabhängig bestätigt**. Zielgruppen: BIM/AEC-Teams beziehungsweise Gebäudeeigentümer und Betreiber.
