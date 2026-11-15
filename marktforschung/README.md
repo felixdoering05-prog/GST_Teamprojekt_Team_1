@@ -30,3 +30,9 @@ Welche am Markt angebotenen Lösungen verbinden digitale Gebäudemappen, BIM/IFC
 **Projektquellen:** [Haupt-README](../README.md) · [Issues](../../issues) · [Pull Requests](../../pulls).
 
 > Dieser Startstand ist die Recherche-Struktur, noch **keine abgeschlossene Marktanalyse**.
+
+## Aktueller Kurzüberblick · 15.11.2026
+
+**Neu beobachtet:** [Twiniti Lexi](https://lexi.twiniti.ai/) (kostenloser KI-Chat über 3D-Modell, bezahlte Plus-Stufe auf Warteliste) und [Scope3D](https://scope3d.com/) (Anbieter wirbt mit IFC/Revit/PDF → 3D-Twin, KI-Copilot und Betrieb; veröffentlichter Einstieg ab 750 USD einmalig + 59 USD/Monat). Beides sind **Herstellerangaben**, keine unabhängigen Produkt- oder Preisprüfungen. Weitere Details und Projektabgleich im [Wettbewerbsvergleich](wettbewerbsvergleich.md).
+
+**Aktueller Projektabgleich:** [README](../README.md) nennt IFC-/Web-/iPhone-Prototyp, Gemini- und Sprachfunktionen sowie private Home-Assistant-Lampen. [PR #165](../../pull/165) (README) und [#166](../../pull/166) (Marktforschung) sind inzwischen in `main` gemergt. [#163](../../pull/163) (Mängelmelder) ist offen und nicht als ausgeliefertes Feature zu werten; ein echter D21-Sensordatenpunkt ist nicht belegt. Einzigartigkeit oder Preisvorteil sind **nicht nachgewiesen**.
