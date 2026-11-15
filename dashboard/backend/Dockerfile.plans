@@ -7,7 +7,7 @@ RUN case "$TARGETARCH" in arm64) arch=aarch64; sum=a94d598d821b1da3366e6655147d3
  echo "$sum  /tmp/bimcraft.tar.gz" | sha256sum -c - && mkdir -p /opt/bimcraft && tar -xzf /tmp/bimcraft.tar.gz -C /opt/bimcraft --strip-components=1 && rm /tmp/bimcraft.tar.gz
 # LibreDWG (GPL-3) is only used as a separate dwg2dxf executable; it is not linked into our code.
 FROM ubuntu:24.04 AS libredwg
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils build-essential pkg-config && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils build-essential pkg-config python3 && rm -rf /var/lib/apt/lists/*
 RUN curl -fL --proto '=https' --retry 3 https://ftp.gnu.org/gnu/libredwg/libredwg-0.14.tar.xz -o /tmp/libredwg.tar.xz && \
  echo "62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275  /tmp/libredwg.tar.xz" | sha256sum -c - && \
  mkdir /src && tar -xJf /tmp/libredwg.tar.xz -C /src --strip-components=1 && cd /src && \
