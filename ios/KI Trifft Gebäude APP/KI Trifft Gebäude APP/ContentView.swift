@@ -466,7 +466,7 @@ struct ContentView: View {
                 do { try await Task.sleep(for: .seconds(8)) } catch { break }
             }
         }
-        .alert("Nala Solutions", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+        .alert("Nala", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
     }
@@ -479,7 +479,7 @@ struct WelcomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Image(systemName: "building.2.crop.circle.fill").font(.system(size: 72)).foregroundStyle(d21Accent)
-                    Text("Nala Solutions").font(.largeTitle.bold())
+                    Text("Nala").font(.largeTitle.bold())
                     Text("Dein Gebäude. Digital verstanden.").font(.title3.weight(.semibold)).foregroundStyle(d21Accent)
                     Text("Networked Architecture & Lifecycle Assistant – Nala, deine Gebäudeassistentin.").font(.subheadline).foregroundStyle(.secondary)
                     Label("Gebäudedaten zentral speichern", systemImage: "externaldrive.badge.icloud")
