@@ -87,7 +87,7 @@ test('values only from selected entities; owner-only selection with limit and re
  assert.equal((await request(base()+'/entities','PUT',{selected:['sensor.wohnzimmer_temperatur']},member.token)).status,403);
  assert.equal((await request(base()+'/entities','PUT',{selected:['sensor.wohnzimmer_temperatur']},stranger.token)).status,404);
  assert.equal((await request(base()+'/entities','PUT',{selected:['sensor.unbekannt']},owner.token)).status,409);
- assert.equal((await request(base()+'/entities','PUT',{selected:['light.x']},owner.token)).status,400);
+ assert.equal((await request(base()+'/entities','PUT',{selected:['switch.x']},owner.token)).status,400);
  assert.equal((await request(base()+'/entities','PUT',{selected:['sensor.wohnzimmer_co2'],revision:view.link.revision-1},owner.token)).status,409);
  await db.query("INSERT INTO app_user_limits(user_id,overrides) VALUES($1,'{\"ha_entities\":2}')",[owner.user.id]);
  assert.equal((await request(base()+'/entities','PUT',{selected:inventory.entities.map(e=>e.entity_id)},owner.token)).status,429);

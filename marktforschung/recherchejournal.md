@@ -7,6 +7,16 @@
 - **Abgleich:** README/main bestätigt IFC/Gemini/Home Assistant; #169/#171 sind offene PRs; echter D21-Messwert und Preis-/USP-Vorteil unbestätigt. Prüfpunkte: reproduzierbarer IFC-Sensor-Test, Datenschutz, Datenexport, Gesamtkosten.
 - **Quellenabruf:** 16.11.2026; Herstellerseiten und Autodesk-Support, keine unabhängigen Benchmarks.
 
+## 16. November 2026, ca. 09:30 MEZ – Siemens-Lizenz- und Datenresidenzprüfung
+
+**Kein neuer Wettbewerber**, aber eine für den Kosten- und Datenschutzvergleich relevante Lizenzpräzisierung: Siemens Lifecycle Twin bietet Cloud- und On-Premises-Abos mit benannten Nutzern/Speicher (10/20 GB bis 250/500 GB), Jahreslaufzeit, jährlicher Vorauszahlung und separater API-/CAD-Server-Lizenzmetrik. Laut Datenblatt muss die Cloud-Region bei Erstbestellung gewählt werden; die Wahl ist nicht reversibel. EU (Irland) ist für spätere Building-X-/IoT-Integration relevant. **Kein belastbarer öffentlicher EUR-Listenpreis**. Siemens dokumentiert auch Issue-Workflows direkt am BIM-Modell; daher ist ein 3D-Mängelmelder allein kein USP.
+
+**GitHub-Abgleich (historischer Recherchezeitpunkt):** Die damaligen PR-Statusangaben sind keine aktuelle Freigabeübersicht. Aktuelle Merges stehen im Changelog und auf GitHub. Echter D21-Messwert und End-to-End-Vergleich unbestätigt. **Chance (Hypothese):** schlanker, nachvollziehbar kalkulierter Pilot für kleine Gebäudeteams. **Risiko:** Siemens bietet bereits Campus-, BIM- und Instandhaltungsprozesse. **Nächster Schritt:** reale D21-Daten, Rollen und Vollkosten gegen Siemens-Tarifangebot testen.
+
+**Quellen, geprüft 16.11.2026:** [Siemens Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/); [Siemens Datenblatt (Stand 26.03.2025)](https://assets.new.siemens.com/siemens/assets/api/uuid%3A0251ec0c-76db-46ae-97f3-eddc38f4271a/BuildingX-Data-Sheet-Lifecycle-Twin-2025-03-26_original.pdf). Herstellerangaben, kein unabhängiger Produkttest.
+
+---
+
 
 ## 15. November 2026, ca. 19:00 MEZ – Archibus und BuildingMinds im Betriebsvergleich
 

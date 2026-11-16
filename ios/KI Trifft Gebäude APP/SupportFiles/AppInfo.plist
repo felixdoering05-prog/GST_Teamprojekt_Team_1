@@ -13,8 +13,23 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_home-assistant._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Damit die App dein Home Assistant im WLAN findet und ausgewählte Sensorwerte für dein Gebäude übernehmen kann.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>INAlternativeAppNames</key>
 	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Titan FS</string>
+		</dict>
 		<dict>
 			<key>INAlternativeAppName</key>
 			<string>KI trifft Gebäude</string>

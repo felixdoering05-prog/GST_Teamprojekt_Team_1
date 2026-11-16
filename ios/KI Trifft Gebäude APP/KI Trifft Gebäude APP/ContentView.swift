@@ -59,44 +59,23 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     @Published var aiPreferences = AIPreferences.disabled
     @Published var presentationMode = false
     private var uiRevision = 0
+    @Published private(set) var appearance = AppAppearance()
+    @Published var appearanceNotice: String?
+    @Published var pendingIssues: [PendingIssue] = []
+    @Published var issueQueueError: String?
+    @Published var syncingIssues = false
+    @Published var issueSyncGeneration = 0
+    @Published var lastSynchronizedBuilding: Int?
+    var issueQueueScope: String? {
+        guard let origin, let user else { return nil }
+        return CredentialScope.key("titan-fs-\(user.id)", origin: origin)
+    }
     @Published var buildings: [Building] = []
     @Published var busy = false
     @Published var restoring = true
     @Published var error: String?
-    /// Feste Projektadresse kitrifftgebäude.de in Punycode (URLComponents/ATS erwarten ASCII-Hostnamen).
-    static let projectServer = "https://xn--kitrifftgebude-gib.de"
-    /// Frühere Projektadressen (Cloudflare-Schnelltunnel). Gespeicherte Verbindungen dorthin werden einmalig umgezogen.
-    static let legacyProjectServers = ["https://filling-vendor-verification-hop.trycloudflare.com"]
-    @Published private(set) var serverURL = AccountModel.storedServer()
-    /// Alte Adresse, von der beim Start umgezogen wurde; lokale Entwürfe folgen nach der Anmeldung.
-    private var migratedFrom: String? = AccountModel.lastMigration
-    private static var lastMigration: String?
-    private static func storedServer() -> String {
-        guard let stored = UserDefaults.standard.string(forKey: "d21.serverURL") else { return projectServer }
-        guard let legacy = CredentialScope.origin(stored), legacyProjectServers.compactMap({ CredentialScope.origin($0) }).contains(legacy),
-              let target = CredentialScope.origin(projectServer) else { return stored }
-        // Gleicher Projektserver unter neuer Adresse: die Sitzung bleibt gültig und zieht mit um.
-        let oldKey = CredentialScope.key("session", origin: legacy), newKey = CredentialScope.key("session", origin: target)
-        if let session = SecureStore.read(oldKey) {
-            if SecureStore.read(newKey) == nil { try? SecureStore.write(session, key: newKey) }
-            try? SecureStore.write(nil, key: oldKey)
-        }
-        try? SecureStore.write(nil, key: CredentialScope.key("gateway", origin: legacy))
-        UserDefaults.standard.set(target, forKey: "d21.serverURL")
-        lastMigration = legacy
-        return target
-    }
-    private func migrateDrafts() {
-        guard let legacy = migratedFrom, let user else { return }
-        migratedFrom = nil
-        let kinds = ["new-building"] + buildings.map { "building-\($0.id)" }
-        for kind in kinds {
-            let from = BuildingDraftStore(scope: legacy + "#\(user.id)#" + kind).directory
-            let to = BuildingDraftStore(scope: serverURL + "#\(user.id)#" + kind).directory
-            guard FileManager.default.fileExists(atPath: from.path), !FileManager.default.fileExists(atPath: to.path) else { continue }
-            try? FileManager.default.moveItem(at: from, to: to)
-        }
-    }
+    static let projectServer = "https://filling-vendor-verification-hop.trycloudflare.com"
+    @Published private(set) var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? AccountModel.projectServer
     private var managedServer: Bool { CredentialScope.origin(serverURL) == CredentialScope.origin(Self.projectServer) }
     private var apiPrefix: String { managedServer ? "/app-api/v1/" : "/api/v1/" }
     private var token: String?
@@ -170,7 +149,11 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         if WorkflowPreview.enabled {
             serverURL = "https://d21-preview.invalid"; token = String(repeating: "0", count: 64);tokenOrigin=origin
             user = Account(id: 999999, name: "Felix · Vorschau", email: "vorschau@example.invalid")
-            await loadBuildings(); restoring = false; return
+            await loadBuildings()
+            if ProcessInfo.processInfo.arguments.contains("-D21ESP32Preview"), let building = buildings.first {
+                AppRouter.shared.route = .building(building.id, area: "Dashboard")
+            }
+            restoring = false; return
         }
         #endif
         defer { restoring = false }
@@ -181,7 +164,6 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let account: Account = try await request("auth/me")
             user = account
             await loadBuildings()
-            migrateDrafts()
             await loadAvatar()
             await refreshAIPreferences()
             await refreshUIPreferences()
@@ -202,7 +184,6 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             try SecureStore.write(try JSONEncoder().encode(session),key:CredentialScope.key("session",origin:targetOrigin))
             token = session.token;tokenOrigin=targetOrigin; user = session.user; avatarData = nil
             await loadBuildings()
-            migrateDrafts()
             await loadAvatar()
             await refreshAIPreferences()
             await refreshUIPreferences()
@@ -220,12 +201,97 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             if user?.id == owner { aiPreferences = value }
         } catch { await refreshAIPreferences(); throw error }
     }
-    func refreshUIPreferences() async {
-        guard user != nil else {presentationMode=false;uiRevision=0;return}
-        do {let value:UIPreferences = try await request("profile/ui");presentationMode=value.presentation_mode;uiRevision=value.revision} catch {presentationMode=false}
+    func loadLocalAppearance() {
+        appearance = issueQueueScope.flatMap(cachedAppearance) ?? AppAppearance()
+        appearanceNotice = nil
     }
-    func savePresentationMode(_ enabled:Bool) async throws {
-        let value:UIPreferences=try await request("profile/ui",method:"PATCH",body:["presentation_mode":enabled,"revision":uiRevision]);presentationMode=value.presentation_mode;uiRevision=value.revision
+
+    private func cachedAppearance(_ scope: String) -> AppAppearance? {
+        UserDefaults.standard.data(forKey: "titan-fs.appearance." + scope)
+            .flatMap { try? JSONDecoder().decode(AppAppearance.self, from: $0) }
+    }
+
+    private func applyUIPreferences(_ value: UIPreferences, scope: String) {
+        guard issueQueueScope == scope else { return }
+        presentationMode = value.presentation_mode
+        uiRevision = value.revision
+        if let theme = value.theme, let scale = value.font_scale {
+            rememberAppearance(AppAppearance(theme: theme, scale: scale), scope: scope)
+            appearanceNotice = nil
+        }
+    }
+
+    private func rememberAppearance(_ value: AppAppearance, scope: String) {
+        appearance = value
+        if let data = try? JSONEncoder().encode(value) {
+            UserDefaults.standard.set(data, forKey: "titan-fs.appearance." + scope)
+        }
+    }
+
+    func refreshUIPreferences() async {
+        guard let scope = issueQueueScope else { presentationMode = false; uiRevision = 0; return }
+        do {
+            let value: UIPreferences = try await request("profile/ui?view=appearance")
+            guard issueQueueScope == scope else { return }
+            if let local = cachedAppearance(scope), let pending = local.pendingRevision,
+               let remoteTheme = value.theme, let remoteScale = value.font_scale {
+                if pending == value.revision && (local.theme != remoteTheme || local.scale != remoteScale) {
+                    let synced: UIPreferences = try await request("profile/ui?view=appearance", method: "PATCH",
+                        body: ["revision": pending, "theme": local.theme.rawValue, "font_scale": local.scale.rawValue])
+                    applyUIPreferences(synced, scope: scope)
+                    return
+                }
+                applyUIPreferences(value, scope: scope)
+                if local.theme != remoteTheme || local.scale != remoteScale {
+                    appearanceNotice = "Auf einem anderen Gerät geändert. Bitte die aktuelle Darstellung prüfen."
+                }
+            } else {
+                applyUIPreferences(value, scope: scope)
+            }
+        } catch {
+            if issueQueueScope == scope { appearanceNotice = "Kontoeinstellungen derzeit nicht verfügbar." }
+        }
+    }
+
+    func savePresentationMode(_ enabled: Bool) async throws {
+        guard let scope = issueQueueScope else { return }
+        do {
+            let value: UIPreferences = try await request("profile/ui?view=appearance", method: "PATCH",
+                body: ["presentation_mode": enabled, "revision": uiRevision])
+            applyUIPreferences(value, scope: scope)
+        } catch {
+            await refreshUIPreferences()
+            throw error
+        }
+    }
+
+    func saveAppearance(theme: AppTheme? = nil, scale: AppFontScale? = nil) async {
+        guard let scope = issueQueueScope else { return }
+        let desired = AppAppearance(theme: theme ?? appearance.theme, scale: scale ?? appearance.scale,
+                                    pendingRevision: appearance.pendingRevision ?? uiRevision)
+        var fields: [String: Any] = ["revision": uiRevision]
+        if let theme { fields["theme"] = theme.rawValue }
+        if let scale { fields["font_scale"] = scale.rawValue }
+        if appearance.pendingRevision != nil {
+            fields["theme"] = desired.theme.rawValue
+            fields["font_scale"] = desired.scale.rawValue
+        }
+        do {
+            let value: UIPreferences = try await request("profile/ui?view=appearance", method: "PATCH", body: fields)
+            applyUIPreferences(value, scope: scope)
+        } catch {
+            guard issueQueueScope == scope else { return }
+            let status = (error as? APIError)?.status
+            if status == 409 {
+                await refreshUIPreferences()
+                if issueQueueScope == scope { appearanceNotice = "Einstellungen wurden inzwischen geändert. Bitte erneut auswählen." }
+            } else if error is URLError || [0, 400, 404].contains(status ?? -1) || (status ?? 0) >= 500 {
+                rememberAppearance(desired, scope: scope)
+                appearanceNotice = "Auf diesem Gerät gespeichert."
+            } else {
+                appearanceNotice = error.localizedDescription
+            }
+        }
     }
     func passwordResetStatus() async throws -> Bool {
         let status: ResetStatus = try await request("auth/password-reset/status")
@@ -340,8 +406,13 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     }
     func deleteAccount(password: String) async throws {
         let stores = [draftStore()] + buildings.map { draftStore(buildingID: $0.id) }
+        let localScope = issueQueueScope
         let _: LogoutResult = try await request("auth/account", method: "DELETE", body: ["password": password, "confirmation": "DELETE"])
         for store in stores { try? store?.clear() }
+        if let localScope {
+            try? IssueOutbox.clear(localScope)
+            UserDefaults.standard.removeObject(forKey: "titan-fs.appearance." + localScope)
+        }
         if let origin { try? SecureStore.write(nil, key: CredentialScope.key("gateway", origin: origin)) }
         invalidateSession()
     }
@@ -372,6 +443,8 @@ final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
 let d21Accent = Color(red: 0.07, green: 0.49, blue: 0.51)
 struct ContentView: View {
     @StateObject private var model = AccountModel()
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var systemTypeSize
     var body: some View {
         Group {
             if model.restoring { ProgressView("Anmeldung wird geprüft …") }
@@ -379,8 +452,21 @@ struct ContentView: View {
             else { WelcomeView() }
         }
         .environmentObject(model).tint(d21Accent)
+        .preferredColorScheme(model.appearance.theme.colorScheme)
+        .environment(\.dynamicTypeSize, model.appearance.scale.applying(to: systemTypeSize))
         .task { await model.resume() }
-        .alert("D21", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+        .onChange(of: model.issueQueueScope, initial: true) { _, _ in
+            model.loadLocalAppearance()
+            model.loadIssueOutbox()
+        }
+        .task(id: scenePhase == .active ? model.issueQueueScope : nil) {
+            guard scenePhase == .active, model.issueQueueScope != nil else { return }
+            while !Task.isCancelled {
+                _ = await model.syncIssueOutbox()
+                do { try await Task.sleep(for: .seconds(8)) } catch { break }
+            }
+        }
+        .alert("Titan FS", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
     }
@@ -393,7 +479,7 @@ struct WelcomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Image(systemName: "building.2.crop.circle.fill").font(.system(size: 72)).foregroundStyle(d21Accent)
-                    Text("KI trifft\nGebäude").font(.system(size: 42, weight: .bold))
+                    Text("Titan FS").font(.largeTitle.bold())
                     Text("Dein digitaler Gebäudepass.").font(.title3).foregroundStyle(.secondary)
                     Label("Gebäudedaten zentral speichern", systemImage: "externaldrive.badge.icloud")
                     Label("Mit deinem Team zusammenarbeiten", systemImage: "person.2")
@@ -596,9 +682,9 @@ struct AccountHomeView: View {
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
                 .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Dashboard"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
-                .task { refreshDraft() }
+                .task { refreshDraft(); await HASync.syncAll(account: model) }
                 .onChange(of: model.buildings) { _, _ in refreshDraft() }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft() } }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft(); Task { await HASync.syncAll(account: model) } } }
                 .confirmationDialog("Lokalen Entwurf verwerfen?", isPresented: $discardDraft, titleVisibility: .visible) {
                     Button("Entwurf auf diesem iPhone verwerfen", role: .destructive) {
                         do { try model.draftStore()?.clear(); savedDraft = nil } catch { model.error = error.localizedDescription }
@@ -657,6 +743,7 @@ struct ProfileView: View {
     @State private var saved = false
     @State private var showPresentation = false
     @State private var savingMode = false
+    @State private var savingAppearance = false
     @State private var projectAdmin = false
     var body: some View {
         let photoTitle = model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern"
@@ -675,7 +762,23 @@ struct ProfileView: View {
                 Section { NavigationLink { ProjectServiceStatusView(account: model) } label: { Label("Serverstatus", systemImage: "server.rack") } }
                 if projectAdmin { AdminEntrySection(account: model) }
                 Section("Darstellung") {
-                    Toggle("Vorstellungsmodus",isOn:Binding(get:{model.presentationMode},set:{value in Task{savingMode=true;defer{savingMode=false};do{try await model.savePresentationMode(value);showPresentation=value}catch{problem=error.localizedDescription}}})).disabled(savingMode)
+                    Picker("Designmodus", selection: Binding(get: { model.appearance.theme }, set: { theme in
+                        Task { await saveAppearance(theme: theme) }
+                    })) {
+                        ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
+                    }.disabled(savingAppearance || savingMode)
+                    Picker("Schriftgröße", selection: Binding(get: { model.appearance.scale }, set: { scale in
+                        Task { await saveAppearance(scale: scale) }
+                    })) {
+                        ForEach(AppFontScale.allCases) { Text($0.title).tag($0) }
+                    }.disabled(savingAppearance || savingMode)
+                    if let notice = model.appearanceNotice {
+                        Text(notice).font(.footnote).foregroundStyle(.secondary)
+                    }
+                    if model.appearance.pendingRevision != nil {
+                        Button("Darstellung erneut synchronisieren") { Task { await model.refreshUIPreferences() } }
+                    }
+                    Toggle("Vorstellungsmodus",isOn:Binding(get:{model.presentationMode},set:{value in Task{savingMode=true;defer{savingMode=false};do{try await model.savePresentationMode(value);showPresentation=value}catch{problem=error.localizedDescription}}})).disabled(savingMode || savingAppearance)
                     Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
                     LabeledContent("App-Version",value:(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")+" · "+(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))
                 }
@@ -700,8 +803,14 @@ struct ProfileView: View {
                     } catch { problem = error.localizedDescription }
                 }
             }
-            .alert("Profilbild", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) { Button("OK") { problem = nil } } message: { Text(problem ?? "") }
+            .alert("Profil", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) { Button("OK") { problem = nil } } message: { Text(problem ?? "") }
         }
+    }
+
+    private func saveAppearance(theme: AppTheme? = nil, scale: AppFontScale? = nil) async {
+        savingAppearance = true
+        defer { savingAppearance = false }
+        await model.saveAppearance(theme: theme, scale: scale)
     }
 }
 struct DocumentPreviewView: View {

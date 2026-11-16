@@ -1,56 +1,25 @@
-# Feste Adresse kitrifftgebäude.de
+# kitrifftgebäude.de: öffentliche Landingpage
 
-Die App und der Projektserver laufen künftig unter **https://kitrifftgebäude.de** statt über die wechselnde Cloudflare-Schnelltunnel-Adresse.
+Die Domain **https://kitrifftgebäude.de** dient ausschließlich der öffentlichen Projekt-Landingpage. Der Hostname lautet technisch `xn--kitrifftgebude-gib.de`. Sie zeigt dieselben Projektinhalte, die bereits unter dem bisherigen Zugang mit `/projekt/` erreichbar sind.
 
-- Punycode (technische Schreibweise): `xn--kitrifftgebude-gib.de`. Die App speichert die Adresse so. Browser zeigen meist die Umlaut-Form.
-- App-API: `https://kitrifftgebäude.de/app-api/v1/...` → im Web-Container `/api/v1/...`
-- Öffentlich: `/datenschutz.html`. Alles andere (Dashboard) bleibt hinter dem Website-Passwort.
-- `www.kitrifftgebäude.de` leitet auf die Hauptadresse um, sobald dafür DNS gesetzt ist.
+Die iPhone-App, die Home-Assistant-Brücke und der geschützte Web-Dashboard-Zugang behalten ihre bisherige Serveradresse. Es werden keine Sitzungen, Schlüssel oder lokalen Entwürfe auf die Landingpage-Domain umgezogen. Der Link „Zum Dashboard“ führt zum bestehenden geschützten Zugang.
 
-## Aufbau auf dem Server
+## DNS und Einrichtung
 
-```
-iPhone ──HTTPS──▶ nginx (Host, :443, Let's-Encrypt-Zertifikat)
-                   ├─ /app-api/v1/      ─▶ 127.0.0.1:8088/api/v1/ (d21_web → d21_api)
-                   ├─ /datenschutz.html ─▶ 127.0.0.1:8088
-                   └─ /                 ─▶ 127.0.0.1:8088 (Website-Passwort)
-```
+1. Bei STRATO für die Hauptdomain den **A-Eintrag auf `185.56.151.249`** setzen. MX und TXT für E-Mail bleiben unberührt. Ein abweichender AAAA-Eintrag muss vor Aktivierung mit der zuständigen DNS-Verwaltung geklärt werden, da diese Konfiguration nur den IPv4-Projektserver verwendet.
+2. Optional `www` ebenfalls auf diesen Server zeigen lassen. Das Skript nimmt `www` nur bei passendem DNS in das Zertifikat auf.
+3. Änderungen über GitHub-PR und `d21-deploy` nach Datenbanksicherung veröffentlichen.
+4. Auf dem Server zuerst `python3 /opt/gst/dashboard/ops/configure-domain.py` ausführen; erst bei passendem DNS mit `--apply` aktivieren.
 
-Die Regeln sind dieselben wie im Tunnel (`/etc/nginx/conf.d/d21-tunnel.conf`). `dashboard/ops/configure-domain.py` übernimmt die Blöcke direkt aus `configure-mobile-api.py` und `configure-public-privacy.py`. So weichen die beiden Zugänge nicht voneinander ab.
+Das Skript benötigt nginx und certbot. Es bezieht ein Let's-Encrypt-Zertifikat mit Webroot-Challenge und richtet einen nginx-Neulade-Hook für die Verlängerung ein. Der bestehende `certbot.timer` muss aktiv sein. Bei einem Konfigurations- oder Zertifikatsfehler wird die vorherige nginx-Konfiguration wiederhergestellt. Andere Host-Konfigurationen werden nicht verändert.
 
-Tunnel (`d21-tunnel`) und IP-Zugang bleiben zunächst bestehen. Ältere App-Versionen und schon eingerichtete Home-Assistant-Integrationen funktionieren so weiter. Den Tunnel erst abschalten, wenn alle Geräte 1.0.133 oder neuer haben.
+## Routing und Abnahme
 
-## Einrichtung
+- `/` und relative Assets wie `/style.css`, `/script.js` und `/bilder/...` kommen aus dem bestehenden `/projekt/`-Verzeichnis des Web-Containers.
+- `/projekt/...` bleibt als kompatibler Projektpfad erreichbar.
+- `/datenschutz.html` liefert die vorhandene öffentliche Datenschutzseite.
+- `/api/` und `/app-api/` sind auf der Landingpage-Domain gesperrt. Die Domain ist kein neuer App-Einstieg.
+- Root, Stylesheet, Skript, Projektbilder und PDF müssen per HTTPS erfolgreich geladen werden. Das Dashboard-Ziel bleibt geschützt.
+- DNS-Abfragen müssen nur den Projektserver ergeben; anschließend nginx-Konfiguration, HTTPS und Weiterleitung von `www` (falls eingerichtet) prüfen.
 
-1. **DNS bei STRATO** (Felix im Browser, siehe unten).
-2. Prüfen: `dig +short A xn--kitrifftgebude-gib.de` liefert `185.56.151.249`.
-3. Auf dem Server (nach `git pull` bzw. Deploy):
-   ```bash
-   python3 /opt/gst/dashboard/ops/configure-domain.py          # Trockenlauf
-   python3 /opt/gst/dashboard/ops/configure-domain.py --apply  # Zertifikat + nginx
-   ```
-   certbot erneuert das Zertifikat automatisch (`certbot.timer`). Danach lädt nginx neu.
-4. Test: `curl -si https://xn--kitrifftgebude-gib.de/app-api/v1/auth/me` → 401 mit JSON-Fehler (API erreichbar, ohne Sitzung kein Zugriff). `https://xn--kitrifftgebude-gib.de/datenschutz.html` → 200.
-
-## STRATO: A-Record setzen (Schritt für Schritt)
-
-Das Uhr-Symbol in der Domainverwaltung heißt: STRATO richtet die Domain noch ein. Bei der Registry (DENIC) ist sie am 16.11.2026 schon aktiv, und die STRATO-Nameserver antworten. Solange die Uhr zu sehen ist, sind die DNS-Einstellungen eventuell noch gesperrt. Dann später noch einmal versuchen.
-
-1. Bei STRATO anmelden → links **Domains** → **Domainverwaltung**.
-2. Bei `kitrifftgebäude.de` auf das Zahnrad bzw. **Verwalten** klicken.
-3. Reiter **DNS** öffnen.
-4. Bei **A-Record** auf **verwalten** klicken.
-5. **Andere IP-Adresse** wählen (nicht „STRATO-Server“) und `185.56.151.249` eintragen. Speichern.
-6. Bei **AAAA-Record** (IPv6): keinen Eintrag setzen. Falls dort einer steht, entfernen bzw. „deaktivieren“ wählen. nginx lauscht auf dem Server nur auf IPv4. Ein AAAA-Eintrag würde iPhones mit IPv6 ins Leere schicken.
-7. **MX-Record**, **TXT**, **CNAME** nicht ändern.
-8. Optional `www`: In der Domainverwaltung bei der Domain **Subdomain anlegen** → `www`. Danach für die Subdomain ebenfalls A-Record → `185.56.151.249`. Anschließend das Skript erneut mit `--apply` starten, damit das Zertifikat `www` mit abdeckt. Nur machen, wenn STRATO das ohne Zusatzkosten anbietet.
-9. Kein SSL-Zertifikat bei STRATO kaufen. Das Zertifikat kommt kostenlos von Let's Encrypt auf unserem Server.
-
-Bis die Änderung überall angekommen ist, dauert es meist 5–60 Minuten.
-
-## App (ab 1.0.133)
-
-- `AccountModel.projectServer = "https://xn--kitrifftgebude-gib.de"`
-- Wer noch mit der alten Tunnel-Adresse verbunden ist, wird beim Start einmalig umgezogen. Die Anmeldung zieht im Schlüsselbund auf den neuen Origin um, lokale Entwürfe folgen nach dem Laden der Gebäude. Ein erneutes Anmelden ist nicht nötig. Das ist nur für die fest hinterlegte alte Projektadresse erlaubt. Fremde Server bleiben strikt an ihren Origin gebunden (`CredentialScope`).
-- ATS: Es gibt keine Ausnahmen. Let's Encrypt ist ein normales vertrauenswürdiges Zertifikat.
-- Home Assistant: Die App zeigt als Brückenadresse jetzt `https://xn--kitrifftgebude-gib.de/app-api/v1`. Bestehende Integrationen mit Tunnel-Adresse laufen weiter, solange der Tunnel läuft. Bei Gelegenheit neu koppeln.
+Solange DNS noch auf STRATO-Parking oder einen anderen Server zeigt, bleibt die Aktivierung aus. Die übrige Projektanwendung funktioniert unabhängig davon weiter.

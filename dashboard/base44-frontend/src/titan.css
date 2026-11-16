@@ -1,0 +1,101 @@
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: 222 24% 11%;
+  --foreground: 215 28% 94%;
+  --card: 220 23% 16%;
+  --card-foreground: 215 28% 94%;
+  --popover: 220 24% 15%;
+  --popover-foreground: 215 28% 94%;
+  --primary: 83 43% 68%;
+  --primary-foreground: 82 32% 12%;
+  --secondary: 219 22% 22%;
+  --secondary-foreground: 215 28% 94%;
+  --muted: 218 20% 21%;
+  --muted-foreground: 216 15% 73%;
+  --accent: 83 19% 24%;
+  --accent-foreground: 83 42% 82%;
+  --destructive: 0 82% 75%;
+  --destructive-foreground: 0 60% 12%;
+  --success: 152 53% 67%;
+  --success-foreground: 151 59% 10%;
+  --warning: 39 87% 70%;
+  --warning-foreground: 38 80% 11%;
+  --info: 212 83% 75%;
+  --info-foreground: 217 67% 13%;
+  --border: 218 17% 32%;
+  --input: 218 17% 41%;
+  --ring: 83 42% 67%;
+  --sidebar-background: 220 23% 16%;
+  --sidebar-foreground: 215 28% 94%;
+  --sidebar-primary: 83 43% 68%;
+  --sidebar-primary-foreground: 82 32% 12%;
+  --sidebar-accent: 83 19% 24%;
+  --sidebar-accent-foreground: 83 42% 82%;
+  --sidebar-border: 218 17% 32%;
+  --sidebar-ring: 83 42% 67%;
+  --glass-panel: 31 39 54;
+  --glass-panel-opacity: .96;
+}
+[data-theme="dark"] body, [data-theme="dark"] .glass-app { background-image: none; }
+[data-theme="dark"] .glass-app::before { background: none; }
+[data-theme="dark"] :is(.surface, .glass-card, .glass-hero, .shell-sidebar, .shell-drawer, .shell-header-inner, .glass-pill, .model-card) {
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 0 .3rem 1rem #0003;
+}
+[data-theme="dark"] :is(.shell-nav-heading, .shell-nav-icon, .shell-nav-link) { color: hsl(var(--muted-foreground)); }
+[data-theme="dark"] :is(.shell-nav-link:hover, .shell-nav-link-active, .shell-icon-button:hover, .shell-brand-icon, .meta-icon) {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  border-color: hsl(var(--border));
+  box-shadow: none;
+}
+[data-theme="dark"] :is(.shell-account, .shell-divider) { background: hsl(var(--border) / .35); border-color: hsl(var(--border)); }
+[data-theme="dark"] .shell-dialog-overlay { background: #03060a99; }
+[data-theme="dark"] .glass-dashboard :is(.eyebrow, .dashboard-source-note, .dashboard-meta dt, .dashboard-section-heading p) { color: hsl(var(--muted-foreground)); }
+[data-theme="dark"] .glass-dashboard :is(.dashboard-heading h2, .dashboard-section-heading h2, .dashboard-meta dd) { color: hsl(var(--foreground)); }
+
+/* Imported components still use a few light-only utility colors. */
+[data-theme="dark"] :is(.bg-white, [class*="bg-white/"], .bg-slate-50, .bg-slate-100, .bg-slate-200) { background-color: hsl(var(--muted)); }
+[data-theme="dark"] :is(.text-slate-500, .text-slate-600) { color: hsl(var(--muted-foreground)); }
+[data-theme="dark"] :is(.text-slate-700, .text-slate-800, .text-slate-900) { color: hsl(var(--foreground)); }
+[data-theme="dark"] :is(.border-slate-100, .border-slate-200, [class*="border-white/"]) { border-color: hsl(var(--border)); }
+[data-theme="dark"] :is(.bg-red-50, .bg-rose-50) { background-color: hsl(var(--destructive) / .13); }
+[data-theme="dark"] :is(.bg-amber-50, .bg-yellow-50) { background-color: hsl(var(--warning) / .13); }
+[data-theme="dark"] :is(.bg-emerald-50, .bg-green-50) { background-color: hsl(var(--success) / .13); }
+[data-theme="dark"] :is(.text-red-700, .text-rose-700) { color: hsl(var(--destructive)); }
+[data-theme="dark"] :is(.text-amber-700, .text-amber-800) { color: hsl(var(--warning)); }
+[data-theme="dark"] :is(.text-emerald-700, .text-green-700) { color: hsl(var(--success)); }
+
+.shell-nav-link { font-size: .8125rem; }
+.shell-nav-heading { font-size: .625rem; }
+.shell-nav-link > span:first-of-type { overflow: visible; white-space: normal; text-overflow: clip; }
+.titan-select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: .75rem;
+  padding: .5rem .65rem;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+}
+.titan-select:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.titan-select.w-auto { width: auto; }
+.titan-widget-board { container-type: inline-size; }
+.titan-widget-grid { display: grid; align-items: stretch; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.titan-widget { min-width: 0; }
+.titan-widget > :is(section, article) { height: 100%; }
+.titan-widget .climate-card { min-width: 0; }
+@container (min-width: 36rem) {
+  .titan-widget-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .titan-widget-wide { grid-column: span 2; }
+}
+@container (min-width: 60rem) {
+  .titan-widget-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .titan-widget-medium { grid-column: span 2; }
+  .titan-widget-wide { grid-column: 1 / -1; }
+}

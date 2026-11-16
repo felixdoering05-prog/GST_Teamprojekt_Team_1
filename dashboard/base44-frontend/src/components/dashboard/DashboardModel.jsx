@@ -17,7 +17,7 @@ export default function DashboardModel() {
   }, []);
   return <section className="glass-card twin-stage" aria-label="D21 im dreidimensionalen Campusmodell">
     <div className="twin-stage-heading">
-      <div><span className="twin-eyebrow"><MapPin className="h-3 w-3" /> Campus Darmstadt</span><h3>D21 <span>Digital Twin</span></h3></div>
+      <div><span className="twin-eyebrow"><MapPin className="h-3 w-3" /> Campus Darmstadt</span><h3>D21 <span>Gebäudemodell</span></h3></div>
       <span className="glass-pill twin-model-tag"><Boxes className="h-3.5 w-3.5" />{model.available ? 'D21-Campus' : 'Campuskarte'}</span>
     </div>
     {model.loading ? <div className="twin-stage-loading" role="status"><span className="h-6 w-6 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />D21 wird vorbereitet …</div> : <IFCModelFrame document={{ id: 'campus-d21', name: 'H_DA_D21_Final.ifc', campus: true, mapOnly: !model.available }} presentation="dashboard" />}

@@ -10,7 +10,7 @@ let db,server,base;
 const JPEG=Buffer.from([0xff,0xd8,0xff,0xe0,0,0x10,0x4a,0x46,0x49,0x46,0,1]);
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};
- await pg.exec("CREATE TABLE app_users(id SERIAL PRIMARY KEY,name TEXT,email TEXT);CREATE TABLE app_buildings(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES app_users(id) ON DELETE CASCADE,name TEXT);INSERT INTO app_users(name) VALUES('Owner Person'),('Member Person'),('Outsider');INSERT INTO app_buildings(user_id,name) VALUES(1,'D21'),(3,'Other')");
+ await pg.exec("CREATE TABLE app_users(id SERIAL PRIMARY KEY,name TEXT,email TEXT);CREATE TABLE app_buildings(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES app_users(id) ON DELETE CASCADE,name TEXT,address TEXT);INSERT INTO app_users(name) VALUES('Owner Person'),('Member Person'),('Outsider');INSERT INTO app_buildings(user_id,name) VALUES(1,'D21'),(3,'Other')");
  await pg.exec("CREATE TABLE app_documents(id SERIAL PRIMARY KEY,building_id INTEGER REFERENCES app_buildings(id) ON DELETE CASCADE,mime_type TEXT);INSERT INTO app_documents(building_id,mime_type) VALUES(1,'application/x-step'),(2,'application/x-step'),(1,'application/pdf')");
  await initCollaboration(db);await initAccountLimits(db);await initIssues(db);await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
  const app=express();app.use(express.json({limit:'16kb'}));
@@ -72,6 +72,44 @@ test('photos: reporter or owner upload JPEG/PNG, members can view, wrong types a
  assert.equal((await call(2,{method:'PUT',suffix:`/${owner.id}/photo`,raw:JPEG})).status,403,'member cannot change owner photo');
  const got=await call(1,{suffix:`/${mine.id}/photo`});assert.equal(got.status,200);assert.equal(got.type,'image/jpeg');assert.deepEqual(got.data,JPEG);
  assert.equal((await call(3,{suffix:`/${mine.id}/photo`})).status,404);
+});
+test('mobile posts reach the web overview once, with scoped detail, priority and history',async()=>{
+ const payload=issue({priority:'urgent',document_id:1,space_id:42,element_id:54,point:{x:1,y:2,z:3}});
+ const submitted=await call(2,{method:'POST',body:payload});
+ const replay=await call(2,{method:'POST',body:payload});
+ assert.equal(submitted.status,201);
+ assert.equal(replay.status,200);
+ assert.equal(submitted.data.id,replay.data.id);
+ const id=submitted.data.id;
+ const overview=async(user,query='')=>{
+  const res=await fetch(new URL('/issues'+query,base),{headers:{'X-Test-User':String(user)}});
+  return {status:res.status,data:res.ok?await res.json():null};
+ };
+ const member=(await overview(1,'?building_id=1&status=open')).data.issues;
+ assert.equal(member.filter(row=>row.id===id).length,1);
+ assert.equal(member.find(row=>row.id===id).priority,'urgent');
+ assert.equal(member.find(row=>row.id===id).building_name,'D21');
+ assert.equal((await overview(3,'?building_id=1')).data.issues.length,0);
+ assert.equal((await overview(0)).status,401);
+ assert.equal((await overview(1,'?before=oops')).status,400);
+ assert.ok((await overview(1,'?before='+id)).data.issues.every(row=>row.id<id));
+ assert.equal((await call(3,{suffix:'/'+id})).status,404);
+ assert.equal((await call(2,{method:'PATCH',suffix:'/'+id,body:{revision:0,priority:'high',status:'in_progress'}})).status,200);
+ assert.equal((await call(2,{method:'PUT',suffix:`/${id}/photo`,raw:JPEG})).status,200);
+ assert.equal((await call(2,{method:'PUT',suffix:`/${id}/photo`,raw:JPEG})).data.revision,2);
+ const detail=(await call(1,{suffix:'/'+id})).data;
+ assert.equal(detail.building_id,1);
+ assert.equal(detail.element_id,54);
+ assert.deepEqual(detail.point,{x:1,y:2,z:3});
+ assert.deepEqual(detail.history.map(event=>event.action),['photo','edited','created']);
+ assert.deepEqual(detail.history[1].changes.priority,{from:'urgent',to:'high'});
+ await db.query("DELETE FROM app_building_members WHERE building_id=1 AND user_id=2");
+ try {
+  assert.equal((await overview(2,'?building_id=1')).data.issues.length,0);
+  assert.equal((await call(2,{suffix:'/'+id})).status,404);
+ } finally {
+  await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
+ }
 });
 test('delete: reporter or owner only; issues disappear with the building',async()=>{
  const owner=(await call(1,{method:'POST',body:issue()})).data,member=(await call(2,{method:'POST',body:issue()})).data;

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Activity, ArrowUpRight, BellRing, Building2, Database, Droplets, Gauge, Layers, Radio, RefreshCw, Thermometer, Wind } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import SourceBadge from '@/components/SourceBadge';
 import EmptyState from '@/components/EmptyState';
 import AlertList from '@/components/dashboard/AlertList';
 import RoomStatusCard from '@/components/dashboard/RoomStatusCard';
 import TrendChart from '@/components/dashboard/TrendChart';
-import DashboardModel from '@/components/dashboard/DashboardModel';
+import WidgetBoard from '@/components/dashboard/WidgetBoard';
+import { BuildingsWidget, IssueWidget, LinksWidget, MapWidget, ModelWidget, SystemWidget, useWidgetBuildings } from '@/components/dashboard/ProjectWidgets';
 import '@/components/dashboard/dashboard-glass.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,14 +20,13 @@ import { formatDateTime } from '@/lib/dates';
 
 export default function Dashboard() {
   const data = useD21Data();
+  const projectBuildings = useWidgetBuildings();
   const [seeding, setSeeding] = useState(false);
   const { toast } = useToast();
 
   const { loading, error, building, floors, rooms, sensors, latest, thresholds, alerts, series, counts } = data;
 
   const floorLabel = (room) => (floors.find((f) => f.id === room.floor_id) || {}).name || '';
-  const sensorById = {};
-  sensors.forEach((s) => { sensorById[s.id] = s; });
 
   const roomEntries = rooms
     .map((room) => ({ room, readings: readingsForRoom(room, sensors, latest, thresholds), status: statusForRoom(room, sensors, latest, thresholds) }))
@@ -62,56 +61,6 @@ export default function Dashboard() {
     }
   };
 
-  if (loading && !building) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <EmptyState
-        icon={Database}
-        title="Daten konnten nicht geladen werden"
-        description={error}
-        children={<Button onClick={data.reload}>Erneut versuchen</Button>}
-      />
-    );
-  }
-
-  if (!rooms.length) {
-    return (
-      <div className="glass-dashboard space-y-5">
-        <PageHeader title="Dashboard" description="Gebäudeübersicht, Kennzahlen, Warnmeldungen und Raumzustände." />
-        <section className="surface flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="dashboard-start">
-          <div>
-            <h2 id="dashboard-start" className="font-heading font-semibold">Erste Schritte</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Lege dein Gebäude an, lade Dateien hoch oder nimm eine Einladung an.</p>
-          </div>
-          <Button asChild><Link to="/gebaeude?start=1">Erste Schritte öffnen</Link></Button>
-        </section>
-        <DashboardModel />
-        <EmptyState
-          icon={Building2}
-          title="Noch keine Gebäudedaten vorhanden"
-          description="Es sind noch keine Räume und Sensoren angelegt. Sie können den gekennzeichneten Demo-Datensatz erzeugen oder unter „Gebäude & Räume“ mit eigenen Daten beginnen."
-          children={
-            <>
-              <Button variant="outline" onClick={seed} disabled={seeding}>
-                {seeding ? 'Wird angelegt …' : 'Demo-Datensatz erzeugen'}
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/gebaeude">Gebäude & Räume öffnen</Link>
-              </Button>
-            </>
-          }
-        />
-      </div>
-    );
-  }
-
   const meta = [
     { icon: Building2, label: 'Standort', value: building?.site || '–' },
     { icon: Layers, label: 'Geschosse', value: `${floors.length}` },
@@ -123,19 +72,17 @@ export default function Dashboard() {
   const dialLength = 2 * Math.PI * 64 * .75;
   const hasReadings = Object.keys(latest).length > 0;
 
-  return (
-    <div className="glass-dashboard space-y-5">
-      <div className="dashboard-heading">
-        <div><p className="eyebrow">Hochschule Darmstadt / Digitaler Zwilling</p><h2>Dein Gebäude im Überblick.</h2><p className="mt-2 text-xs text-muted-foreground">{building?.name || 'Gebäude'} · Raumklima, Modell und Meldungen</p></div>
-        <div className="dashboard-heading-actions">
-          {hasReadings ? <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte', real: 'Projektmesswerte' }} /> : <span className="glass-pill text-xs">Keine Messwerte</span>}
-          <Button variant="outline" size="sm" onClick={data.reload} disabled={loading}><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Wird aktualisiert …' : 'Aktualisieren'}</Button>
-        </div>
-      </div>
-
-      <div className="dashboard-workspace">
-        <DashboardModel />
-        <section className="climate-card" aria-label="Raumklima aus den Projektmesswerten">
+  const widgetRenderers = {
+    issues: item => <IssueWidget id={item.id} filter={item.filter} />,
+    'issue-status': () => <IssueWidget id="issue-status" />,
+    priority: () => <IssueWidget id="priority" />,
+    activity: () => <IssueWidget id="activity" />,
+    buildings: () => <BuildingsWidget buildings={projectBuildings} />,
+    model: item => <ModelWidget buildingID={item.building_id} buildings={projectBuildings} />,
+    map: () => <MapWidget />,
+    system: () => <SystemWidget />,
+    links: () => <LinksWidget />,
+    climate: () => (<section className="climate-card" aria-label="Raumklima aus den Projektmesswerten">
           <div className="flex items-start justify-between gap-2"><div><h3>Raumklima</h3><p className="climate-subtitle">{building?.name || 'Ausgewähltes Gebäude'} · Ø je Sensor</p></div><span className="climate-heading-icon"><Thermometer className="h-4 w-4" /></span></div>
           <div className="climate-dial">
             <svg viewBox="0 0 160 160" role="img" aria-label={`Mittlere Lufttemperatur: ${formatNumber('temperature', averageTemperature)} Grad Celsius`}>
@@ -149,11 +96,8 @@ export default function Dashboard() {
             <div><p className="metric-label"><Wind className="h-3 w-3" />CO₂</p><p className="metric-value">{formatNumber('co2', avgOf('co2'))}<span className="metric-unit">ppm</span></p></div>
             <div><p className="metric-label"><Droplets className="h-3 w-3" />Luftfeuchte</p><p className="metric-value">{formatNumber('humidity', avgOf('humidity'))}<span className="metric-unit">%</span></p></div>
           </div>
-          <div className="climate-footer"><p>Deine Sensoren im Detail.<br />Messwerte und Raumzustände.</p><Link to="/sensorik" aria-label="Sensorik und Raumklima öffnen"><ArrowUpRight className="h-4 w-4" /></Link></div>
-        </section>
-      </div>
-
-      <section className="glass-card" aria-label="Gebäudeinformationen">
+          <div className="climate-footer"><p>Deine Sensoren im Detail.<br />Messwerte und Raumzustände.</p><Link to="/sensorik" aria-label="Sensorik und Raumklima öffnen"><ArrowUpRight className="h-4 w-4" /></Link></div></section>),
+    metadata: () => (<section className="glass-card" aria-label="Gebäudeinformationen">
         <dl className="dashboard-meta">
           {meta.map((item) => {
             const Icon = item.icon;
@@ -170,9 +114,8 @@ export default function Dashboard() {
             );
           })}
         </dl>
-      </section>
-
-      <section aria-label="Gebäudekennzahlen" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      </section>),
+    metrics: () => (<div className="space-y-2"><section aria-label="Gebäudekennzahlen" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Räume im Sollbereich"
           value={`${okRooms} / ${rooms.length}`}
@@ -183,16 +126,10 @@ export default function Dashboard() {
         <StatCard label="Offene Meldungen" value={`${openAlerts.length}`} hint="regelbasiert erkannt" icon={BellRing} tone={openAlerts.length ? 'warn' : 'ok'} />
         <StatCard label="Sensoren aktiv" value={`${activeSensors} / ${sensors.length}`} hint="Zugeordnete Sensoren im Gebäude" icon={Radio} tone="primary" />
       </section>
-      <p className="dashboard-source-note">Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt{series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''} · <Link to="/heat-map" className="underline underline-offset-2">Frankfurter Wetterdaten & Heat map</Link></p>
-
-      <section className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <TrendChart data={chartData} demoShare={demoShare} />
-        </div>
-        <AlertList alerts={openAlerts} title="Offene Warnmeldungen" emptyText="Keine offenen Meldungen – alle Werte im Sollbereich." />
-      </section>
-
-      <section>
+      <p className="dashboard-source-note">Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt{series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''} · <Link to="/heat-map" className="underline underline-offset-2">Frankfurter Wetterdaten & Heat map</Link></p></div>),
+    trend: () => <TrendChart data={chartData} demoShare={demoShare} />,
+    warnings: () => <AlertList alerts={openAlerts} title="Offene Warnmeldungen" emptyText="Keine offenen Sensorwarnungen." />,
+    rooms: () => rooms.length ? (<section>
         <div className="dashboard-section-heading">
           <div>
             <h2>Deine Räume</h2>
@@ -206,8 +143,43 @@ export default function Dashboard() {
           {roomEntries.map((entry) => (
             <RoomStatusCard key={entry.room.id} room={entry.room} floorLabel={floorLabel(entry.room)} readings={entry.readings} />
           ))}
+        </div></section>) : (<EmptyState
+          icon={Building2}
+          title="Noch keine Gebäudedaten vorhanden"
+          description="Es sind noch keine Räume und Sensoren angelegt. Sie können den gekennzeichneten Demo-Datensatz erzeugen oder unter „Gebäude & Räume“ mit eigenen Daten beginnen."
+          children={
+            <>
+              <Button variant="outline" onClick={seed} disabled={seeding}>
+                {seeding ? 'Wird angelegt …' : 'Demo-Datensatz erzeugen'}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/gebaeude">Gebäude & Räume öffnen</Link>
+              </Button>
+            </>
+          }/>),
+  };
+
+  return (
+    <div className="glass-dashboard space-y-5">
+      <div className="dashboard-heading">
+        <div><h2>Kommandozentrale</h2><p className="mt-2 text-xs text-muted-foreground">{building?.name || 'Gebäude'} · Raumklima, Modell und Meldungen</p></div>
+        <div className="dashboard-heading-actions">
+          {hasReadings ? <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte', real: 'Projektmesswerte' }} /> : <span className="glass-pill text-xs">Keine Messwerte</span>}
+          <Button variant="outline" size="sm" onClick={data.reload} disabled={loading}><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Wird aktualisiert …' : 'Aktualisieren'}</Button>
         </div>
-      </section>
+      </div>
+      {error && <EmptyState icon={Database} title="Messdaten konnten nicht geladen werden" description={error}>
+        <Button onClick={data.reload}>Erneut versuchen</Button>
+      </EmptyState>}
+      {!loading && !error && !rooms.length && (<section className="surface flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="dashboard-start">
+          <div>
+            <h2 id="dashboard-start" className="font-heading font-semibold">Erste Schritte</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Lege dein Gebäude an, lade Dateien hoch oder nimm eine Einladung an.</p>
+          </div>
+          <Button asChild><Link to="/gebaeude?start=1">Erste Schritte öffnen</Link></Button>
+        </section>)}
+      <WidgetBoard buildings={projectBuildings.isError ? [] : projectBuildings.data || []}
+        renderWidget={item => widgetRenderers[item.id]?.(item)} />
     </div>
   );
 }

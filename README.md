@@ -40,12 +40,12 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 16. November 2026, Morgenprüfung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 16. November 2026, Veröffentlichungsvorbereitung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Bis **1.0.127** sind Änderungen am LiDAR-Raumscan mit serverseitigem IFC4-Export gemergt ([#160](../../pull/160)); Qualitätsverbesserungen aus [#159](../../pull/159). Ein erfolgreicher TestFlight-Upload oder echter Gerätetest dieser Version ist hier **nicht bestätigt**. Mängelmelder **1.0.128** befindet sich noch im offenen [PR #163](../../pull/163); **1.0.129** (maßbasierter Vektorplan-Import, [#169](../../pull/169)) und **1.0.130** (Widget/Siri, [#171](../../pull/171)) sind ebenfalls **offene PRs, nicht in `main` bestätigt** |
-| **Web & IFC** | Gemeinsame Gebäudemappen, Viewer und Heatmaps; IFC-Analyse v3 ergänzt Raumflächen aus Geometrie, Höhe, Volumen und Hintergrund-Neuanalyse ([#162](../../pull/162)). Modellabhängige Ergebnisse müssen am echten D21-Modell validiert werden |
+| **iPhone-App** | Home-Assistant-Import, selbstständige Abfrage und Lampensteuerung sind gemergt ([#179](../../pull/179), [#182](../../pull/182), [#184](../../pull/184), zuletzt 1.0.135). Die integrierte Version **1.0.136** ergänzt automatische ESP32-Testwerte im Gebäude-Dashboard ([#180](../../pull/180)). Native Installation und Geräteabnahme bleiben getrennt vom Server-Deployment. |
+| **Web & IFC** | Titan FS ergänzt konfigurierbare Dashboard-Widgets, Darstellungseinstellungen und gemeinsame Gebäudemeldungen ([#183](../../pull/183)). Gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps bleiben erhalten. Fachliche Modell-/Sensordatenabnahme ist weiterhin erforderlich. |
 | **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
 | **D21-Messdaten** | Erster echter Datenpunkt mit Quelle, Einheit, Zeitstempel und Zugriffsfreigabe noch **nicht als abgeschlossen nachgewiesen** |
 | **Revit-Anbindung** | Modell-/IFC-Arbeit vorhanden; reproduzierbarer automatischer Revit→Server-Prozess noch offen |
@@ -129,3 +129,5 @@ flowchart LR
 *Ein Hochschulprojekt – entwickelt, getestet und Schritt für Schritt verbessert.*
 
 </div>
+
+[Historische Projektpflege vom 13.–14. November](docs/protokolle/2026-11-14-projektpflege-historisch.md) · [Aktuelle Änderungen](CHANGELOG.md)
