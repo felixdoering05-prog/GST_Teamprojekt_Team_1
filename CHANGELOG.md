@@ -1,5 +1,11 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Titan-FS-Dashboard auf titanfs.de
+
+- Das vollständige Dashboard erhält `https://titanfs.de` mit HTTPS und bestehendem Anmeldeschutz. Die Domain verweist auf das geschützte Gateway; der bisherige App-Zugang bleibt gültig.
+- `kitrifftgebäude.de` bleibt die öffentliche Landingpage. Ihr Dashboard-Link führt zur neuen Domain.
+- Einrichtung mit DNS-Prüfung, optionaler www-Weiterleitung, Zertifikatserneuerung und Wiederherstellung der vorherigen Konfiguration bei Fehlern.
+
 ## 16. November 2026 – Echter ESP32 + BME280 im IFC-Raum und Messwert-Popups in der 3D-Ansicht
 
 - Ein angemeldeter ESP32 kann vom Eigentümer auf echte Hardware (BME280) umgestellt und einem IfcSpace eines hochgeladenen IFC-Modells zugeordnet werden (`PUT /sensor-devices/:id`). Echte Geräte senden genau Temperatur und Luftfeuchte; diese Werte werden als `source=real` gespeichert und erscheinen damit auch in den Raumtemperaturen. Kein CO₂-Platzhalter mehr.
