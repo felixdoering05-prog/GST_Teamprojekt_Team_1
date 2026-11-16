@@ -54,7 +54,7 @@ struct BuildingCockpit: View {
                     if snapshot != nil { Text("Letzter geladener Stand").font(.caption).foregroundStyle(.secondary) }
                 }
                 if let esp = espSnapshot, !esp.sensors.isEmpty {
-                    ESP32TelemetryContent(data: esp).padding(18).d21Card(cornerRadius: 22)
+                    VStack(alignment: .leading, spacing: 12) { ESP32TelemetryContent(data: esp); Button("Sensoren und Räume verwalten", systemImage: "link") { open("Sensorik") } }.padding(18).d21Card(cornerRadius: 22)
                 }
                 if let espProblem {
                     Label(espProblem, systemImage: "exclamationmark.icloud").font(.footnote).foregroundStyle(.orange)

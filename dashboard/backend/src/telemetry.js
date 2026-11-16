@@ -1,5 +1,5 @@
 const express=require('express');
-const {createHash}=require('node:crypto');
+const {createHash,randomUUID}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {service}=require('./twin');
 const {mergeThresholds,METRIC_META}=require('./twin/thresholdRules');
@@ -26,10 +26,12 @@ async function telemetrySnapshot(db,building,source,sensorIDs=null){
  if(!validSource(source))fail('Bitte Echt- oder Demodaten auswählen.');
  const scoped=sensorIDs!==null;
  const records=async(entity,limit)=>(await db.query(`SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity=$2 AND data->>'building_id'=$3 AND data->>'source'=$4 ${scoped?`AND ${entity==='Sensor'?'id':"data->>'sensor_id'"}=ANY($5::text[])`:''} ORDER BY created_at DESC,id LIMIT ${limit+1}`,[building.user_id,entity,String(building.id),source,...(scoped?[sensorIDs]:[])])).rows;
- const [sensors,measurements,energy,thresholdRows]=await Promise.all([
+ const [sensors,measurements,energy,thresholdRows,roomRows]=await Promise.all([
   records('Sensor',scoped?60:100),records('Measurement',500),scoped?Promise.resolve([]):records('EnergyReading',100),
-  db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='ThresholdConfig' ORDER BY created_at,id LIMIT 100",[building.user_id])
+  db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='ThresholdConfig' ORDER BY created_at,id LIMIT 100",[building.user_id]),
+  db.query("SELECT id,data->>'name' AS name FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2",[building.user_id,String(building.id)])
  ]);
+ const roomNames=new Map(roomRows.rows.map(r=>[r.id,r.name]));
  const thresholds=mergeThresholds(thresholdRows.rows.map(r=>r.data));
  // Home-Assistant-Werte sind importierte Echtdaten und erscheinen nur bei source=real.
  const ha=!scoped&&source==='real'?await haTelemetry(db,building):{sensors:[],measurements:[],truncated:false};
@@ -38,7 +40,7 @@ async function telemetrySnapshot(db,building,source,sensorIDs=null){
  const points=merged.slice(0,500).sort((a,b)=>a.measured_at.localeCompare(b.measured_at)||a.id.localeCompare(b.id));
  return {source,generated_at:new Date().toISOString(),truncated:sensors.length>(scoped?60:100)||measurements.length>500||energy.length>100||ha.truncated||merged.length>500,
   scope:'Maximal 100 Sensoren, 500 zuletzt gespeicherte Messungen und 100 zuletzt gespeicherte Energiezeiträume dieses Gebäudes. Echt/Demo getrennt. Quelle real bedeutet importiert, nicht unabhängig verifiziert.',
-  sensors:sensors.slice(0,100).filter(r=>METRIC_META[r.data.metric]).map(({id,data:d})=>({id,sensor_code:text(d.sensor_code),name:text(d.name)||text(d.sensor_code),metric:d.metric,unit:METRIC_META[d.metric].unit,status:text(d.status),room_id:text(d.room_id),source})).concat(ha.sensors).slice(0,100),
+  sensors:sensors.slice(0,100).filter(r=>METRIC_META[r.data.metric]).map(({id,data:d})=>({id,sensor_code:text(d.sensor_code),name:text(d.name)||text(d.sensor_code),metric:d.metric,unit:METRIC_META[d.metric].unit,status:text(d.status),room_id:text(d.room_id),room_name:text(roomNames.get(d.room_id)),source})).concat(ha.sensors).slice(0,100),
   measurements:points,
   energy:energy.slice(0,100).filter(r=>typeof r.data.value==='number'&&Number.isFinite(r.data.value)).map(({id,data:d})=>({id,medium:text(d.medium),value:d.value,unit:text(d.unit,20),period_start:text(d.period_start),period_end:text(d.period_end),source})),thresholds};
 }
@@ -103,6 +105,34 @@ function telemetryRouter(db,requireAccount){
   snapshot.truncated=snapshot.truncated||devices.length>20;
   snapshot.scope='ESP32 · übertragene simulierte Messwerte. Nur zugeordnete Sensoren aktiver Geräte dieses Gebäudes; keine echten Sensormessungen. Maximal 20 Geräte, 60 Sensoren und 500 zuletzt gespeicherte Messwerte. Kein Energieimport und keine sonstigen Demodaten.';
   res.json(snapshot);
+ }));
+ // Rooms and assignments use the building owner's records for owners and accepted members alike.
+ r.get(base+'/rooms',wrap(async(req,res)=>{
+  const b=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);if(!b)return res.status(404).json({error:'Gebäude nicht gefunden.'});
+  const rows=(await db.query(`SELECT r.id,r.data->>'name' AS name,r.data->>'room_code' AS room_code FROM app_twin_records r
+   WHERE r.user_id=$1 AND r.entity='Room' AND r.data->>'building_id'=$2 AND (r.data->>'source' IS DISTINCT FROM 'demo' OR EXISTS (
+    SELECT 1 FROM app_sensor_devices d JOIN app_twin_records s ON s.user_id=d.user_id AND s.entity='Sensor' AND s.id IN (SELECT jsonb_each_text.value FROM jsonb_each_text(d.sensors))
+    WHERE d.user_id=r.user_id AND d.building_id=$3 AND d.revoked=false AND s.data->>'room_id'=r.id)) ORDER BY r.data->>'name',r.id LIMIT 501`,[b.user_id,String(b.id),b.id])).rows;
+  res.json({rooms:rows.slice(0,500),truncated:rows.length>500});
+ }));
+ r.put(base+'/sensors/:sensor/room',wrap(async(req,res)=>{
+  const body=req.body||{};
+  const newRoom=Object.hasOwn(body,'room_name');
+  if(Object.keys(body).length!==1||Object.keys(body).some(k=>!['room_id','room_name'].includes(k))||(newRoom?(typeof body.room_name!=='string'||!body.room_name.trim()||body.room_name.length>80):(typeof body.room_id!=='string'||!body.room_id||body.room_id.length>100)))fail('Bitte einen Raum auswählen oder einen Raumnamen eingeben.');
+  const c=await db.connect();try{
+   await c.query('BEGIN');const b=await accessibleBuilding(c,req.params.telemetryBuilding,req.account.id,true);if(!b)fail('Gebäude nicht gefunden.',404);
+   const api=service(c,b.user_id).entities;
+   const sensor=(await api.Sensor.filter({id:req.params.sensor,building_id:String(b.id)},{limit:1})).items[0];
+   if(!sensor)fail('Sensor gehört nicht zu diesem Gebäude.',404);
+   let room;
+   if(newRoom){
+    room=(await api.Room.filter({name:body.room_name.trim(),building_id:String(b.id),source:'real'},{limit:1})).items[0];
+    if(!room)room=await api.Room.create({name:body.room_name.trim(),room_code:'ROOM-'+randomUUID().slice(0,8),building_id:String(b.id),source:'real'});
+   }else room=(await api.Room.filter({id:body.room_id,building_id:String(b.id)},{limit:1})).items[0];
+   if(!room)fail('Raum gehört nicht zu diesem Gebäude.',404);
+   const result=await api.Sensor.update(sensor.id,{room_id:room.id});
+   await c.query('COMMIT');res.json({id:result.id,room_id:room.id});
+  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }));
  r.get(base+'/room-temperatures',wrap(async(req,res)=>{
   const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
