@@ -33,3 +33,17 @@ xcodebuild -scheme "KI Trifft Gebäude APP" -configuration Release -destination 
 ```
 
 Ohne App Group (z. B. anderes Team ohne Berechtigung) zeigt das Widget nur einen Hinweis und öffnet per Tippen die App; Siri nutzt dann eine app-interne Kopie der Gebäudeliste.
+
+## Simulator-Nachweis (16.11.2026, iPhone 17 Pro, iOS 27, Vorschaudaten `-D21WorkflowPreview`)
+
+| | |
+| --- | --- |
+| Widgets klein und mittel auf dem Home-Screen | ![Widgets](screenshots/ios-widget-siri-homescreen-widgets.png) |
+| Widget-Galerie (klein) | ![Galerie](screenshots/ios-widget-siri-gallery-small.png) |
+| Tippen aufs Widget bzw. `kitrifftgebaeude://building/901` öffnet das Gebäude | ![Deep-Link](screenshots/ios-widget-siri-deeplink.png) |
+| App-Kurzbefehle in „Kurzbefehle“ | ![Kurzbefehle](screenshots/ios-widget-siri-shortcuts.png) |
+| „Frag mein Gebäude“ fragt nach der Frage … | ![Frage](screenshots/ios-widget-siri-shortcut-ask.png) |
+| … und öffnet den KI-Assistenten mit vorausgefüllter, **nicht gesendeter** Frage | ![Assistent](screenshots/ios-widget-siri-shortcut-ask-result.png) |
+| „Wo bin ich?“ öffnet die Raumortung | ![Wo bin ich](screenshots/ios-widget-siri-wo-bin-ich.png) |
+
+Hinweis: Nach „Fertig“ im Kurzbefehl vergehen im Simulator bis zu ~15 s, bis iOS die App aktiviert und `perform()` aufruft.

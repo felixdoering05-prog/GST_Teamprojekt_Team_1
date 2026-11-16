@@ -489,7 +489,10 @@ struct AccountHomeView: View {
         case .building(let id, let area):
             guard let building = resolve(id) else { return }
             selectedTab = 0; nextArea = area; showAdd = false; showProfile = false
-            if path.isEmpty { path = [building] } else { path = []; Task { path = [building] } }
+            if path.isEmpty { path = [building]; return }
+            // Pop first so the detail view is recreated with the requested area; pushing in the same update is dropped.
+            path = []
+            Task { try? await Task.sleep(for: .milliseconds(600)); path = [building] }
         case .locate(let id):
             guard let building = resolve(id) else { return }
             selectedTab = 0; locating = building

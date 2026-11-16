@@ -59,7 +59,8 @@ struct BuildingWidgetView: View {
     private func header(_ building: WidgetSnapshot.Entry) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "building.2.fill").foregroundStyle(accent)
-            Text(building.name).font(.headline).lineLimit(1)
+            Text(building.name).font(family == .systemSmall ? .subheadline.bold() : .headline)
+                .lineLimit(1).minimumScaleFactor(0.75)
             Spacer(minLength: 0)
             if let unread = entry.unread, unread > 0 {
                 Text("\(unread)").font(.caption2.bold()).foregroundStyle(.white)
@@ -104,7 +105,7 @@ struct BuildingWidgetView: View {
             Spacer(minLength: 0)
             HStack {
                 if let date = building.temperature?.measuredAt ?? building.co2?.measuredAt {
-                    Text("Messwert \(date, style: .relative)")
+                    Text("Messwert \(date.formatted(.dateTime.locale(Locale(identifier: "de_DE")).hour().minute())) Uhr")
                 } else {
                     Text("Noch kein Messwert – Gebäude in der App öffnen")
                 }
