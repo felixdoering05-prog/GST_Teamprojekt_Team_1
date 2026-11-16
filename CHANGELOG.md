@@ -1,5 +1,11 @@
 # Änderungsverlauf
 
+## 16. November 2026 – kitrifftgebäude.de ausschließlich für die Landingpage
+
+- Die Domain-Konfiguration veröffentlicht die vorhandene Projektseite mit ihren Bildern, Styles und PDF. App und geschütztes Dashboard behalten ihren bisherigen Zugang; keine Schlüsselbund- oder Entwurfsmigration.
+- App-/API-Routen werden auf der Landingpage-Domain nicht veröffentlicht. Der Dashboard-Link führt zum bisherigen geschützten Zugang.
+- Aktivierung erst bei passendem DNS und gültigem HTTPS-Zertifikat; automatischer Rückfall auf die vorherige nginx-Konfiguration bei Fehlern.
+
 ## 16. November 2026 – ESP32-Werte im normalen Dashboard (iPhone 1.0.136)
 
 - Bereits verbundene ESP32 erscheinen automatisch im Gebäude-Dashboard und unter Sensorik mit Temperatur, Luftfeuchte, CO₂ und Verlauf. Kein zusätzlicher CSV-Sensor und kein Umschalten in den Vorstellungsmodus nötig.
