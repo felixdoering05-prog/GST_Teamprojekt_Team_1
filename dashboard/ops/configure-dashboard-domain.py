@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish the existing protected dashboard at titanfs.de; keep the landing domain separate."""
+"""Publish the account-authenticated dashboard at titanfs.de; keep the landing domain separate."""
 from pathlib import Path
 import argparse
 import shutil
@@ -46,12 +46,32 @@ server {{
  ssl_certificate_key {CERT_DIR}/privkey.pem;
  client_max_body_size 26m;
  add_header Strict-Transport-Security "max-age=86400" always;
- # Reuse the existing dashboard gateway, including its Basic Auth and account API rules.
- # Do not proxy directly to the unprotected web container on port 8088.
- location / {{
-  proxy_pass http://127.0.0.1:8089;
+ # The website uses its existing account/session authentication, without a Basic-Auth popup.
+ auth_basic off;
+ location ^~ /api/v1/ {{
+  proxy_pass http://127.0.0.1:8088;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header Authorization "";
+  proxy_connect_timeout 5s;
+  proxy_read_timeout 125s;
+ }}
+ location ^~ /app-api/v1/ {{
+  proxy_pass http://127.0.0.1:8088/api/v1/;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header Authorization "";
+  proxy_set_header X-Forwarded-For "";
+  proxy_connect_timeout 5s;
+  proxy_read_timeout 125s;
+ }}
+ location = /api/health {{ proxy_pass http://127.0.0.1:8088; }}
+ location ^~ /api/ {{ return 404; }}
+ location / {{
+  proxy_pass http://127.0.0.1:8088;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header Authorization "";
   proxy_connect_timeout 5s;
   proxy_read_timeout 125s;
  }}
@@ -99,13 +119,13 @@ def main():
         raise SystemExit(f'{DOMAIN}: A muss nur auf {SERVER_IP} zeigen; abweichende AAAA-Eintraege entfernen. Keine Serveraenderung.')
     include_www = resolves_here(WWW)
     if not args.apply:
-        print('Bereit: geschuetztes Dashboard auf https://titanfs.de. Mit --apply aktivieren.')
+        print('Bereit: Dashboard mit Account-Anmeldung auf https://titanfs.de. Mit --apply aktivieren.')
         return
     previous = CONFIG.read_text() if CONFIG.exists() else None
     if previous is not None and MARKER not in previous:
         raise SystemExit(f'{CONFIG} wird nicht von diesem Skript verwaltet; nichts geaendert.')
-    # Verify that the existing protected gateway is available before changing public routing.
-    with socket.create_connection(('127.0.0.1', 8089), timeout=5):
+    # Verify that the existing website service is available before changing public routing.
+    with socket.create_connection(('127.0.0.1', 8088), timeout=5):
         pass
     if previous is not None:
         shutil.copy2(CONFIG, CONFIG.with_name(CONFIG.name + '.before-update'))
@@ -123,7 +143,7 @@ def main():
     except Exception:
         restore(previous)
         raise
-    print('Aktiv: https://titanfs.de/ — geschuetztes Dashboard. Landingpage und bisheriger App-Zugang bleiben erhalten.')
+    print('Aktiv: https://titanfs.de/ — Dashboard mit Account-Anmeldung. Landingpage und bisheriger App-Zugang bleiben erhalten.')
 
 
 if __name__ == '__main__':

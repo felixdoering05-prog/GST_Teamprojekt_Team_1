@@ -11,13 +11,18 @@ spec.loader.exec_module(module)
 
 
 class DashboardDomainChecks(unittest.TestCase):
-    def test_existing_protected_gateway_handles_all_dashboard_paths(self):
+    def test_only_account_login_without_basic_auth_popup(self):
         config = module.render()
         self.assertIn('server_name titanfs.de;', config)
-        self.assertIn('proxy_pass http://127.0.0.1:8089;', config)
-        self.assertNotIn('proxy_pass http://127.0.0.1:8088', config)
-        self.assertNotIn('auth_basic off;', config)
-        self.assertNotIn('proxy_set_header Authorization', config)
+        self.assertIn('proxy_pass http://127.0.0.1:8088;', config)
+        self.assertNotIn('8089', config)
+        self.assertIn('auth_basic off;', config)
+        self.assertNotIn('auth_basic_user_file', config)
+        self.assertIn('location ^~ /api/v1/', config)
+        self.assertIn('location ^~ /app-api/v1/', config)
+        self.assertIn('proxy_pass http://127.0.0.1:8088/api/v1/;', config)
+        self.assertIn('location ^~ /api/ { return 404; }', config)
+        self.assertIn('proxy_set_header Authorization "";', config)
         self.assertNotIn('/projekt/', config)
         self.assertNotIn('kitrifftgeb', config)
         self.assertIn('client_max_body_size 26m;', config)

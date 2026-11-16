@@ -2,7 +2,7 @@
 
 ## 16. November 2026 – Titan-FS-Dashboard auf titanfs.de
 
-- Das vollständige Dashboard erhält `https://titanfs.de` mit HTTPS und bestehendem Anmeldeschutz. Die Domain verweist auf das geschützte Gateway; der bisherige App-Zugang bleibt gültig.
+- Das vollständige Dashboard erhält `https://titanfs.de` mit HTTPS und ausschließlich persönlicher Account-Anmeldung ohne zusätzlichen Browser-Passwortdialog. Gebäudedaten und Verwaltung bleiben durch Sitzung und Berechtigungen geschützt; der bisherige App-Zugang bleibt gültig.
 - `kitrifftgebäude.de` bleibt die öffentliche Landingpage. Ihr Dashboard-Link führt zur neuen Domain.
 - Einrichtung mit DNS-Prüfung, optionaler www-Weiterleitung, Zertifikatserneuerung und Wiederherstellung der vorherigen Konfiguration bei Fehlern.
 
