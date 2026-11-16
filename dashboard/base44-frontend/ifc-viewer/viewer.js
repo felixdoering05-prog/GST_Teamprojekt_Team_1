@@ -19,6 +19,7 @@ import { mountRoomHeatView } from './room-heat-view.js';
 import { bimStoreys, mountBimStoreys } from './bim-storeys.js';
 import { bimSurface, mountBimCamera, studioGround } from './bim-stage.js';
 import { ifcAngle, mapLocation } from './map-location.js';
+import { createRoomSensors } from './room-sensors.js';
 
 const isExample = new URLSearchParams(location.search).get('example') === 'true';
 const isCampus = new URLSearchParams(location.search).get('campus') === 'd21';
@@ -552,6 +553,7 @@ async function open() {
   const heatRoomSpaces = [];
   const roomsByID = new Map();
   let roomVertices = 0, roomMeshes = 0;
+  const sensorAnchors = new Map(); // IfcSpace-ID → Oberkante Raummitte (Koordinaten der Raumgruppe) für Messwert-Popups
   for (let n = 0; n < spaceIDs.size(); n++) {
     const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
     const row = document.createElement('div'); row.className = 'room';
@@ -589,6 +591,7 @@ async function open() {
         }
       } finally { data.delete(); }
     }
+    if (meshes.length) { const box = new THREE.Box3(); for (const mesh of meshes) { mesh.updateMatrix(); mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix)); } const c = box.getCenter(new THREE.Vector3()); sensorAnchors.set(id, new THREE.Vector3(c.x, box.max.y, c.z)); }
     if (readOnly) roomsByID.set(id, { name: label.textContent, meshes });
     heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
@@ -603,6 +606,18 @@ async function open() {
       meshes.forEach(mesh => mesh.visible = on); render(); changed({action:'light',ids:[id],on});
     };
     row.append(toggle); roomsPanel.append(row);
+  }
+  // Messwerte echter Raumsensoren (z. B. ESP32 + BME280) als Popup über dem zugeordneten IFC-Raum.
+  // Die Seite lädt die Werte angemeldet und schickt sie; der Viewer fragt nur nach.
+  if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly && sensorAnchors.size) {
+    const roomSensors = createRoomSensors(roomEffects, sensorAnchors);
+    function receiveSensors(event) {
+      if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'd21-room-sensors') return;
+      roomSensors.set(event.data.rooms); render();
+    }
+    window.addEventListener('message', receiveSensors);
+    window.addEventListener('pagehide', () => { window.removeEventListener('message', receiveSensors); roomSensors.dispose(); }, { once: true });
+    window.parent.postMessage({ type: 'd21-room-sensors-request' }, location.origin);
   }
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);

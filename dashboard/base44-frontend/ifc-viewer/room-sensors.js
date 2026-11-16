@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 
-// Messwert-Popups über IFC-Räumen (z. B. ESP32 + BME280 im Schlafzimmer). Die Werte kommen vom
-// Server über die App; der Viewer zeigt sie nur an. Labels schweben über der Raummitte und bleiben
-// auch durch Wände sichtbar.
+// Messwert-Popups über IFC-Räumen (z. B. ESP32 + BME280 im Schlafzimmer). Die Werte lädt die
+// Web-Oberfläche angemeldet vom Server und schickt sie per postMessage; der Viewer zeigt sie nur an.
 const UNITS = { temperature: '°C', humidity: '%', co2: 'ppm' };
 const DECIMALS = { temperature: 1, humidity: 0, co2: 0 };
 
-/** Accepts only well-formed entries from the native side. */
+/** Accepts only well-formed entries from the parent page. */
 export function sanitizeRoomSensors(list) {
   if (!Array.isArray(list)) return [];
   const result = [];
@@ -42,28 +41,28 @@ function texture(entry) {
   g.fillStyle = entry.stale ? 'rgba(90,96,104,.92)' : 'rgba(17,52,96,.94)'; g.fill();
   g.lineWidth = 3 * scale; g.strokeStyle = entry.stale ? '#c7cbd1' : '#7fb6ff'; g.stroke();
   g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `600 ${22 * scale}px -apple-system, sans-serif`;
+  g.font = `600 ${22 * scale}px -apple-system, system-ui, sans-serif`;
   g.fillText(roomTitle(entry.room) + (entry.stale ? ' · alt' : entry.real ? '' : ' · Demo'), w / 2, 27 * scale);
-  g.font = `700 ${34 * scale}px -apple-system, sans-serif`;
+  g.font = `700 ${34 * scale}px -apple-system, system-ui, sans-serif`;
   g.fillText(entry.values.map(formatValue).join('  ·  '), w / 2, 70 * scale);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 /**
- * anchors: Map<space_id, THREE.Vector3> in scene coordinates (top centre of the room volume).
+ * parent: group that contains the room volumes; anchors: Map<space_id, THREE.Vector3> in parent coordinates
+ * (top centre of the room volume), so the popups follow any transform of the room group.
  */
-export function createSensorLabels(scene, anchors) {
-  const group = new THREE.Group(); group.name = 'room-sensors'; scene.add(group);
+export function createRoomSensors(parent, anchors) {
+  const group = new THREE.Group(); group.name = 'room-sensors'; parent.add(group);
   const clear = () => { for (const s of [...group.children]) { s.material.map?.dispose(); s.material.dispose(); group.remove(s); } };
   return {
-    group,
     set(list) {
       clear();
       for (const entry of sanitizeRoomSensors(list)) {
         const anchor = anchors.get(entry.space_id); if (!anchor) continue;
         const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture(entry), depthTest: false, depthWrite: false, sizeAttenuation: false, transparent: true }));
         sprite.center.set(.5, 0); sprite.position.copy(anchor);
-        sprite.scale.set(.30, .12, 1); sprite.renderOrder = 12; sprite.userData.spaceID = entry.space_id;
+        sprite.scale.set(.30, .12, 1); sprite.renderOrder = 12;
         group.add(sprite);
       }
       return group.children.length;

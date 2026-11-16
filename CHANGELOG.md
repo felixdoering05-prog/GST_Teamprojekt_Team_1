@@ -1,12 +1,12 @@
 # Änderungsverlauf
 
-## 16. November 2026 – Echter ESP32 + BME280 im IFC-Raum und Messwert-Popups in der 3D-Ansicht
+## 16. November 2026 – Echter ESP32 + BME280 im IFC-Raum und Messwert-Popups im Web-3D-Viewer
 
 - Ein angemeldeter ESP32 kann vom Eigentümer auf echte Hardware (BME280) umgestellt und einem IfcSpace eines hochgeladenen IFC-Modells zugeordnet werden (`PUT /sensor-devices/:id`). Echte Geräte senden genau Temperatur und Luftfeuchte; diese Werte werden als `source=real` gespeichert und erscheinen damit auch in den Raumtemperaturen. Kein CO₂-Platzhalter mehr.
 - Für die Zuordnung entsteht ein echter Raum-Datensatz mit der IFC-GlobalId des Raums. Alte Simulationswerte bleiben getrennt als Demo erhalten; ein echtes Gerät kann nicht zurück auf Simulation gestellt werden.
 - Neuer lesender Endpunkt `GET /documents/:id/sensor-overlay` liefert die neuesten Werte je IFC-Raum (nur mit Gebäudezugang, ohne Geräteschlüssel). `GET /buildings/:id/sensor-devices` listet Geräte ohne Schlüssel.
-- 3D-Ansicht (iPhone): kleines Popup über der Mitte des zugeordneten Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die ESP32-Karte im Dashboard kennzeichnet echte Werte nicht mehr als simuliert.
-- Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung. Der iOS-Build steht aus (lokales Xcode 16.1 kann das Projektformat nicht öffnen).
+- Web-3D-Viewer (Dashboard-Widget „BIM-Modell“ und BIM-Viewer): kleines Popup über der Mitte des zugeordneten IFC-Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die Seite lädt die Werte angemeldet und übergibt sie per postMessage; der Viewer erhält keinen Sitzungsschlüssel. Die iPhone-App bleibt unverändert.
+- Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung; Web-Build erfolgreich.
 ## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
 
 - Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.

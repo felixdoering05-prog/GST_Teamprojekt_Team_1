@@ -181,7 +181,7 @@ struct ESP32TelemetryContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(recent ? "ESP32 · Live-Übertragung" : "ESP32 · Letzter Stand", systemImage: recent ? "wifi" : "clock").font(.headline).foregroundStyle(d21Accent)
-            Text(data.source == "real" ? "Echte Messwerte vom BME280 (Temperatur, Luftfeuchte). Nicht unabhängig kalibriert." : data.source == "mixed" ? "Echte Messwerte und getrennt gekennzeichnete simulierte Testwerte." : "Simulierte Testwerte vom echten Board. Keine gemessenen Raumklimawerte.").font(.caption).foregroundStyle(data.source == "real" ? Color.secondary : Color.orange)
+            Text("Simulierte Testwerte vom echten Board. Keine gemessenen Raumklimawerte.").font(.caption).foregroundStyle(.orange)
             ForEach(data.sensors) { sensor in
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {

@@ -49,4 +49,4 @@ Firmware-Testbuild mit Arduino-CLI 1.6.0 und Arduino-ESP32 3.3.12 erfolgreich: r
 
 Ein bereits angemeldetes Gerät wird vom Eigentümer mit `PUT /api/v1/sensor-devices/:id` und `{hardware:"bme280", document_id, space_id, revision}` auf echte Messwerte umgestellt und einem IfcSpace (Express-ID aus `GET /documents/:id/model-rooms`) zugeordnet. Danach erwartet `/sensor-input` genau `request_key`, `temperature` und `humidity` und speichert sie als `source=real` im zugehörigen Raum. Die aktuelle Revision liefert `GET /api/v1/buildings/:id/sensor-devices`. Für den klassischen ESP32 (nicht S3) gilt FQBN `esp32:esp32:esp32`, Bootloader an `0x1000`; BME280 per I²C an SDA 21/SCL 22, Adresse `0x76`.
 
-Die 3D-Ansicht der App holt `GET /api/v1/documents/:id/sensor-overlay` alle 30 Sekunden und zeigt die Werte als Popup über dem Raum.
+Der Web-3D-Viewer (Dashboard-Widget „BIM-Modell“, BIM-Viewer) holt `GET /api/v1/documents/:id/sensor-overlay` alle 30 Sekunden und zeigt die Werte als Popup über dem Raum.
