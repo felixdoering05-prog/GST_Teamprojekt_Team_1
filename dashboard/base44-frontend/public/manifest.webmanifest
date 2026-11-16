@@ -1,0 +1,9 @@
+{
+  "id": "/",
+  "name": "Titan FS",
+  "short_name": "Titan FS",
+  "lang": "de",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
