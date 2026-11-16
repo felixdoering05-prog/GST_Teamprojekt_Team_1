@@ -38,6 +38,32 @@ test('sensor mapping filter is applied before the measurement bound',async()=>{
  await db.query("INSERT INTO app_twin_records(id,user_id,entity,data) SELECT 'ordinary-'||n,$1,'Measurement',$2::jsonb FROM generate_series(1,600) n",[owner.id,JSON.stringify(point(plain.id))]);
  const r=await request(owner,endpoint());assert.equal(r.data.measurements.length,500);assert.equal(r.data.truncated,true);assert.ok(r.data.measurements.every(m=>ids.includes(m.sensor_id)));
 });
+test('shared room assignments are scoped, persistent and preserve historical readings',async()=>{
+ const base=`/buildings/${building.id}/telemetry`,e=service(db,owner.id).entities;
+ const room=await e.Room.create({building_id:String(building.id),name:'Arbeitszimmer',room_code:'WORK',source:'real'});
+ const foreignRoom=await e.Room.create({building_id:String(otherBuilding.id),name:'Other',room_code:'OTHER',source:'real'});
+ await e.Room.create({building_id:String(building.id),name:'Unrelated demo room',room_code:'DEMO',source:'demo'});
+ const rooms=await request(member,base+'/rooms');assert.equal(rooms.status,200,JSON.stringify(rooms.data));
+ assert.ok(rooms.data.rooms.some(r=>r.id===room.id));assert.ok(rooms.data.rooms.some(r=>r.id===device.room_id));
+ assert.ok(!JSON.stringify(rooms.data).includes('Unrelated demo room'));assert.ok(!rooms.data.rooms.some(r=>r.id===foreignRoom.id));
+ const route=base+`/sensors/${ids[0]}/room`;
+ assert.equal((await request(null,route,{room_id:room.id},'PUT')).status,401);
+ assert.equal((await request(outsider,route,{room_id:room.id},'PUT')).status,404);
+ assert.equal((await request(member,route,{room_id:foreignRoom.id},'PUT')).status,404);
+ assert.equal((await request(member,route,{room_id:room.id,building_id:otherBuilding.id},'PUT')).status,400);
+ const saved=await request(member,route,{room_id:room.id},'PUT');assert.equal(saved.status,200,JSON.stringify(saved.data));assert.equal(saved.data.room_id,room.id);
+ for(const user of [owner,member]){const snap=await request(user,endpoint());const sensor=snap.data.sensors.find(s=>s.id===ids[0]);assert.equal(sensor.room_name,'Arbeitszimmer');assert.equal(sensor.room_id,room.id);}
+ const previous=(await e.Measurement.filter({sensor_id:ids[0]})).items;assert.ok(previous.every(p=>p.room_id!==room.id));
+ const packet=await fetch(url+'/sensor-input',{method:'POST',headers:{'Content-Type':'application/json','X-D21-Device':device.token},body:JSON.stringify({request_key:randomUUID(),temperature:23,humidity:48,co2:700})});assert.equal(packet.status,201);
+ assert.equal(Number((await db.query("SELECT count(*) n FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 AND data->>'room_id'=$3",[owner.id,ids[0],room.id])).rows[0].n),1);
+ const created=await request(member,route,{room_name:'Neuer Raum'},'PUT');assert.equal(created.status,200);
+ assert.equal((await request(member,route,{room_name:'Neuer Raum'},'PUT')).data.room_id,created.data.room_id);
+ assert.equal((await request(member,route,{room_name:'  '},'PUT')).status,400);
+ await db.query("UPDATE app_building_members SET status='pending' WHERE building_id=$1 AND user_id=$2",[building.id,member.id]);
+ assert.equal((await request(member,route,{room_id:device.room_id},'PUT')).status,404);
+ assert.equal((await request(member,base+'/rooms')).status,404);
+ await db.query("UPDATE app_building_members SET status='accepted' WHERE building_id=$1 AND user_id=$2",[building.id,member.id]);
+});
 test('revoked device readings vanish; pending member cannot read them',async()=>{
  await request(owner,`/sensor-devices/${device.id}`,undefined,'DELETE');const r=await request(owner,endpoint());assert.equal(r.status,200);assert.deepEqual(r.data.sensors,[]);assert.deepEqual(r.data.measurements,[]);
  await db.query("UPDATE app_building_members SET status='pending' WHERE building_id=$1 AND user_id=$2",[building.id,member.id]);assert.equal((await request(member,endpoint())).status,404);

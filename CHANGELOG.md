@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
+
+- Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.
+- Das gewählte Gebäude ist der feste Rahmen: Räume und Sensoren anderer Gebäude werden abgewiesen. Eigentümer und angenommene Mitglieder sehen und bearbeiten dieselbe Zuordnung.
+- ESP32-Karten zeigen den Raumnamen. Neue Pakete übernehmen die aktuelle Zuordnung; historische Messwerte behalten ihren früheren Raum. Simulierte Werte bleiben ausdrücklich als Testwerte gekennzeichnet.
+- Home-Assistant-Sensoren behalten ihre eigene Bereich/Raum-Zuordnung im Home-Assistant-Import.
+
 ## 16. November 2026 – kitrifftgebäude.de ausschließlich für die Landingpage
 
 - Die Domain-Konfiguration veröffentlicht die vorhandene Projektseite mit ihren Bildern, Styles und PDF. App und geschütztes Dashboard behalten ihren bisherigen Zugang; keine Schlüsselbund- oder Entwurfsmigration.
