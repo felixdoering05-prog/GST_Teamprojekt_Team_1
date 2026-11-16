@@ -63,8 +63,40 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     @Published var busy = false
     @Published var restoring = true
     @Published var error: String?
-    static let projectServer = "https://filling-vendor-verification-hop.trycloudflare.com"
-    @Published private(set) var serverURL = UserDefaults.standard.string(forKey: "d21.serverURL") ?? AccountModel.projectServer
+    /// Feste Projektadresse kitrifftgebäude.de in Punycode (URLComponents/ATS erwarten ASCII-Hostnamen).
+    static let projectServer = "https://xn--kitrifftgebude-gib.de"
+    /// Frühere Projektadressen (Cloudflare-Schnelltunnel). Gespeicherte Verbindungen dorthin werden einmalig umgezogen.
+    static let legacyProjectServers = ["https://filling-vendor-verification-hop.trycloudflare.com"]
+    @Published private(set) var serverURL = AccountModel.storedServer()
+    /// Alte Adresse, von der beim Start umgezogen wurde; lokale Entwürfe folgen nach der Anmeldung.
+    private var migratedFrom: String? = AccountModel.lastMigration
+    private static var lastMigration: String?
+    private static func storedServer() -> String {
+        guard let stored = UserDefaults.standard.string(forKey: "d21.serverURL") else { return projectServer }
+        guard let legacy = CredentialScope.origin(stored), legacyProjectServers.compactMap({ CredentialScope.origin($0) }).contains(legacy),
+              let target = CredentialScope.origin(projectServer) else { return stored }
+        // Gleicher Projektserver unter neuer Adresse: die Sitzung bleibt gültig und zieht mit um.
+        let oldKey = CredentialScope.key("session", origin: legacy), newKey = CredentialScope.key("session", origin: target)
+        if let session = SecureStore.read(oldKey) {
+            if SecureStore.read(newKey) == nil { try? SecureStore.write(session, key: newKey) }
+            try? SecureStore.write(nil, key: oldKey)
+        }
+        try? SecureStore.write(nil, key: CredentialScope.key("gateway", origin: legacy))
+        UserDefaults.standard.set(target, forKey: "d21.serverURL")
+        lastMigration = legacy
+        return target
+    }
+    private func migrateDrafts() {
+        guard let legacy = migratedFrom, let user else { return }
+        migratedFrom = nil
+        let kinds = ["new-building"] + buildings.map { "building-\($0.id)" }
+        for kind in kinds {
+            let from = BuildingDraftStore(scope: legacy + "#\(user.id)#" + kind).directory
+            let to = BuildingDraftStore(scope: serverURL + "#\(user.id)#" + kind).directory
+            guard FileManager.default.fileExists(atPath: from.path), !FileManager.default.fileExists(atPath: to.path) else { continue }
+            try? FileManager.default.moveItem(at: from, to: to)
+        }
+    }
     private var managedServer: Bool { CredentialScope.origin(serverURL) == CredentialScope.origin(Self.projectServer) }
     private var apiPrefix: String { managedServer ? "/app-api/v1/" : "/api/v1/" }
     private var token: String?
@@ -149,6 +181,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let account: Account = try await request("auth/me")
             user = account
             await loadBuildings()
+            migrateDrafts()
             await loadAvatar()
             await refreshAIPreferences()
             await refreshUIPreferences()
@@ -169,6 +202,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             try SecureStore.write(try JSONEncoder().encode(session),key:CredentialScope.key("session",origin:targetOrigin))
             token = session.token;tokenOrigin=targetOrigin; user = session.user; avatarData = nil
             await loadBuildings()
+            migrateDrafts()
             await loadAvatar()
             await refreshAIPreferences()
             await refreshUIPreferences()

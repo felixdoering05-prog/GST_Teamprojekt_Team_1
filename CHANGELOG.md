@@ -1,5 +1,14 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Feste Adresse kitrifftgebäude.de (iPhone 1.0.133)
+
+- Projektserver und App-API unter `https://kitrifftgebäude.de` (Punycode `xn--kitrifftgebude-gib.de`) mit Let's-Encrypt-Zertifikat. Gleiche Regeln wie im Tunnel: `/app-api/v1/` mit Kontositzung, `/datenschutz.html` öffentlich, Rest hinter dem Website-Passwort.
+- Neues Serverskript `dashboard/ops/configure-domain.py` (prüft DNS, holt das Zertifikat, schreibt nginx, Rücknahme bei Fehlern).
+- iPhone nutzt die neue Adresse. Bestehende Anmeldungen und Entwürfe ziehen von der alten Tunnel-Adresse automatisch mit um.
+- Der Tunnel bleibt vorerst für ältere App-Versionen und bestehende Home-Assistant-Kopplungen aktiv.
+
+[Anleitung inkl. STRATO-Schritte](docs/domain-kitrifftgebaeude.md)
+
 ## 16. November 2026 – Home-Assistant-Import (iPhone 1.0.132)
 
 - Neue Custom Integration `integrations/home-assistant/custom_components/ki_trifft_gebaeude`: Home Assistant schickt ausgewählte Sensorwerte (Temperatur, Luftfeuchte, CO₂, Leistung, Energie) samt Geräten und Bereichen an den Projektserver. Die Verbindung geht nur nach außen. Auf dem Server liegt kein HA-Token, nur der Hash eines eigenen Brückenschlüssels.
