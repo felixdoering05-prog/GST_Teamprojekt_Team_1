@@ -26,3 +26,7 @@ Das Skript fragt WLAN-Name und Passwort nur lokal ab. Es verwendet eine erfolgre
 Offizielle Arduino-CLI und Espressif-Arduino-Core werden vorab benötigt. Test-FQBN: `esp32:esp32:esp32s3:FlashSize=4M,PSRAM=disabled,USBMode=hwcdc,CDCOnBoot=cdc`. Der lokale Helfer nutzt standardmäßig die temporär installierte CLI unter `/tmp/d21-arduino`. Skript und Firmware sind getrennt von der alten GNSS-Firmware. Nach Wechsel der temporären Serveradresse muss die lokale Konfiguration neu erzeugt werden.
 
 `secrets.example.h` ist nur eine Vorlage, keine funktionierende Konfiguration. WLAN/Token bleiben in privaten temporären Builddateien, die anschließend entfernt werden. Bei hartem Rechnerabbruch diese Verzeichnisse ebenfalls privat löschen.
+
+## Verifizierter Stand
+
+Firmware-Testbuild mit Arduino-CLI 1.6.0 und Arduino-ESP32 3.3.12 erfolgreich: rund 1,01 MB Programm, 46,8 KB statische Variablen. Testbuild verwendet ausschließlich Platzhalterdaten und wurde nicht aufgespielt. Backend: 183 Tests erfolgreich, ein optionaler Test übersprungen. Echter WLAN-Endtest steht bis zur lokalen Eingabe der WLAN-Daten aus.
