@@ -350,8 +350,7 @@ struct BuildingDetailView: View {
         case "Sprache": BuildingVoiceView(building: building, account: model)
         case "Team", "Chat": BuildingChatView(building: building, account: model)
         case "Sensorik", "Energie", "Analyse": TelemetryDashboardView(account: model, building: building, initialArea: section)
-        // Aktuellen Stand aus der Gebäudeliste verwenden (z. B. neu hochgeladenes IFC-Modell), nicht den Stand beim Öffnen.
-        default: BuildingCockpit(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open)
+        default: BuildingCockpit(building: building, account: model, open: open)
         }
     }
     private var management: some View {

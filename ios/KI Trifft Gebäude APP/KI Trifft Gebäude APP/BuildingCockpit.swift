@@ -171,8 +171,6 @@ struct BuildingCockpit: View {
     private func load() async {
         guard !loading else { return }; loading = true; defer { loading = false }
         async let espLoad: Void = loadESP32()
-        // Ohne bekanntes Modell die Gebäudeliste neu laden: ein inzwischen hochgeladenes IFC erscheint dann sofort.
-        if building.model_document_id == nil { await account.loadBuildings() }
         if let list = try? await account.issues(buildingID: building.id) { issues = list }
         do {
             let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry?source=real")

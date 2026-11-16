@@ -6,7 +6,6 @@
 - Für die Zuordnung entsteht ein echter Raum-Datensatz mit der IFC-GlobalId des Raums. Alte Simulationswerte bleiben getrennt als Demo erhalten; ein echtes Gerät kann nicht zurück auf Simulation gestellt werden.
 - Neuer lesender Endpunkt `GET /documents/:id/sensor-overlay` liefert die neuesten Werte je IFC-Raum (nur mit Gebäudezugang, ohne Geräteschlüssel). `GET /buildings/:id/sensor-devices` listet Geräte ohne Schlüssel.
 - 3D-Ansicht (iPhone): kleines Popup über der Mitte des zugeordneten Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die ESP32-Karte im Dashboard kennzeichnet echte Werte nicht mehr als simuliert.
-- Gebäude-Dashboard zeigt ein neu hochgeladenes IFC-Modell sofort: Es nutzt den aktuellen Stand der Gebäudeliste statt des Stands beim Öffnen und lädt die Liste neu, solange kein Modell bekannt ist. Vorher erschien weiter „3D-Modell hinzufügen“, obwohl der 3D-Reiter das Modell schon zeigte.
 - Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung. Der iOS-Build steht aus (lokales Xcode 16.1 kann das Projektformat nicht öffnen).
 ## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
 
