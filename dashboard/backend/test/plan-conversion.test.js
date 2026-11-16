@@ -124,3 +124,12 @@ test('deleting an owned building preserves recent plan quota without retaining i
 test('Gemini missing-scale feedback survives as bounded user guidance',async()=>{
  await assert.rejects(analyzePlans([],{getKey:()=> 'test',fetchProvider:async()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({status:'needs_input',reason:'Bitte das Gesamtmaß der Nordseite angeben.',warnings:[],levels:[]})}]}}]}))}),e=>e.code==='needs_input'&&e.input_reason==='Bitte das Gesamtmaß der Nordseite angeben.');
 });
+
+test('Gemini overload (5xx) is retried and then reported as temporary, not as a configuration problem',async()=>{
+ const {callGemini}=require('../src/plan-conversion/provider');const ok=()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:'{}'}]}}]}));
+ let calls=0;const waits=[];const flaky=async()=>++calls<3?new Response('busy',{status:503}):ok();
+ const r=await callGemini(flaky,'https://example.invalid',{method:'POST'},{wait:async ms=>{waits.push(ms)}});assert.equal(r.status,200);assert.equal(calls,3);assert.deepEqual(waits,[2000,6000]);
+ calls=0;await assert.rejects(callGemini(async()=>{calls++;return new Response('busy',{status:503});},'https://example.invalid',{},{wait:async()=>{}}),{code:'provider_unreachable'});assert.equal(calls,3);
+ calls=0;await assert.rejects(callGemini(async()=>{calls++;return new Response('bad',{status:400});},'https://example.invalid',{},{wait:async()=>{}}),{code:'provider_rejected'});assert.equal(calls,1);
+ await assert.rejects(analyzePlans([],{getKey:()=>'test',retry:{wait:async()=>{}},fetchProvider:async()=>new Response('busy',{status:503})}),{code:'provider_unreachable'});
+});

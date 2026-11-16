@@ -9,14 +9,24 @@ async function boundedJSON(response,max=512*1024){
  const reader=response.body.getReader();let bytes=0;const chunks=[];
  try{while(true){const {value,done}=await reader.read();if(done)break;bytes+=value.length;if(bytes>max)throw new PlanError('provider_response_invalid');chunks.push(Buffer.from(value));}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}finally{await reader.cancel().catch(()=>{});}
 }
-async function analyzePlans(docs,{fetchProvider=fetch,model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite',getKey=()=>readFileSync(process.env.GEMINI_API_KEY_FILE||'/run/d21-ai/gemini-api-key','utf8').trim()}={}){
+// One Gemini call with short retries when Google is overloaded (5xx). 429 = quota, other 4xx = rejected.
+const RETRY_WAIT=[2000,6000];
+async function callGemini(fetchProvider,url,init,{wait=ms=>new Promise(r=>setTimeout(r,ms)),retryWait=RETRY_WAIT}={}){
+ for(let attempt=0;;attempt++){
+  let response;try{response=await fetchProvider(url,{...init,signal:AbortSignal.timeout(90000)});}catch{throw new PlanError('provider_unreachable');}
+  if(response.ok)return response;
+  await response.body?.cancel();
+  if(response.status>=500&&attempt<retryWait.length){await wait(retryWait[attempt]);continue;}
+  throw new PlanError(response.status===429?'provider_limit':response.status>=500?'provider_unreachable':'provider_rejected');
+ }
+}
+async function analyzePlans(docs,{fetchProvider=fetch,model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite',getKey=()=>readFileSync(process.env.GEMINI_API_KEY_FILE||'/run/d21-ai/gemini-api-key','utf8').trim(),retry}={}){
  if(!/^[a-zA-Z0-9.-]{1,100}$/.test(model))throw new PlanError('provider_config');
- let response;try{response=await fetchProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':getKey()},redirect:'error',signal:AbortSignal.timeout(90000),body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:[{role:'user',parts:docs.map(d=>({inlineData:{mimeType:d.mime_type,data:Buffer.from(d.content).toString('base64')}}))}],generationConfig:{temperature:0,responseMimeType:'application/json',responseJsonSchema:geometrySchema,maxOutputTokens:18000}})});}catch{throw new PlanError('provider_unreachable');}
- if(!response.ok){await response.body?.cancel();throw new PlanError(response.status===429?'provider_limit':'provider_rejected');}
+ const response=await callGemini(fetchProvider,`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':getKey()},redirect:'error',body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:[{role:'user',parts:docs.map(d=>({inlineData:{mimeType:d.mime_type,data:Buffer.from(d.content).toString('base64')}}))}],generationConfig:{temperature:0,responseMimeType:'application/json',responseJsonSchema:geometrySchema,maxOutputTokens:18000}})},retry);
  const json=await boundedJSON(response);const candidate=json.candidates?.[0];
  if(candidate?.finishReason!=='STOP')throw new PlanError('provider_response_invalid');
  let geometry;try{const raw=candidate.content.parts.filter(p=>!p.thought&&typeof p.text==='string').map(p=>p.text).join('');if(raw.length>256*1024)throw Error();geometry=JSON.parse(raw);}catch{throw new PlanError('provider_response_invalid');}
  const tokens=v=>Number.isFinite(v)&&v>=0&&v<10000000?v:0;const usage=json.usageMetadata?{prompt_tokens:tokens(json.usageMetadata.promptTokenCount),output_tokens:tokens(json.usageMetadata.candidatesTokenCount)}:null;
  let prepared;try{prepared=prepareGeometry(geometry);}catch(e){if(e.code==='invalid_geometry')e.geometry=geometry;if(e.code==='needs_input'&&typeof geometry.reason==='string')e.input_reason=geometry.reason;e.usage=usage;e.provider_model=model;throw e;}return {...prepared,model,usage};
 }
-module.exports={analyzePlans,boundedJSON};
+module.exports={analyzePlans,boundedJSON,callGemini};
