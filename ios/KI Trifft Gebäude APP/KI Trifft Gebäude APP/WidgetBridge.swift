@@ -11,8 +11,11 @@ import Combine
     enum Route: Equatable {
         case building(Int?, area: String)
         case locate(Int?)
+        case nala(Int?)
     }
     @Published var route: Route?
+    /// Counts Siri/widget questions so the Nala tab rebuilds its chat with the new prefilled text.
+    @Published var nalaRequest = 0
     private var question: (buildingID: Int?, text: String)?
 
     func open(_ url: URL) {
@@ -26,7 +29,8 @@ import Combine
     /// Prefills the assistant only. Nothing is sent to the AI until the user taps send.
     func ask(_ text: String, buildingID: Int?) {
         question = (buildingID, text)
-        route = .building(buildingID, area: "KI")
+        nalaRequest += 1
+        route = .nala(buildingID)
     }
     func takeQuestion(for buildingID: Int) -> String? {
         guard let question, question.buildingID == nil || question.buildingID == buildingID else { return nil }
