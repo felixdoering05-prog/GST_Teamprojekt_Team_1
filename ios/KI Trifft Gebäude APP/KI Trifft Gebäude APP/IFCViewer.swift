@@ -395,6 +395,7 @@ struct IFCWebView: UIViewRepresentable {
         if heat == nil && account != nil && documentID != nil { configuration.userContentController.add(context.coordinator, name: "ifcSceneRequest") }
         if heat == nil && account != nil && buildingID != nil { configuration.userContentController.add(context.coordinator, name: "ifcCommandRequest") }
         if heat == nil && account != nil && buildingID != nil && documentID != nil && onIssue != nil { for name in ["ifcIssueRequest", "ifcIssue", "ifcPick"] { configuration.userContentController.add(context.coordinator, name: name) } }
+        if heat == nil && account != nil && documentID != nil && onRooms == nil { configuration.userContentController.add(context.coordinator, name: "ifcSensorRequest") }
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "d21ifc")
         let web = WKWebView(frame: .zero, configuration: configuration)
         controller?.web = web
@@ -411,6 +412,7 @@ struct IFCWebView: UIViewRepresentable {
         coordinator.sceneTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSceneRequest")
         coordinator.activeTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcCommandRequest")
         coordinator.issueTask?.cancel(); for name in ["ifcIssueRequest", "ifcIssue", "ifcPick"] { uiView.configuration.userContentController.removeScriptMessageHandler(forName: name) }
+        coordinator.sensorTask?.cancel(); uiView.configuration.userContentController.removeScriptMessageHandler(forName: "ifcSensorRequest")
         uiView.stopLoading(); uiView.navigationDelegate = nil
 
     }
@@ -426,6 +428,7 @@ struct IFCWebView: UIViewRepresentable {
         var sceneTask: Task<Void, Never>?
         var activeTask: Task<Void, Never>?
         var issueTask: Task<Void, Never>?
+        var sensorTask: Task<Void, Never>?
         var onIssue: ((Int) -> Void)?
         var onPick: ((BuildingIssue.Point?) -> Void)?
         init(modelURL: URL, account: AccountModel?, buildingID: Int?, documentID: Int?, heat:HeatPresentation? = nil) { self.heat=heat;self.modelURL = modelURL; self.account = account; self.buildingID = buildingID; self.documentID = documentID }
@@ -448,6 +451,7 @@ struct IFCWebView: UIViewRepresentable {
             }
             if message.name == "ifcSceneRequest" { sceneRequest(message); return }
             if ["ifcIssueRequest", "ifcIssue", "ifcPick"].contains(message.name) { issueMessage(message); return }
+            if message.name == "ifcSensorRequest" { sensorRequest(message); return }
             guard message.name == "ifcCommandRequest", message.frameInfo.isMainFrame, let web = message.webView,
                   web.url?.scheme == "d21ifc", web.url?.host == "viewer", let body = message.body as? [String: String],
                   let id = body["id"], UUID(uuidString: id) != nil, let question = body["question"],
@@ -522,6 +526,18 @@ struct IFCWebView: UIViewRepresentable {
                         _ = try? await web.callAsyncJavaScript("window.d21FocusIssue?.(id)", arguments: ["id": focus], in: nil, contentWorld: .page)
                     }
                 }
+            }
+        }
+        /// Messwert-Popups: neueste Werte der diesem Modell zugeordneten Raumsensoren (ESP32) an den Viewer geben.
+        func sensorRequest(_ message: WKScriptMessage) {
+            guard message.frameInfo.isMainFrame, let web = message.webView, web.url?.scheme == "d21ifc", web.url?.host == "viewer",
+                  let account, let documentID else { return }
+            sensorTask?.cancel()
+            sensorTask = Task { @MainActor [weak web] in
+                guard let overlay: RoomSensorOverlay = try? await account.request("documents/\(documentID)/sensor-overlay"), !Task.isCancelled, let web else { return }
+                // JSON wird als Argument übergeben, nicht in Skriptcode eingesetzt.
+                guard let list = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(overlay.rooms)) else { return }
+                _ = try? await web.callAsyncJavaScript("window.d21SetRoomSensors?.(list)", arguments: ["list": list], in: nil, contentWorld: .page)
             }
         }
         func sceneRequest(_ message: WKScriptMessage) {

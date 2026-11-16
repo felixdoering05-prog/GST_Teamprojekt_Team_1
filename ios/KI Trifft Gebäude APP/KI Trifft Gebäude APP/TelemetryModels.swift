@@ -118,3 +118,10 @@ enum MeasurementCSV {
         cells.append(field); return cells
     }
 }
+
+/// Neueste Messwerte je IFC-Raum (GET documents/:id/sensor-overlay) für die Popups in der 3D-Ansicht.
+struct RoomSensorOverlay: Codable {
+    struct Value: Codable { let metric: String; let label: String; let value: Double; let unit: String; let measured_at: String }
+    struct Room: Codable { let space_id: Int; let room: String?; let device_id: String; let source: String; let hardware: String; let values: [Value]; let updated_at: String?; let stale: Bool }
+    let document_id: Int; let generated_at: String; let rooms: [Room]
+}
