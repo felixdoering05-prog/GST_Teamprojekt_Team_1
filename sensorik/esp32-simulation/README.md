@@ -1,5 +1,11 @@
 # Echter ESP32-S3 mit simulierten Raumklimadaten
 
+## Anzeige auf dem iPhone
+
+Ab Version 1.0.136 erscheinen bereits eingerichtete ESP32 automatisch im normalen Dashboard des zugeordneten Gebäudes sowie unter **Sensorik**. Die Karte zeigt Werte und Verlauf, aktualisiert sich im Vordergrund alle 30 Sekunden und kennzeichnet fehlende Aktualität nach drei Minuten. **CSV-Sensor anlegen** ist dafür nicht nötig.
+
+Die Übertragung kommt vom echten Board; die Zahlen bleiben als simulierte Testwerte gekennzeichnet. Dafür liest die App `/api/v1/buildings/:id/telemetry/esp32` (verwalteter Zugang: `/app-api/v1/...`). Diese lesende, kontogeschützte Schnittstelle liefert nur Sensoren registrierter, nicht gesperrter Geräte des Gebäudes. Normale Demo-Daten werden nicht eingeblendet, echte Messwerte nicht umklassifiziert, Widgets und KI-Auswertungen nicht automatisch mit Testwerten versorgt.
+
 ### USB-Upload am Mac
 
 Der lokale Installer verwendet esptool 5.6.0 (Pfad mit `--esptool` anpassbar) und die Partitionierungsdatei des Arduino-ESP32-Core 3.3.12 (`--boot-app0`). Nach einer USB-Unterbrechung beim automatischen Reset verbindet er erneut ohne Reset. Er meldet eine erfolgreiche Installation erst, nachdem die vollständige Anwendung auf dem Board mit der gerade gebauten Binärdatei verglichen wurde. Die Bestätigung auf dem Board ersetzt nicht die anschließende Prüfung, ob tatsächlich Werte am Server eintreffen.

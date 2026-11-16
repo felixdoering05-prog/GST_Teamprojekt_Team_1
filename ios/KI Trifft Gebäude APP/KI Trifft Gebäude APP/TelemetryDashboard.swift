@@ -28,6 +28,8 @@ struct TelemetryDashboardView: View {
     let building: Building?
     var localDemo = false
     @State private var snapshot: TelemetrySnapshot?
+    @State private var espSnapshot: TelemetrySnapshot?
+    @State private var espProblem: String?
     @State private var source = "real"
     @State private var area = "Dashboard"
     @State private var sensorID = ""
@@ -48,16 +50,20 @@ struct TelemetryDashboardView: View {
                 #if DEBUG
                 if WorkflowPreview.enabled { Label("VORSCHAU · lokale Testdaten", systemImage: "testtube.2").font(.caption.bold()).foregroundStyle(.orange) }
                 #endif
-                Label(localDemo ? "DEMO · Fiktive Beispieldaten" : source == "real" ? "Projektserver · importierte Messwerte" : "Projektserver · Demodaten", systemImage: localDemo || source == "demo" ? "testtube.2" : "server.rack").font(.subheadline.bold()).foregroundStyle(localDemo || source == "demo" ? .orange : d21Accent)
+                Label(localDemo ? "DEMO · Fiktive Beispieldaten" : "Projektserver · Gebäudedaten", systemImage: localDemo ? "testtube.2" : "server.rack").font(.subheadline.bold()).foregroundStyle(localDemo ? .orange : d21Accent)
                 if localDemo { Text("Alles ausprobieren – ohne Konto, Serveränderung oder Gemini-Anfrage. Die Werte sind erfunden.").font(.footnote).foregroundStyle(.secondary) }
-                else { Text("Importierte Werte sind nicht unabhängig verifiziert. Die Quellen bleiben getrennt.").font(.caption).foregroundStyle(.secondary) }
+                else { Text("Verbundene ESP32 erscheinen automatisch. Importierte Werte sind nicht unabhängig verifiziert.").font(.caption).foregroundStyle(.secondary) }
                 Picker("Ansicht", selection: $area) { ForEach(["Dashboard","Sensorik","Energie","Analyse"], id: \.self) { Text($0).tag($0) } }
             }
             if let problem { Section { Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); if snapshot != nil { Text("Letzter geladener Stand. Keine aktuelle Verbindung bestätigt.").font(.footnote) }; Button("Erneut laden") { Task { await load() } }.disabled(loading) } }
             if loading && snapshot == nil { Section { ProgressView("Dashboard wird geladen …") } }
+            if !localDemo && (area == "Dashboard" || area == "Sensorik") {
+                if let esp = espSnapshot, !esp.sensors.isEmpty { Section { ESP32TelemetryContent(data: esp) } }
+                if let espProblem { Section("ESP32-Verbindung") { Label(espProblem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); if espSnapshot != nil { Text("Letzter geladener Stand. Zum Aktualisieren nach unten ziehen.").font(.caption) } } }
+            }
             if let data = snapshot {
-                if area == "Dashboard" { overview(data) }
-                if area == "Sensorik" { sensors(data) }
+                if area == "Dashboard" && (!data.sensors.isEmpty || espSnapshot?.sensors.isEmpty != false) { overview(data) }
+                if area == "Sensorik" && (!data.sensors.isEmpty || espSnapshot?.sensors.isEmpty != false) { sensors(data) }
                 if area == "Energie" { energy(data) }
                 if area == "Analyse" { analysis(data) }
                 Section("Datenstand") {
@@ -68,7 +74,7 @@ struct TelemetryDashboardView: View {
             }
         }
         .toolbar {
-            if !localDemo { ToolbarItem(placement: .topBarTrailing) { Menu { Button("Sensor anlegen", systemImage: "sensor") { addSensor = true }; Button("Messwerte aus CSV importieren", systemImage: "square.and.arrow.down") { importCSV = true } } label: { Label("Daten", systemImage: "plus.circle") } } }
+            if !localDemo { ToolbarItem(placement: .topBarTrailing) { Menu { Button("CSV-Sensor anlegen", systemImage: "sensor") { addSensor = true }; Button("Messwerte aus CSV importieren", systemImage: "square.and.arrow.down") { importCSV = true } } label: { Label("Daten", systemImage: "plus.circle") } } }
         }
         .sheet(isPresented: $addSensor, onDismiss: { Task { await load() } }) { if let account, let building { AddTelemetrySensorView(account: account, building: building, source: source) } }
         .sheet(isPresented: $importCSV, onDismiss: { Task { await load() } }) { if let account, let building { MeasurementImportView(account: account, building: building, source: source, sensors: snapshot?.sensors ?? []) } }
@@ -96,7 +102,7 @@ struct TelemetryDashboardView: View {
                 let series = Array(data.series(sensor).suffix(48))
                 if series.isEmpty { Text("Für diesen Sensor fehlen auswertbare Werte.").foregroundStyle(.secondary) }
                 else { Chart(series) { point in LineMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(d21Accent); PointMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(d21Accent) }.frame(height: 190).accessibilityLabel("Messverlauf von \(sensor.name), \(series.count) Werte"); Text("Bis zu 48 geladene gültige Werte · \(sensor.unit)").font(.caption).foregroundStyle(.secondary) }
-            } else { Text("Noch kein Sensor. Über Daten → Sensor anlegen beginnen und anschließend CSV-Messwerte importieren.").foregroundStyle(.secondary) }
+            } else { Text("Noch kein Sensor. Bereits verbundene ESP32 erscheinen automatisch. CSV-Sensoren kannst du über Daten anlegen.").foregroundStyle(.secondary) }
         }
     }
     @ViewBuilder private func sensors(_ data: TelemetrySnapshot) -> some View {
@@ -142,6 +148,7 @@ struct TelemetryDashboardView: View {
     private func levelColor(_ level: String) -> Color { level == "Kritisch" ? .red : level == "Warnung" ? .orange : .secondary }
     private func load() async {
         let ticket = UUID(); operation = ticket; loading = true; let originalSource = source; defer { if operation == ticket { loading = false } }
+        async let espLoad: Void = loadESP32(ticket: ticket)
         do {
             let value: TelemetrySnapshot
             if localDemo { value = .demo() }
@@ -150,6 +157,56 @@ struct TelemetryDashboardView: View {
             guard !Task.isCancelled, originalSource == source, operation == ticket else { return }; snapshot = value; problem = nil
             if !localDemo, let building { WidgetSnapshotWriter.telemetry(value, buildingID: building.id) }
         } catch { if !Task.isCancelled, source == originalSource, operation == ticket { problem = error.localizedDescription } }
+        await espLoad
+    }
+    private func loadESP32(ticket: UUID) async {
+        guard !localDemo, let account, let building else { return }
+        do {
+            let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry/esp32")
+            guard !Task.isCancelled, operation == ticket else { return }
+            espSnapshot = data; espProblem = nil
+        } catch {
+            if !Task.isCancelled, operation == ticket { espProblem = "ESP32-Werte konnten gerade nicht geladen werden." }
+        }
+    }
+}
+
+struct ESP32TelemetryContent: View {
+    let data: TelemetrySnapshot
+    @State private var sensorID = ""
+    private var selected: TelemetrySensor? { data.sensors.first { $0.id == sensorID } ?? data.sensors.first }
+    private var recent: Bool { data.measurements.contains { $0.quality == "ok" && Date().timeIntervalSince($0.date) <= 180 } }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(recent ? "ESP32 · Live-Übertragung" : "ESP32 · Letzter Stand", systemImage: recent ? "wifi" : "clock").font(.headline).foregroundStyle(d21Accent)
+            Text("Simulierte Testwerte vom echten Board. Keine gemessenen Raumklimawerte.").font(.caption).foregroundStyle(.orange)
+            ForEach(data.sensors) { sensor in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(sensor.name, systemImage: sensor.metric.symbol).font(.subheadline)
+                        if let point = data.latest(sensor) {
+                            Text(point.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                            if Date().timeIntervalSince(point.date) > 180 { Label("Seit über drei Minuten kein neuer Wert", systemImage: "clock").font(.caption).foregroundStyle(.orange) }
+                        }
+                    }
+                    Spacer()
+                    Text(data.latest(sensor).map { $0.value.formatted(.number.precision(.fractionLength(0...1))) + " " + sensor.unit } ?? "Warte auf Werte").font(.headline).monospacedDigit()
+                }.padding(.vertical, 4)
+            }
+            if let sensor = selected {
+                Picker("ESP32-Verlauf", selection: Binding(get: { selected?.id ?? "" }, set: { sensorID = $0 })) {
+                    ForEach(data.sensors) { Text($0.name).tag($0.id) }
+                }
+                let points = Array(data.series(sensor).suffix(60))
+                if !points.isEmpty {
+                    Chart(points) { point in
+                        LineMark(x: .value("Zeit", point.date), y: .value(sensor.unit, point.value)).foregroundStyle(d21Accent)
+                    }.frame(height: 150).accessibilityLabel("Simulierter ESP32-Verlauf: \(sensor.name)")
+                }
+            }
+            Text("Automatisch alle 30 Sekunden aktualisiert. Pro Minute sendet das Board neue Werte.").font(.caption).foregroundStyle(.secondary)
+            if data.truncated { Text("Begrenzter Ausschnitt der zuletzt gespeicherten Testwerte.").font(.caption).foregroundStyle(.secondary) }
+        }
     }
 }
 
@@ -170,7 +227,7 @@ struct AddTelemetrySensorView: View {
                 Section { TextField("Name, zum Beispiel Besprechungsraum", text: $name); TextField("Kennung, zum Beispiel TEMP-01", text: $code).textInputAutocapitalization(.characters).autocorrectionDisabled(); Picker("Messgröße", selection: $metric) { ForEach(TelemetryMetric.allCases, id: \.self) { Text($0.title).tag($0) } } }.disabled(submitted != nil)
                 if let problem { Section { Text(problem).foregroundStyle(.red) } }
                 Section { Button(saving ? "Wird gespeichert …" : submitted == nil ? "Sensor speichern" : "Speichern erneut bestätigen") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty || name.count > 100 || code.range(of: "^[A-Za-z0-9_-]{1,60}$", options: .regularExpression) == nil) }
-            }.navigationTitle("Sensor anlegen").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle("CSV-Sensor anlegen").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() }.disabled(saving) } }.interactiveDismissDisabled(saving)
         }
     }

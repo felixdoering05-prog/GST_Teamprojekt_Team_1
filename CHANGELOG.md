@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 16. November 2026 – ESP32-Werte im normalen Dashboard (iPhone 1.0.136)
+
+- Bereits verbundene ESP32 erscheinen automatisch im Gebäude-Dashboard und unter Sensorik mit Temperatur, Luftfeuchte, CO₂ und Verlauf. Kein zusätzlicher CSV-Sensor und kein Umschalten in den Vorstellungsmodus nötig.
+- Die echte WLAN-Übertragung und die simulierten Zahlen bleiben unterscheidbar. Nach mehr als drei Minuten ohne Werte erscheint „Letzter Stand“.
+- Eine eigene, lesende Schnittstelle liefert ausschließlich die diesem Gebäude zugeordneten, nicht gesperrten ESP32-Sensoren. Andere Demo-Daten, Energie, Geräteschlüssel und fremde Gebäudedaten werden nicht übernommen.
+- „Sensor anlegen“ heißt jetzt „CSV-Sensor anlegen“. Testwerte bleiben von echten Auswertungen, Heatmap und Widget getrennt.
+
 ## 16. November 2026 – Lampen aus Home Assistant übernehmen (iPhone 1.0.135)
 
 - Beim App-Import aus Home Assistant stehen jetzt auch Lampen (`light.*`) zur Auswahl: Name, Gerät, Bereich → Raum, Farbfähigkeit und Zustand (an/aus, Helligkeit, Farbe).
