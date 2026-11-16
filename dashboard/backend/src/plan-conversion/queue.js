@@ -1,6 +1,7 @@
 const {randomUUID,createHash}=require('node:crypto');
 const {aiEnabled}=require('../ai-preferences');
-const MIME=['image/jpeg','image/png','image/webp','application/pdf'];
+const IMAGE_MIME=['image/jpeg','image/png','image/webp','application/pdf'];
+const MIME=[...IMAGE_MIME,'application/dxf','application/acad'];
 const POLICY_VERSION=1,MAX_BYTES=10*1024*1024;
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status})};
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -8,6 +9,7 @@ async function initPlanConversion(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_plan_settings(building_id INTEGER PRIMARY KEY REFERENCES app_buildings(id) ON DELETE CASCADE,enabled BOOLEAN NOT NULL DEFAULT false,revision INTEGER NOT NULL DEFAULT 1,policy_version INTEGER NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_plan_jobs(id TEXT PRIMARY KEY,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,request_key TEXT NOT NULL,document_ids INTEGER[] NOT NULL,source_hashes JSONB NOT NULL,settings_revision INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('queued','running','ready','approved','rejected','failed','cancelled','needs_input')),phase TEXT NOT NULL DEFAULT 'analysis',attempts INTEGER NOT NULL DEFAULT 0,not_before TIMESTAMPTZ NOT NULL DEFAULT now(),lease_until TIMESTAMPTZ,analysis JSONB,output_ifc BYTEA,preview_png BYTEA,output_document_id INTEGER REFERENCES app_documents(id) ON DELETE SET NULL,warnings JSONB NOT NULL DEFAULT '[]',failure_code TEXT,provider_model TEXT,usage JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),UNIQUE(user_id,request_key))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_plan_deleted_usage(job_id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL)`);
+ await db.query('ALTER TABLE app_plan_jobs ADD COLUMN IF NOT EXISTS quality JSONB');
  await db.query('CREATE INDEX IF NOT EXISTS app_plan_deleted_usage_time_idx ON app_plan_deleted_usage(created_at)');
  await db.query('CREATE INDEX IF NOT EXISTS app_plan_job_poll_idx ON app_plan_jobs(status,not_before,lease_until)');
  await db.query('CREATE INDEX IF NOT EXISTS app_plan_job_owner_idx ON app_plan_jobs(user_id,building_id,created_at)');
@@ -16,9 +18,9 @@ async function setting(db,building){return (await db.query('SELECT enabled,revis
 async function permitted(db,job){const b=(await db.query('SELECT user_id FROM app_buildings WHERE id=$1',[job.building_id])).rows[0],s=await setting(db,job.building_id);return b?.user_id===job.user_id&&s.enabled&&s.policy_version===POLICY_VERSION&&s.revision===job.settings_revision&&await aiEnabled(db,job.user_id);}
 async function sourceFiles(db,building,ids){
  if(!Array.isArray(ids)||!ids.length||ids.length>4||new Set(ids).size!==ids.length||ids.some(id=>!Number.isInteger(id)||id<1||id>2147483647))fail('Bitte ein bis vier Plan-Dateien wählen.');
- const docs=(await db.query('SELECT id,mime_type,size,content FROM app_documents WHERE building_id=$1 AND id=ANY($2::int[]) ORDER BY id',[building,ids])).rows;
+ const docs=(await db.query('SELECT id,name,mime_type,size,content FROM app_documents WHERE building_id=$1 AND id=ANY($2::int[]) ORDER BY id',[building,ids])).rows;
  if(docs.length!==ids.length)fail('Plan nicht gefunden.',404);
- if(docs.some(d=>!MIME.includes(d.mime_type))||docs.reduce((n,d)=>n+d.size,0)>MAX_BYTES)fail('Plananalyse: JPG, PNG, WebP oder PDF, zusammen maximal 10 MB.',413);
+ if(docs.some(d=>!MIME.includes(d.mime_type))||docs.reduce((n,d)=>n+d.size,0)>MAX_BYTES)fail('Plananalyse: JPG, PNG, WebP, PDF, DXF oder DWG, zusammen maximal 10 MB.',413);
  return docs;
 }
 function dailyLimit(user){
@@ -49,5 +51,5 @@ async function enqueueUpload(db,building,user,doc,{enabled=process.env.PLAN_CONV
  try{return await enqueue(db,{building:building.id,user,documentIds:[doc.id],requestKey:'upload:'+doc.id,automatic:true})}catch(e){if([403,413,429].includes(e.status))return {status:'not_queued',reason:e.message};throw e}
 }
 async function validateSources(db,job){const docs=await sourceFiles(db,job.building_id,job.document_ids);if(docs.some(d=>hash(d.content)!==job.source_hashes[String(d.id)]))fail('Eine Quelldatei hat sich geändert. Bitte neuen Auftrag anlegen.',409);return docs;}
-const SUMMARY='id,request_key,building_id,status,phase,attempts,document_ids,warnings,failure_code,provider_model,usage,output_document_id,created_at,updated_at,(status=\'failed\' AND failure_code=\'invalid_geometry\' AND analysis IS NOT NULL) AS can_rebuild';
-module.exports={dailyLimit,initPlanConversion,setting,permitted,sourceFiles,validateSources,enqueue,enqueueUpload,POLICY_VERSION,MAX_BYTES,MIME,SUMMARY,fail};
+const SUMMARY='id,request_key,building_id,status,phase,attempts,document_ids,warnings,quality,failure_code,provider_model,usage,output_document_id,created_at,updated_at,(status=\'failed\' AND failure_code=\'invalid_geometry\' AND analysis IS NOT NULL) AS can_rebuild';
+module.exports={IMAGE_MIME,dailyLimit,initPlanConversion,setting,permitted,sourceFiles,validateSources,enqueue,enqueueUpload,POLICY_VERSION,MAX_BYTES,MIME,SUMMARY,fail};

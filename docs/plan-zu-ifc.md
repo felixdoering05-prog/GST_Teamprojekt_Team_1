@@ -1,12 +1,12 @@
 # Aus Grundrissen einen IFC-Entwurf erstellen
 
-Stand: 10. November 2026. Experimentelle Planerkennung, keine Fachplanung und keine baurechtliche Prüfung.
+Stand: 15. November 2026. Experimentelle Planerkennung, keine Fachplanung und keine baurechtliche Prüfung. Vektorpläne (PDF mit Linien, DXF, DWG) werden seit iOS 1.0.129 **vermessen** statt geschätzt, siehe [Vektorpläne vermessen](#vektorpläne-vermessen-phase-1).
 
 ## Bedienung
 
 1. Gebäude öffnen → Gebäudemappe → „Aus Plänen einen 3D-Entwurf erstellen“. Im Web unter „Gebäude & Räume“ das eigene Gebäude öffnen.
 2. KI im Profil aktivieren und einmal pro Gebäude die Übertragung von Bildern und PDFs an **Google Gemini** erlauben. Nur dafür freigegebene Unterlagen verwenden. Die Freigabe wird auf dem Projektserver gespeichert.
-3. Danach starten neue JPG-, PNG-, WebP- und PDF-Uploads automatisch einen Auftrag. Innerhalb von 20 Sekunden hochgeladene Dateien werden zusammengefasst, maximal vier und zusammen 10 MiB. Weitere Uploads können einen separaten Auftrag bilden. DWG, HEIC und IFC werden nicht analysiert.
+3. Danach starten neue JPG-, PNG-, WebP-, PDF-, DXF- und DWG-Uploads automatisch einen Auftrag. Innerhalb von 20 Sekunden hochgeladene Dateien werden zusammengefasst, maximal vier und zusammen 10 MiB. Weitere Uploads können einen separaten Auftrag bilden. HEIC und IFC werden nicht analysiert. DXF/DWG verlassen den Server nicht.
 4. Bereits gespeicherte Pläne selbst auswählen und „Ausgewählte Pläne analysieren“ drücken. Einschalten allein überträgt keine historischen Dateien.
 5. Vorschau und Annahmen prüfen. Erst „Entwurf in Gebäudemappe übernehmen“ speichert eine **zusätzliche** IFC. Vorhandene Modelle und Quelldateien bleiben erhalten. „Verwerfen“ löscht den Entwurf. Nicht übernommene Ausgaben verfallen nach sieben Tagen.
 
@@ -22,9 +22,24 @@ Zunächst darf nur der Gebäudeeigentümer die Funktion steuern. Uploads anderer
 
 Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Bei abgelehnter Geometrie wird die begrenzte KI-Antwort für die technische Diagnose nur im privaten Auftrag gespeichert, nicht als Modell freigegeben; diese Diagnose und Vorschauen werden nach sieben Tagen bereinigt. Die IFC allein ist kein vollständiger Herkunftsbericht; Hinweise beim Weitergeben mitgeben. Die Freigabe bestätigt die Übernahme in die Mappe, keine Maßhaltigkeit.
 
+## Vektorpläne vermessen (Phase 1)
+
+`plan-worker → plan-extract/run.py extract → (Gemini prüft nur IDs, nur bei PDF) → run.py build → IFC + Vorschau + Qualitätsbericht`
+
+- **Lesen:** DXF mit ezdxf (MIT); DWG wird vorher mit LibreDWG `dwg2dxf` (GPL-3, eigener Prozess, 90 s Limit) umgewandelt. Vektor-PDF mit pdfplumber (MIT) statt PyMuPDF (AGPL): Linien, Rechtecke, Kurven, gedrehte Texte, hochgestellte halbe Zentimeter (36⁵).
+- **Maßstab:** Maßzahlen („4,00“, „1,01⁵“, „24“) werden ihrer Maßlinie bzw. dem Abschnitt zwischen Hilfslinien zugeordnet; der Maßstab ist der Wert, den die meisten Maßzahlen bestätigen. PDF: Einrasten auf übliche Maßstäbe (1:50, 1:100 …) bei ≤ 1,5 % Abweichung; Rückfall auf „M 1:100“-Beschriftung mit Hinweis. DXF: `$INSUNITS`, gegengeprüft mit DIMENSION-Entitäten und Maßtexten; ohne beides Einheit aus der Gebäudegröße geschätzt (mit Hinweis).
+- **Wände:** parallele Linienpaare (5–70 cm Abstand, ≥ 10 cm Überdeckung) werden von nah nach fern gepaart → Mittellinie + gemessene Stärke. Bei DXF zuerst Wand-Layer (`Wand`, `Wall`, `Mauer` …), Bemaßungs-, Möbel-, Text- und Rahmen-Layer werden ignoriert. Winkel werden auf die dominante Richtung eingerastet, kollineare Stücke vereinigt, Ecken und T-Stöße bis zur Mittellinie der Nachbarwand geschlossen. Planrahmen/Schriftfeld werden als getrennte, das Gebäude umschließende Linienpaare verworfen.
+- **Öffnungen:** Lücken in einer Wand werden klassifiziert: Viertelkreis mit Radius ≈ Lückenbreite → Tür, zwei halbe Bögen → Doppeltür, Linien innerhalb der Wandstärke → Fenster, Türblöcke/Fensterblöcke (INSERT-Namen) → Tür/Fenster, anstoßende Querwand → keine Öffnung, sonst „Durchgang“ (unklar). Symbole ohne Lücke werden in der nächsten Wand verortet statt verworfen. Höhen ohne Angabe: Tür 2,01 m, Fenster Brüstung 0,90 m/Höhe 1,35 m (als Annahme markiert).
+- **Räume:** von Wänden umschlossene Flächen (shapely), Name aus der Beschriftung im Raum, beschriftete Fläche („16,15 m²“) wird gegen die gemessene geprüft.
+- **IFC:** IfcOpenShell, IFC4: Geschoss, IfcWall mit echter Stärke und Wandtyp, IfcOpeningElement + IfcDoor/IfcWindow mit Breite/Höhe, IfcSpace mit Fläche, Bodenplatte (20 cm Annahme). BIMCraft bleibt Rückfall für den Bildweg.
+- **Gemini:** bekommt bei PDF-Quellen Original-PDF, eine Draufsicht mit IDs (W/O/R) und die Kandidatenliste. Antwort nur über IDs: Nicht-Wände markieren (höchstens 30 % der Wände, sonst ignoriert), unklare Öffnungen einordnen, abgelesene Höhen, unbeschriftete Räume benennen, Geschosshöhe. Keine Koordinaten. Fällt die Prüfung aus, bleibt das vermessene Ergebnis mit Hinweis. DXF/DWG werden nie an Google gesendet.
+- **Qualitätsbericht** (`app_plan_jobs.quality`, in App unter dem Auftrag): Maßstab und Herkunft, Anzahl Wände/Türen/Fenster/unklare Öffnungen/Räume, jede Planmaßzahl gemessen vs. beschriftet mit Abweichung, Räume ohne Tür, Flächenvergleich. „gut“ nur bei ≤ 2 % Maßabweichung, mindestens drei Maßzahlen und Tür in jedem Raum.
+- **Grenzen:** Fotos/Scans bleiben auf dem Gemini-Weg (Phase 3: Rastererkennung). Schräge Wände werden wie gerade gepaart (in den Testplänen nicht abgedeckt), Bögen/runde Wände gar nicht. Ein PDF-Plan mit großem Rasterbild und wenigen Linien gilt als Scan.
+- **Tests:** `test/fixtures/plans/` enthält selbst erzeugte Pläne mit bekannten Maßen (`plan-extract/tests/make_fixtures.py`, `expected.json`): DXF mit Layern/Blöcken/DIMENSION, einheitenlose cm-DXF mit aufgelösten Symbolen, Vektor-PDF 1:100 und 1:50, Text-PDF, Scan mit Rahmen. `cd dashboard/backend/plan-extract && python -m unittest discover -s tests` prüft Wand-, Tür-, Fensterzahl, Gesamtmaße, Wandstärken und Raumflächen (≤ 2 %), IFC-Validierung und die ID-basierte KI-Prüfung. `node --test test/plan-vector.test.js` prüft die Worker-Anbindung (mit `PLAN_PYTHON=<venv>/bin/python` auch Ende-zu-Ende).
+
 ## Aufbau und Datenhaltung
 
-`App/Web → API → PostgreSQL-Auftrag → plan-worker → Gemini → geprüfte Geometriedaten → BIMCraft 0.11.0 → Vorschau → manuelle Übernahme`
+`App/Web → API → PostgreSQL-Auftrag → plan-worker → Vektorplan? vermessen (IfcOpenShell) : Gemini → geprüfte Geometriedaten → BIMCraft 0.11.0 → Vorschau → manuelle Übernahme`
 
 - `app_plan_settings`: Freigabe, Richtlinienversion und Änderungsstand je Gebäude.
 - `app_plan_jobs`: Quelle-IDs, SHA-256, Status, Geometriedaten, Anbieter/Tokenangaben, Vorschau und vorläufige IFC. Bytes bleiben serverseitig und sind nur für den Eigentümer abrufbar. Bei Übernahme wandert die IFC nach `app_documents` und wird aus dem Auftrag entfernt.

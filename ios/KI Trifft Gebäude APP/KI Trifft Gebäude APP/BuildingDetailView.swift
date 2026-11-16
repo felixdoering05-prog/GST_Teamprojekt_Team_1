@@ -27,7 +27,7 @@ struct BuildingFilesView: View {
     }
     private var locked: Bool { flow.busy || preparing || fileAction }
     private var filtered: [BuildingDocument] { documents.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
-    private var acceptedTypes: [UTType] { [.pdf, .image, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
+    private var acceptedTypes: [UTType] { [.pdf, .image, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg"), UTType(filenameExtension: "dxf") ?? UTType(importedAs: "com.autodesk.dxf")] }
     private func reload() async {
         loading = true; defer { loading = false }
         do { documents = try await model.documents(buildingID: building.id) }
@@ -143,7 +143,7 @@ struct BuildingFilesView: View {
                             }
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: document.mime_type.hasPrefix("image/") ? "photo.fill" : ["application/acad", "application/x-step"].contains(document.mime_type) ? "cube.transparent" : "doc.text.fill").font(.title3).foregroundStyle(d21Accent)
+                                Image(systemName: document.mime_type.hasPrefix("image/") ? "photo.fill" : ["application/acad", "application/dxf", "application/x-step"].contains(document.mime_type) ? "cube.transparent" : "doc.text.fill").font(.title3).foregroundStyle(d21Accent)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(document.name).foregroundStyle(.primary)
                                     Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file)).font(.caption).foregroundStyle(.secondary)

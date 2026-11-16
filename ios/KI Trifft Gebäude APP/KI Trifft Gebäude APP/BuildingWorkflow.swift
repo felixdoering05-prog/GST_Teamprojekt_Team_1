@@ -174,7 +174,7 @@ struct AddBuildingView: View {
     }
     private var step: BuildingStep { flow.draft.step }
     private var locked: Bool { flow.busy || preparing || flow.account.busy || flow.loadFailed }
-    private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg")] }
+    private var planTypes: [UTType] { [.pdf, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg"), UTType(filenameExtension: "dxf") ?? UTType(importedAs: "com.autodesk.dxf")] }
     private func advance(_ next: BuildingStep) { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flow.advance(next) } }
     private var titles: [BuildingStep: String] { [.name:"Wie heißt dein Gebäude?", .address:"Wo steht dein Gebäude?", .photos:"Zeig uns dein Gebäude", .plans:"Lade deine Grundrisse hoch", .overview:"Dein Gebäude wird digital"] }
     private var subtitles: [BuildingStep: String] {
