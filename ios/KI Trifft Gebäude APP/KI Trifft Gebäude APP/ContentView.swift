@@ -136,7 +136,11 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         if WorkflowPreview.enabled {
             serverURL = "https://d21-preview.invalid"; token = String(repeating: "0", count: 64);tokenOrigin=origin
             user = Account(id: 999999, name: "Felix · Vorschau", email: "vorschau@example.invalid")
-            await loadBuildings(); restoring = false; return
+            await loadBuildings()
+            if ProcessInfo.processInfo.arguments.contains("-D21ESP32Preview"), let building = buildings.first {
+                AppRouter.shared.route = .building(building.id, area: "Dashboard")
+            }
+            restoring = false; return
         }
         #endif
         defer { restoring = false }

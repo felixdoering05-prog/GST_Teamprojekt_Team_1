@@ -21,16 +21,17 @@ async function initTelemetry(db){
  request_key TEXT NOT NULL,payload_hash TEXT NOT NULL,result JSONB NOT NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),PRIMARY KEY(building_id,user_id,request_key))`);
 }
-async function telemetrySnapshot(db,building,source){
+async function telemetrySnapshot(db,building,source,sensorIDs=null){
  if(!validSource(source))fail('Bitte Echt- oder Demodaten auswählen.');
- const records=async(entity,limit,filterSource=true)=>(await db.query(`SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity=$2 AND data->>'building_id'=$3 ${filterSource?"AND data->>'source'=$4":''} ORDER BY created_at DESC,id LIMIT ${limit+1}`,[building.user_id,entity,String(building.id),...(filterSource?[source]:[])])).rows;
+ const scoped=sensorIDs!==null;
+ const records=async(entity,limit)=>(await db.query(`SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity=$2 AND data->>'building_id'=$3 AND data->>'source'=$4 ${scoped?`AND ${entity==='Sensor'?'id':"data->>'sensor_id'"}=ANY($5::text[])`:''} ORDER BY created_at DESC,id LIMIT ${limit+1}`,[building.user_id,entity,String(building.id),source,...(scoped?[sensorIDs]:[])])).rows;
  const [sensors,measurements,energy,thresholdRows]=await Promise.all([
-  records('Sensor',100),records('Measurement',500),records('EnergyReading',100),
+  records('Sensor',scoped?60:100),records('Measurement',500),scoped?Promise.resolve([]):records('EnergyReading',100),
   db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='ThresholdConfig' ORDER BY created_at,id LIMIT 100",[building.user_id])
  ]);
  const thresholds=mergeThresholds(thresholdRows.rows.map(r=>r.data));
  const points=measurements.slice(0,500).filter(r=>METRIC_META[r.data.metric]&&typeof r.data.value==='number'&&Number.isFinite(r.data.value)&&Number.isFinite(Date.parse(r.data.measured_at))).map(({id,data:d})=>({id,sensor_id:text(d.sensor_id),sensor_code:text(d.sensor_code),metric:d.metric,value:d.value,unit:METRIC_META[d.metric].unit,measured_at:new Date(d.measured_at).toISOString(),source,quality:['ok','verdaechtig','fehlend'].includes(d.quality)?d.quality:'ok'})).sort((a,b)=>a.measured_at.localeCompare(b.measured_at)||a.id.localeCompare(b.id));
- return {source,generated_at:new Date().toISOString(),truncated:sensors.length>100||measurements.length>500||energy.length>100,
+ return {source,generated_at:new Date().toISOString(),truncated:sensors.length>(scoped?60:100)||measurements.length>500||energy.length>100,
   scope:'Maximal 100 Sensoren, 500 zuletzt gespeicherte Messungen und 100 zuletzt gespeicherte Energiezeiträume dieses Gebäudes. Echt/Demo getrennt. Quelle real bedeutet importiert, nicht unabhängig verifiziert.',
   sensors:sensors.slice(0,100).filter(r=>METRIC_META[r.data.metric]).map(({id,data:d})=>({id,sensor_code:text(d.sensor_code),name:text(d.name)||text(d.sensor_code),metric:d.metric,unit:METRIC_META[d.metric].unit,status:text(d.status),room_id:text(d.room_id),source})),
   measurements:points,
@@ -82,6 +83,17 @@ function telemetryRouter(db,requireAccount){
  r.get(base,wrap(async(req,res)=>{
   const b=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);if(!b)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   res.json(await telemetrySnapshot(db,b,req.query.source||'real'));
+ }));
+ r.get(base+'/esp32',wrap(async(req,res)=>{
+  const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
+  if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
+  // Device mapping is server-owned. Never accept sensor IDs or a source from the caller.
+  const devices=(await db.query('SELECT sensors FROM app_sensor_devices WHERE user_id=$1 AND building_id=$2 AND revoked=false ORDER BY created_at,id LIMIT 21',[building.user_id,building.id])).rows;
+  const ids=[...new Set(devices.slice(0,20).flatMap(d=>['temperature','humidity','co2'].map(metric=>d.sensors?.[metric]).filter(id=>typeof id==='string'&&id.length<=100)))];
+  const snapshot=await telemetrySnapshot(db,building,'demo',ids);
+  snapshot.truncated=snapshot.truncated||devices.length>20;
+  snapshot.scope='ESP32 · übertragene simulierte Messwerte. Nur zugeordnete Sensoren aktiver Geräte dieses Gebäudes; keine echten Sensormessungen. Maximal 20 Geräte, 60 Sensoren und 500 zuletzt gespeicherte Messwerte. Kein Energieimport und keine sonstigen Demodaten.';
+  res.json(snapshot);
  }));
  r.get(base+'/room-temperatures',wrap(async(req,res)=>{
   const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);

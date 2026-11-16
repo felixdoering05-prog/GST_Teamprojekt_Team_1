@@ -6,6 +6,8 @@ struct BuildingCockpit: View {
     @ObservedObject var account: AccountModel
     let open: (String) -> Void
     @State private var snapshot: TelemetrySnapshot?
+    @State private var espSnapshot: TelemetrySnapshot?
+    @State private var espProblem: String?
     @State private var problem: String?
     @State private var loading = false
     @State private var issues: [BuildingIssue]?
@@ -51,9 +53,16 @@ struct BuildingCockpit: View {
                     Label(problem, systemImage: "exclamationmark.icloud").font(.footnote).foregroundStyle(.orange)
                     if snapshot != nil { Text("Letzter geladener Stand").font(.caption).foregroundStyle(.secondary) }
                 }
+                if let esp = espSnapshot, !esp.sensors.isEmpty {
+                    ESP32TelemetryContent(data: esp).padding(18).d21Card(cornerRadius: 22)
+                }
+                if let espProblem {
+                    Label(espProblem, systemImage: "exclamationmark.icloud").font(.footnote).foregroundStyle(.orange)
+                    if espSnapshot != nil { Text("ESP32: letzter geladener Stand").font(.caption).foregroundStyle(.secondary) }
+                }
                 if let snapshot {
                     if snapshot.source == "demo" { Label("Lokale Vorschau · fiktive Werte", systemImage: "testtube.2").font(.caption.bold()).foregroundStyle(.orange) }
-                    if metricSensors.isEmpty {
+                    if metricSensors.isEmpty && espSnapshot?.sensors.isEmpty != false {
                         VStack(spacing: 12) {
                             Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundStyle(d21Accent)
                             Text("Deine Messwerte fehlen noch").font(.headline)
@@ -161,17 +170,28 @@ struct BuildingCockpit: View {
     }
     private func load() async {
         guard !loading else { return }; loading = true; defer { loading = false }
+        async let espLoad: Void = loadESP32()
         if let list = try? await account.issues(buildingID: building.id) { issues = list }
         do {
             let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry?source=real")
             guard !Task.isCancelled else { return }
             WidgetSnapshotWriter.telemetry(data, buildingID: building.id)
             #if DEBUG
-            if WorkflowPreview.enabled { snapshot = data; problem = nil; return }
+            if WorkflowPreview.enabled { snapshot = data; problem = nil; await espLoad; return }
             #endif
             guard data.source == "real" else { throw APIError(status: 0, message: "Keine bestätigte Messdatenquelle.") }
             snapshot = data; problem = nil
         } catch is CancellationError {} catch { if !Task.isCancelled { problem = error.localizedDescription } }
+        await espLoad
+    }
+    private func loadESP32() async {
+        do {
+            let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry/esp32")
+            guard !Task.isCancelled else { return }
+            espSnapshot = data; espProblem = nil
+        } catch {
+            if !Task.isCancelled { espProblem = "ESP32-Werte konnten gerade nicht geladen werden." }
+        }
     }
 }
 
