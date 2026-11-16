@@ -386,13 +386,28 @@ class Detector:
         for i in range(len(walls)):
             comps[find(i)].append(i)
         from shapely.ops import unary_union
-        from shapely.geometry import Polygon
+        from shapely.geometry import Polygon, box
         shapes = {k: unary_union([geoms[i] for i in v]) for k, v in comps.items()}
         holes = {k: unary_union([Polygon(r) for g in getattr(sh, 'geoms', [sh]) for r in g.interiors]) for k, sh in shapes.items()}
-        # Plan frames and title blocks enclose the drawing: a component lying inside another one's hole marks the outer one as frame.
-        frames = {k for k in comps for j in comps if j != k and not holes[k].is_empty and holes[k].contains(shapes[j])}
-        size = {k: sum(walls[i]['s1'] - walls[i]['s0'] for i in v) for k, v in comps.items() if k not in frames} or \
-            {k: sum(walls[i]['s1'] - walls[i]['s0'] for i in v) for k, v in comps.items()}
+        total = {k: sum(walls[i]['s1'] - walls[i]['s0'] for i in v) for k, v in comps.items()}
+
+        def on_box(k):
+            # Few wall pairs, all lying on the component's own bounding box: a (possibly open) frame line.
+            x0, y0, x1, y1 = shapes[k].bounds
+            edge = box(x0, y0, x1, y1).exterior.buffer(1000)
+            return len(comps[k]) <= 8 and all(edge.contains(geoms[i]) for i in comps[k])
+
+        def encloses(k, j):
+            # Rooms contain small symbols; a frame encloses a substantial part of the drawing.
+            if total[j] < 0.2 * total[k]:
+                return False
+            if not holes[k].is_empty and holes[k].contains(shapes[j]):
+                return True
+            x0, y0, x1, y1 = shapes[k].bounds
+            return on_box(k) and box(x0, y0, x1, y1).contains(shapes[j])
+        # Plan frames and title blocks enclose the drawing: the outer component is a frame, not the building.
+        frames = {k for k in comps for j in comps if j != k and encloses(k, j)}
+        size = {k: s for k, s in total.items() if k not in frames} or total
         keep = max(size, key=size.get)
         dropped = [w for i, w in enumerate(walls) if find(i) != keep]
         if dropped:
