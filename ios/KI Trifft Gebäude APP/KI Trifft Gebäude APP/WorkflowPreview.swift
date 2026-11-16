@@ -13,6 +13,7 @@ enum WorkflowPreview {
     static var keys: [String: Int] = [:]
     static var assistantTurns: [[String:Any]] = []
     static var sceneRevision = 0
+    static var issues: [[String: Any]] = []
     static var devices: [[String:Any]] = [
         ["id":1,"building_id":901,"name":"Deckenlicht","room":"Besprechung","kind":"light","mode":"simulation","integration":"none","is_on":false,"revision":0],
         ["id":2,"building_id":901,"name":"Raumtemperatur","room":"Besprechung","kind":"temperature","mode":"planned","integration":"home-assistant","is_on":false,"revision":0]
@@ -102,6 +103,23 @@ final class WorkflowPreviewProtocol: URLProtocol {
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
         else if path.hasSuffix("/telemetry") { result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(TelemetrySnapshot.demo()))) ?? [:] }
+        else if path.contains("/issues") {
+            // Defects: in-memory list for the local preview.
+            let parts = path.split(separator: "/"), issueID = parts.last.flatMap { Int($0) }
+            func issue(_ id: Int, _ title: String, _ status: String, _ room: String) -> [String: Any] { ["id":id,"title":title,"description":"","status":status,"room":room,"document_id":NSNull(),"space_id":NSNull(),"point":NSNull(),"has_photo":false,"reporter":"Benjamin","is_mine":false,"can_edit":true,"revision":0,"created_at":"2026-11-13T09:30:00.000Z","updated_at":"2026-11-13T09:30:00.000Z"] }
+            if WorkflowPreview.issues.isEmpty { WorkflowPreview.issues = [issue(1, "Feuchtigkeit / Schimmel", "open", "Raum 1.12"), issue(2, "Licht defekt", "in_progress", "Flur EG"), issue(3, "Tür klemmt", "done", "Labor 0.04")] }
+            if path.hasSuffix("/photo") { status = 404; result = ["error":"Kein Foto vorhanden."] }
+            else if method == "POST" {
+                var item = issue((WorkflowPreview.issues.compactMap { $0["id"] as? Int }.max() ?? 0) + 1, json["title"] ?? "Mangel", "open", json["room"] ?? "")
+                item["description"] = json["description"] ?? ""; item["reporter"] = "Felix"; item["is_mine"] = true
+                if let point = object["point"] { item["point"] = point; item["document_id"] = object["document_id"] ?? NSNull() }
+                WorkflowPreview.issues.insert(item, at: 0); status = 201; result = item
+            } else if method == "PATCH", let issueID, let index = WorkflowPreview.issues.firstIndex(where: { $0["id"] as? Int == issueID }) {
+                WorkflowPreview.issues[index]["status"] = object["status"] ?? WorkflowPreview.issues[index]["status"]
+                WorkflowPreview.issues[index]["revision"] = (WorkflowPreview.issues[index]["revision"] as? Int ?? 0) + 1; result = WorkflowPreview.issues[index]
+            } else if method == "DELETE", let issueID { WorkflowPreview.issues.removeAll { $0["id"] as? Int == issueID }; result = ["ok":true] }
+            else { result = WorkflowPreview.issues }
+        }
         else if path.contains("/devices") {
             if method == "POST" {
                 var item = object; item["id"] = (WorkflowPreview.devices.map { $0["id"] as? Int ?? 0 }.max() ?? 0) + 1

@@ -1,0 +1,1 @@
+Die ausschließlich synthetischen Dateien in diesem Ordner (generate.py, PNG-Referenzbilder, expected.json und evaluation.json) wurden für diesen Prototyp selbst erzeugt. Sie werden unter CC0 1.0 Universal bereitgestellt: https://creativecommons.org/publicdomain/zero/1.0/ . Keine echten Hochschul-, Gebäude- oder personenbezogenen Daten enthalten.

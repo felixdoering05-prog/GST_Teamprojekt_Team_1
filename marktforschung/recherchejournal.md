@@ -1,5 +1,30 @@
 # Recherchejournal
 
+## 15. November 2026, ca. 19:00 MEZ – Archibus und BuildingMinds im Betriebsvergleich
+
+**Neue Wettbewerber in dieser Vergleichsrunde (nicht als neue Produkteinführung behauptet):** Archibus Digital Twins mit Revit-Modellen aus Autodesk Construction Cloud/Build, Autodesk-APS-basiertem BIM-Viewer und Verknüpfung von Assets; sowohl SaaS als auch Non-SaaS, jedoch nur mit kostenpflichtiger Digital-Twins-Lizenz. BuildingMinds mit Digital Building Twin und API-Integration für BMS, IoT, Smart Meter, CAFM und Energiemanagement sowie KI-gestützter Nachrüstplanung. Hersteller kennzeichnet einzelne Szenarienvergleiche und Wirkungsnachweise als noch nicht verfügbar. **Keine verifizierten EUR-Listenpreise** für diese Angebote. Aussagen beruhen auf Anbieterquellen, nicht auf unabhängigen Produkttests.
+
+**Quellen (Abruf 15.11.2026):** [Archibus BIM Viewer](https://help.archibus.com/user_en/Subsystems/webc/Content/web_user/bim_viewer/bim_viewer.htm), [Archibus BIM-Viewer-Definition](https://help.archibus.com/user_en/Subsystems/webc/Content/shared_gloss/bim_viewer_def.htm), [BuildingMinds Daten](https://buildingminds.com/de/daten), [BuildingMinds KI-Nachrüstung](https://buildingminds.com/de/digital-twin2/).
+
+**Projektabgleich:** Hauptbranch-README beschreibt IFC-/Web-/iPhone-Prototyp, Gemini-/ElevenLabs-Funktionen und private Home-Assistant-Geräte. PR #167 ergänzt Marktanalyse; PR #163 Mängelmelder ist noch offen. Echtes D21-Telemetrie-zu-IFC-End-to-End-Szenario und Preisvorteil **nicht bestätigt**.
+
+**Chance:** Niedrigschwellige Bedienung für kleine Gebäudeteams und verifizierbare Raum-Sensor-Zuordnung; **Risiko:** Archibus verbindet bereits BIM und Assetmanagement, BuildingMinds IoT und Energiedaten. **Nächster Test:** Revit/IFC-Raum, reale Messwerte, Rollenrechte und Implementierungskosten mit gleicher Testaufgabe vergleichen.
+
+---
+
+## 15. November 2026, ca. 09:00 MEZ – Neue Anbieter Lexi und Scope3D; Autodesk-Lizenzmodelle getrennt
+
+**Neue direkte Wettbewerber:** [Twiniti Lexi](https://lexi.twiniti.ai/) bietet laut offizieller Produktseite **Lexi Lite kostenlos** als 3D-Viewer (APS/Fragments) mit KI-Modellchat; **Lexi Plus** kostenpflichtig und auf Warteliste, ohne verifizierten Preis. [Scope3D](https://scope3d.com/) bewirbt IFC/Revit/PDF-zu-3D-Twin, KI-Copilot, IFC-Export und Betriebsfunktionen. Veröffentlichte Einstiegspreise **ab 750 USD einmalig pro Gebäude plus ab 59 USD/Monat**; tatsächlicher Vertrag, Steuer, Funktionsumfang und Praxistauglichkeit **nicht unabhängig bestätigt**. Zielgruppen: BIM/AEC-Teams beziehungsweise Gebäudeeigentümer und Betreiber.
+
+**Lizenzpräzisierung:** [Autodesk Tandem Terms](https://www.autodesk.com/company/terms-of-use/en/offering-types-and-benefits) unterscheiden *Capacity-based*-Stufen (Free: 500 Assets/3 Facilities/100 Mio. Datenpunkte) von *Tagged-Assets/Streams*-Stufen (Free: 1.000 Tagged Assets/200 Streams/14 Tage). Nicht zu einem einzigen Paket vermischen. [Bentley iTwin](https://developer.bentley.com/pricing/) unverändert 199 bzw. 499 USD/Monat für Entwicklerplattform; Free nur nicht kommerziell.
+
+**Projektabgleich:** Die [README auf main](../README.md) beschreibt den IFC-/KI-/Sprach-Prototyp mit LiDAR→IFC, Gemini-Lesewerkzeugen und privaten Home-Assistant-Lampen. [PR #165](../../pull/165) und [#166](../../pull/166) sind inzwischen gemergt. [PR #163](../../pull/163) Mängelmelder weiterhin offen; echter D21-Messwert, produktive Revit-Liveanbindung, unabhängige KI-/Sprachtests und Preisvorteil nicht nachgewiesen.
+
+**Chance:** transparente Raum-Sensor-Rechte-Nutzerführung für kleinere Gebäudeteams (Hypothese). **Risiko:** kostenlose KI-3D-Viewer und kommerzielle Plan-zu-Twin-Angebote verkleinern die vermeintliche Differenzierung. **Nächster Schritt:** Vergleichstest mit echtem D21-Datenpunkt und identischen Modell-/Rollenbedingungen. Alle Quellen abgerufen am **15.11.2026**; Anbieterangaben sind keine unabhängigen Tests.
+
+---
+
+
 ## 14. November 2026, ca. 19:00 MEZ – Abendprüfung: Tandem Connect und Siemens-Campusreferenz
 
 **Offizielle Quellen erneut geprüft:** Autodesk Tandem [Produktvergleich](https://www.autodesk.com/products/tandem/compare) und [Nutzungsbedingungen](https://www.autodesk.com/company/terms-of-use/en/offering-types-and-benefits); [Siemens Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/); [Bentley-Preise](https://developer.bentley.com/pricing/). Abrufdatum **14.11.2026**. Die Angaben sind Herstellerangaben, keine unabhängigen Funktionstests.
