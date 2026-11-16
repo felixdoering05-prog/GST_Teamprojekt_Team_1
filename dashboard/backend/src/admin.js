@@ -1,9 +1,11 @@
 const express=require('express');
 const {readFile}=require('node:fs/promises');
+const {initAccountLimits,validate:validateLimits,describe:describeLimits,saveLimits}=require('./account-limits');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const adminIDs=()=>new Set((process.env.D21_ADMIN_USER_IDS||'').split(',').filter(v=>/^[1-9]\d*$/.test(v)).map(Number));
 async function initAdmin(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_api_usage_hourly(hour TIMESTAMPTZ NOT NULL,category TEXT NOT NULL,method TEXT NOT NULL,status_class INTEGER NOT NULL,count BIGINT NOT NULL DEFAULT 0,duration_ms DOUBLE PRECISION NOT NULL DEFAULT 0,PRIMARY KEY(hour,category,method,status_class))`);
+ await initAccountLimits(db);
 }
 function usageMiddleware(db){
  let warned=0;
@@ -44,9 +46,23 @@ function adminRouter(db,requireAccount,options={}){
   if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>100000)return res.status(400).json({error:'Ungültige Seitenauswahl.'});
   const [total,users]=await Promise.all([
    db.query('SELECT COUNT(*) AS count FROM app_users'),
-   db.query(`SELECT u.id,u.name,u.email,u.created_at,(SELECT COUNT(*) FROM app_sessions s WHERE s.user_id=u.id AND s.expires_at>now()) AS active_sessions,(SELECT COUNT(*) FROM app_buildings b WHERE b.user_id=u.id) AS buildings,(SELECT COALESCE(SUM(d.size),0) FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=u.id) AS file_bytes,(SELECT COUNT(*) FROM app_ai_requests a WHERE a.user_id=u.id AND a.created_at>now()-interval '24 hours') AS ai_requests FROM app_users u ORDER BY u.id LIMIT $1 OFFSET $2`,[limit,offset])
+   db.query(`SELECT u.id,u.name,u.email,u.created_at,COALESCE((SELECT l.unlimited FROM app_user_limits l WHERE l.user_id=u.id),false) AS limits_unlimited,COALESCE((SELECT l.overrides<>'{}'::jsonb FROM app_user_limits l WHERE l.user_id=u.id),false) AS limits_custom,(SELECT COUNT(*) FROM app_sessions s WHERE s.user_id=u.id AND s.expires_at>now()) AS active_sessions,(SELECT COUNT(*) FROM app_buildings b WHERE b.user_id=u.id) AS buildings,(SELECT COALESCE(SUM(d.size),0) FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=u.id) AS file_bytes,(SELECT COUNT(*) FROM app_ai_requests a WHERE a.user_id=u.id AND a.created_at>now()-interval '24 hours') AS ai_requests FROM app_users u ORDER BY u.id LIMIT $1 OFFSET $2`,[limit,offset])
   ]);
   res.json({total:Number(total.rows[0].count),limit,offset,users:users.rows.map(u=>({...u,admin:(options.adminIDs||adminIDs()).has(u.id)}))});
+ }));
+ const userID=req=>/^[1-9]\d{0,9}$/.test(req.params.limitUser)&&Number(req.params.limitUser)<=2147483647?Number(req.params.limitUser):null;
+ r.get('/users/:limitUser/limits',wrap(async(req,res)=>{
+  const id=userID(req);if(!id)return res.status(400).json({error:'Ungültiges Konto.'});
+  if(!(await db.query('SELECT 1 FROM app_users WHERE id=$1',[id])).rows.length)return res.status(404).json({error:'Konto nicht gefunden.'});
+  res.json(await describeLimits(db,id));
+ }));
+ r.put('/users/:limitUser/limits',wrap(async(req,res)=>{
+  const id=userID(req);if(!id)return res.status(400).json({error:'Ungültiges Konto.'});
+  const error=validateLimits(req.body);if(error)return res.status(400).json({error});
+  const result=await saveLimits(db,id,req.body,Number(req.account.id));
+  if(result.status===404)return res.status(404).json({error:'Konto nicht gefunden.'});
+  if(result.status===409)return res.status(409).json({error:'Die Limits wurden inzwischen geändert. Bitte neu laden.'});
+  res.json(result.body);
  }));
  return r;
 }

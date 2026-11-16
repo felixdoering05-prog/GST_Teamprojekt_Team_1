@@ -102,6 +102,12 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
+        else if path.hasSuffix("admin/me") { result = ["admin":true] }
+        else if path.contains("/admin/users/") && path.hasSuffix("/limits") {
+            let items: [[String:Any]] = [["key":"assistant_day","label":"KI-Fragen pro 24 Stunden","default":20,"overridden":true,"override":50,"effective":50],["key":"plan_day","label":"Planaufträge pro 24 Stunden","default":3,"overridden":true,"override":NSNull(),"effective":NSNull()],["key":"storage_mb","label":"Speicher für eigene Gebäude (MB)","default":250,"overridden":false,"override":NSNull(),"effective":250]]
+            result = ["user_id":2,"unlimited":method == "PUT","revision":1,"limits":items]
+        }
+        else if path.contains("/admin/users") { result = ["total":2,"limit":100,"offset":0,"users":[["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid","buildings":"2","limits_unlimited":true,"limits_custom":false,"admin":true],["id":2,"name":"Benjamin","email":"benjamin@example.invalid","buildings":"1","limits_unlimited":false,"limits_custom":true,"admin":false]]] }
         else if path.hasSuffix("/weather") { let now = ISO8601DateFormatter().string(from: Date()); result = ["location":["latitude":49.8667,"longitude":8.6383,"revision":1,"source":"preview"],"weather":["provider":"preview","kind":"forecast","current":["time":now,"temperature":11.4,"humidity":72,"cloud_cover":45,"wind_speed":9],"hourly":[],"fetched_at":now,"attribution":"Lokale Vorschau","source_url":"https://open-meteo.com/"]] }
         else if path.hasSuffix("/telemetry") { result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(TelemetrySnapshot.demo()))) ?? [:] }
         else if path.contains("/issues") {

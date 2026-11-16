@@ -621,6 +621,7 @@ struct ProfileView: View {
     @State private var saved = false
     @State private var showPresentation = false
     @State private var savingMode = false
+    @State private var projectAdmin = false
     var body: some View {
         let photoTitle = model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern"
         return NavigationStack {
@@ -636,6 +637,7 @@ struct ProfileView: View {
                 }
                 Section { NavigationLink { AISettingsView(account: model) } label: { Label("KI-Einstellungen", systemImage: "sparkles") } }
                 Section { NavigationLink { ProjectServiceStatusView(account: model) } label: { Label("Serverstatus", systemImage: "server.rack") } }
+                if projectAdmin { AdminEntrySection(account: model) }
                 Section("Darstellung") {
                     Toggle("Vorstellungsmodus",isOn:Binding(get:{model.presentationMode},set:{value in Task{savingMode=true;defer{savingMode=false};do{try await model.savePresentationMode(value);showPresentation=value}catch{problem=error.localizedDescription}}})).disabled(savingMode)
                     Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
@@ -646,6 +648,7 @@ struct ProfileView: View {
                 Section { Button("Erweitert: eigener Projektserver", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
             }
             .navigationTitle("Mein Profil").navigationBarTitleDisplayMode(.inline)
+            .task(id: model.user?.id) { projectAdmin = await model.isProjectAdmin() }
             .toolbar { if !embedded { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() }.disabled(uploading) } } }
             .interactiveDismissDisabled(uploading)
             .sheet(isPresented: $showConnection) { ConnectionView() }

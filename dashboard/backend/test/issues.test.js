@@ -5,13 +5,14 @@ const {PGlite}=require('@electric-sql/pglite');
 const {randomUUID}=require('node:crypto');
 const {initIssues,issuesRouter}=require('../src/issues');
 const {initCollaboration}=require('../src/collaboration');
+const {initAccountLimits}=require('../src/account-limits');
 let db,server,base;
 const JPEG=Buffer.from([0xff,0xd8,0xff,0xe0,0,0x10,0x4a,0x46,0x49,0x46,0,1]);
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}}),end:()=>pg.close()};
  await pg.exec("CREATE TABLE app_users(id SERIAL PRIMARY KEY,name TEXT,email TEXT);CREATE TABLE app_buildings(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES app_users(id) ON DELETE CASCADE,name TEXT);INSERT INTO app_users(name) VALUES('Owner Person'),('Member Person'),('Outsider');INSERT INTO app_buildings(user_id,name) VALUES(1,'D21'),(3,'Other')");
  await pg.exec("CREATE TABLE app_documents(id SERIAL PRIMARY KEY,building_id INTEGER REFERENCES app_buildings(id) ON DELETE CASCADE,mime_type TEXT);INSERT INTO app_documents(building_id,mime_type) VALUES(1,'application/x-step'),(2,'application/x-step'),(1,'application/pdf')");
- await initCollaboration(db);await initIssues(db);await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
+ await initCollaboration(db);await initAccountLimits(db);await initIssues(db);await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
  const app=express();app.use(express.json({limit:'16kb'}));
  app.use(issuesRouter(db,(req,res,next)=>{const id=Number(req.get('X-Test-User'));if(![1,2,3].includes(id))return res.sendStatus(401);req.account={id};next();}));
  app.use((e,req,res,next)=>res.status(500).json({error:e.message}));

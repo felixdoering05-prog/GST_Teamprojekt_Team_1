@@ -1,3 +1,4 @@
+const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
 const {accessibleBuilding,notifyBuilding}=require('./collaboration');
 // Defect reports ("Mängel") per building: text, optional photo and an optional position in an IFC model
@@ -8,7 +9,7 @@ const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});}
 const idOK=value=>/^[1-9]\d{0,9}$/.test(String(value))&&Number(value)<=2147483647;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const STATUS=['open','in_progress','done'];
-const MAX_ISSUES=300,MAX_PHOTO=2*1024*1024;
+const MAX_LIST=5000,MAX_PHOTO=2*1024*1024;
 const firstName=name=>name?String(name).trim().split(/\s+/)[0].slice(0,100):'Ehemaliges Mitglied';
 const COLUMNS='i.id,i.building_id,i.user_id,i.title,i.description,i.status,i.room,i.document_id,i.space_id,i.x,i.y,i.z,(i.photo IS NOT NULL) AS has_photo,i.revision,i.created_at,i.updated_at,u.name AS reporter_name';
 async function initIssues(db){
@@ -66,7 +67,7 @@ function issuesRouter(db,requireAccount){
  async function tx(fn){const c=await db.connect();try{await c.query('BEGIN');const v=await fn(c);await c.query('COMMIT');return v;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
  r.get(base,wrap(async(req,res)=>{
   const b=await building(db,req);
-  const rows=(await db.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id WHERE i.building_id=$1 ORDER BY CASE i.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,i.id DESC LIMIT ${MAX_ISSUES}`,[b.id])).rows;
+  const rows=(await db.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id WHERE i.building_id=$1 ORDER BY CASE i.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,i.id DESC LIMIT ${MAX_LIST}`,[b.id])).rows;
   res.json(rows.map(x=>present(x,req.account.id,b.user_id)));
  }));
  r.post(base,wrap(async(req,res)=>{
@@ -78,7 +79,8 @@ function issuesRouter(db,requireAccount){
    const b=await building(c,req,true);
    const existing=(await c.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id WHERE i.building_id=$1 AND i.request_key=$2`,[b.id,body.request_key])).rows[0];
    if(existing){if(existing.user_id!==req.account.id||existing.title!==title)fail('Diese Meldung wurde bereits anders gespeichert.',409);return {status:200,row:existing,owner:b.user_id};}
-   if(Number((await c.query('SELECT COUNT(*) n FROM app_building_issues WHERE building_id=$1',[b.id])).rows[0].n)>=MAX_ISSUES)fail(`Höchstens ${MAX_ISSUES} Mängel pro Gebäude. Bitte erledigte Meldungen löschen.`,409);
+   const lim=await accountLimits(c,b.user_id);
+   if(reached(lim,'issues_building',(await c.query('SELECT COUNT(*) n FROM app_building_issues WHERE building_id=$1',[b.id])).rows[0].n))fail(`Höchstens ${lim.values.issues_building} Mängel pro Gebäude. Bitte erledigte Meldungen löschen.`,409);
    const at=await location(c,b.id,body);
    const id=(await c.query('INSERT INTO app_building_issues(building_id,user_id,title,description,room,document_id,space_id,x,y,z,request_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id',[b.id,req.account.id,title,description,room,at.document_id,at.space_id,at.x,at.y,at.z,body.request_key])).rows[0].id;
    await notifyBuilding(c,b.id,req.account.id,'issue',`Neuer Mangel in ${String(b.name||'Gebäude').slice(0,80)}: ${title.slice(0,80)}`);

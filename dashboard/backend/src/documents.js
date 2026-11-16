@@ -1,10 +1,10 @@
+const {accountLimits,reached}=require('./account-limits');
 const {enqueueUpload}=require('./plan-conversion/queue');
 const {accessibleBuilding,accessSQL,notifyBuilding}=require('./collaboration');
 const express = require('express');
 const path = require('node:path');
 const MAX_FILE = 25 * 1024 * 1024;
 const MAX_IFC = 20 * 1024 * 1024;
-const MAX_ACCOUNT = 250 * 1024 * 1024;
 const wrap = fn => (req,res,next) => Promise.resolve(fn(req,res)).catch(next);
 const idOK = value => /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647;
 function fileType(buffer, name) {
@@ -77,7 +77,8 @@ function documentRouter(db,requireAccount) {
     }
    }
    const usage=(await client.query('SELECT COALESCE(SUM(d.size),0) AS total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[building.user_id])).rows[0];
-   if(Number(usage.total)+req.body.length>MAX_ACCOUNT){await client.query('ROLLBACK');return res.status(413).json({error:'Speicherlimit erreicht: maximal 250 MB pro Konto.'});}
+   const storage=(await accountLimits(client,building.user_id)).values.storage_mb;
+   if(storage!==null&&Number(usage.total)+req.body.length>storage*1024*1024){await client.query('ROLLBACK');return res.status(413).json({error:`Speicherlimit erreicht: maximal ${storage} MB pro Konto.`});}
    const doc=(await client.query('INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,building_id,name,mime_type,size,created_at',[req.params.buildingId,name,mime,req.body.length,req.body,uploadKey])).rows[0];
    const conversion=await enqueueUpload(client,building,req.account.id,doc);
    await notifyBuilding(client,building.id,req.account.id,'file',`${req.account.name.split(' ')[0]} hat „${name}“ hochgeladen.`);
