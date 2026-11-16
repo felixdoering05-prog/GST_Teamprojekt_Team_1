@@ -67,12 +67,12 @@ struct GuidedGenerationView: View {
                     Label(job.title, systemImage: job.status == "ready" ? "checkmark.circle.fill" : "cube.transparent").foregroundStyle(d21Accent)
                     if ["queued", "running"].contains(job.status) {
                         ProgressView()
-                        Text("Der Server vermisst Vektorpläne (PDF, DXF, DWG) exakt; Bilder erkennt Gemini. Daraus entsteht ein IFC-Entwurf. Du kannst die App verlassen. Eine Fertigmeldung erscheint in deinen Mitteilungen beim nächsten Öffnen. Push bei geschlossener App ist noch nicht eingerichtet.").font(.footnote).foregroundStyle(.secondary)
+                        Text("Der Server vermisst Vektorpläne (PDF, DXF, DWG) exakt und erkennt Fotos und Scans selbst; Gemini liest nur Raumnamen und Maßangaben. Daraus entsteht ein IFC-Entwurf. Du kannst die App verlassen. Eine Fertigmeldung erscheint in deinen Mitteilungen beim nächsten Öffnen. Push bei geschlossener App ist noch nicht eingerichtet.").font(.footnote).foregroundStyle(.secondary)
                     }
                     if let quality = job.quality { PlanQualityView(quality: quality) }
                     ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, message in Text(message).font(.footnote).foregroundStyle(.secondary) }
                     NavigationLink(job.status == "ready" ? "3D-Entwurf prüfen und übernehmen" : "Auftrag und Details öffnen") {
-                        PlanConversionView(building: building, account: flow.account, onAdopt: {})
+                        PlanConversionView(building: building, account: flow.account, flow: flow, onAdopt: {})
                     }.buttonStyle(.bordered)
                 } else if !reply.available {
                     Text("Die Modellgenerierung ist auf diesem Server noch nicht verfügbar. Deine Pläne bleiben gespeichert.").font(.footnote)

@@ -14,7 +14,7 @@ RUN curl -fL --proto '=https' --retry 3 https://ftp.gnu.org/gnu/libredwg/libredw
  ./configure --prefix=/opt/libredwg --disable-shared --enable-static --disable-bindings --disable-werror && \
  make -j"$(nproc)" -C src && make -j"$(nproc)" -C programs dwg2dxf && \
  mkdir -p /opt/libredwg/bin && install -m 0755 programs/dwg2dxf /opt/libredwg/bin/dwg2dxf && /opt/libredwg/bin/dwg2dxf --version
-# Plan extractor: ezdxf, pdfplumber (MIT), shapely (BSD), IfcOpenShell (LGPL), Pillow.
+# Plan extractor: ezdxf, pdfplumber (MIT), shapely (BSD), IfcOpenShell (LGPL), Pillow, OpenCV headless (Apache-2.0, photos/scans).
 FROM ubuntu:24.04 AS plan-python
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv && rm -rf /var/lib/apt/lists/*
 COPY plan-extract/requirements.txt /tmp/plan-requirements.txt
@@ -31,7 +31,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY src ./src
 COPY plan-extract/run.py plan-extract/requirements.txt ./plan-extract/
 COPY plan-extract/planextract ./plan-extract/planextract
-RUN /opt/plan-venv/bin/python -c "import ezdxf, pdfplumber, shapely, ifcopenshell, PIL" && /opt/plan-venv/bin/python -m compileall -q /app/plan-extract
+RUN /opt/plan-venv/bin/python -c "import ezdxf, pdfplumber, shapely, ifcopenshell, PIL, cv2" && /opt/plan-venv/bin/python -m compileall -q /app/plan-extract
 ENV BIMCRAFT_NO_UPDATE_CHECK=1 HOME=/tmp NODE_OPTIONS=--max-old-space-size=256 PLAN_PYTHON=/opt/plan-venv/bin/python PLAN_EXTRACT_SCRIPT=/app/plan-extract/run.py
 USER 65534:65534
 CMD ["node","src/plan-conversion/worker.js"]

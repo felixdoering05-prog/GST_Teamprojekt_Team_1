@@ -228,6 +228,14 @@ final class WorkflowPreviewProtocol: URLProtocol {
                 if response["command"] != nil { result = ["command":response["command"]!,"answer":"Alle Wände blau einfärben (lokale Vorschau)","model":"Lokale Vorschau","notice":"Testdaten","cached":false] }
             }
         }
+        else if path.contains("/plan-conversion") {
+            // Plan → 3D draft with the correction editor (real recognition result of a CC0 test photo).
+            if path.hasSuffix("/editor") { bytes = Data(PlanEditorPreviewData.editorJSON.utf8) }
+            else if path.contains("/plan-image/") { bytes = PlanEditorPreviewData.planImage; mime = "image/jpeg" }
+            else if path.hasSuffix("/edit") { PlanEditorPreviewData.edited = true; status = 202; result = ["id": PlanEditorPreviewData.jobID, "status": "queued"] }
+            else if path.hasSuffix("/preview") { status = 404; result = ["error": "Vorschau noch nicht verfügbar."] }
+            else { result = PlanEditorPreviewData.reply }
+        }
         else if path.hasSuffix("profile/avatar") { status = 404 }
         else if path == "/api/v1/buildings" {
             if method == "POST" {

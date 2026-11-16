@@ -358,7 +358,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-                INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“ und den Raumscan verwendet. Bilder und Tiefendaten werden ausschließlich auf dem iPhone ausgewertet und nicht gespeichert oder hochgeladen.";
+                INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“, den Raumscan und das Abfotografieren von Grundrissen verwendet. Bilder und Tiefendaten aus „Wo bin ich?“ und dem Raumscan bleiben auf dem iPhone. Abfotografierte Grundrisse werden in deine Gebäudemappe auf dem Projektserver hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -404,7 +404,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-                INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“ und den Raumscan verwendet. Bilder und Tiefendaten werden ausschließlich auf dem iPhone ausgewertet und nicht gespeichert oder hochgeladen.";
+                INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“, den Raumscan und das Abfotografieren von Grundrissen verwendet. Bilder und Tiefendaten aus „Wo bin ich?“ und dem Raumscan bleiben auf dem iPhone. Abfotografierte Grundrisse werden in deine Gebäudemappe auf dem Projektserver hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
