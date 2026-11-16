@@ -48,14 +48,13 @@ struct BuildingAssistantView: View {
             header
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 26) {
+                    LazyVStack(alignment: .leading, spacing: 22) {
                         if loading && turns.isEmpty { ProgressView("Gespräch wird geladen …").frame(maxWidth: .infinity).padding(.top, 50) }
                         if turns.isEmpty && !loading && !sending { emptyConversation }
                         ForEach(turns) { turn in message(turn).id(turn.id).transition(.opacity) }
                         if let pendingQuestion {
                             questionBubble(pendingQuestion)
-                            HStack(spacing: 10) { ProgressView(); Text("Antwort wird erstellt …").font(.subheadline).foregroundStyle(.secondary) }
-                                .padding(.vertical, 8).accessibilityElement(children: .combine)
+                            typingIndicator
                         }
                         if let notice { Label(notice, systemImage: "checkmark.circle").font(.footnote).foregroundStyle(d21Accent) }
                         if let problem {
@@ -90,83 +89,128 @@ struct BuildingAssistantView: View {
     }
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: "sparkles").font(.title3).foregroundStyle(d21Accent)
-                .frame(width: 40, height: 40).background(d21Accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 13))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Nala").font(.headline)
+            NalaAvatar(size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("Nala").font(.headline)
+                    Circle().fill(account.aiPreferences.active ? Color.green : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
+                        .accessibilityLabel(account.aiPreferences.active ? "bereit" : "KI nicht aktiviert")
+                }
                 Text("Gebäudeassistentin · " + building.name).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 6)
-            Button { showInfo = true } label: { Image(systemName: "info.circle").font(.title3) }.accessibilityLabel("Informationen zu KI und Datenübertragung")
-        }.padding(.horizontal, 20).padding(.vertical, 12)
+            Button { showInfo = true } label: { Image(systemName: "info.circle").font(.title3).foregroundStyle(.secondary) }.accessibilityLabel("Informationen zu KI und Datenübertragung")
+        }
+        .padding(.horizontal, 18).padding(.vertical, 10)
+        .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
     }
     private var emptyConversation: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Image(systemName: "sparkles").font(.system(size: 38, weight: .medium)).foregroundStyle(d21Accent).padding(.top, 30)
-            Text("Hi, ich bin Nala,\ndeine Gebäudeassistentin.").font(.system(.largeTitle, design: .rounded, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
-            Text("Was möchtest du über dein Gebäude wissen? Frag mich zu deinen Unterlagen oder erkunde mit mir das Modell. Du entscheidest, was geändert wird.").font(.subheadline).foregroundStyle(.secondary)
-            VStack(spacing: 10) {
-                suggestion("Unterlagen im Überblick", detail: "Welche Unterlagen sind hinterlegt?", symbol: "folder", command: false)
-                suggestion("Mein Modell verstehen", detail: "Wie viele Wände enthält das ausgewählte IFC-Modell?", symbol: "cube.transparent", command: false)
-                if selectedID != nil { suggestion("Darstellung anpassen", detail: "Färbe alle Wände blau", symbol: "paintpalette", command: true) }
+        VStack(spacing: 22) {
+            NalaAvatar(size: 84).padding(.top, 28)
+            VStack(spacing: 8) {
+                Text("Hi, ich bin Nala").font(.system(.title, design: .rounded, weight: .bold))
+                Text("Deine Gebäudeassistentin. Frag mich zu Unterlagen, Modell und Räumen – du entscheidest, was geändert wird.")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 12)
             }
-        }.frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 10) {
+                suggestion("Unterlagen im Überblick", detail: "Welche Unterlagen sind hinterlegt?", symbol: "folder.fill", command: false)
+                suggestion("Mein Modell verstehen", detail: "Wie viele Wände enthält das ausgewählte IFC-Modell?", symbol: "cube.transparent.fill", command: false)
+                if selectedID != nil { suggestion("Darstellung anpassen", detail: "Färbe alle Wände blau", symbol: "paintpalette.fill", command: true) }
+            }
+        }.frame(maxWidth: .infinity)
     }
     private func suggestion(_ title: String, detail: String, symbol: String, command: Bool) -> some View {
         Button { question = detail; commandMode = command; composerFocused = true } label: {
             HStack(spacing: 14) {
-                Image(systemName: symbol).foregroundStyle(d21Accent).frame(width: 24)
-                VStack(alignment: .leading, spacing: 4) { Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading) }
-                Spacer(minLength: 0); Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.secondary)
-            }.padding(16).background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                Image(systemName: symbol).font(.body).foregroundStyle(d21Accent)
+                    .frame(width: 36, height: 36).background(d21Accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.primary.opacity(0.05)))
         }.buttonStyle(.plain).disabled(sending)
     }
     private func questionBubble(_ text: String) -> some View {
-        HStack { Spacer(minLength: 30); Text(text).font(.body).textSelection(.enabled).padding(.horizontal, 17).padding(.vertical, 13)
-                .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 22)) }
+        HStack {
+            Spacer(minLength: 48)
+            Text(text).font(.body).foregroundStyle(.white).textSelection(.enabled)
+                .padding(.horizontal, 15).padding(.vertical, 11)
+                .background(d21Accent.gradient, in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20))
+        }
+    }
+    private var typingIndicator: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            NalaAvatar(size: 28)
+            TypingDots().padding(.horizontal, 16).padding(.vertical, 14)
+                .background(Color(uiColor: .secondarySystemBackground), in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6, bottomTrailingRadius: 20, topTrailingRadius: 20))
+            Spacer(minLength: 0)
+        }.accessibilityElement(children: .ignore).accessibilityLabel("Nala schreibt …")
     }
     private func message(_ turn: AssistantTurn) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 14) {
             questionBubble(turn.question)
-            VStack(alignment: .leading, spacing: 13) {
-                Label("Nala", systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(d21Accent)
-                Text(turn.answer).font(.body).lineSpacing(5).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
-                    Button("Modelländerung prüfen", systemImage: "cube.transparent") { Task { await prepare(command, document: document) } }
-                        .buttonStyle(.bordered).disabled(sending)
-                    Text("Vorschlag · wird erst nach deiner Bestätigung für das Team gespeichert.").font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .bottom, spacing: 8) {
+                NalaAvatar(size: 28)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(turn.answer).font(.body).lineSpacing(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
+                        Button("Modelländerung prüfen", systemImage: "cube.transparent") { Task { await prepare(command, document: document) } }
+                            .buttonStyle(.borderedProminent).tint(d21Accent).controlSize(.small).disabled(sending)
+                        Text("Vorschlag · wird erst nach deiner Bestätigung für das Team gespeichert.").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                Button { UIPasteboard.general.string = turn.answer; copiedTurn = turn.id } label: {
-                    Label(copiedTurn == turn.id ? "Kopiert" : "Kopieren", systemImage: copiedTurn == turn.id ? "checkmark" : "doc.on.doc")
-                        .font(.caption).foregroundStyle(.secondary)
-                }.buttonStyle(.plain).accessibilityLabel("Antwort kopieren")
-            }.frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 15).padding(.vertical, 12)
+                .background(Color(uiColor: .secondarySystemBackground), in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6, bottomTrailingRadius: 20, topTrailingRadius: 20))
+                .contextMenu { Button("Kopieren", systemImage: "doc.on.doc") { UIPasteboard.general.string = turn.answer; copiedTurn = turn.id } }
+                Spacer(minLength: 28)
+            }
+            Button { UIPasteboard.general.string = turn.answer; copiedTurn = turn.id } label: {
+                Label(copiedTurn == turn.id ? "Kopiert" : "Kopieren", systemImage: copiedTurn == turn.id ? "checkmark" : "doc.on.doc")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }.buttonStyle(.plain).padding(.leading, 36).accessibilityLabel("Antwort kopieren")
         }
     }
     private var composer: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             if !account.aiPreferences.active {
-                NavigationLink { AISettingsView(account: account) } label: { Label("KI einmal für dein Konto aktivieren", systemImage: "sparkles").font(.subheadline) }
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                if commandMode { Label("Modelländerung · Bestätigung erforderlich", systemImage: "cube.transparent").font(.caption.weight(.medium)).foregroundStyle(d21Accent) }
-                TextField(commandMode ? "Beschreibe die gewünschte Modelländerung …" : "Frage zu deinem Gebäude …", text: $question, axis: .vertical)
-                    .lineLimit(1...6).focused($composerFocused).disabled(sending).accessibilityIdentifier("assistant-message")
-                HStack {
-                    tools
-                    if let selectedID, let doc = documents.first(where: { $0.id == selectedID }) {
-                        Label(doc.name, systemImage: "cube.transparent").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    } else { Text("Gebäudekontext").font(.caption).foregroundStyle(.secondary) }
-                    Spacer(minLength: 4)
-                    if question.utf16.count > 1800 { Text("\(question.utf16.count)/2000").font(.caption2).foregroundStyle(question.utf16.count > 2000 ? .red : .secondary) }
-                    Button { composerFocused = false; sendTask = Task { await send() } } label: {
-                        Image(systemName: "arrow.up").font(.headline.weight(.bold)).foregroundStyle(canSend ? .white : .secondary)
-                            .frame(width: 36, height: 36).background(canSend ? d21Accent : Color(uiColor: .tertiarySystemFill), in: Circle())
-                    }.buttonStyle(.plain).disabled(!canSend).accessibilityLabel(sending ? "Antwort wird erstellt" : "Nachricht senden")
+                NavigationLink { AISettingsView(account: account) } label: {
+                    Label("KI einmal für dein Konto aktivieren", systemImage: "sparkles").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14).padding(.vertical, 8).background(d21Accent.opacity(0.12), in: Capsule())
                 }
-            }.padding(16).background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 24))
-            Text("KI kann Fehler machen. Wichtige Angaben bitte prüfen.").font(.caption2).foregroundStyle(.secondary)
-        }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8).background(.regularMaterial)
+            }
+            if commandMode || selectedID != nil {
+                HStack(spacing: 6) {
+                    if commandMode { Label("Modelländerung", systemImage: "cube.transparent").foregroundStyle(d21Accent) }
+                    if let selectedID, let doc = documents.first(where: { $0.id == selectedID }) { Label(doc.name, systemImage: "doc").foregroundStyle(.secondary).lineLimit(1) }
+                    Spacer(minLength: 0)
+                }.font(.caption.weight(.medium)).padding(.horizontal, 6)
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                tools
+                    .frame(width: 38, height: 38).background(Color(uiColor: .secondarySystemBackground), in: Circle())
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField(commandMode ? "Gewünschte Modelländerung …" : "Frag Nala …", text: $question, axis: .vertical)
+                        .lineLimit(1...6).focused($composerFocused).disabled(sending).accessibilityIdentifier("assistant-message")
+                        .padding(.vertical, 9)
+                    if question.utf16.count > 1800 { Text("\(question.utf16.count)/2000").font(.caption2).foregroundStyle(question.utf16.count > 2000 ? .red : .secondary).padding(.bottom, 11) }
+                    Button { composerFocused = false; sendTask = Task { await send() } } label: {
+                        Image(systemName: "arrow.up").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                            .frame(width: 30, height: 30).background(canSend ? AnyShapeStyle(d21Accent.gradient) : AnyShapeStyle(Color.secondary.opacity(0.35)), in: Circle())
+                    }.buttonStyle(.plain).disabled(!canSend).padding(.bottom, 4).accessibilityLabel(sending ? "Antwort wird erstellt" : "Nachricht senden")
+                }
+                .padding(.leading, 14).padding(.trailing, 4)
+                .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 22))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(composerFocused ? d21Accent.opacity(0.5) : Color.primary.opacity(0.06)))
+            }
+            Text("Nala kann Fehler machen. Wichtige Angaben bitte prüfen.").font(.caption2).foregroundStyle(.tertiary)
+        }.padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 6).background(.bar)
     }
     private var tools: some View {
         Menu {
@@ -181,7 +225,7 @@ struct BuildingAssistantView: View {
                 }
             }
             Button("KI und Datenschutz", systemImage: "info.circle") { showInfo = true }
-        } label: { Image(systemName: "plus").font(.headline).foregroundStyle(.primary).frame(width: 32, height: 36) }
+        } label: { Image(systemName: "plus").font(.headline).foregroundStyle(.primary).frame(width: 38, height: 38) }
             .disabled(sending).accessibilityLabel("Werkzeuge und Modellauswahl")
             .onChange(of: selectedID) { _, value in if value == nil { commandMode = false } }
     }
@@ -239,5 +283,37 @@ struct BuildingAssistantView: View {
             let _: SceneVersion = try await account.request("documents/\(proposal.document)/model-command", method:"POST", body:["command":proposal.command.json,"confirm":true,"revision":proposal.revision])
             notice = "Gespeichert. Im 3D-Reiter wird der gemeinsame Modellstand geladen."; problem = nil
         } catch { problem = error.localizedDescription }
+    }
+}
+
+/// Nalas Avatar: Farbverlauf mit „N“, bis das Logo da ist.
+struct NalaAvatar: View {
+    var size: CGFloat = 32
+    var body: some View {
+        ZStack {
+            Circle().fill(LinearGradient(colors: [d21Accent, Color(red: 0.36, green: 0.42, blue: 0.86)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Text("N").font(.system(size: size * 0.46, weight: .bold, design: .rounded)).foregroundStyle(.white)
+            Image(systemName: "sparkle").font(.system(size: size * 0.2, weight: .bold)).foregroundStyle(.white.opacity(0.9))
+                .offset(x: size * 0.24, y: -size * 0.24)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: d21Accent.opacity(size > 50 ? 0.35 : 0), radius: size > 50 ? 14 : 0, y: 6)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Drei pulsierende Punkte, solange Nala antwortet.
+struct TypingDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.15, paused: reduceMotion)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<3) { i in
+                    Circle().fill(Color.secondary).frame(width: 7, height: 7)
+                        .opacity(reduceMotion ? 0.6 : 0.35 + 0.65 * max(0, sin(t * 5 - Double(i) * 0.8)))
+                }
+            }
+        }
     }
 }

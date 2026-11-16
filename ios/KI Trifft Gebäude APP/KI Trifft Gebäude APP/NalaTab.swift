@@ -23,7 +23,7 @@ struct NalaTabView: View {
                     }
                 }
             }
-            .navigationTitle("Nala")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if let building, model.buildings.count > 1 {
