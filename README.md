@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏢 KI trifft Gebäude
+# 🏢 Titan FS · KI trifft Gebäude
 
 ### Digitaler Gebäudezwilling · BIM · Gebäudeautomation · Künstliche Intelligenz
 
@@ -20,7 +20,7 @@
 
 Ein Gebäude besteht aus mehr als Plänen: Räume, Anlagen, Dokumente, Messwerte und Zuständigkeiten gehören zusammen. **KI trifft Gebäude** führt diese Informationen in einem digitalen Gebäudepass zusammen und verbindet sie mit einem interaktiven **IFC-/BIM-Modell**.
 
-Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Gebäudeinformationen im Web und auf dem iPhone nutzbar macht. KI unterstützt bei der Suche und Bedienung; reale Sensordaten und die automatisierte Revit-Anbindung sind wichtige nächste Schritte.
+Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Gebäudeinformationen im Web und auf dem iPhone nutzbar macht. KI unterstützt bei der Suche und Bedienung; ESP32- und Home-Assistant-Anbindungen sind implementiert; ein freigegebener realer D21-Datenpunkt und die reproduzierbare Revit-Anbindung bleiben wichtige nächste Schritte.
 
 ## ✨ Funktionen im Überblick
 
@@ -40,12 +40,14 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 16. November 2026, Veröffentlichungsvorbereitung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 16. November 2026, Arbeitsabschluss.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Home-Assistant-Import, selbstständige Abfrage und Lampensteuerung sind gemergt ([#179](../../pull/179), [#182](../../pull/182), [#184](../../pull/184), zuletzt 1.0.135). Die integrierte Version **1.0.136** ergänzt automatische ESP32-Testwerte im Gebäude-Dashboard ([#180](../../pull/180)). Native Installation und Geräteabnahme bleiben getrennt vom Server-Deployment. |
-| **Web & IFC** | Titan FS ergänzt konfigurierbare Dashboard-Widgets, Darstellungseinstellungen und gemeinsame Gebäudemeldungen ([#183](../../pull/183)). Gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps bleiben erhalten. Fachliche Modell-/Sensordatenabnahme ist weiterhin erforderlich. |
+| **iPhone-App** | Aktueller Quellstand **1.0.139**: Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
+| **Web & IFC** | **[titanfs.de](https://titanfs.de)** ist das Dashboard mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. |
+| **Sensorik** | ESP32-Testübertragung, gemeinsame Raumzuordnung und BME280-/IFC-Raum-Schnittstelle implementiert ([#180](../../pull/180), [#187](../../pull/187), [#188](../../pull/188)). Simulation und echte Messungen bleiben getrennt. Implementierung ersetzt keinen Hardware-Dauertest und keinen Nachweis für echte D21-Werte. |
+| **Plan → IFC** | Vektorvermessung, Erkennung von Fotos/Scans, Korrektur-Editor und Ebenenwahl sind gemergt. Vorübergehende Gemini-Überlastung wird wiederholt und als vorübergehend gemeldet ([#190](../../pull/190)); Planrahmen-Erkennung korrigiert ([#191](../../pull/191)). Ergebnisse bleiben prüfpflichtige Entwürfe. |
 | **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
 | **D21-Messdaten** | Erster echter Datenpunkt mit Quelle, Einheit, Zeitstempel und Zugriffsfreigabe noch **nicht als abgeschlossen nachgewiesen** |
 | **Revit-Anbindung** | Modell-/IFC-Arbeit vorhanden; reproduzierbarer automatischer Revit→Server-Prozess noch offen |
@@ -61,13 +63,17 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 4. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
 5. **P2 · [#73](../../issues/73)** – Revit-/IFC-Übergabe zum Server reproduzierbar dokumentieren.
 6. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
-7. **P2 · Review** – [#163](../../pull/163), [#169](../../pull/169) und [#171](../../pull/171) technisch und hinsichtlich Datenschutz, Berechtigungen und Build-/Gerätenachweisen prüfen.
+7. **P2 · Review** – [#186](../../pull/186) (Emirs Meldungsraum im 3D-Modell) und [#192](../../pull/192) (Ideenradar KW 47) sind noch offen. Review und Integration separat durchführen; keine automatische Freigabe fremder Änderungen.
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
 
-Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** ist weiterhin **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Weitere Termine nur mit tatsächlichem Nachweis aufnehmen. Der ältere [README-PR #153](../../pull/153) ist wegen Konflikten mit der inzwischen übernommenen Neugestaltung [#158](../../pull/158) **nicht direkt mergefähig**; Inhalte vor einem Schließen oder Neuaufsetzen prüfen. Der [Mängelmelder-PR #163](../../pull/163) wartet auf Review und Integration. Die neuen PRs [#169](../../pull/169) (Vektorpläne vermessen) und [#171](../../pull/171) (Widget/Siri) benötigen technische Prüfung einschließlich Dateikonvertierung, Lizenzen, Datenschutz, iOS-Signierung und tatsächlicher Gerätetests. [#167](../../pull/167) (Marktforschung) und [#168](../../pull/168) (Ideenradar) sind Dokumentations-PRs, derzeit nicht direkt mergefähig; Inhalte vor Konfliktauflösung abgleichen. Kein erfolgreicher TestFlight-Upload dieser Kandidaten nachgewiesen.
+Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** bleibt **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Technische Arbeitsberichte sind keine freigegebenen Teamprotokolle.
+
+Die vormals offenen PRs **#153, #163, #167, #168, #169, #171 und #173 sind inzwischen zusammengeführt**. Sie werden nicht weiter als ausstehende Reviews geführt. Code-Merge, Geräteinstallation, TestFlight-Veröffentlichung und fachliche Abnahme bleiben getrennte Nachweise.
+
+[Arbeitsabschluss 16.11. · veröffentlichter Stand, Prüfungen und nächste Schritte](docs/protokolle/2026-11-16-technischer-arbeitsabschluss.md)
 
 ## 🧩 So funktioniert das System
 
@@ -112,7 +118,7 @@ flowchart LR
 | 📱 **App / Backend** | [iOS](ios/README.md) · [Dashboard](dashboard/README.md) · [Konten-API](docs/konten-api.md) |
 | 🤖 **KI & Sprache** | [Gemini](docs/gemini-gebaeudeassistent.md) · [Live-Sprache](docs/iphone-live-sprachassistent.md) |
 | 🧪 **TestFlight** | [Externe Beta – Stand und Grenzen](docs/testflight-externe-beta-100.md) |
-| 🔎 **Marktforschung** | [Wettbewerbsvergleich](marktforschung/README.md) *(soweit bereits nach main übernommen)* |
+| 🔎 **Marktforschung** | [Wettbewerbsvergleich](marktforschung/README.md)  |
 | 💡 **Ideenradar** | [Neue Ansätze](docs/ideenradar/README.md) |
 | 🗂️ **Projektorganisation** | [Projektsteckbrief](docs/projektsteckbrief.md) · [Aufgabenplan](docs/aufgabenplan.md) |
 

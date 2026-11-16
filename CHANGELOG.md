@@ -1,10 +1,21 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Planentwurf: Fortschritt und Ebenenwahl (iPhone 1.0.139)
+
+- Die Anzeige unterscheidet Warteschlange, laufende Verarbeitung und fertigen Entwurf. Die animierte Prozentanzeige ist phasen- und zeitbasiert geschätzt, keine gemessene Fertigstellungsquote.
+- Erkannte Pläne lassen sich vor dem Neuaufbau Ebenen/Geschossen zuordnen; siehe [#194](../../pull/194).
+- Aktueller Quellstand ist 1.0.139. Eine erfolgreiche Installation dieses Gesamtstands auf dem iPhone ist noch nicht nachgewiesen.
+
 ## 16. November 2026 – Titan-FS-Dashboard auf titanfs.de
 
 - Das vollständige Dashboard erhält `https://titanfs.de` mit HTTPS und ausschließlich persönlicher Account-Anmeldung ohne zusätzlichen Browser-Passwortdialog. Gebäudedaten und Verwaltung bleiben durch Sitzung und Berechtigungen geschützt; der bisherige App-Zugang bleibt gültig.
 - `kitrifftgebäude.de` bleibt die öffentliche Landingpage. Ihr Dashboard-Link führt zur neuen Domain.
 - Einrichtung mit DNS-Prüfung, optionaler www-Weiterleitung, Zertifikatserneuerung und Wiederherstellung der vorherigen Konfiguration bei Fehlern.
+
+## 16. November 2026 – Zuverlässigere Plananalyse
+
+- Gemini-Überlastung bei vorübergehenden 5xx-Antworten wird begrenzt wiederholt und verständlich gemeldet ([#190](../../pull/190)); eine Überlastung ist keine fachliche Ablehnung des Plans.
+- Die Vektorvermessung verwirft das eigentliche Gebäude nicht mehr als Planrahmen ([#191](../../pull/191)).
 
 ## 16. November 2026 – Echter ESP32 + BME280 im IFC-Raum und Messwert-Popups in der 3D-Ansicht
 
@@ -13,13 +24,20 @@
 - Neuer lesender Endpunkt `GET /documents/:id/sensor-overlay` liefert die neuesten Werte je IFC-Raum (nur mit Gebäudezugang, ohne Geräteschlüssel). `GET /buildings/:id/sensor-devices` listet Geräte ohne Schlüssel.
 - 3D-Ansicht (iPhone): kleines Popup über der Mitte des zugeordneten Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die ESP32-Karte im Dashboard kennzeichnet echte Werte nicht mehr als simuliert.
 - Gebäude-Dashboard zeigt ein neu hochgeladenes IFC-Modell sofort: Es nutzt den aktuellen Stand der Gebäudeliste statt des Stands beim Öffnen und lädt die Liste neu, solange kein Modell bekannt ist. Vorher erschien weiter „3D-Modell hinzufügen“, obwohl der 3D-Reiter das Modell schon zeigte.
-- Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung. Der iOS-Build steht aus (lokales Xcode 16.1 kann das Projektformat nicht öffnen).
+- Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung. Ein integrierter Geräte-/TestFlight-Nachweis steht aus; die bei der ursprünglichen Implementierung verwendete lokale Xcode-Version konnte das Projektformat nicht öffnen.
+
 ## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
 
 - Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.
 - Das gewählte Gebäude ist der feste Rahmen: Räume und Sensoren anderer Gebäude werden abgewiesen. Eigentümer und angenommene Mitglieder sehen und bearbeiten dieselbe Zuordnung.
 - ESP32-Karten zeigen den Raumnamen. Neue Pakete übernehmen die aktuelle Zuordnung; historische Messwerte behalten ihren früheren Raum. Simulierte Werte bleiben ausdrücklich als Testwerte gekennzeichnet.
 - Home-Assistant-Sensoren behalten ihre eigene Bereich/Raum-Zuordnung im Home-Assistant-Import.
+
+## 16. November 2026 – Grundrisse aus Fotos/Scans und Korrektur-Editor (iPhone 1.0.137)
+
+- Servererkennung für Rasterpläne, Fotos und Skizzen mit OpenCV; Raumnamen und Maße werden ergänzend mit Gemini gelesen.
+- Web und iPhone bieten einen Korrektur-Editor für erkannte Grundrisse; Änderungen können einen neuen IFC-Entwurf erzeugen ([#185](../../pull/185)).
+- Fachliche Prüfung und bestätigte Übernahme bleiben erforderlich. [Ablauf und Grenzen](docs/plan-zu-ifc.md).
 
 ## 16. November 2026 – kitrifftgebäude.de ausschließlich für die Landingpage
 

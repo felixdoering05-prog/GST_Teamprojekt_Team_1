@@ -16,7 +16,7 @@ Bleibt das Board trotz verifizierter Firmware im Programmiermodus, RESET/EN kurz
 
 Historische Referenz: https://github.com/felixdoering05-prog/team1 , Juni/Juli 2026. Dort ESP32-S3 mit ST7789, GNSS und BMP280. Am Mac ausgelesenes Board: ESP32-S3, 4 MB Flash, 2 MB PSRAM. Diese Simulation benötigt keine Sensorhardware und verändert keine Display-Pins.
 
-Alle 60 Sekunden werden synthetische Temperatur, relative Feuchte und CO₂ über WLAN/HTTPS gesendet. Diese sind **keine echten Messungen**. Der Server erzwingt `source=demo`; die Demo-/Simulationsansicht der App verwenden. Kein Raumtemperatur-Nachweis und keine realen Warnungen ableiten.
+Alle 60 Sekunden werden synthetische Temperatur, relative Feuchte und CO₂ über WLAN/HTTPS gesendet. Diese sind **keine echten Messungen**. Der Server erzwingt `source=demo`; Ab iOS 1.0.136 erscheinen aktive ESP32 automatisch im normalen Gebäude-Dashboard und unter Sensorik, ausdrücklich als simulierte Testwerte gekennzeichnet. Der Vorstellungsmodus ist dafür nicht nötig. Kein Raumtemperatur-Nachweis und keine realen Warnungen ableiten.
 
 ## Gerätezugang
 
