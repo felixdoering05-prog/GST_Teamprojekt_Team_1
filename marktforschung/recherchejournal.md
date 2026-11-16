@@ -1,5 +1,16 @@
 # Recherchejournal
 
+## 16. November 2026, ca. 09:30 MEZ – Siemens-Lizenz- und Datenresidenzprüfung
+
+**Kein neuer Wettbewerber**, aber eine für den Kosten- und Datenschutzvergleich relevante Lizenzpräzisierung: Siemens Lifecycle Twin bietet Cloud- und On-Premises-Abos mit benannten Nutzern/Speicher (10/20 GB bis 250/500 GB), Jahreslaufzeit, jährlicher Vorauszahlung und separater API-/CAD-Server-Lizenzmetrik. Laut Datenblatt muss die Cloud-Region bei Erstbestellung gewählt werden; die Wahl ist nicht reversibel. EU (Irland) ist für spätere Building-X-/IoT-Integration relevant. **Kein belastbarer öffentlicher EUR-Listenpreis**. Siemens dokumentiert auch Issue-Workflows direkt am BIM-Modell; daher ist ein 3D-Mängelmelder allein kein USP.
+
+**GitHub-Abgleich:** #169 (Vektorplanvermessung) und #171 (Widget/Siri) offen; nicht als main-Funktionen gezählt. Echter D21-Messwert und End-to-End-Vergleich unbestätigt. **Chance (Hypothese):** schlanker, nachvollziehbar kalkulierter Pilot für kleine Gebäudeteams. **Risiko:** Siemens bietet bereits Campus-, BIM- und Instandhaltungsprozesse. **Nächster Schritt:** reale D21-Daten, Rollen und Vollkosten gegen Siemens-Tarifangebot testen.
+
+**Quellen, geprüft 16.11.2026:** [Siemens Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/); [Siemens Datenblatt (Stand 26.03.2025)](https://assets.new.siemens.com/siemens/assets/api/uuid%3A0251ec0c-76db-46ae-97f3-eddc38f4271a/BuildingX-Data-Sheet-Lifecycle-Twin-2025-03-26_original.pdf). Herstellerangaben, kein unabhängiger Produkttest.
+
+---
+
+
 ## 15. November 2026, ca. 19:00 MEZ – Archibus und BuildingMinds im Betriebsvergleich
 
 **Neue Wettbewerber in dieser Vergleichsrunde (nicht als neue Produkteinführung behauptet):** Archibus Digital Twins mit Revit-Modellen aus Autodesk Construction Cloud/Build, Autodesk-APS-basiertem BIM-Viewer und Verknüpfung von Assets; sowohl SaaS als auch Non-SaaS, jedoch nur mit kostenpflichtiger Digital-Twins-Lizenz. BuildingMinds mit Digital Building Twin und API-Integration für BMS, IoT, Smart Meter, CAFM und Energiemanagement sowie KI-gestützter Nachrüstplanung. Hersteller kennzeichnet einzelne Szenarienvergleiche und Wirkungsnachweise als noch nicht verfügbar. **Keine verifizierten EUR-Listenpreise** für diese Angebote. Aussagen beruhen auf Anbieterquellen, nicht auf unabhängigen Produkttests.
