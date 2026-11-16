@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Home Assistant ohne Installation verbinden (iPhone 1.0.134)
+
+- Neuer Standardweg: Die App findet Home Assistant per Bonjour im WLAN (oder per eingegebener Adresse), der Nutzer meldet sich auf der normalen Home-Assistant-Anmeldeseite an (OAuth/IndieAuth, `client_id` = `/app-api/v1/ha-client`, Rückleitung `kitrifftgebaeude://ha-auth`). Kein Token kopieren, kein YAML, keine Freigabe nach außen.
+- Der Home-Assistant-Zugang liegt nur im Schlüsselbund des iPhones. Beim Öffnen der App werden ausgewählte Sensoren samt Verlauf (Halbstundenmittel, bis 7 Tage) hochgeladen: `POST /buildings/:id/home-assistant/samples`, Übersicht über `PUT …/inventory`, Verbindung über `POST …/app-connect` (nur Eigentümer).
+- Neues Limit `ha_sync_hour` (30). Die Integration mit Kopplungscode bleibt als Option „Fortgeschritten“ für den Dauerbetrieb.
+- Versionssprung auf 1.0.134, weil 1.0.133 für PR #181 (Domain) reserviert ist.
+
 ## 16. November 2026 – Home-Assistant-Import (iPhone 1.0.132)
 
 - Neue Custom Integration `integrations/home-assistant/custom_components/ki_trifft_gebaeude`: Home Assistant schickt ausgewählte Sensorwerte (Temperatur, Luftfeuchte, CO₂, Leistung, Energie) samt Geräten und Bereichen an den Projektserver. Die Verbindung geht nur nach außen. Auf dem Server liegt kein HA-Token, nur der Hash eines eigenen Brückenschlüssels.

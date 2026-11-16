@@ -10,6 +10,7 @@ const hash=v=>createHash('sha256').update(v).digest('hex');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const PAIRING_MINUTES=10,PUSH_SECONDS=50,RETENTION_DAYS=90,HISTORY_DAYS=30;
+const HA_REDIRECT='kitrifftgebaeude://ha-auth';
 const CODE_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // Nur diese Messgrößen werden übernommen. Personen, Standorte, Kameras, Anwesenheit usw. sind ausgeschlossen.
 const METRICS={
@@ -31,6 +32,7 @@ async function initHAImport(db){
   status TEXT NOT NULL DEFAULT 'pending',pairing_hash TEXT UNIQUE,pairing_expires_at TIMESTAMPTZ,token_hash TEXT UNIQUE,
   instance_name TEXT NOT NULL DEFAULT '',ha_version TEXT NOT NULL DEFAULT '',revision INTEGER NOT NULL DEFAULT 1,
   paired_at TIMESTAMPTZ,last_inventory_at TIMESTAMPTZ,last_push_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+ await db.query("ALTER TABLE app_ha_links ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'bridge'");
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_areas(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,area_id TEXT NOT NULL,name TEXT NOT NULL,room_id TEXT,PRIMARY KEY(link_id,area_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_devices(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,device_id TEXT NOT NULL,name TEXT NOT NULL,manufacturer TEXT NOT NULL DEFAULT '',model TEXT NOT NULL DEFAULT '',area_id TEXT,PRIMARY KEY(link_id,device_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_entities(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,name TEXT NOT NULL,metric TEXT NOT NULL,source_unit TEXT NOT NULL,device_id TEXT,area_id TEXT,selected BOOLEAN NOT NULL DEFAULT false,PRIMARY KEY(link_id,entity_id))`);
@@ -60,6 +62,33 @@ function parsePoints(list,max){
   if(t>now+5*60000||t<now-HISTORY_DAYS*86400000)fail(`Zeitpunkt liegt außerhalb der letzten ${HISTORY_DAYS} Tage.`);
   return {entity_id:p.entity_id,value:p.value,measured_at:new Date(t).toISOString()};
  });
+}
+
+// Geräteübersicht übernehmen (Brücke und App nutzen dieselbe Prüfung).
+async function applyInventory(c,link,b){
+  if(!onlyKeys(b,['areas','devices','entities'])||!Array.isArray(b.areas)||b.areas.length>200||!Array.isArray(b.devices)||b.devices.length>500||!Array.isArray(b.entities)||b.entities.length>500)fail('Ungültige Geräteübersicht (max. 200 Bereiche, 500 Geräte, 500 Sensoren).');
+  const areas=new Map(),devices=new Map(),entities=new Map();
+  for(const a of b.areas){if(!onlyKeys(a,['area_id','name'])||!ref(a.area_id)||!clean(a.name))fail('Ungültiger Bereich.');areas.set(a.area_id,clean(a.name));}
+  for(const d of b.devices){if(!onlyKeys(d,['device_id','name','manufacturer','model','area_id'])||!ref(d.device_id))fail('Ungültiges Gerät.');const area=ref(d.area_id);devices.set(d.device_id,{name:clean(d.name)||d.device_id,manufacturer:clean(d.manufacturer),model:clean(d.model),area_id:area&&areas.has(area)?area:null});}
+  for(const e of b.entities){
+   if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensor-Entitäten (sensor.*) sind erlaubt.');
+   const metric=BY_CLASS[e.device_class];
+   if(!metric)fail(`Nicht unterstützte Sensorart bei ${e.entity_id}. Erlaubt: Temperatur, Luftfeuchte, CO₂, Leistung, Energie.`);
+   if(typeof e.unit!=='string'||!METRICS[metric].units[e.unit])fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
+   const device=ref(e.device_id),area=ref(e.area_id);
+   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
+  }
+  // Bereiche und Geräte nur speichern, wenn ein übernommener Sensor sie braucht (Datensparsamkeit).
+  const usedDevices=new Set([...entities.values()].map(e=>e.device_id).filter(Boolean));
+  const usedAreas=new Set([...entities.values()].map(e=>e.area_id).concat([...devices].filter(([id])=>usedDevices.has(id)).map(([,d])=>d.area_id)).filter(Boolean));
+  await c.query('DELETE FROM app_ha_areas WHERE link_id=$1 AND NOT (area_id = ANY($2::text[]))',[link.id,[...usedAreas]]);
+  for(const id of usedAreas)await c.query('INSERT INTO app_ha_areas(link_id,area_id,name) VALUES($1,$2,$3) ON CONFLICT(link_id,area_id) DO UPDATE SET name=EXCLUDED.name',[link.id,id,areas.get(id)]);
+  await c.query('DELETE FROM app_ha_devices WHERE link_id=$1',[link.id]);
+  for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6)',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
+  await c.query('DELETE FROM app_ha_entities WHERE link_id=$1 AND NOT (entity_id = ANY($2::text[]))',[link.id,[...entities.keys()]]);
+  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id) VALUES($1,$2,$3,$4,$5,$6,$7)
+   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id]);
+  await c.query('UPDATE app_ha_links SET last_inventory_at=now() WHERE id=$1',[link.id]);
 }
 
 // Brückenschlüssel prüfen und Sperren in der etablierten Reihenfolge (Konto, Gebäude, Verbindung) setzen.
@@ -97,6 +126,9 @@ function bridgeRouter(db){
  const r=express.Router();
  r.use('/ha-bridge',(req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
  const tx=fn=>wrap(async(req,res)=>{const c=await db.connect(),reply=deferred(res);try{await c.query('BEGIN');await fn(c,req,reply);await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}res.status(reply.s).json(reply.b);});
+ // client_id-Seite für den offiziellen Home-Assistant-Login (IndieAuth): HA liest hier,
+ // wohin es nach der Anmeldung zurückleiten darf (nur in die App).
+ r.get('/ha-client',(req,res)=>{res.set('Cache-Control','public, max-age=3600').type('html').send('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>KI trifft Gebäude</title><link rel="redirect_uri" href="'+HA_REDIRECT+'"></head><body><p>KI trifft Gebäude – Anmeldung mit Home Assistant. Diese Seite wird nur von Home Assistant gelesen.</p></body></html>');});
  r.post('/ha-bridge/pair',tx(async(c,req,res)=>{
   const b=req.body||{},ip=req.ip||'unknown';
   if(!pairingAllowed(ip))fail('Zu viele Kopplungsversuche. Bitte in 10 Minuten erneut versuchen.',429);
@@ -110,30 +142,7 @@ function bridgeRouter(db){
   res.status(201).json({token,link_id:link.id,building:building.name,interval_seconds:60});
  }));
  r.post('/ha-bridge/inventory',tx(async(c,req,res)=>{
-  const link=await bridgeLink(c,req),b=req.body||{};
-  if(!onlyKeys(b,['areas','devices','entities'])||!Array.isArray(b.areas)||b.areas.length>200||!Array.isArray(b.devices)||b.devices.length>500||!Array.isArray(b.entities)||b.entities.length>500)fail('Ungültige Geräteübersicht (max. 200 Bereiche, 500 Geräte, 500 Sensoren).');
-  const areas=new Map(),devices=new Map(),entities=new Map();
-  for(const a of b.areas){if(!onlyKeys(a,['area_id','name'])||!ref(a.area_id)||!clean(a.name))fail('Ungültiger Bereich.');areas.set(a.area_id,clean(a.name));}
-  for(const d of b.devices){if(!onlyKeys(d,['device_id','name','manufacturer','model','area_id'])||!ref(d.device_id))fail('Ungültiges Gerät.');const area=ref(d.area_id);devices.set(d.device_id,{name:clean(d.name)||d.device_id,manufacturer:clean(d.manufacturer),model:clean(d.model),area_id:area&&areas.has(area)?area:null});}
-  for(const e of b.entities){
-   if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensor-Entitäten (sensor.*) sind erlaubt.');
-   const metric=BY_CLASS[e.device_class];
-   if(!metric)fail(`Nicht unterstützte Sensorart bei ${e.entity_id}. Erlaubt: Temperatur, Luftfeuchte, CO₂, Leistung, Energie.`);
-   if(typeof e.unit!=='string'||!METRICS[metric].units[e.unit])fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
-   const device=ref(e.device_id),area=ref(e.area_id);
-   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
-  }
-  // Bereiche und Geräte nur speichern, wenn ein übernommener Sensor sie braucht (Datensparsamkeit).
-  const usedDevices=new Set([...entities.values()].map(e=>e.device_id).filter(Boolean));
-  const usedAreas=new Set([...entities.values()].map(e=>e.area_id).concat([...devices].filter(([id])=>usedDevices.has(id)).map(([,d])=>d.area_id)).filter(Boolean));
-  await c.query('DELETE FROM app_ha_areas WHERE link_id=$1 AND NOT (area_id = ANY($2::text[]))',[link.id,[...usedAreas]]);
-  for(const id of usedAreas)await c.query('INSERT INTO app_ha_areas(link_id,area_id,name) VALUES($1,$2,$3) ON CONFLICT(link_id,area_id) DO UPDATE SET name=EXCLUDED.name',[link.id,id,areas.get(id)]);
-  await c.query('DELETE FROM app_ha_devices WHERE link_id=$1',[link.id]);
-  for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6)',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
-  await c.query('DELETE FROM app_ha_entities WHERE link_id=$1 AND NOT (entity_id = ANY($2::text[]))',[link.id,[...entities.keys()]]);
-  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id) VALUES($1,$2,$3,$4,$5,$6,$7)
-   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id]);
-  await c.query('UPDATE app_ha_links SET last_inventory_at=now() WHERE id=$1',[link.id]);
+  const link=await bridgeLink(c,req);await applyInventory(c,link,req.body||{});
   res.json({selected:await selectedIDs(c,link.id),interval_seconds:60});
  }));
  r.post('/ha-bridge/states',tx(async(c,req,res)=>{
@@ -176,7 +185,7 @@ async function overview(db,building,user){
    WHERE e.link_id=$1 ORDER BY e.metric,e.name,e.entity_id`,[link.id])
  ]);
  return {...base,
-  link:{id:link.id,status:link.status,instance_name:link.instance_name,ha_version:link.ha_version,revision:link.revision,paired_at:link.paired_at,last_inventory_at:link.last_inventory_at,last_push_at:link.last_push_at,pairing_expires_at:owner&&link.status==='pending'?link.pairing_expires_at:null},
+  link:{id:link.id,status:link.status,mode:link.mode,instance_name:link.instance_name,ha_version:link.ha_version,revision:link.revision,paired_at:link.paired_at,last_inventory_at:link.last_inventory_at,last_push_at:link.last_push_at,pairing_expires_at:owner&&link.status==='pending'?link.pairing_expires_at:null},
   areas:areas.rows,devices:devices.rows,
   entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric].unit,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
 }
@@ -240,6 +249,34 @@ function haImportRouter(db,requireAccount){
   }
   await c.query('UPDATE app_ha_links SET revision=revision+1 WHERE id=$1',[link.id]);
   res.json(await overview(c,b,req.account.id));
+ }));
+ // App-Weg: Das iPhone holt die Werte im Heimnetz aus Home Assistant und lädt sie hier hoch.
+ // Der Home-Assistant-Zugang bleibt im Schlüsselbund des iPhones; der Server kennt ihn nicht.
+ const appLink=link=>{if(!link||link.status!=='active'||link.mode!=='app')fail('Home Assistant ist nicht über die App verbunden.',409);return link;};
+ r.post(base+'/app-connect',ownerTx(async(c,req,res,b,link)=>{
+  const body=req.body||{};
+  if(!onlyKeys(body,['instance_name','ha_version']))fail('Ungültige Angaben.');
+  if(link&&link.status==='active'&&link.mode!=='app')fail('Home Assistant ist bereits über die Integration verbunden. Zum Wechseln zuerst trennen.',409);
+  if(!link){
+   const others=Number((await c.query('SELECT COUNT(*) n FROM app_ha_links WHERE user_id=$1 AND building_id<>$2',[b.user_id,b.id])).rows[0].n);
+   if(reached(await accountLimits(c,b.user_id),'ha_links',others))fail('Limit für Home-Assistant-Verbindungen erreicht.',429);
+   await c.query("INSERT INTO app_ha_links(id,building_id,user_id,status,mode,instance_name,ha_version,paired_at) VALUES($1,$2,$3,'active','app',$4,$5,now())",[randomUUID(),b.id,b.user_id,clean(body.instance_name),clean(body.ha_version,40)]);
+  }else await c.query("UPDATE app_ha_links SET status='active',mode='app',pairing_hash=NULL,pairing_expires_at=NULL,token_hash=NULL,instance_name=$2,ha_version=$3,paired_at=COALESCE(paired_at,now()),revision=revision+1 WHERE id=$1",[link.id,clean(body.instance_name),clean(body.ha_version,40)]);
+  res.status(link?200:201).json(await overview(c,b,req.account.id));
+ }));
+ r.put(base+'/inventory',ownerTx(async(c,req,res,b,link)=>{
+  await applyInventory(c,appLink(link),req.body||{});
+  res.json(await overview(c,b,req.account.id));
+ }));
+ r.post(base+'/samples',ownerTx(async(c,req,res,b,link)=>{
+  appLink(link);const body=req.body||{};
+  if(!onlyKeys(body,['points']))fail('Ungültige Messwerte.');
+  const points=parsePoints(body.points,2000);
+  if(reached(await accountLimits(c,b.user_id),'ha_sync_hour',await eventCount(c,b.user_id,'app_sync','1 hour')))fail('Stundenlimit für Abgleiche erreicht. Bitte später erneut versuchen.',429);
+  const result=await storePoints(c,link,points);
+  await c.query("INSERT INTO app_ha_events(user_id,kind,count) VALUES($1,'app_sync',1)",[b.user_id]);
+  await c.query('UPDATE app_ha_links SET last_push_at=now() WHERE id=$1',[link.id]);
+  res.status(201).json({...result,selected:await selectedIDs(c,link.id)});
  }));
  r.delete(base,ownerTx(async(c,req,res,b,link)=>{if(link)await c.query('DELETE FROM app_ha_links WHERE id=$1',[link.id]);res.json({ok:true,deleted:!!link});}));
  r.use(errors);return r;

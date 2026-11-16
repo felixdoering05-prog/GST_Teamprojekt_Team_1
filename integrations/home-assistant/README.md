@@ -1,5 +1,10 @@
 # Home Assistant → KI trifft Gebäude
 
+> **Standardweg ohne Installation (ab App 1.0.134):** In der App *Geräte → Home Assistant → Mit Home Assistant verbinden*.
+> Die App findet Home Assistant im WLAN, du meldest dich mit deinem Home-Assistant-Konto an und wählst die Sensoren aus.
+> Werte werden abgeglichen, wenn du die App öffnest; fehlende Stunden holt sie aus dem Verlauf von Home Assistant nach.
+> Diese Integration hier ist nur nötig, wenn Werte **rund um die Uhr** ohne geöffnete App übertragen werden sollen.
+
 Diese Custom Integration schickt ausgewählte Sensorwerte aus Home Assistant (HA) an den Projektserver.
 Home Assistant baut die Verbindung **nur nach außen** auf. Es muss also nicht aus dem Internet erreichbar sein.
 Auf dem Projektserver liegt **kein** Home-Assistant-Zugang, sondern nur der Hash eines eigenen Brückenschlüssels. Dieser Schlüssel lässt sich jederzeit widerrufen.

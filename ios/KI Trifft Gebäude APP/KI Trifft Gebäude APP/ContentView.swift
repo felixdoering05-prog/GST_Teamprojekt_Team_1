@@ -562,9 +562,9 @@ struct AccountHomeView: View {
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
                 .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Dashboard"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
-                .task { refreshDraft() }
+                .task { refreshDraft(); await HASync.syncAll(account: model) }
                 .onChange(of: model.buildings) { _, _ in refreshDraft() }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft() } }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft(); Task { await HASync.syncAll(account: model) } } }
                 .confirmationDialog("Lokalen Entwurf verwerfen?", isPresented: $discardDraft, titleVisibility: .visible) {
                     Button("Entwurf auf diesem iPhone verwerfen", role: .destructive) {
                         do { try model.draftStore()?.clear(); savedDraft = nil } catch { model.error = error.localizedDescription }
