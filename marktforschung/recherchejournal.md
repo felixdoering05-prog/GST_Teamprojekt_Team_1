@@ -1,3 +1,19 @@
+## 16. November 2026, 19:05 MEZ – KI-Fehleranalyse und Wettbewerbsabgleich
+
+**Siemens Building X Operations Manager:** [Release Notes September 2026](https://www.siemens.com/de-de/products/building-x/release-notes/) bestätigen den optionalen **Fault Triage Agent** für KI-gestützte Untersuchung von Störungen, wahrscheinliche Ursachen und mögliche Lösungswege. [Produktseite](https://www.siemens.com/de-ch/products/building-x/applications/operations-manager/). Zielgruppe: technische Gebäudebetreiber. **Kein bestätigter EUR-Preis, keine unabhängige Validierung der Diagnosequalität; kein neues November-Release.**
+
+**Autodesk Tandem Connect:** [Produktdetails](https://www.autodesk.com/products/tandem-connect/product-details) nennen vorgefertigte Integrationen, nahezu Echtzeit-Datenübertragung, bidirektionale Synchronisierung und ereignisgesteuerte Workflows (Alarme/Wartungsaufträge). **Öffentlicher Betrag nicht verifizierbar** (dynamischer Preisplatzhalter). [Tandem Free](https://www.autodesk.com/sg/products/Tandem/buy): 500 Assets, 100 Mio. Datenpunkte, 3 Gebäude; keine Add-ons.
+
+**Home Assistant Assist:** [Offizielle Dokumentation](https://www.home-assistant.io/voice_control/) und [LLM-Anbindung](https://www.home-assistant.io/voice_control/assist_create_open_ai_personality/) belegen lokale bzw. LLM-gestützte Sprache und Smart-Home-Aktionen. Kein Alleinstellungsmerkmal für Voice/LLM-Steuerung; Software Open Source, Betriebskosten separat.
+
+**Projektabgleich (README/main, 16.11.):** IFC-Webviewer, SwiftUI, Gemini-Lesewerkzeuge, Home-Assistant-Testlampen und ESP32-/BME280-API mit gemeinsamer Raumzuordnung sind dokumentiert. [#189](../../issues/189) nennt offene Hardware-/24h-Tests; [#74](../../issues/74) und [#102](../../issues/102) weiterhin ohne bestätigten echten D21-Datenpunkt. Automatische Sensor-IFC-Zuordnung, KI-Ursachendiagnose und Energie-Anomalieerkennung **nicht als produktiv nachgewiesen**; vorhandene Raumzuordnung nicht als automatische KI-Zuordnung ausgeben.
+
+**Chance (Hypothese):** überprüfbare Sensor-IFC-Raum-Verknüpfung mit Datenherkunft und Rechteprüfung für kleinere Teams. **Risiko:** Siemens besetzt KI-Fehlerdiagnose, Autodesk Integrationsworkflows und Home Assistant Sprachsteuerung. Weder Preis- noch Qualitätsvorteil belegt.
+
+**Nächster Test:** Freigegebener echter D21-Messwert mit Einheit/Zeitstempel/IFC-Raum, 24h-Dauerlauf, dokumentierte Fehlerfälle, Datenschutzprüfung und einheitlicher Vollkostenvergleich. Quellenabruf: **16.11.2026**, ausschließlich Herstellerangaben.
+
+---
+
 # Recherchejournal
 
 ## 16. November 2026, ca. 09:41 MEZ – Tacit Twin und Autodesk-Lizenzmigration
