@@ -8,9 +8,9 @@
 
 *Gebäude verstehen, Daten verknüpfen und Technik intelligent bedienen – im Browser und auf dem iPhone.*
 
-[**🌐 Dashboard**](https://filling-vendor-verification-hop.trycloudflare.com) · [**✨ Projektseite**](https://filling-vendor-verification-hop.trycloudflare.com/projekt/) · [**📋 Aufgaben**](../../issues) · [**📝 Änderungen**](CHANGELOG.md)
+[**🌐 Dashboard**](https://titanfs.de) · [**✨ Projektseite**](https://kitrifftgebäude.de) · [**📋 Aufgaben**](../../issues) · [**📝 Änderungen**](CHANGELOG.md)
 
-<sub>Die Dashboard-Adresse ist ein temporärer Cloudflare-Testzugang und kann sich ändern. Anmeldung erforderlich.</sub>
+<sub>Dashboard: titanfs.de · Öffentliche Landingpage: kitrifftgebäude.de · Für das Dashboard ist eine Anmeldung erforderlich.</sub>
 
 </div>
 
