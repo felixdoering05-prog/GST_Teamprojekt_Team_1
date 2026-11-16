@@ -1,0 +1,5 @@
+secrets.h
+*.bin
+build/
+
+__pycache__/
