@@ -22,7 +22,8 @@ struct PlanEditorRoom: Decodable, Identifiable, Equatable { var id: String; var 
     init(from d: Decoder) throws { let c = try d.container(keyedBy: CodingKeys.self); id = try c.decode(String.self, forKey: .id); name = try c.decode(String.self, forKey: .name); area_m2 = try c.decode(Double.self, forKey: .area_m2); point = try c.decode([Double].self, forKey: .point).point; polygon = try c.decode([[Double]].self, forKey: .polygon).map(\.point) }
 }
 struct PlanEditorLevel: Decodable { let index: Int; let name: String; let source: String; let width: Double; let depth: Double; let scale: PlanEditorScale
-    var walls: [PlanEditorWall]; var openings: [PlanEditorOpening]; var rooms: [PlanEditorRoom]; let image: PlanEditorImage? }
+    var walls: [PlanEditorWall]; var openings: [PlanEditorOpening]; var rooms: [PlanEditorRoom]; let image: PlanEditorImage?
+    let elevation: Double?; let height: Double?; let offset: [Double]? }
 struct PlanEditorReference: Equatable { var a: CGPoint; var b: CGPoint; var mm: Double }
 private extension Array where Element == Double { var point: CGPoint { CGPoint(x: count > 0 ? self[0] : 0, y: count > 1 ? self[1] : 0) } }
 private extension CGPoint {

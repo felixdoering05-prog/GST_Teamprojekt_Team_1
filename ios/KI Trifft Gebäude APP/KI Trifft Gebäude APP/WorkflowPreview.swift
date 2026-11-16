@@ -230,7 +230,8 @@ final class WorkflowPreviewProtocol: URLProtocol {
         }
         else if path.contains("/plan-conversion") {
             // Plan → 3D draft with the correction editor (real recognition result of a CC0 test photo).
-            if path.hasSuffix("/editor") { bytes = Data(PlanEditorPreviewData.editorJSON.utf8) }
+            if path.hasSuffix("/editor") { bytes = Data(PlanEditorPreviewData.editorJSONTwoLevels.utf8) }
+            else if path.hasSuffix("/levels") { PlanEditorPreviewData.edited = true; status = 202; result = ["id": PlanEditorPreviewData.jobID, "status": "queued"] }
             else if path.contains("/plan-image/") { bytes = PlanEditorPreviewData.planImage; mime = "image/jpeg" }
             else if path.hasSuffix("/edit") { PlanEditorPreviewData.edited = true; status = 202; result = ["id": PlanEditorPreviewData.jobID, "status": "queued"] }
             else if path.hasSuffix("/preview") { status = 404; result = ["error": "Vorschau noch nicht verfügbar."] }

@@ -293,10 +293,29 @@ enum PlanEditorPreviewData {
     static let jobID = "5f1e2d3c-4b5a-4c6d-8e7f-001122334455"
     static var reply: [String: Any] {
         ["available": true, "ai_enabled": true, "policy_version": 1, "daily_limit": 3, "settings": ["enabled": true, "revision": 2, "policy_version": 1],
-         "jobs": [["id": jobID, "status": edited ? "queued" : "ready", "phase": "review", "document_ids": [1000], "can_edit": !edited, "can_rebuild": false,
+         "jobs": [["id": jobID, "status": stage.status, "phase": stage.phase, "document_ids": [1000, 1001], "can_edit": stage.status == "ready", "can_rebuild": false,
+                   "updated_at": ISO8601DateFormatter().string(from: stage.since),
                    "warnings": ["EG: aus Foto/Scan erkannt, 12,21 × 8,85 m, 8 Wände, 5 Türen, 7 Fenster, 8 Räume.", "EG: Maßstab geschätzt aus Türbreiten und Wandstärke. Maße sind ungefähr – bitte prüfen oder eine bekannte Strecke angeben."],
                    "quality": ["grade": "prüfen", "levels": [["level": "EG", "source": "raster", "scale": ["method": "geschätzt aus Türbreiten und Wandstärke", "ratio": NSNull(), "estimated": true], "walls": 8, "doors": 5, "windows": 7, "openings_unclear": 3, "rooms": 8, "rooms_without_door": [], "dimensions": [], "dimension_max_error_pct": NSNull()]]]]]]
     }
-    static var edited = false
+    static var edited = false { didSet { if edited { rebuiltAt = Date() } } }
+    /// Simulated server progress after a correction or storey change: queued → measuring → modelling → ready.
+    static var rebuiltAt: Date?
+    static var stage: (status: String, phase: String, since: Date) {
+        guard let t = rebuiltAt else { return ("ready", "review", Date()) }
+        let e = Date().timeIntervalSince(t)
+        if e < 3 { return ("queued", "analysis", t) }
+        if e < 9 { return ("running", "analysis", t.addingTimeInterval(3)) }
+        if e < 16 { return ("running", "model_only", t.addingTimeInterval(9)) }
+        return ("ready", "review", t.addingTimeInterval(16))
+    }
+    /// Two recognised plans (EG and a second floor) for the storey screen.
+    static var editorJSONTwoLevels: String {
+        guard var root = try? JSONSerialization.jsonObject(with: Data(editorJSON.utf8)) as? [String: Any], var levels = root["levels"] as? [[String: Any]], var second = levels.first else { return editorJSON }
+        second["index"] = 1; second["name"] = "1. OG"; second["elevation"] = 2700; second["image"] = NSNull()
+        levels[0]["elevation"] = 0; levels[0]["height"] = 2500; second["height"] = 2500
+        levels.append(second); root["levels"] = levels
+        return String(data: (try? JSONSerialization.data(withJSONObject: root)) ?? Data(), encoding: .utf8) ?? editorJSON
+    }
 }
 #endif

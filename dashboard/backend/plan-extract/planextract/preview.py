@@ -33,10 +33,12 @@ def render(levels, path, labels=False):
     for k, level in enumerate(levels):
         ox, oy = (k % cols) * cw, (k // cols) * ch
         width, depth = max(level['width'], 1), max(level['depth'], 1)
+        # Storeys may be shifted for alignment (offset); each panel shows the storey from its own corner.
+        off = level.get('offset') or [0, 0]
         s = min((cw - 2 * PAD) / width, (ch - 2 * PAD - 20) / depth)
         mx = (cw - 2 * PAD - width * s) / 2
         my = (ch - 2 * PAD - 20 - depth * s) / 2
-        P = lambda p: (ox + PAD + mx + p[0] * s, oy + ch - PAD - my - p[1] * s)
+        P = lambda p, off=off: (ox + PAD + mx + (p[0] - off[0]) * s, oy + ch - PAD - my - (p[1] - off[1]) * s)
         draw.text((ox + 10, oy + 8), f"{level['name']} · {width / 1000:.2f} × {depth / 1000:.2f} m".replace('.', ','), fill=(30, 30, 30), font=mid)
         for r in level['rooms']:
             draw.polygon([P(p) for p in r['polygon']], fill=(236, 242, 248))

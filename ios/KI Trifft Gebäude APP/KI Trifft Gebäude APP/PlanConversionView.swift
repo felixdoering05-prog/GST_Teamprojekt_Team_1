@@ -71,6 +71,8 @@ struct PlanConversionJob: Decodable, Identifiable {
     let warnings: [String]
     let quality: PlanQuality?
     let document_ids: [Int]
+    let created_at: String?
+    let updated_at: String?
     var title: String {
         switch status {
         case "queued": "Wartet auf Analyse"
@@ -130,8 +132,49 @@ struct PlanConversionView: View {
             await load()
         } catch { self.error = error.localizedDescription }
     }
+    private static let active: Set<String> = ["queued", "running", "ready"]
+    private static let running: Set<String> = ["queued", "running"]
+    @ViewBuilder private func jobSection(_ job: PlanConversionJob, reply: PlanConversionReply) -> some View {
+            Section {
+                if ["queued", "running", "ready"].contains(job.status) { PlanJobProgress(job: job).padding(.vertical, 4) }
+                if job.status == "ready" {
+                    if let image = previews[job.id] { Image(uiImage: image).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityLabel("Vorläufiger IFC-Entwurf") }
+                    if let quality = job.quality { PlanJobSummary(quality: quality) }
+                    if job.can_edit == true {
+                        NavigationLink { PlanLevelsView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
+                            Label { VStack(alignment: .leading, spacing: 2) { Text("Ebenen festlegen").font(.headline); Text("Wie viele Geschosse? UG, EG, OG zuordnen und übereinandersetzen").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "square.3.layers.3d").foregroundStyle(d21Accent) }
+                        }.disabled(busy).accessibilityIdentifier("plan-levels")
+                        NavigationLink { PlanEditorView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
+                            Label { VStack(alignment: .leading, spacing: 2) { Text("Grundriss korrigieren").font(.headline); Text("Wände, Türen und Fenster anpassen, Räume benennen, Strecke angeben").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "pencil.and.ruler.fill").foregroundStyle(d21Accent) }
+                        }.disabled(busy).accessibilityIdentifier("plan-edit")
+                    }
+                    Button { Task { await action("/jobs/\(job.id)/approve", body: [:]) } } label: {
+                        Label("Entwurf übernehmen", systemImage: "checkmark.circle.fill").frame(maxWidth: .infinity)
+                    }.buttonStyle(.borderedProminent).tint(d21Accent).disabled(busy || !reply.ai_enabled)
+                    Text("Übernehmen legt eine zusätzliche IFC-Datei in der Gebäudemappe an. Sieben Tage Zeit zur Prüfung.").font(.caption).foregroundStyle(.secondary)
+                } else if !["queued", "running"].contains(job.status) {
+                    Text("\(job.document_ids.count) Quelldatei(en)").font(.caption).foregroundStyle(.secondary)
+                }
+                if let quality = job.quality, job.status != "queued" && job.status != "running" {
+                    DisclosureGroup("Qualitätsbericht") { PlanQualityView(quality: quality) }.font(.subheadline)
+                }
+                if !job.warnings.isEmpty && !Self.running.contains(job.status) {
+                    if job.status == "ready" {
+                        DisclosureGroup("Hinweise (\(job.warnings.count))") { ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, warning in Text(warning).font(.footnote) } }.font(.subheadline)
+                    } else { ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, warning in Text(warning).font(.footnote) } }
+                }
+                if job.can_rebuild == true {
+                    Button("Gespeicherte Erkennung erneut prüfen (ohne Google)") { Task { await action("/jobs/\(job.id)/rebuild", body: ["request_key": UUID().uuidString.lowercased()]) } }.disabled(busy || !reply.ai_enabled || !reply.settings.enabled)
+                }
+                if ["queued", "running", "ready"].contains(job.status) {
+                    Button(job.status == "ready" ? "Verwerfen" : "Abbrechen", role: .destructive) { Task { await action("/jobs/\(job.id)/reject", body: [:]) } }.disabled(busy)
+                }
+            } header: { if !["queued", "running", "ready"].contains(job.status) { Text(job.title) } else { Text("3D-Entwurf") } }
+        
+    }
     var body: some View {
         List {
+            if let reply { ForEach(reply.jobs.filter { Self.active.contains($0.status) }) { job in jobSection(job, reply: reply) } }
             Section {
                 Text("Fotografiere einen Grundriss ab oder lade ihn hoch – auch ein schiefes Foto, ein Scan oder eine Skizze reicht. Daraus entsteht ein 3D-Entwurf, den du vor der Übernahme prüfst. Am genauesten sind Vektor-PDF, DXF oder DWG.")
                 Text("Experimentell · keine Fachplanung · vorhandene Modelle bleiben erhalten.").font(.footnote).foregroundStyle(.secondary)
@@ -162,29 +205,7 @@ struct PlanConversionView: View {
                         Button("Ausgewählte Pläne analysieren") { Task { await action("/jobs", body: ["document_ids": selected.sorted(), "request_key": UUID().uuidString.lowercased()]) } }.disabled(busy || selected.isEmpty || !reply.ai_enabled)
                     }
                 }
-                ForEach(reply.jobs) { job in
-                    Section(job.title) {
-                        Text("\(job.document_ids.count) Quelldatei(en)").font(.caption).foregroundStyle(.secondary)
-                        if let quality = job.quality { PlanQualityView(quality: quality) }
-                        ForEach(Array(job.warnings.enumerated()), id: \.offset) { _, warning in Text(warning).font(.footnote) }
-                        if job.can_rebuild == true {
-                            Button("Gespeicherte Erkennung erneut prüfen (ohne Google)") { Task { await action("/jobs/\(job.id)/rebuild", body: ["request_key": UUID().uuidString.lowercased()]) } }.disabled(busy || !reply.ai_enabled || !reply.settings.enabled)
-                        }
-                        if job.status == "ready" {
-                            if let image = previews[job.id] { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Vorläufiger IFC-Entwurf") }
-                            if job.can_edit == true {
-                                NavigationLink { PlanEditorView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
-                                    Label { VStack(alignment: .leading, spacing: 2) { Text("Grundriss korrigieren").font(.headline); Text("Wände verschieben, löschen oder ergänzen, Türen und Fenster setzen, Räume benennen, eine bekannte Strecke angeben").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "pencil.and.ruler.fill").foregroundStyle(d21Accent) }
-                                }.disabled(busy).accessibilityIdentifier("plan-edit")
-                            }
-                            Text("Bitte Proportionen und Hinweise prüfen. Übernehmen legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.").font(.footnote)
-                            Button("Entwurf in Gebäudemappe übernehmen") { Task { await action("/jobs/\(job.id)/approve", body: [:]) } }.disabled(busy || !reply.ai_enabled)
-                        }
-                        if ["queued", "running", "ready"].contains(job.status) {
-                            Button(job.status == "ready" ? "Verwerfen" : "Abbrechen", role: .destructive) { Task { await action("/jobs/\(job.id)/reject", body: [:]) } }.disabled(busy)
-                        }
-                    }
-                }
+                ForEach(reply.jobs.filter { !Self.active.contains($0.status) }) { job in jobSection(job, reply: reply) }
             } else { ProgressView("Plananalyse wird geladen …") }
             if let error { Section { Text(error).foregroundStyle(.red) } }
         }
