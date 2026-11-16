@@ -2,11 +2,14 @@
 import argparse,getpass,json,os,shutil,socket,ssl,subprocess,tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
+from firmware_upload import upload_firmware
 p=argparse.ArgumentParser()
 p.add_argument('--device-file',required=True,help='Private JSON with token and input_url, outside Git')
 p.add_argument('--cli',default='/tmp/d21-arduino/bin/arduino-cli')
 p.add_argument('--config',default='/tmp/d21-arduino/arduino-cli.yaml')
 p.add_argument('--port',default='/dev/cu.usbmodem1101')
+p.add_argument('--esptool',default='/tmp/d21-esp-tools/bin/esptool')
+p.add_argument('--boot-app0',default='/tmp/d21-arduino/data/packages/esp32/hardware/esp32/3.3.12/tools/partitions/boot_app0.bin')
 p.add_argument('--build-only',action='store_true')
 a=p.parse_args()
 cfg=json.loads(Path(a.device_file).read_text());u=urlsplit(cfg['input_url'])
@@ -37,6 +40,11 @@ with tempfile.TemporaryDirectory(prefix='d21-esp-build-') as tmp:
  print('Firmware erfolgreich gebaut.')
  if not a.build_only:
   print('Die bestehende Firmware wird jetzt durch die Simulation ersetzt. Sicherung muss vorher erstellt sein.')
-  result=subprocess.run(command+['upload','--fqbn',board,'--port',a.port,'--input-dir',str(root/'build')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-  if result.returncode:raise SystemExit('Upload fehlgeschlagen. BOOT/RESET und USB-Verbindung pruefen.')
-  print('Simulation installiert. Messwerte erscheinen als Demo im zugeordneten Gebaeude.')
+  try:
+   with open(root/'upload.log','w') as log:
+    upload_firmware(root/'build',a.port,a.esptool,a.boot_app0,log)
+  except (OSError,RuntimeError) as error:
+   # Never echo raw uploader logs: they can contain private paths/build details.
+   if isinstance(error,RuntimeError):raise SystemExit(str(error))
+   raise SystemExit('ESP32-Werkzeuge oder USB-Port nicht erreichbar. Installation nicht bestaetigt.')
+  print('Simulation auf dem ESP32 verifiziert und gestartet. Der erste Serverwert kann bis zu einer Minute dauern.')
