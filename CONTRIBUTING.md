@@ -12,6 +12,19 @@
 
 Das ist eine Arbeitsvereinbarung als Vorschlag; technische Branch-Schutzregeln sind noch nicht eingerichtet.
 
+## Automatische Prüfungen (GitHub Actions)
+
+Jeder Pull Request nach `main` und jeder Push auf `main` startet automatisch die Tests. Das Ergebnis steht im Pull Request unter „Checks“ oder per `gh pr checks <Nummer>`. Es gibt keinen Deploy-Schritt und keine Geheimnisse in den Workflows.
+
+| Workflow | Job | Was läuft |
+|---|---|---|
+| [Backend](.github/workflows/backend.yml) | Node-Tests | `dashboard/backend`: `npm ci` + `npm test` (Node 22, Datenbank per PGlite im Speicher). Liegt `plan-extract/requirements.txt` vor, wird der Planextraktor installiert und der Ende-zu-Ende-Test mit `PLAN_PYTHON` ausgeführt. |
+| [Backend](.github/workflows/backend.yml) | Python-Tests | Jeder Ordner unter `dashboard/backend` mit `requirements.txt` (z. B. `ifc-analysis`, `plan-extract`) bekommt eine eigene Python-3.12-Umgebung; danach `python -m unittest discover` im Ordner bzw. in `tests/`. |
+| [iOS](.github/workflows/ios.yml) | IFC-Viewer | `ios/ifc-viewer`: `npm ci`, `npm test`, `node build.mjs` auf macOS. Danach muss `IFCAssets` in der App unverändert sein – wer den Viewer ändert, muss den Build mitcommitten. |
+| [iOS](.github/workflows/ios.yml) | iOS-App | Simulator-Build der App mit Xcode 27.2 ohne Signatur (`CODE_SIGNING_ALLOWED=NO`), Runner-Image `xcode-27` (Vorschau-Image von GitHub, kann Wartezeiten haben). |
+
+Nicht automatisch geprüft werden die Web-App `dashboard/base44-frontend` und die Swift-Prüfprogramme unter `ios/tests` und `ios/ifc-viewer/tests`.
+
 ## Dateien benennen
 
 - Kurze, beschreibende Namen ohne Leerzeichen verwenden.
