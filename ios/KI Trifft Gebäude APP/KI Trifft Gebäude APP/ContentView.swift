@@ -578,6 +578,7 @@ struct AccountHomeView: View {
     @EnvironmentObject var model: AccountModel
     @State private var selectedTab: Int = {
         #if DEBUG
+        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NalaPreview") { return 5 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DashboardPreview") { return 4 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DevicesPreview") { return 3 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
@@ -622,6 +623,9 @@ struct AccountHomeView: View {
         case .locate(let id):
             guard let building = resolve(id) else { return }
             selectedTab = 0; locating = building
+        case .nala(let id):
+            if let building = resolve(id) { UserDefaults.standard.set(building.id, forKey: "nala.buildingID") }
+            showAdd = false; showProfile = false; selectedTab = 5
         }
     }
     private func refreshDraft() {
@@ -708,6 +712,7 @@ struct AccountHomeView: View {
                     Button("Behalten", role: .cancel) {}
                 } message: { Text("Bereits auf dem Server gespeicherte Gebäude und Dateien bleiben erhalten. Nur der lokale Zwischenstand und noch nicht hochgeladene Dateikopien werden entfernt.") }
             }.tabItem { Label("Gebäude", systemImage: "building.2") }.tag(0)
+            NalaTabView(model: model).tabItem { Label("Nala", systemImage: "sparkles") }.tag(5)
             NavigationStack { TeamInboxView(account:model,social:social) }.tabItem { Label("Team",systemImage:"person.2") }.badge(social.unread).tag(1)
             ProfileView(embedded: true).tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(2)
         }
