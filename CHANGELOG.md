@@ -7,6 +7,7 @@
 - Neuer lesender Endpunkt `GET /documents/:id/sensor-overlay` liefert die neuesten Werte je IFC-Raum (nur mit Gebäudezugang, ohne Geräteschlüssel). `GET /buildings/:id/sensor-devices` listet Geräte ohne Schlüssel.
 - Web-3D-Viewer (Dashboard-Widget „BIM-Modell“ und BIM-Viewer): kleines Popup über der Mitte des zugeordneten IFC-Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die Seite lädt die Werte angemeldet und übergibt sie per postMessage; der Viewer erhält keinen Sitzungsschlüssel. Die iPhone-App bleibt unverändert.
 - Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung; Web-Build erfolgreich.
+
 ## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
 
 - Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.
