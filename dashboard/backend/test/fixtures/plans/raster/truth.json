@@ -1,0 +1,726 @@
+{
+ "license": "CC0-1.0, selbst erzeugt",
+ "houses": {
+  "haus-rechteck": {
+   "width": 10000,
+   "depth": 8000,
+   "walls": [
+    [
+     [
+      182.5,
+      182.5
+     ],
+     [
+      182.5,
+      7817.5
+     ],
+     365
+    ],
+    [
+     [
+      182.5,
+      7817.5
+     ],
+     [
+      9817.5,
+      7817.5
+     ],
+     365
+    ],
+    [
+     [
+      9817.5,
+      7817.5
+     ],
+     [
+      9817.5,
+      182.5
+     ],
+     365
+    ],
+    [
+     [
+      9817.5,
+      182.5
+     ],
+     [
+      182.5,
+      182.5
+     ],
+     365
+    ],
+    [
+     [
+      5000,
+      365
+     ],
+     [
+      5000,
+      7635
+     ],
+     240
+    ],
+    [
+     [
+      5120,
+      4000
+     ],
+     [
+      9635,
+      4000
+     ],
+     115
+    ],
+    [
+     [
+      365,
+      3000
+     ],
+     [
+      4880,
+      3000
+     ],
+     115
+    ]
+   ],
+   "openings": [
+    {
+     "kind": "door",
+     "at": [
+      2000,
+      182.5
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "door",
+     "at": [
+      3500,
+      3000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      5000,
+      6000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      5000,
+      1800
+     ],
+     "width": 760
+    },
+    {
+     "kind": "window",
+     "at": [
+      7500,
+      182.5
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "window",
+     "at": [
+      2500,
+      7817.5
+     ],
+     "width": 1510
+    },
+    {
+     "kind": "window",
+     "at": [
+      7500,
+      7817.5
+     ],
+     "width": 1260
+    },
+    {
+     "kind": "window",
+     "at": [
+      182.5,
+      5500
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "window",
+     "at": [
+      9817.5,
+      2000
+     ],
+     "width": 885
+    }
+   ],
+   "rooms": [
+    {
+     "name": "Küche",
+     "point": [
+      2600,
+      1650
+     ],
+     "area_m2": 11.637
+    },
+    {
+     "name": "Wohnen",
+     "point": [
+      2600,
+      5500
+     ],
+     "area_m2": 20.667
+    },
+    {
+     "name": "Bad",
+     "point": [
+      7500,
+      2000
+     ],
+     "area_m2": 16.152
+    },
+    {
+     "name": "Schlafen",
+     "point": [
+      7500,
+      6000
+     ],
+     "area_m2": 16.152
+    }
+   ]
+  },
+  "haus-l": {
+   "width": 9000,
+   "depth": 9000,
+   "walls": [
+    [
+     [
+      150.0,
+      150.0
+     ],
+     [
+      150.0,
+      8850.0
+     ],
+     300
+    ],
+    [
+     [
+      150.0,
+      8850.0
+     ],
+     [
+      3850.0,
+      8850.0
+     ],
+     300
+    ],
+    [
+     [
+      3850.0,
+      8850.0
+     ],
+     [
+      3850.0,
+      4850.0
+     ],
+     300
+    ],
+    [
+     [
+      3850.0,
+      4850.0
+     ],
+     [
+      8850.0,
+      4850.0
+     ],
+     300
+    ],
+    [
+     [
+      8850.0,
+      4850.0
+     ],
+     [
+      8850.0,
+      150.0
+     ],
+     300
+    ],
+    [
+     [
+      8850.0,
+      150.0
+     ],
+     [
+      150.0,
+      150.0
+     ],
+     300
+    ],
+    [
+     [
+      300,
+      5000
+     ],
+     [
+      3700,
+      5000
+     ],
+     175
+    ],
+    [
+     [
+      4000,
+      300
+     ],
+     [
+      4000,
+      4700
+     ],
+     175
+    ]
+   ],
+   "openings": [
+    {
+     "kind": "door",
+     "at": [
+      6500,
+      150.0
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "door",
+     "at": [
+      2000,
+      5000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      4000,
+      2500
+     ],
+     "width": 885
+    },
+    {
+     "kind": "window",
+     "at": [
+      2000,
+      150.0
+     ],
+     "width": 1260
+    },
+    {
+     "kind": "window",
+     "at": [
+      2000,
+      8850.0
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "window",
+     "at": [
+      8850.0,
+      2500
+     ],
+     "width": 1510
+    }
+   ],
+   "rooms": [
+    {
+     "name": "Wohnen",
+     "point": [
+      2000,
+      2500
+     ],
+     "area_m2": 16.617
+    },
+    {
+     "name": "Arbeiten",
+     "point": [
+      6500,
+      2500
+     ],
+     "area_m2": 20.295
+    },
+    {
+     "name": "Schlafen",
+     "point": [
+      2000,
+      7000
+     ],
+     "area_m2": 12.283
+    }
+   ]
+  },
+  "haus-gross": {
+   "width": 12000,
+   "depth": 9000,
+   "walls": [
+    [
+     [
+      150.0,
+      150.0
+     ],
+     [
+      150.0,
+      8850.0
+     ],
+     300
+    ],
+    [
+     [
+      150.0,
+      8850.0
+     ],
+     [
+      11850.0,
+      8850.0
+     ],
+     300
+    ],
+    [
+     [
+      11850.0,
+      8850.0
+     ],
+     [
+      11850.0,
+      150.0
+     ],
+     300
+    ],
+    [
+     [
+      11850.0,
+      150.0
+     ],
+     [
+      150.0,
+      150.0
+     ],
+     300
+    ],
+    [
+     [
+      5000,
+      300
+     ],
+     [
+      5000,
+      8700
+     ],
+     175
+    ],
+    [
+     [
+      300,
+      4000
+     ],
+     [
+      4912.5,
+      4000
+     ],
+     115
+    ],
+    [
+     [
+      5087.5,
+      4000
+     ],
+     [
+      11700,
+      4000
+     ],
+     115
+    ],
+    [
+     [
+      5087.5,
+      5200
+     ],
+     [
+      11700,
+      5200
+     ],
+     115
+    ],
+    [
+     [
+      8500,
+      300
+     ],
+     [
+      8500,
+      3942.5
+     ],
+     115
+    ],
+    [
+     [
+      8500,
+      5257.5
+     ],
+     [
+      8500,
+      8700
+     ],
+     115
+    ]
+   ],
+   "openings": [
+    {
+     "kind": "door",
+     "at": [
+      11850.0,
+      4600
+     ],
+     "width": 1010
+    },
+    {
+     "kind": "door",
+     "at": [
+      6700,
+      4000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      10200,
+      4000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      6700,
+      5200
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      10200,
+      5200
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      5000,
+      4600
+     ],
+     "width": 885
+    },
+    {
+     "kind": "door",
+     "at": [
+      2500,
+      4000
+     ],
+     "width": 885
+    },
+    {
+     "kind": "window",
+     "at": [
+      2500,
+      150.0
+     ],
+     "width": 1260
+    },
+    {
+     "kind": "window",
+     "at": [
+      150.0,
+      6500
+     ],
+     "width": 1510
+    },
+    {
+     "kind": "window",
+     "at": [
+      2500,
+      8850.0
+     ],
+     "width": 1510
+    },
+    {
+     "kind": "window",
+     "at": [
+      6750,
+      150.0
+     ],
+     "width": 760
+    },
+    {
+     "kind": "window",
+     "at": [
+      10250,
+      150.0
+     ],
+     "width": 1260
+    },
+    {
+     "kind": "window",
+     "at": [
+      6750,
+      8850.0
+     ],
+     "width": 1260
+    },
+    {
+     "kind": "window",
+     "at": [
+      10250,
+      8850.0
+     ],
+     "width": 1260
+    }
+   ],
+   "rooms": [
+    {
+     "name": "Küche",
+     "point": [
+      2500,
+      2000
+     ],
+     "area_m2": 16.801
+    },
+    {
+     "name": "Wohnen",
+     "point": [
+      2500,
+      6800
+     ],
+     "area_m2": 21.414
+    },
+    {
+     "name": "Flur",
+     "point": [
+      8500,
+      4600
+     ],
+     "area_m2": 7.175
+    },
+    {
+     "name": "Bad",
+     "point": [
+      6750,
+      2000
+     ],
+     "area_m2": 12.221
+    },
+    {
+     "name": "Schlafen",
+     "point": [
+      10250,
+      2000
+     ],
+     "area_m2": 11.447
+    },
+    {
+     "name": "Kind",
+     "point": [
+      6750,
+      7100
+     ],
+     "area_m2": 11.55
+    },
+    {
+     "name": "Arbeiten",
+     "point": [
+      10250,
+      7100
+     ],
+     "area_m2": 10.818
+    }
+   ]
+  }
+ },
+ "cases": [
+  {
+   "file": "rechteck-scan.png",
+   "house": "haus-rechteck",
+   "style": "scan"
+  },
+  {
+   "file": "l-scan.png",
+   "house": "haus-l",
+   "style": "scan"
+  },
+  {
+   "file": "rechteck-kopie.png",
+   "house": "haus-rechteck",
+   "style": "kopie"
+  },
+  {
+   "file": "rechteck-foto.jpg",
+   "house": "haus-rechteck",
+   "style": "foto"
+  },
+  {
+   "file": "l-foto.jpg",
+   "house": "haus-l",
+   "style": "foto"
+  },
+  {
+   "file": "rechteck-gefuellt.png",
+   "house": "haus-rechteck",
+   "style": "gefuellt"
+  },
+  {
+   "file": "rechteck-skizze.png",
+   "house": "haus-rechteck",
+   "style": "skizze"
+  },
+  {
+   "file": "l-gefuellt.png",
+   "house": "haus-l",
+   "style": "gefuellt"
+  },
+  {
+   "file": "gross-gefuellt.png",
+   "house": "haus-gross",
+   "style": "gefuellt"
+  },
+  {
+   "file": "gross-gefuellt-foto.jpg",
+   "house": "haus-gross",
+   "style": "foto"
+  },
+  {
+   "file": "gross-schraffiert.png",
+   "house": "haus-gross",
+   "style": "schraffiert"
+  },
+  {
+   "file": "gross-schraffiert-kopie.png",
+   "house": "haus-gross",
+   "style": "kopie"
+  },
+  {
+   "file": "gross-skizze.png",
+   "house": "haus-gross",
+   "style": "skizze"
+  },
+  {
+   "file": "gross-skizze-foto.jpg",
+   "house": "haus-gross",
+   "style": "foto"
+  }
+ ]
+}
