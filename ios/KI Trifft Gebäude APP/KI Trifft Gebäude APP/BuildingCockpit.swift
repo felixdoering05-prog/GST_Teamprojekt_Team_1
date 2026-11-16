@@ -118,7 +118,7 @@ struct BuildingCockpit: View {
                 Text("Werkzeuge").font(.title3.bold())
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     tool("Geräte", symbol: "lightbulb", area: "Geräte", color: .orange)
-                    tool("KI-Assistent", symbol: "sparkles", area: "KI", color: d21Accent)
+                    tool("Nala", symbol: "sparkles", area: "KI", color: d21Accent)
                     tool("Pläne & Dateien", symbol: "folder", area: "Dateien", color: .blue)
                     tool("Heatmap", symbol: "thermometer.sun", area: "Heatmap", color: .pink)
                     tool("Energie", symbol: "bolt", area: "Energie", color: .yellow)

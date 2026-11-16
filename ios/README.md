@@ -2,7 +2,7 @@
 
 [← Projektübersicht](../README.md) · [Änderungen, neueste zuerst](../CHANGELOG.md)
 
-**Stand: 16.11.2026 · Quellstand 1.0.140 (140).** Eine Installation dieses Gesamtstands ist noch nicht nachgewiesen. Quellstand, Server-Veröffentlichung, iPhone-Installation und TestFlight sind getrennte Schritte.
+**Stand: 16.11.2026 · Quellstand 1.0.141 (141).** Eine Installation dieses Gesamtstands ist noch nicht nachgewiesen. Quellstand, Server-Veröffentlichung, iPhone-Installation und TestFlight sind getrennte Schritte.
 
 ## Aktuelle Bedienung
 

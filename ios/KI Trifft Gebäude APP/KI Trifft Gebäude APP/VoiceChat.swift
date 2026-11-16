@@ -178,7 +178,7 @@ nonisolated final class PCMVoiceRecorder: @unchecked Sendable {
                 self.turns.append(Turn(question: question)); let index = self.turns.count - 1
                 self.phase = .thinking
                 let info: AssistantInfo = try await account.request("buildings/\(building.id)/assistant")
-                guard info.enabled else { throw APIError(status: 503, message: "Der Assistent ist gerade nicht verfügbar.") }
+                guard info.enabled else { throw APIError(status: 503, message: "Nala ist gerade nicht verfügbar.") }
                 let body: [String: Any] = ["question": question, "consent": "yes", "context_hash": info.context_hash, "chat": true]
                 let answer: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers: ["X-Request-ID": UUID().uuidString], timeout: 45)
                 guard !Task.isCancelled else { return }
@@ -358,7 +358,7 @@ struct VoiceConsentSheet: View {
                     row("mic", "Aufnahme nur auf Tipp", "Das Mikrofon läuft nur, solange du sprichst – höchstens 30 Sekunden. Nichts läuft im Hintergrund.")
                     row("memorychip", "Nicht auf dem iPhone gespeichert", "Die Aufnahme bleibt nur im Arbeitsspeicher und wird nach dem Senden verworfen.")
                     row("lock.fill", "Verschlüsselt übertragen", "Die Aufnahme geht per HTTPS an den Projektserver. Er lässt sie von ElevenLabs in Text umwandeln und die Antwort bei Bedarf vorlesen.")
-                    row("sparkles", "Antwort durch den KI-Assistenten", "Der erkannte Text wird wie eine getippte Frage mit begrenztem Gebäudekontext an Google Gemini gesendet und im KI-Chat des Gebäudes gespeichert.")
+                    row("sparkles", "Antwort durch Nala", "Der erkannte Text wird wie eine getippte Frage mit begrenztem Gebäudekontext an Google Gemini gesendet und im KI-Chat des Gebäudes gespeichert.")
                     row("gauge.with.dots.needle.33percent", "Begrenztes Kontingent", "Pro Konto 20 Erkennungen und 20 Vorlesungen in 24 Stunden.")
                     Text("Bitte keine vertraulichen Personen- oder Gebäudedaten sprechen. Die KI-Freigabe kannst du jederzeit im Profil widerrufen.").font(.footnote).foregroundStyle(.secondary)
                 }.padding(24)

@@ -117,7 +117,7 @@ import Combine
 
 struct AskBuildingIntent: AppIntent {
     static let title: LocalizedStringResource = "Frag mein Gebäude"
-    static let description = IntentDescription("Öffnet den Gebäude-Assistenten mit deiner Frage. Gesendet wird erst, wenn du in der App auf Senden tippst.")
+    static let description = IntentDescription("Öffnet Nala, deine Gebäudeassistentin, mit deiner Frage. Gesendet wird erst, wenn du in der App auf Senden tippst.")
     static let openAppWhenRun = true
     @Parameter(title: "Frage", requestValueDialog: "Was möchtest du dein Gebäude fragen?") var question: String
     @Parameter(title: "Gebäude") var building: BuildingEntity?

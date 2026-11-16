@@ -620,7 +620,7 @@ struct LiveVoiceConsentSheet: View {
                     Text("So funktioniert das Gespräch").font(.title2.bold())
                     row("mic", "Mikrofon nur während des Gesprächs", "Es läuft ab „Gespräch starten“ bis „Beenden“, höchstens 2 Minuten. Beim Verlassen der Ansicht oder der App wird sofort aufgelegt.")
                     row("lock.fill", "Verschlüsselte Live-Übertragung", "Deine Stimme wird per verschlüsselter WebSocket-Verbindung (TLS) direkt an ElevenLabs übertragen. Der Projektserver prüft vorher Freigabe, Gebäudezugang und Kontingent und stellt eine kurzlebige Zugangsadresse aus.")
-                    row("building.2", "Begrenzter Gebäudekontext", "Der Assistent erhält Gebäudename, regionale Wetterwerte, deine freigegebenen Lampen und die Namen der zuletzt hochgeladenen Dateien – keine Adresse und keine Dateiinhalte.")
+                    row("building.2", "Begrenzter Gebäudekontext", "Nala erhält Gebäudename, regionale Wetterwerte, deine freigegebenen Lampen und die Namen der zuletzt hochgeladenen Dateien – keine Adresse und keine Dateiinhalte.")
                     row("memorychip", "Nichts auf dem iPhone gespeichert", "Audio wird nur gestreamt. Das Gesprächsprotokoll siehst du während des Gesprächs; ElevenLabs verarbeitet Audio und Text nach eigenen Bedingungen.")
                     row("lightbulb", "Geräte nur mit Bestätigung", "Simulierte Geräte werden erst nach deinem Tipp auf „Bestätigen“ geschaltet. Lampen nur im Rahmen deiner Rechte.")
                     row("gauge.with.dots.needle.33percent", "Begrenztes Kontingent", "Pro Konto 10 Gespräche in 24 Stunden.")
