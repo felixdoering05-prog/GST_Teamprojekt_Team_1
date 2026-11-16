@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [16.11.2026 16:57 · Gedrehte PDF-Seiten beim Planimport](berichte/2026-11-16-1657.md)
+
 - [16.11.2026 09:01 · Gebäudedaten im Widget bei gesperrtem iPhone](berichte/2026-11-16-0901.md)
 
 - [15.11.2026 21:43 · Mängel mit BCF im richtigen IFC-Raum wiederfinden](berichte/2026-11-15-2143.md)
