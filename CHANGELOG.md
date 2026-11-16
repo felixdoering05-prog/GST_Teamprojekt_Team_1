@@ -1,6 +1,6 @@
 # Änderungsverlauf
 
-## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.137)
+## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
 
 - Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.
 - Das gewählte Gebäude ist der feste Rahmen: Räume und Sensoren anderer Gebäude werden abgewiesen. Eigentümer und angenommene Mitglieder sehen und bearbeiten dieselbe Zuordnung.
