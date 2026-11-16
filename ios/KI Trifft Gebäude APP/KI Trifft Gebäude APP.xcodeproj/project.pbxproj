@@ -446,7 +446,7 @@
 				DEVELOPMENT_TEAM = 95A5TC5H7R;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "KI trifft Gebäude";
+				INFOPLIST_KEY_CFBundleDisplayName = "Titan FS";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -478,7 +478,7 @@
 				DEVELOPMENT_TEAM = 95A5TC5H7R;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "KI trifft Gebäude";
+				INFOPLIST_KEY_CFBundleDisplayName = "Titan FS";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -17,6 +17,10 @@
 	<array>
 		<dict>
 			<key>INAlternativeAppName</key>
+			<string>Titan FS</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
 			<string>KI trifft Gebäude</string>
 		</dict>
 		<dict>

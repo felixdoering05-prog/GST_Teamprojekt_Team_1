@@ -1,6 +1,6 @@
 const viewerPath = '/ifc-viewer/index.html';
 
-export function ifcViewerUrl({ example, campus, mapOnly, heat, roomHeat, presentation } = {}) {
+export function ifcViewerUrl({ example, campus, mapOnly, heat, roomHeat, presentation, readOnly } = {}) {
   const params = new URLSearchParams();
   if (example) params.set('example', 'true');
   if (campus) {
@@ -10,6 +10,7 @@ export function ifcViewerUrl({ example, campus, mapOnly, heat, roomHeat, present
   if (heat) params.set('heat', 'true');
   if (roomHeat) params.set('room-heat', 'true');
   if (presentation) params.set('presentation', presentation);
+  if (readOnly) params.set('read-only', 'true');
   const query = params.toString();
   return query ? `${viewerPath}?${query}` : viewerPath;
 }

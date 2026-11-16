@@ -5,7 +5,7 @@ Verantwortlicher und Support
 Felix Döring
 felix.doering@stud.h-da.de
 
-Diese Hinweise betreffen den von Felix betriebenen Projekt-Testserver der App „KI trifft Gebäude“. Für andere selbst eingetragene Server gelten zusätzlich die Informationen des jeweiligen Betreibers. Dies ist ein Hochschul-Prototyp im Testbetrieb, keine sicherheitskritische Gebäudesteuerung.
+Diese Hinweise betreffen den von Felix betriebenen Projekt-Testserver der App „Titan FS“. Für andere selbst eingetragene Server gelten zusätzlich die Informationen des jeweiligen Betreibers. Dies ist ein Hochschul-Prototyp im Testbetrieb, keine sicherheitskritische Gebäudesteuerung.
 
 Konto und Projektdaten
 Für Anmeldung und Zusammenarbeit speichern wir Name, E-Mail-Adresse und einen gesalzenen Passwort-Hash. Wir speichern kein lesbares Kontopasswort. Profildaten, Kontakte, Einladungen, Gebäudeadressen/-koordinaten, hochgeladene Fotos/Pläne/IFCs, Nachrichten und selbst eingegebene Messdaten werden zur Bereitstellung der von dir verwendeten Funktionen auf dem Projektserver gespeichert. Teile nur Unterlagen und Daten, für die du berechtigt bist. Akzeptierte Mitglieder können geteilte Gebäude und dortige Inhalte sehen. Die Projektadministration kann zu Betriebszwecken registrierte Konten und technische Nutzungsstatistiken einsehen. Sie kann außerdem Nutzungslimits für einzelne Konten anpassen oder aufheben; dafür werden nur die Limitwerte, der Zeitpunkt und das ändernde Admin-Konto gespeichert.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BellRing, Check, CheckCircle2, RefreshCw, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
+import BuildingIssues from '@/components/BuildingIssues';
 import EmptyState from '@/components/EmptyState';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { AlertRow } from '@/components/dashboard/AlertList';
@@ -103,8 +104,10 @@ export default function Alerts() {
     <div className="space-y-5">
       <PageHeader
         title="Meldungen"
-        description="Grenzwertüberschreitungen und technische Warnungen aus dem regelbasierten Prüflauf."
-      >
+        description="Gebäudemeldungen und Sensorwarnungen."
+      />
+      <BuildingIssues />
+      <PageHeader title="Sensorwarnungen" description="Grenzwertüberschreitungen und technische Warnungen aus dem regelbasierten Prüflauf.">
         <Button variant="outline" size="sm" onClick={load}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Aktualisieren
         </Button>
