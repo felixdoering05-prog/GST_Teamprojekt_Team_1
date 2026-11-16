@@ -590,7 +590,11 @@ async function open() {
         }
       } finally { data.delete(); }
     }
-    if (readOnly) roomsByID.set(id, { name: names.join(' · ') || `IFC-Raum #${id}`, aliases: names, meshes });
+    if (readOnly) {
+      const code = names.join(' · ');
+      const roomName = /^\d+(?:[.-]\d+)*$/.test(code) ? `Raum ${code}` : code || `IFC-Raum #${id}`;
+      roomsByID.set(id, { name: roomName, aliases: names, meshes });
+    }
     heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
