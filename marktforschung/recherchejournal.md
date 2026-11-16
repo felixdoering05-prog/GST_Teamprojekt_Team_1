@@ -1,5 +1,13 @@
 # Recherchejournal
 
+## 16. November 2026, ca. 09:41 MEZ – Tacit Twin und Autodesk-Lizenzmigration
+
+- **Neu im Radar:** [Tacit Twin](https://tacitwin.ai/): KI-Abfragen über BMS/BIM/IoT, Kostenpriorisierung von Störungen; Preis, IFC-Viewer und reale Breite der Implementierung nicht unabhängig bestätigt. [realvirtual.io](https://realvirtual.io/en): industrieller Twin-Editor mit MCP/AI, Public Demo und AGPL-3.0-Kern, nur angrenzender Wettbewerber.
+- **Neue belegte Risikoanalyse:** Autodesk-Tandem-Kapazitätslizenzen gelten ab 09.02.2026; [Autodesk Support 19.05.](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/Autodesk-Tandem-Moves-to-Capacity-Based-Subscription-Model-Prompting-Account-Action.html) und [22.08.](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/This-account-is-no-longer-supported-and-is-locked-when-accessing-Tandem-connect.html) dokumentieren Migration alter Free-Konten und gesperrte Legacy-Konten. Keine aktuelle November-Produktänderung behauptet.
+- **Abgleich:** README/main bestätigt IFC/Gemini/Home Assistant; #169/#171 sind offene PRs; echter D21-Messwert und Preis-/USP-Vorteil unbestätigt. Prüfpunkte: reproduzierbarer IFC-Sensor-Test, Datenschutz, Datenexport, Gesamtkosten.
+- **Quellenabruf:** 16.11.2026; Herstellerseiten und Autodesk-Support, keine unabhängigen Benchmarks.
+
+
 ## 15. November 2026, ca. 19:00 MEZ – Archibus und BuildingMinds im Betriebsvergleich
 
 **Neue Wettbewerber in dieser Vergleichsrunde (nicht als neue Produkteinführung behauptet):** Archibus Digital Twins mit Revit-Modellen aus Autodesk Construction Cloud/Build, Autodesk-APS-basiertem BIM-Viewer und Verknüpfung von Assets; sowohl SaaS als auch Non-SaaS, jedoch nur mit kostenpflichtiger Digital-Twins-Lizenz. BuildingMinds mit Digital Building Twin und API-Integration für BMS, IoT, Smart Meter, CAFM und Energiemanagement sowie KI-gestützter Nachrüstplanung. Hersteller kennzeichnet einzelne Szenarienvergleiche und Wirkungsnachweise als noch nicht verfügbar. **Keine verifizierten EUR-Listenpreise** für diese Angebote. Aussagen beruhen auf Anbieterquellen, nicht auf unabhängigen Produkttests.
