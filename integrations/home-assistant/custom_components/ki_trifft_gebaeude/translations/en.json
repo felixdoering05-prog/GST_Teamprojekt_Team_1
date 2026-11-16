@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect KI trifft Gebäude",
-        "description": "In the KI trifft Gebäude app open the building, then Devices → Home Assistant → create pairing code. The code is valid for 10 minutes. Home Assistant only sends the sensors you select in the app.",
+        "title": "Connect Nala Solutions",
+        "description": "In the Nala Solutions app open the building, then Devices → Home Assistant → create pairing code. The code is valid for 10 minutes. Home Assistant only sends the sensors you select in the app.",
         "data": {"server": "Server address (from the app)", "code": "Pairing code"}
       }
     },

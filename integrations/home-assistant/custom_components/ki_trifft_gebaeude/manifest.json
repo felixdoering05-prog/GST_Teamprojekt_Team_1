@@ -1,6 +1,6 @@
 {
   "domain": "ki_trifft_gebaeude",
-  "name": "KI trifft Gebäude",
+  "name": "Nala Solutions",
   "after_dependencies": ["recorder"],
   "codeowners": [],
   "config_flow": true,
@@ -8,5 +8,5 @@
   "integration_type": "service",
   "iot_class": "cloud_push",
   "requirements": [],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }

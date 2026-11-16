@@ -55,7 +55,7 @@ struct LaunchIntroView: View {
                         .fill(accent)
                         .frame(width: 44, height: 3)
                     VStack(spacing: 8) {
-                        Text("Nala")
+                        Text("Nala Solutions")
                             .font(.system(.largeTitle, design: .rounded, weight: .bold))
                             .foregroundStyle(ink)
                         Text("Dein Gebäude. Digital verstanden.")

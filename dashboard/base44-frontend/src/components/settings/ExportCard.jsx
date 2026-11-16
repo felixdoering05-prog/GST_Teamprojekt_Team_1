@@ -91,7 +91,7 @@ export default function ExportCard({ building, floors, rooms, sensors, alerts, s
 
   const exportAll = () => {
     const payload = {
-      projekt: 'Titan FS',
+      projekt: 'Nala Solutions',
       exportiert_am: new Date().toISOString(),
       hinweis: 'Enthält Datensätze mit dem Merkmal Demo und echte Messwerte, jeweils über das Feld „source“ gekennzeichnet.',
       gebaeude: building,

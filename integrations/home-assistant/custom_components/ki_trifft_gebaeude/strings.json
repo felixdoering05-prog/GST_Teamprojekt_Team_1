@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "KI trifft Gebäude verbinden",
-        "description": "Öffne in der App „KI trifft Gebäude“ das Gebäude, dann Geräte → Home Assistant → Kopplungscode erzeugen. Der Code gilt 10 Minuten. Home Assistant schickt danach nur die Sensoren, die du in der App auswählst.",
+        "title": "Nala Solutions verbinden",
+        "description": "Öffne in der App „Nala Solutions“ das Gebäude, dann Geräte → Home Assistant → Kopplungscode erzeugen. Der Code gilt 10 Minuten. Home Assistant schickt danach nur die Sensoren, die du in der App auswählst.",
         "data": {"server": "Serveradresse (aus der App)", "code": "Kopplungscode"}
       }
     },

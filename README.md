@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏢 Titan FS · KI trifft Gebäude
+# 🏢 Nala Solutions · KI trifft Gebäude
 
 ### Digitaler Gebäudezwilling · BIM · Gebäudeautomation · Künstliche Intelligenz
 
@@ -8,9 +8,9 @@
 
 *Gebäude verstehen, Daten verknüpfen und Technik intelligent bedienen – im Browser und auf dem iPhone.*
 
-[**🌐 Dashboard**](https://titanfs.de) · [**✨ Projektseite**](https://kitrifftgebäude.de) · [**📋 Aufgaben**](../../issues) · [**📝 Änderungen**](CHANGELOG.md)
+[**🌐 Dashboard**](https://nala-solutions.de) · [**✨ Projektseite**](https://kitrifftgebäude.de) · [**📋 Aufgaben**](../../issues) · [**📝 Änderungen**](CHANGELOG.md)
 
-<sub>Dashboard: titanfs.de · Öffentliche Landingpage: kitrifftgebäude.de · Für das Dashboard ist eine Anmeldung erforderlich.</sub>
+<sub>Dashboard: nala-solutions.de · Öffentliche Landingpage: kitrifftgebäude.de · Für das Dashboard ist eine Anmeldung erforderlich.</sub>
 
 </div>
 
@@ -44,8 +44,8 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Aktueller Quellstand **1.0.139**: Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
-| **Web & IFC** | **[titanfs.de](https://titanfs.de)** ist das Dashboard mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. |
+| **iPhone-App** | Aktueller Quellstand **1.0.141**: neuer Produktname **Nala Solutions**, zusätzlich Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
+| **Web & IFC** | **[nala-solutions.de](https://nala-solutions.de)** ist der neue Dashboard-Zugang mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. |
 | **Sensorik** | ESP32-Testübertragung, gemeinsame Raumzuordnung und BME280-/IFC-Raum-Schnittstelle implementiert ([#180](../../pull/180), [#187](../../pull/187), [#188](../../pull/188)). Simulation und echte Messungen bleiben getrennt. Implementierung ersetzt keinen Hardware-Dauertest und keinen Nachweis für echte D21-Werte. |
 | **Plan → IFC** | Vektorvermessung, Erkennung von Fotos/Scans, Korrektur-Editor und Ebenenwahl sind gemergt. Vorübergehende Gemini-Überlastung wird wiederholt und als vorübergehend gemeldet ([#190](../../pull/190)); Planrahmen-Erkennung korrigiert ([#191](../../pull/191)). Ergebnisse bleiben prüfpflichtige Entwürfe. |
 | **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |

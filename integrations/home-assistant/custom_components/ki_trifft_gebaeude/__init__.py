@@ -1,4 +1,4 @@
-"""KI trifft Gebäude: ausgewählte Sensorwerte an den Projektserver schicken (nur ausgehend)."""
+"""Nala Solutions: ausgewählte Sensorwerte an den Projektserver schicken (nur ausgehend)."""
 from __future__ import annotations
 
 import logging
@@ -135,14 +135,14 @@ class Bridge:
             _LOGGER.warning("Die Verbindung wurde in der App getrennt. Bitte die Integration neu einrichten.")
             persistent_notification.async_create(
                 self.hass,
-                "Die Verbindung zu „KI trifft Gebäude“ wurde getrennt. Es werden keine Werte mehr gesendet. "
+                "Die Verbindung zu „Nala Solutions“ wurde getrennt. Es werden keine Werte mehr gesendet. "
                 "Zum erneuten Verbinden die Integration entfernen und mit einem neuen Kopplungscode einrichten.",
-                title="KI trifft Gebäude", notification_id=f"{DOMAIN}_{self.entry.entry_id}",
+                title="Nala Solutions", notification_id=f"{DOMAIN}_{self.entry.entry_id}",
             )
         elif err.status == 429:
             _LOGGER.debug("Limit erreicht, Werte werden später gesendet: %s", err)
         else:
-            _LOGGER.warning("KI trifft Gebäude nicht erreichbar: %s", err)
+            _LOGGER.warning("Nala Solutions nicht erreichbar: %s", err)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -99,7 +99,7 @@ function SidebarBody({ onNavigate }) {
           <Boxes className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Titan FS</p>
+          <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Nala Solutions</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>
         </div>
       </div>

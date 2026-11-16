@@ -18,9 +18,9 @@ function createResetMailer(config=resetMailConfiguration()) {
  const transport=nodemailer.createTransport({host:config.host,port:config.port,secure:config.port===465,requireTLS:true,
   auth:{user:config.user,pass:config.password},tls:{minVersion:'TLSv1.2'},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:15000,logger:false,debug:false});
  return {enabled:true,secret:config.secret,async send({email,code}) {
-  const result=await transport.sendMail({from:{name:'Titan FS',address:config.from},to:email,
-   subject:'Dein Code zum Zurücksetzen des D21-Passworts',
-   text:`Du hast ein neues Passwort für dein persönliches D21-Projektkonto angefordert.\n\nDein einmaliger Code: ${code}\n\nGib ihn innerhalb von 15 Minuten unter „Passwort vergessen“ in der App oder auf der Website ein. Der gemeinsame Website-Zugang bleibt unverändert.\n\nFalls du das nicht angefordert hast, ignoriere diese E-Mail. Teile den Code mit niemandem.\n\nGST-Teamprojekt · Hochschule Darmstadt`,
+  const result=await transport.sendMail({from:{name:'Nala Solutions',address:config.from},to:email,
+   subject:'Dein Code zum Zurücksetzen des Nala-Solutions-Passworts',
+   text:`Du hast ein neues Passwort für dein persönliches Nala-Solutions-Konto angefordert.\n\nDein einmaliger Code: ${code}\n\nGib ihn innerhalb von 15 Minuten unter „Passwort vergessen“ in der App oder auf der Website ein.\n\nFalls du das nicht angefordert hast, ignoriere diese E-Mail. Teile den Code mit niemandem.\n\nGST-Teamprojekt · Hochschule Darmstadt`,
    disableFileAccess:true,disableUrlAccess:true});
   if(!result.accepted?.length)throw Object.assign(new Error('Mail not accepted'),{code:'ENOTACCEPTED'});
  }};

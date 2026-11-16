@@ -1,8 +1,8 @@
-# Titan FS · native iPhone-App
+# Nala Solutions · native iPhone-App
 
 [← Projektübersicht](../README.md) · [Änderungen, neueste zuerst](../CHANGELOG.md)
 
-**Stand: 16.11.2026 · Quellstand 1.0.139 (139).** Eine Installation dieses Gesamtstands ist noch nicht nachgewiesen. Quellstand, Server-Veröffentlichung, iPhone-Installation und TestFlight sind getrennte Schritte.
+**Stand: 16.11.2026 · Quellstand 1.0.141 (141).** Eine Installation dieses Gesamtstands ist noch nicht nachgewiesen. Quellstand, Server-Veröffentlichung, iPhone-Installation und TestFlight sind getrennte Schritte.
 
 ## Aktuelle Bedienung
 
@@ -28,7 +28,7 @@ Gebäudekarten zeigen eine Vorschau des tatsächlich hinterlegten IFC-Modells: d
 
 ## Mit dem Server verbinden
 
-Der normale Einstieg verwendet das persönliche Projektkonto. Die App behält bislang ihren verwalteten HTTPS-Zugang; die neue Dashboard-Domain `https://titanfs.de` führt nicht automatisch zu einer Migration gespeicherter iPhone-Sitzungen. Im Browser ist nur die persönliche Account-Anmeldung nötig. Zugangsdaten sind nicht im Quellcode hinterlegt; die App hält ihre Sitzung im Schlüsselbund.
+Der normale Einstieg verwendet das persönliche Projektkonto. Die App behält bislang ihren verwalteten HTTPS-Zugang; die neue Dashboard-Domain `https://nala-solutions.de` führt nicht automatisch zu einer Migration gespeicherter iPhone-Sitzungen. Im Browser ist nur die persönliche Account-Anmeldung nötig. Zugangsdaten sind nicht im Quellcode hinterlegt; die App hält ihre Sitzung im Schlüsselbund.
 
 Für eine spätere Änderung des App-Serverziels gespeicherte Entwürfe, Sitzungen, Gerätebrücken und Home-Assistant-Rückleitungen gesondert prüfen. Eine Domain-Änderung nicht mit einer bereits installierten nativen Version gleichsetzen.
 
