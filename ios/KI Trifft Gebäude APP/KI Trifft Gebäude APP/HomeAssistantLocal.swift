@@ -202,7 +202,13 @@ enum HAPayload {
                 }
                 if let area { usedAreas.insert(area) }
                 let name = text(attributes["friendly_name"])
-                entities.append(["entity_id": id, "name": name.isEmpty ? id : name, "supports_color": supportsColor(attributes), "device_id": device as Any? ?? NSNull(), "area_id": area as Any? ?? NSNull()])
+                let modes = (attributes["supported_color_modes"] as? [String]) ?? []
+                var lamp: [String: Any] = ["entity_id": id, "name": name.isEmpty ? id : name, "supports_color": supportsColor(attributes), "supports_brightness": !(modes.isEmpty || modes == ["onoff"]), "supports_temp": modes.contains("color_temp")]
+                if modes.contains("color_temp") {
+                    if let lo = attributes["min_color_temp_kelvin"] as? Int, (1000...12000).contains(lo) { lamp["min_kelvin"] = lo }
+                    if let hi = attributes["max_color_temp_kelvin"] as? Int, (1000...12000).contains(hi), hi >= (lamp["min_kelvin"] as? Int ?? 0) { lamp["max_kelvin"] = hi }
+                }
+                entities.append(lamp.merging(["device_id": device as Any? ?? NSNull(), "area_id": area as Any? ?? NSNull()]) { a, _ in a })
                 continue
             }
             let deviceClass = attributes["device_class"] as? String, unit = attributes["unit_of_measurement"] as? String
@@ -235,6 +241,7 @@ enum HAPayload {
             var item: [String: Any] = ["entity_id": id, "available": available, "is_on": available ? (value == "on") as Any : NSNull()]
             if let b = attributes["brightness"] as? Int, (0...255).contains(b) { item["brightness"] = b }
             if let rgb = attributes["rgb_color"] as? [Int], rgb.count == 3, rgb.allSatisfy({ (0...255).contains($0) }) { item["rgb"] = rgb }
+            if attributes["color_mode"] as? String == "color_temp", let k = attributes["color_temp_kelvin"] as? Int, (1000...12000).contains(k) { item["color_temp_kelvin"] = k; item["rgb"] = nil }
             return item
         }
     }
@@ -358,14 +365,14 @@ enum HAPayload {
 
     /// Lampe schalten: Server prüft Rechte und Lichtlimit, dann schaltet das iPhone direkt in Home Assistant
     /// und meldet den neuen Zustand zurück.
-    static func switchLight(account: AccountModel, building: Int, entity: String, on: Bool, brightness: Int? = nil, rgb: [Int]? = nil) async throws {
+    static func switchLight(account: AccountModel, building: Int, entity: String, on: Bool, brightness: Int? = nil, rgb: [Int]? = nil, kelvin: Int? = nil) async throws {
         var body: [String: Any] = ["on": on]
-        if let brightness { body["brightness"] = brightness }; if let rgb { body["rgb"] = rgb }
+        if let brightness { body["brightness"] = brightness }; if let rgb { body["rgb"] = rgb }; if let kelvin { body["color_temp_kelvin"] = kelvin }
         let _: HALightPermit = try await account.request("buildings/\(building)/home-assistant/lights/\(entity)/command", method: "POST", body: body, headers: ["X-Request-ID": UUID().uuidString.lowercased()])
         #if DEBUG
         if WorkflowPreview.enabled {
             var state: [String: Any] = ["entity_id": entity, "available": true, "is_on": on]
-            if let brightness { state["brightness"] = brightness }; if let rgb { state["rgb"] = rgb }
+            if let brightness { state["brightness"] = brightness }; if let rgb { state["rgb"] = rgb; state["color_temp_kelvin"] = NSNull() }; if let kelvin { state["color_temp_kelvin"] = kelvin; state["rgb"] = NSNull() }
             let _: HASyncResponse = try await account.request("buildings/\(building)/home-assistant/samples", method: "POST", body: ["lights": [state]]); return
         }
         #endif
@@ -373,7 +380,7 @@ enum HAPayload {
         let client = HAClient(base: url, clientID: credentials.clientID)
         let token = try await client.access(refresh: credentials.refreshToken)
         var service: [String: Any] = ["entity_id": entity]
-        if let brightness { service["brightness"] = brightness }; if let rgb { service["rgb_color"] = rgb }
+        if let brightness { service["brightness"] = brightness }; if let rgb { service["rgb_color"] = rgb }; if let kelvin { service["color_temp_kelvin"] = kelvin }
         _ = try await client.post("api/services/light/" + (on ? "turn_on" : "turn_off"), body: service, token: token)
         try? await Task.sleep(for: .milliseconds(600))
         let state = (try await client.get("api/states/" + entity, token: token) as? [String: Any]) ?? [:]

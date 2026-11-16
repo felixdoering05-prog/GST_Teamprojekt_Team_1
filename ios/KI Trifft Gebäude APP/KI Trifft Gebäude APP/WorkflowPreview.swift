@@ -23,15 +23,15 @@ enum WorkflowPreview {
     static var haStatus = "none"
     static var haMode = "app"
     static var haSelected: Set<String> = ["sensor.besprechung_temperatur","light.besprechung_decke"]
-    static var haLights: [String:[String:Any]] = ["light.besprechung_decke":["available":true,"is_on":true,"brightness":180,"rgb":[255,214,170]]]
+    static var haLights: [String:[String:Any]] = ["light.besprechung_decke":["available":true,"is_on":true,"brightness":180,"color_temp_kelvin":3000]]
     static var haMapping: [String:String] = ["besprechung":"room-1"]
     static var haRevision = 1
     static var haPendingReads = 0
     static func haOverview() -> [String:Any] {
         let now = Date(), iso = ISO8601DateFormatter()
         let entities: [[String:Any]] = [
-            ["entity_id":"light.besprechung_decke","name":"Deckenlicht Besprechung","metric":"light","unit":"","device_id":"ik1","area_id":"besprechung","supports_color":true],
-            ["entity_id":"light.labor_tisch","name":"Tischlampe Labor","metric":"light","unit":"","device_id":NSNull(),"area_id":"labor","supports_color":false],
+            ["entity_id":"light.besprechung_decke","name":"Deckenlicht Besprechung","metric":"light","unit":"","device_id":"ik1","area_id":"besprechung","supports_color":true,"capabilities":["brightness":true,"color":true,"temp":true,"min_kelvin":2200,"max_kelvin":6500]],
+            ["entity_id":"light.labor_tisch","name":"Tischlampe Labor","metric":"light","unit":"","device_id":NSNull(),"area_id":"labor","supports_color":false,"capabilities":["brightness":true,"color":false,"temp":true,"min_kelvin":2200,"max_kelvin":4000]],
             ["entity_id":"sensor.besprechung_temperatur","name":"Temperatur Besprechung","metric":"temperature","unit":"°C","device_id":"aq1","area_id":"besprechung","value":21.8],
             ["entity_id":"sensor.besprechung_luftfeuchte","name":"Luftfeuchte Besprechung","metric":"humidity","unit":"%","device_id":"aq1","area_id":"besprechung","value":46.0],
             ["entity_id":"sensor.besprechung_co2","name":"CO₂ Besprechung","metric":"co2","unit":"ppm","device_id":NSNull(),"area_id":"besprechung","value":812.0],

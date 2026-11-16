@@ -38,6 +38,7 @@ async function initHAImport(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_entities(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,name TEXT NOT NULL,metric TEXT NOT NULL,source_unit TEXT NOT NULL,device_id TEXT,area_id TEXT,selected BOOLEAN NOT NULL DEFAULT false,PRIMARY KEY(link_id,entity_id))`);
  await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS supports_color BOOLEAN NOT NULL DEFAULT false');
  await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS light_state JSONB');
+ await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS light_caps JSONB');
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_samples(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,metric TEXT NOT NULL,value DOUBLE PRECISION NOT NULL,measured_at TIMESTAMPTZ NOT NULL,PRIMARY KEY(link_id,entity_id,measured_at))`);
  await db.query('CREATE INDEX IF NOT EXISTS app_ha_samples_time ON app_ha_samples(link_id,measured_at)');
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_events(id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,kind TEXT NOT NULL,count INTEGER NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
@@ -76,10 +77,13 @@ async function applyInventory(c,link,b){
   for(const e of b.entities){
    if(e&&typeof e.entity_id==='string'&&LIGHT_RE.test(e.entity_id)){
     // Lampen: nur Name, Gerät, Bereich und ob Farbe möglich ist.
-    if(!onlyKeys(e,['entity_id','name','supports_color','device_id','area_id'])||(e.supports_color!==undefined&&typeof e.supports_color!=='boolean'))fail('Ungültige Lampe.');
+    if(!onlyKeys(e,['entity_id','name','supports_color','supports_brightness','supports_temp','min_kelvin','max_kelvin','device_id','area_id'])||['supports_color','supports_brightness','supports_temp'].some(k=>e[k]!==undefined&&typeof e[k]!=='boolean'))fail('Ungültige Lampe.');
+    const kelvin=v=>v===undefined||v===null?null:Number.isInteger(v)&&v>=1000&&v<=12000?v:fail('Ungültiger Farbtemperaturbereich.');
+    const minK=kelvin(e.min_kelvin),maxK=kelvin(e.max_kelvin);if(minK&&maxK&&minK>maxK)fail('Ungültiger Farbtemperaturbereich.');
+    const caps={brightness:e.supports_brightness!==false,color:e.supports_color===true,temp:e.supports_temp===true,min_kelvin:e.supports_temp===true?minK||2000:null,max_kelvin:e.supports_temp===true?maxK||6500:null};
     if(++lights>100)fail('Höchstens 100 Lampen übernehmen.');
     const device=ref(e.device_id),area=ref(e.area_id);
-    entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric:'light',unit:'',supports_color:e.supports_color===true,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
+    entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric:'light',unit:'',supports_color:caps.color,caps,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
     continue;
    }
    if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensoren (sensor.*) und Lampen (light.*) sind erlaubt.');
@@ -87,7 +91,7 @@ async function applyInventory(c,link,b){
    if(!metric)fail(`Nicht unterstützte Sensorart bei ${e.entity_id}. Erlaubt: Temperatur, Luftfeuchte, CO₂, Leistung, Energie.`);
    if(typeof e.unit!=='string'||!METRICS[metric].units[e.unit])fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
    const device=ref(e.device_id),area=ref(e.area_id);
-   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,supports_color:false,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
+   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,supports_color:false,caps:null,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
   }
   // Bereiche und Geräte nur speichern, wenn ein übernommener Sensor sie braucht (Datensparsamkeit).
   const usedDevices=new Set([...entities.values()].map(e=>e.device_id).filter(Boolean));
@@ -97,8 +101,8 @@ async function applyInventory(c,link,b){
   await c.query('DELETE FROM app_ha_devices WHERE link_id=$1',[link.id]);
   for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6)',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
   await c.query('DELETE FROM app_ha_entities WHERE link_id=$1 AND NOT (entity_id = ANY($2::text[]))',[link.id,[...entities.keys()]]);
-  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id,supports_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,supports_color=EXCLUDED.supports_color,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id,e.supports_color]);
+  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id,supports_color,light_caps) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,supports_color=EXCLUDED.supports_color,light_caps=EXCLUDED.light_caps,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id,e.supports_color,e.caps?JSON.stringify(e.caps):null]);
   await c.query('UPDATE app_ha_links SET last_inventory_at=now() WHERE id=$1',[link.id]);
 }
 
@@ -106,10 +110,10 @@ async function applyInventory(c,link,b){
 function parseLights(list){
  if(!Array.isArray(list)||list.length>100)fail('Höchstens 100 Lampenzustände senden.');
  return list.map(l=>{
-  if(!onlyKeys(l,['entity_id','available','is_on','brightness','rgb'])||typeof l.entity_id!=='string'||!LIGHT_RE.test(l.entity_id)||typeof l.available!=='boolean'||!(l.is_on===null||typeof l.is_on==='boolean')
+  if(!onlyKeys(l,['entity_id','available','is_on','brightness','rgb','color_temp_kelvin'])||l.color_temp_kelvin!==undefined&&l.color_temp_kelvin!==null&&!(Number.isInteger(l.color_temp_kelvin)&&l.color_temp_kelvin>=1000&&l.color_temp_kelvin<=12000)||typeof l.entity_id!=='string'||!LIGHT_RE.test(l.entity_id)||typeof l.available!=='boolean'||!(l.is_on===null||typeof l.is_on==='boolean')
    ||l.brightness!==undefined&&l.brightness!==null&&!(Number.isInteger(l.brightness)&&l.brightness>=0&&l.brightness<=255)
    ||l.rgb!==undefined&&l.rgb!==null&&!(Array.isArray(l.rgb)&&l.rgb.length===3&&l.rgb.every(x=>Number.isInteger(x)&&x>=0&&x<=255)))fail('Ungültiger Lampenzustand.');
-  return {entity_id:l.entity_id,state:{available:l.available,is_on:l.available?l.is_on:null,brightness:l.brightness??null,rgb:l.rgb??null,updated_at:new Date().toISOString()}};
+  return {entity_id:l.entity_id,state:{available:l.available,is_on:l.available?l.is_on:null,brightness:l.brightness??null,rgb:l.rgb??null,color_temp_kelvin:l.color_temp_kelvin??null,updated_at:new Date().toISOString()}};
  });
 }
 async function storeLights(c,link,lights){
@@ -206,14 +210,14 @@ async function overview(db,building,user){
  const [areas,devices,entities]=await Promise.all([
   db.query('SELECT area_id,name,room_id FROM app_ha_areas WHERE link_id=$1 ORDER BY name,area_id',[link.id]),
   db.query('SELECT device_id,name,manufacturer,model,area_id FROM app_ha_devices WHERE link_id=$1 ORDER BY name,device_id',[link.id]),
-  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.selected,e.supports_color,e.light_state,s.value,s.measured_at FROM app_ha_entities e
+  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.selected,e.supports_color,e.light_state,e.light_caps,s.value,s.measured_at FROM app_ha_entities e
    LEFT JOIN LATERAL (SELECT value,measured_at FROM app_ha_samples WHERE link_id=e.link_id AND entity_id=e.entity_id ORDER BY measured_at DESC LIMIT 1) s ON true
    WHERE e.link_id=$1 ORDER BY e.metric,e.name,e.entity_id`,[link.id])
  ]);
  return {...base,
   link:{id:link.id,status:link.status,mode:link.mode,instance_name:link.instance_name,ha_version:link.ha_version,revision:link.revision,paired_at:link.paired_at,last_inventory_at:link.last_inventory_at,last_push_at:link.last_push_at,pairing_expires_at:owner&&link.status==='pending'?link.pairing_expires_at:null},
   areas:areas.rows,devices:devices.rows,
-  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric]?.unit||'',supports_color:e.supports_color,light:e.metric==='light'&&e.selected&&e.light_state?e.light_state:null,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
+  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric]?.unit||'',supports_color:e.supports_color,capabilities:e.light_caps||null,light:e.metric==='light'&&e.selected&&e.light_state?e.light_state:null,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
 }
 
 function haImportRouter(db,requireAccount){
@@ -309,13 +313,17 @@ function haImportRouter(db,requireAccount){
  // Auswahl und das Kontolimit light_minute (gleiche Tabelle wie die bisherigen Lichtaufträge).
  r.post(base+'/lights/:haLight/command',ownerTx(async(req_c,req,res,b,link)=>{
   const c=req_c;appLink(link);const body=req.body||{},key=(req.get('X-Request-ID')||'').toLowerCase(),entity=req.params.haLight;
-  if(!LIGHT_RE.test(entity)||!onlyKeys(body,['on','brightness','rgb'])||typeof body.on!=='boolean'||!UUID_RE.test(key)
+  if(!LIGHT_RE.test(entity)||!onlyKeys(body,['on','brightness','rgb','color_temp_kelvin'])||body.rgb!==undefined&&body.color_temp_kelvin!==undefined
+   ||body.color_temp_kelvin!==undefined&&!(Number.isInteger(body.color_temp_kelvin)&&body.color_temp_kelvin>=1000&&body.color_temp_kelvin<=12000)||typeof body.on!=='boolean'||!UUID_RE.test(key)
    ||body.brightness!==undefined&&!(Number.isInteger(body.brightness)&&body.brightness>=1&&body.brightness<=255)
    ||body.rgb!==undefined&&!(Array.isArray(body.rgb)&&body.rgb.length===3&&body.rgb.every(x=>Number.isInteger(x)&&x>=0&&x<=255))
-   ||!body.on&&(body.brightness!==undefined||body.rgb!==undefined))fail('Bitte einen gültigen Lichtauftrag senden.');
-  const light=(await c.query("SELECT supports_color FROM app_ha_entities WHERE link_id=$1 AND entity_id=$2 AND metric='light' AND selected",[link.id,entity])).rows[0];
+   ||!body.on&&(body.brightness!==undefined||body.rgb!==undefined||body.color_temp_kelvin!==undefined))fail('Bitte einen gültigen Lichtauftrag senden.');
+  const light=(await c.query("SELECT supports_color,light_caps FROM app_ha_entities WHERE link_id=$1 AND entity_id=$2 AND metric='light' AND selected",[link.id,entity])).rows[0];
   if(!light)fail('Lampe nicht übernommen.',404);
   if(body.rgb&&!light.supports_color)fail('Diese Lampe unterstützt keine Farbe.',409);
+  const caps=light.light_caps||{};
+  if(body.brightness!==undefined&&caps.brightness===false)fail('Diese Lampe lässt sich nicht dimmen.',409);
+  if(body.color_temp_kelvin!==undefined&&(!caps.temp||body.color_temp_kelvin<caps.min_kelvin||body.color_temp_kelvin>caps.max_kelvin))fail('Diese Farbtemperatur kann die Lampe nicht.',409);
   if((await c.query('SELECT 1 FROM app_ha_commands WHERE user_id=$1 AND request_key=$2',[req.account.id,key])).rows.length)fail('Dieser Auftrag wurde bereits angenommen.',409);
   const n=(await c.query("SELECT COUNT(*) n FROM app_ha_commands WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[req.account.id])).rows[0].n;
   if(reached(await accountLimits(c,req.account.id),'light_minute',n))fail('Bitte kurz warten: Lichtlimit pro Minute erreicht.',429);

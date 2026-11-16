@@ -71,3 +71,23 @@ test('switching: owner only, selected lamps only, colour check, idempotent key a
  const rows=(await db.query("SELECT status FROM app_ha_commands WHERE user_id=$1",[owner.user.id])).rows;
  assert.ok(rows.every(r=>r.status==='delegated'));
 });
+
+test('colour temperature and dimming follow the lamp capabilities',async()=>{
+ await db.query("UPDATE app_user_limits SET overrides='{}' WHERE user_id=$1",[owner.user.id]);
+ const inv={areas:[],devices:[],entities:[{entity_id:'light.warmweiss',name:'Warmweiß',supports_temp:true,min_kelvin:2200,max_kelvin:4000},{entity_id:'light.schalter',name:'Nur an/aus',supports_brightness:false},...inventory.entities]};
+ assert.equal((await request(base()+'/inventory','PUT',{...inv,entities:[{entity_id:'light.x',name:'X',supports_temp:true,min_kelvin:5000,max_kelvin:3000}]},owner.token)).status,400);
+ assert.equal((await request(base()+'/inventory','PUT',{...inv,entities:[{entity_id:'light.x',name:'X',supports_temp:'ja'}]},owner.token)).status,400);
+ const r=await request(base()+'/inventory','PUT',inv,owner.token);assert.equal(r.status,200,JSON.stringify(r.data));
+ assert.deepEqual(r.data.entities.find(e=>e.entity_id==='light.warmweiss').capabilities,{brightness:true,color:false,temp:true,min_kelvin:2200,max_kelvin:4000});
+ await request(base()+'/entities','PUT',{selected:['light.warmweiss','light.schalter','light.wohnzimmer_decke']},owner.token);
+ assert.equal((await command('light.warmweiss',{on:true,color_temp_kelvin:2700,brightness:120},owner.token)).status,201);
+ assert.equal((await command('light.warmweiss',{on:true,color_temp_kelvin:6500},owner.token)).status,409,'outside lamp range');
+ assert.equal((await command('light.warmweiss',{on:true,color_temp_kelvin:2700,rgb:[1,2,3]},owner.token)).status,400,'temperature and colour together');
+ assert.equal((await command('light.wohnzimmer_decke',{on:true,color_temp_kelvin:3000},owner.token)).status,409,'no temperature support');
+ assert.equal((await command('light.schalter',{on:true,brightness:50},owner.token)).status,409,'not dimmable');
+ assert.equal((await command('light.schalter',{on:true},owner.token)).status,201);
+ const s=await request(base()+'/samples','POST',{lights:[{entity_id:'light.warmweiss',available:true,is_on:true,brightness:120,color_temp_kelvin:2700}]},owner.token);
+ assert.equal(s.status,201);
+ const view=(await request(base(),'GET',undefined,member.token)).data.entities;
+ assert.equal(view.find(e=>e.entity_id==='light.warmweiss').light.color_temp_kelvin,2700);
+});
