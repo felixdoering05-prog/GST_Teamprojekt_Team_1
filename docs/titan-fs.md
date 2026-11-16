@@ -52,6 +52,6 @@ Ein erfasster Punkt wird mit der Modelltransformation des Web-Viewers dargestell
 ## Abnahme
 
 - Automatisiert werden Migrationen, Kompatibilität der alten Darstellungs-API, Revisionen, Kontotrennung, Dubletten, Fotos, Protokollierung, Gebäudezugriff und IFC-Geschossauflösung geprüft.
-- Die Browser-Integration lässt sich lokal gegen eine kurzlebige Datenbank mit Testkonten prüfen. Das Testmodell und die Testmeldungen dienen ausschließlich der Abnahme.
-- An einem iPhone sind der SwiftUI-Build, die Übertragung nach einem Offline-Wechsel, Gerätewiederanmeldung sowie Lesbarkeit bei Bedienungshilfegrößen zu verifizieren. Windows stellt Xcode und den iOS-Simulator nicht bereit.
+- Der lokale Chromium-Test gegen eine kurzlebige Datenbank hat das Konfigurieren und Wiederherstellen des Layouts, die Darstellung nach erneuter Anmeldung, 130 Prozent bei 393 px Breite, das Polling, den IFC-Marker, Geschoss und Bauteil, eine Meldung ohne Position sowie abgelehnten Fremdzugriff geprüft. Die mobile API wurde mit einem eigenen Testkonto angesprochen.
+- GitHub Actions prüft Backend, den gebündelten iOS-Viewer und den SwiftUI-Simulator-Build. Die Übertragung nach einem Offline-Wechsel, Gerätewiederanmeldung und Lesbarkeit mit Bedienungshilfegrößen sind auf einem echten iPhone zu prüfen.
 - Für eine fachliche Abnahme mit Echtdaten sind ein autorisierter Testserver und die zugehörige IFC-Datei erforderlich. Der Feature-Branch dient der Prüfung vor der Veröffentlichung.

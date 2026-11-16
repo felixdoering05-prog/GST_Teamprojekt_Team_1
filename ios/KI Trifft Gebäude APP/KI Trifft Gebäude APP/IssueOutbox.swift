@@ -31,7 +31,7 @@ enum IssueOutbox {
     static func load(_ scope: String) throws -> [PendingIssue] {
         let file = try url(for: scope)
         do { return try JSONDecoder().decode([PendingIssue].self, from: Data(contentsOf: file)) }
-        catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFile { return [] }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return [] }
     }
 
     static func clear(_ scope: String) throws {
