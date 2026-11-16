@@ -19,6 +19,36 @@ enum WorkflowPreview {
         ["id":2,"building_id":901,"name":"Raumtemperatur","room":"Besprechung","kind":"temperature","mode":"planned","integration":"home-assistant","is_on":false,"revision":0]
     ]
     static var sceneState: [String:Any] = ["hidden":[],"colors":[:],"lights":[]]
+    // Home-Assistant-Import: "none" → "pending" (Code erzeugt) → beim nächsten Laden "active" (simulierte Kopplung).
+    static var haStatus = "none"
+    static var haMode = "app"
+    static var haSelected: Set<String> = ["sensor.besprechung_temperatur","light.besprechung_decke"]
+    static var haLights: [String:[String:Any]] = ["light.besprechung_decke":["available":true,"is_on":true,"brightness":180,"color_temp_kelvin":3000]]
+    static var haMapping: [String:String] = ["besprechung":"room-1"]
+    static var haRevision = 1
+    static var haPendingReads = 0
+    static func haOverview() -> [String:Any] {
+        let now = Date(), iso = ISO8601DateFormatter()
+        let entities: [[String:Any]] = [
+            ["entity_id":"light.besprechung_decke","name":"Deckenlicht Besprechung","metric":"light","unit":"","device_id":"ik1","area_id":"besprechung","supports_color":true,"capabilities":["brightness":true,"color":true,"temp":true,"min_kelvin":2200,"max_kelvin":6500]],
+            ["entity_id":"light.labor_tisch","name":"Tischlampe Labor","metric":"light","unit":"","device_id":NSNull(),"area_id":"labor","supports_color":false,"capabilities":["brightness":true,"color":false,"temp":true,"min_kelvin":2200,"max_kelvin":4000]],
+            ["entity_id":"sensor.besprechung_temperatur","name":"Temperatur Besprechung","metric":"temperature","unit":"°C","device_id":"aq1","area_id":"besprechung","value":21.8],
+            ["entity_id":"sensor.besprechung_luftfeuchte","name":"Luftfeuchte Besprechung","metric":"humidity","unit":"%","device_id":"aq1","area_id":"besprechung","value":46.0],
+            ["entity_id":"sensor.besprechung_co2","name":"CO₂ Besprechung","metric":"co2","unit":"ppm","device_id":NSNull(),"area_id":"besprechung","value":812.0],
+            ["entity_id":"sensor.labor_temperatur","name":"Temperatur Labor","metric":"temperature","unit":"°C","device_id":NSNull(),"area_id":"labor","value":23.4],
+            ["entity_id":"sensor.wallbox_leistung","name":"Wallbox Leistung","metric":"power","unit":"W","device_id":"wb","area_id":"technik","value":3680.0],
+            ["entity_id":"sensor.hauszaehler_energie","name":"Hauszähler","metric":"energy","unit":"kWh","device_id":"wb","area_id":"technik","value":18234.6]
+        ].map { e in var item = e; let id = e["entity_id"] as! String, on = haSelected.contains(id); item["selected"] = on
+            if e["metric"] as? String == "light" { item["latest"] = NSNull(); item["light"] = on ? (haLights[id] ?? ["available":true,"is_on":false]) as Any : NSNull(); return item }
+            item["latest"] = on ? ["value":e["value"]!,"measured_at":iso.string(from: now.addingTimeInterval(-40))] as Any : NSNull(); item["value"] = nil; return item }
+        let link: Any = haStatus == "none" ? NSNull() : ["id":"preview-link","status":haStatus,"mode":haMode,"instance_name":"Zuhause","ha_version":"2026.11.2","revision":haRevision,"paired_at":iso.string(from: now.addingTimeInterval(-3600)),"last_inventory_at":iso.string(from: now.addingTimeInterval(-600)),"last_push_at":iso.string(from: now.addingTimeInterval(-40)),"pairing_expires_at":haStatus == "pending" ? iso.string(from: now.addingTimeInterval(600)) as Any : NSNull()]
+        let areas: [[String:Any]] = [["area_id":"besprechung","name":"Besprechung"],["area_id":"labor","name":"Labor"],["area_id":"technik","name":"Technikraum"]].map { a in var item = a; item["room_id"] = haMapping[a["area_id"] as! String] ?? NSNull(); return item }
+        let active = haStatus == "active"
+        return ["role":"owner","link":link,"limits":["entities":50],
+                "rooms":[["id":"room-1","name":"Besprechung","room_code":"1.12"],["id":"room-2","name":"Labor","room_code":"0.04"],["id":"room-3","name":"Technik","room_code":"U.01"]],
+                "areas":active ? areas : [],"entities":active ? entities : [],
+                "devices":active ? [["device_id":"ik1","name":"KAJPLATS","manufacturer":"IKEA","model":"E27 Farbe","area_id":"besprechung"],["device_id":"aq1","name":"Aqara Klimasensor","manufacturer":"Aqara","model":"TH-P1","area_id":"besprechung"],["device_id":"wb","name":"Wallbox","manufacturer":"go-e","model":"Gemini","area_id":"technik"]] : []]
+    }
     static let photo: Data = {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 320, height: 200))
         return renderer.jpegData(withCompressionQuality: 0.8) { ctx in
@@ -116,6 +146,28 @@ final class WorkflowPreviewProtocol: URLProtocol {
             result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot))) ?? [:]
         }
         else if path.hasSuffix("/telemetry") { result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(TelemetrySnapshot.demo()))) ?? [:] }
+        else if path.contains("/home-assistant") {
+            if path.hasSuffix("/app-connect") { WorkflowPreview.haStatus = "active"; WorkflowPreview.haMode = "app"; status = 201; result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/inventory") && method == "PUT" { result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/samples") && method == "POST" {
+                for l in object["lights"] as? [[String:Any]] ?? [] { if let id = l["entity_id"] as? String { var state = WorkflowPreview.haLights[id] ?? [:]; for (k,v) in l where k != "entity_id" { state[k] = v }; WorkflowPreview.haLights[id] = state } }
+                status = 201; result = ["stored":(object["points"] as? [Any])?.count ?? 0,"ignored":0,"lights":(object["lights"] as? [Any])?.count ?? 0,"selected":Array(WorkflowPreview.haSelected)]
+            }
+            else if path.contains("/lights/") && path.hasSuffix("/command") { status = 201; result = ["allowed":true] }
+            else if path.hasSuffix("/pairing") { WorkflowPreview.haStatus = "pending"; WorkflowPreview.haMode = "bridge"; status = 201; result = ["link_id":"preview-link","code":"K7QX-M4TP","expires_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(600))] }
+            else if path.hasSuffix("/history") {
+                let start = Date().addingTimeInterval(-24*3600), iso = ISO8601DateFormatter()
+                result = ["entity_id":"sensor.besprechung_temperatur","metric":"temperature","unit":"°C","truncated":false,"points":(0..<48).map { i in ["value":21 + sin(Double(i)/5) * 1.5,"measured_at":iso.string(from: start.addingTimeInterval(Double(i)*1800))] }]
+            }
+            else if path.hasSuffix("/entities") && method == "PUT" { WorkflowPreview.haSelected = Set(object["selected"] as? [String] ?? []); WorkflowPreview.haRevision += 1; result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/areas") && method == "PUT" { for (k,v) in object["mapping"] as? [String:Any] ?? [:] { WorkflowPreview.haMapping[k] = v as? String }; WorkflowPreview.haRevision += 1; result = WorkflowPreview.haOverview() }
+            else if method == "DELETE" { WorkflowPreview.haStatus = "none"; result = ["ok":true,"deleted":true] }
+            else {
+                if ProcessInfo.processInfo.arguments.contains("-D21HAConnected") && WorkflowPreview.haStatus == "none" { WorkflowPreview.haStatus = "active" }
+                result = WorkflowPreview.haOverview()
+                if WorkflowPreview.haStatus == "pending" { WorkflowPreview.haPendingReads += 1; if WorkflowPreview.haPendingReads > 3 { WorkflowPreview.haStatus = "active"; WorkflowPreview.haPendingReads = 0 } }
+            }
+        }
         else if path.contains("/issues") {
             // Defects: in-memory list for the local preview.
             let parts = path.split(separator: "/"), issueID = parts.last.flatMap { Int($0) }

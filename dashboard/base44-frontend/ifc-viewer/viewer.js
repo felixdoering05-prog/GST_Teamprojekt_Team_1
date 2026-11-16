@@ -6,6 +6,7 @@ import { IfcAPI, IFCSITE, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENT
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 import { exampleIFC } from './example.js';
+import { resolveIssueLocation } from './issue-location.js';
 import { readStoreys, floorCut } from './storeys.js';
 import { addSurroundings } from './surroundings.js';
 import { addCampusMap } from './campus-map.js';
@@ -25,6 +26,8 @@ const isHeat = new URLSearchParams(location.search).get('heat') === 'true';
 const isRoomHeat = new URLSearchParams(location.search).get('room-heat') === 'true';
 const isDashboard = new URLSearchParams(location.search).get('presentation') === 'dashboard';
 const isBim = new URLSearchParams(location.search).get('presentation') === 'bim';
+const readOnly = new URLSearchParams(location.search).get('read-only') === 'true';
+if (readOnly) document.body.classList.add('issue-presentation');
 if (isDashboard) document.body.classList.add('dashboard-presentation');
 if (isRoomHeat) document.body.classList.add('room-heat-mode');
 
@@ -251,6 +254,17 @@ async function open() {
       draw();
     });
   } : draw;
+  if (!isBim && !isHeat) {
+    const lightBackground = scene.background.clone();
+    const applyTheme = () => {
+      scene.background.copy(document.documentElement.dataset.theme === 'dark' ? new THREE.Color('#223240') : lightBackground);
+      render();
+    };
+    const observer = new MutationObserver(applyTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+    applyTheme();
+  }
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (isBim) {
     const updateMotion = () => { controls.enableDamping = !motion.matches; };
@@ -536,6 +550,7 @@ async function open() {
   }
   const spaceIDs = api.GetLineIDsWithType(modelID, IFCSPACE);
   const heatRoomSpaces = [];
+  const roomsByID = new Map();
   let roomVertices = 0, roomMeshes = 0;
   for (let n = 0; n < spaceIDs.size(); n++) {
     const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
@@ -574,6 +589,7 @@ async function open() {
         }
       } finally { data.delete(); }
     }
+    if (readOnly) roomsByID.set(id, { name: label.textContent, meshes });
     heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
@@ -595,7 +611,7 @@ async function open() {
   if (new URLSearchParams(location.search).get('mode') === 'smart-home') mode(true);
   if (isExample || isCampus) {
     const note = document.createElement('div'); note.id = 'sync-status'; note.textContent = isCampus ? 'D21-Originalmodell · Ansichtsänderungen bleiben lokal' : 'Beispielmodell · frei erfundene Geometrie · Änderungen bleiben lokal'; document.body.append(note);
-  } else synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
+  } else if (!readOnly) synchronization = mountSynchronization({appearance,roomLights,update:updateSelection,environment:applyMap});
   if (isHeat) {
     const groundY = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
     heatLayer = mountHeatLayer({ scene, root, groundY, render, roomSpaces: heatRoomSpaces });
@@ -649,7 +665,18 @@ async function open() {
       labelHost.append(label);
       return [floor, label];
     });
+    const issueMarker = document.createElement('span');
+    issueMarker.className = 'issue-marker';
+    issueMarker.setAttribute('aria-hidden', 'true');
+    issueMarker.hidden = true;
+    if (readOnly) document.body.append(issueMarker);
+    let locatedIssue, issueMeshes = [];
     updateLabels = () => {
+      const point = locatedIssue?.point;
+      const floor = locatedIssue?.floor;
+      if (point && !campusVisible && (!floor || selectedFloor === null || selectedFloor === floor.id)) {
+        placeLabel(issueMarker, point.clone().add(new THREE.Vector3(0, bimFloors.elevationOffset(floor?.id), 0)));
+      } else issueMarker.hidden = true;
       for (const [floor, label] of labels) {
         if (!exploded || selectedFloor !== null && floor.id !== selectedFloor) { label.hidden = true; continue; }
         const point = floorBounds.get(floor.id).getCenter(new THREE.Vector3());
@@ -694,6 +721,50 @@ async function open() {
       fitButton.title = fitButton.getAttribute('aria-label');
       bimCamera.fit(campus ? terrain.bounds : bimFloors.bounds(), { top: top || campus, cut: Boolean(floor), align: !campus });
     };
+    if (readOnly) {
+      const tolerance = Math.min(3, Math.max(.5, span * .035));
+      const modelRegion = bounds.clone().expandByScalar(tolerance);
+      function focusIssue(event) {
+        if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'd21-issue-focus') return;
+        const focus = event.data.focus;
+        if (!focus) return;
+        const rawPoint = focus.point;
+        let point = rawPoint && [rawPoint.x, rawPoint.y, rawPoint.z].every(Number.isFinite)
+          ? new THREE.Vector3(rawPoint.x, rawPoint.y, rawPoint.z) : null;
+        point = point && modelRegion.containsPoint(point) ? root.localToWorld(point) : null;
+        const room = roomsByID.get(focus.spaceID);
+        const element = appearance.elements.get(focus.elementID);
+        locatedIssue = resolveIssueLocation({ focus, floors, assignments: spatial.assignments, room, element, point });
+        if (!locatedIssue) return;
+        selectedFloor = locatedIssue.floor?.id ?? null;
+        exploded = false;
+        updateBimView();
+        issueMeshes.forEach(mesh => { mesh.visible = false; });
+        issueMeshes = room?.meshes || [];
+        issueMeshes.forEach(mesh => { mesh.visible = true; });
+        if (element) appearance.select(focus.elementID);
+        issueMarker.textContent = `#${focus.id}`;
+        const target = new THREE.Box3();
+        if (point) {
+          const radius = Math.max(1.5, Math.min(6, span * .055));
+          target.setFromCenterAndSize(point, new THREE.Vector3(radius, radius, radius));
+        } else for (const mesh of element || issueMeshes) {
+          target.union(boundsByMesh.get(mesh) || new THREE.Box3().setFromObject(mesh));
+        }
+        if (!target.isEmpty()) bimCamera.fit(target, { cut: selectedFloor !== null });
+        const line = element ? api.GetLine(modelID, focus.elementID, false) : null;
+        window.parent.postMessage({ type: 'd21-issue-location', location: {
+          floor: locatedIssue.floor?.name,
+          room: room?.name,
+          element: element ? text(line?.Name) || `IFC-Element #${focus.elementID}` : null,
+          point: Boolean(point),
+        } }, location.origin);
+        render();
+      }
+      window.addEventListener('message', focusIssue);
+      window.addEventListener('pagehide', () => window.removeEventListener('message', focusIssue), { once: true });
+      window.parent.postMessage({ type: 'd21-issue-view-ready' }, location.origin);
+    }
     floorSelect.onchange = () => {
       selectedFloor = floorSelect.value ? Number(floorSelect.value) : null;
       exploded = false;

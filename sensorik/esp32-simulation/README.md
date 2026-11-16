@@ -2,7 +2,7 @@
 
 ## Anzeige auf dem iPhone
 
-Ab Version 1.0.132 erscheinen bereits eingerichtete ESP32 automatisch im normalen Dashboard des zugeordneten Gebäudes sowie unter **Sensorik**. Die Karte zeigt Werte und Verlauf, aktualisiert sich im Vordergrund alle 30 Sekunden und kennzeichnet fehlende Aktualität nach drei Minuten. **CSV-Sensor anlegen** ist dafür nicht nötig.
+Ab Version 1.0.136 erscheinen bereits eingerichtete ESP32 automatisch im normalen Dashboard des zugeordneten Gebäudes sowie unter **Sensorik**. Die Karte zeigt Werte und Verlauf, aktualisiert sich im Vordergrund alle 30 Sekunden und kennzeichnet fehlende Aktualität nach drei Minuten. **CSV-Sensor anlegen** ist dafür nicht nötig.
 
 Die Übertragung kommt vom echten Board; die Zahlen bleiben als simulierte Testwerte gekennzeichnet. Dafür liest die App `/api/v1/buildings/:id/telemetry/esp32` (verwalteter Zugang: `/app-api/v1/...`). Diese lesende, kontogeschützte Schnittstelle liefert nur Sensoren registrierter, nicht gesperrter Geräte des Gebäudes. Normale Demo-Daten werden nicht eingeblendet, echte Messwerte nicht umklassifiziert, Widgets und KI-Auswertungen nicht automatisch mit Testwerten versorgt.
 

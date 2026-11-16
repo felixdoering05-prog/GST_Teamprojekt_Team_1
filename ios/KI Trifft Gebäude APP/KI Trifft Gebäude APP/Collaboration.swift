@@ -594,7 +594,12 @@ struct BuildingChatView: View {
     }
 }
 
-struct UIPreferences:Decodable {let presentation_mode:Bool;let revision:Int}
+struct UIPreferences: Decodable {
+    let presentation_mode: Bool
+    let revision: Int
+    let theme: AppTheme?
+    let font_scale: AppFontScale?
+}
 struct TeamInboxView:View {
     @ObservedObject var account:AccountModel
     @ObservedObject var social:CollaborationModel

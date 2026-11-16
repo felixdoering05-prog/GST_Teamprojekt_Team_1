@@ -3,6 +3,7 @@ const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {service}=require('./twin');
 const {mergeThresholds,METRIC_META}=require('./twin/thresholdRules');
+const {haTelemetry,haRoomTemperatures}=require('./ha-import');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const text=(v,max=100)=>typeof v==='string'?v.slice(0,max):'';
@@ -30,10 +31,14 @@ async function telemetrySnapshot(db,building,source,sensorIDs=null){
   db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='ThresholdConfig' ORDER BY created_at,id LIMIT 100",[building.user_id])
  ]);
  const thresholds=mergeThresholds(thresholdRows.rows.map(r=>r.data));
- const points=measurements.slice(0,500).filter(r=>METRIC_META[r.data.metric]&&typeof r.data.value==='number'&&Number.isFinite(r.data.value)&&Number.isFinite(Date.parse(r.data.measured_at))).map(({id,data:d})=>({id,sensor_id:text(d.sensor_id),sensor_code:text(d.sensor_code),metric:d.metric,value:d.value,unit:METRIC_META[d.metric].unit,measured_at:new Date(d.measured_at).toISOString(),source,quality:['ok','verdaechtig','fehlend'].includes(d.quality)?d.quality:'ok'})).sort((a,b)=>a.measured_at.localeCompare(b.measured_at)||a.id.localeCompare(b.id));
- return {source,generated_at:new Date().toISOString(),truncated:sensors.length>(scoped?60:100)||measurements.length>500||energy.length>100,
+ // Home-Assistant-Werte sind importierte Echtdaten und erscheinen nur bei source=real.
+ const ha=!scoped&&source==='real'?await haTelemetry(db,building):{sensors:[],measurements:[],truncated:false};
+ const own=measurements.slice(0,500).filter(r=>METRIC_META[r.data.metric]&&typeof r.data.value==='number'&&Number.isFinite(r.data.value)&&Number.isFinite(Date.parse(r.data.measured_at))).map(({id,data:d})=>({id,sensor_id:text(d.sensor_id),sensor_code:text(d.sensor_code),metric:d.metric,value:d.value,unit:METRIC_META[d.metric].unit,measured_at:new Date(d.measured_at).toISOString(),source,quality:['ok','verdaechtig','fehlend'].includes(d.quality)?d.quality:'ok'}));
+ const merged=[...own,...ha.measurements].sort((a,b)=>b.measured_at.localeCompare(a.measured_at)||a.id.localeCompare(b.id));
+ const points=merged.slice(0,500).sort((a,b)=>a.measured_at.localeCompare(b.measured_at)||a.id.localeCompare(b.id));
+ return {source,generated_at:new Date().toISOString(),truncated:sensors.length>(scoped?60:100)||measurements.length>500||energy.length>100||ha.truncated||merged.length>500,
   scope:'Maximal 100 Sensoren, 500 zuletzt gespeicherte Messungen und 100 zuletzt gespeicherte Energiezeiträume dieses Gebäudes. Echt/Demo getrennt. Quelle real bedeutet importiert, nicht unabhängig verifiziert.',
-  sensors:sensors.slice(0,100).filter(r=>METRIC_META[r.data.metric]).map(({id,data:d})=>({id,sensor_code:text(d.sensor_code),name:text(d.name)||text(d.sensor_code),metric:d.metric,unit:METRIC_META[d.metric].unit,status:text(d.status),room_id:text(d.room_id),source})),
+  sensors:sensors.slice(0,100).filter(r=>METRIC_META[r.data.metric]).map(({id,data:d})=>({id,sensor_code:text(d.sensor_code),name:text(d.name)||text(d.sensor_code),metric:d.metric,unit:METRIC_META[d.metric].unit,status:text(d.status),room_id:text(d.room_id),source})).concat(ha.sensors).slice(0,100),
   measurements:points,
   energy:energy.slice(0,100).filter(r=>typeof r.data.value==='number'&&Number.isFinite(r.data.value)).map(({id,data:d})=>({id,medium:text(d.medium),value:d.value,unit:text(d.unit,20),period_start:text(d.period_start),period_end:text(d.period_end),source})),thresholds};
 }
@@ -71,6 +76,10 @@ async function roomTemperatures(db, building) {
   if (!previous || time > previous.time || (time === previous.time && reading.id > previous.id)) {
    latest.set(reading.room_id, { time, id: reading.id, value: reading.value });
   }
+ }
+ for (const reading of await haRoomTemperatures(db, building)) {
+  const time = Date.parse(reading.measured_at), previous = latest.get(reading.room_id);
+  if (!previous || time > previous.time) latest.set(reading.room_id, { time, id: 'ha', value: reading.value });
  }
  return { floors: floors.rows, rooms: rooms.rows.map(room => {
   const reading = latest.get(room.id);

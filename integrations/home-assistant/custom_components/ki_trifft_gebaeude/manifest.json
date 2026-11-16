@@ -1,0 +1,12 @@
+{
+  "domain": "ki_trifft_gebaeude",
+  "name": "KI trifft Gebäude",
+  "after_dependencies": ["recorder"],
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/tree/main/integrations/home-assistant",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "requirements": [],
+  "version": "1.0.0"
+}

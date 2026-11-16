@@ -1,11 +1,36 @@
 # Änderungsverlauf
 
-## 16. November 2026 – ESP32-Werte im normalen Dashboard (iPhone 1.0.132)
+## 16. November 2026 – ESP32-Werte im normalen Dashboard (iPhone 1.0.136)
 
 - Bereits verbundene ESP32 erscheinen automatisch im Gebäude-Dashboard und unter Sensorik mit Temperatur, Luftfeuchte, CO₂ und Verlauf. Kein zusätzlicher CSV-Sensor und kein Umschalten in den Vorstellungsmodus nötig.
 - Die echte WLAN-Übertragung und die simulierten Zahlen bleiben unterscheidbar. Nach mehr als drei Minuten ohne Werte erscheint „Letzter Stand“.
 - Eine eigene, lesende Schnittstelle liefert ausschließlich die diesem Gebäude zugeordneten, nicht gesperrten ESP32-Sensoren. Andere Demo-Daten, Energie, Geräteschlüssel und fremde Gebäudedaten werden nicht übernommen.
 - „Sensor anlegen“ heißt jetzt „CSV-Sensor anlegen“. Testwerte bleiben von echten Auswertungen, Heatmap und Widget getrennt.
+
+## 16. November 2026 – Lampen aus Home Assistant übernehmen (iPhone 1.0.135)
+
+- Beim App-Import aus Home Assistant stehen jetzt auch Lampen (`light.*`) zur Auswahl: Name, Gerät, Bereich → Raum, Farbfähigkeit und Zustand (an/aus, Helligkeit, Farbe).
+- Zustände kommen beim Abgleich mit (`POST …/samples` mit `lights`) und sind für Gebäudemitglieder sichtbar.
+- Schalten: Der Eigentümer schaltet auf seinem angemeldeten iPhone direkt in Home Assistant. Vorher prüft `POST …/home-assistant/lights/:entity/command` Rechte, Auswahl, Farbfähigkeit und das Kontolimit `light_minute` (Tabelle `app_ha_commands`, Status `delegated`).
+- Lampen zählen zum Limit `ha_entities`; höchstens 100 Lampen je Übersicht.
+- Lampensteuerung neu: großer Helligkeitsregler wie im Kontrollzentrum, Szenen (Hell, Lesen, Gemütlich, Abend), Weißton-Regler (warm–kalt, `color_temp_kelvin` im Bereich der Lampe) und Farbfelder plus eigene Farbe. Angezeigt wird nur, was die Lampe laut `supported_color_modes` kann. Beim Ziehen höchstens ein Auftrag alle 3 s, der Endwert immer.
+
+## 16. November 2026 – Home Assistant ohne Installation verbinden (iPhone 1.0.134)
+
+- Neuer Standardweg: Die App findet Home Assistant per Bonjour im WLAN (oder per eingegebener Adresse), der Nutzer meldet sich auf der normalen Home-Assistant-Anmeldeseite an (OAuth/IndieAuth, `client_id` = `/app-api/v1/ha-client`, Rückleitung `kitrifftgebaeude://ha-auth`). Kein Token kopieren, kein YAML, keine Freigabe nach außen.
+- Der Home-Assistant-Zugang liegt nur im Schlüsselbund des iPhones. Beim Öffnen der App werden ausgewählte Sensoren samt Verlauf (Halbstundenmittel, bis 7 Tage) hochgeladen: `POST /buildings/:id/home-assistant/samples`, Übersicht über `PUT …/inventory`, Verbindung über `POST …/app-connect` (nur Eigentümer).
+- Neues Limit `ha_sync_hour` (30). Die Integration mit Kopplungscode bleibt als Option „Fortgeschritten“ für den Dauerbetrieb.
+- Versionssprung auf 1.0.134, weil 1.0.133 für PR #181 (Domain) reserviert ist.
+
+## 16. November 2026 – Home-Assistant-Import (iPhone 1.0.132)
+
+- Neue Custom Integration `integrations/home-assistant/custom_components/ki_trifft_gebaeude`: Home Assistant schickt ausgewählte Sensorwerte (Temperatur, Luftfeuchte, CO₂, Leistung, Energie) samt Geräten und Bereichen an den Projektserver. Die Verbindung geht nur nach außen. Auf dem Server liegt kein HA-Token, nur der Hash eines eigenen Brückenschlüssels.
+- Koppeln per Einmalcode (10 Minuten). Nur der Eigentümer verbindet, wählt Sensoren aus, ordnet HA-Bereiche den Räumen zu und trennt. Mitglieder sehen die Werte.
+- Laufende Werte (höchstens 1 Paket pro Minute) und einmalig ein Verlauf mit Stundenwerten der letzten 7 Tage. Temperatur, Feuchte und CO₂ erscheinen auch in Sensorik, Wärmekarte und KI-Auswertung.
+- Neue Limits pro Konto: `ha_links`, `ha_entities`, `ha_values_hour`, `ha_history_day`.
+- iPhone: Geräte → Home Assistant.
+
+[Anleitung](integrations/home-assistant/README.md)
 
 ## 16. November 2026 – Widget und Siri-Kurzbefehle (iPhone 1.0.130)
 

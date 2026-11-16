@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { request, base44 } from '@/api/base44Client';
 
 const NAV = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
+  { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
   { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
   { path: '/heat-map', label: 'Heat Map', icon: Flame, hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
   { path: '/gebaeude', label: 'Gebäude & Räume', icon: Building2, hint: 'Geschosse und Räume anlegen, bearbeiten und verwalten' },
@@ -29,7 +29,7 @@ const NAV = [
   { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },
   { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
   { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
-  { path: '/meldungen', label: 'Meldungen', icon: BellRing, hint: 'Grenzwertüberschreitungen und technische Warnungen' },
+  { path: '/meldungen', label: 'Meldungen', icon: BellRing, hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
   { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und Konfiguration' },
 ];
 
@@ -99,7 +99,7 @@ function SidebarBody({ onNavigate }) {
           <Boxes className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">D21 Digital Twin</p>
+          <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Titan FS</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>
         </div>
       </div>

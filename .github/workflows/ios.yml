@@ -58,12 +58,10 @@ jobs:
       - name: Build
         working-directory: ios/KI Trifft Gebäude APP
         run: |
-          set -o pipefail
-          xcodebuild build \
+          xcodebuild -quiet build \
             -project "KI Trifft Gebäude APP.xcodeproj" \
             -scheme "KI Trifft Gebäude APP" \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            CODE_SIGNING_ALLOWED=NO \
-            | tail -n 200
+            CODE_SIGNING_ALLOWED=NO

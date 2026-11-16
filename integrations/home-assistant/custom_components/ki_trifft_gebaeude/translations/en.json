@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect KI trifft Gebäude",
+        "description": "In the KI trifft Gebäude app open the building, then Devices → Home Assistant → create pairing code. The code is valid for 10 minutes. Home Assistant only sends the sensors you select in the app.",
+        "data": {"server": "Server address (from the app)", "code": "Pairing code"}
+      }
+    },
+    "error": {
+      "invalid_url": "The server address is invalid.",
+      "https_required": "Please use an HTTPS address.",
+      "invalid_code": "Pairing code invalid or expired.",
+      "rate_limited": "Too many attempts. Please try again later.",
+      "cannot_connect": "The server cannot be reached."
+    },
+    "abort": {"already_configured": "This building is already connected."}
+  }
+}

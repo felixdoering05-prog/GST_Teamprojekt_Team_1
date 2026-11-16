@@ -12,6 +12,7 @@ struct BuildingIssue: Decodable, Identifiable, Equatable {
     let title: String
     let description: String
     let status: String
+    let priority: IssuePriority?
     let room: String
     let document_id: Int?
     let space_id: Int?
@@ -38,7 +39,15 @@ enum IssueState: String, CaseIterable, Identifiable {
 }
 
 /// Where a defect is; prefilled from the room locator or the 3D model.
-struct IssueLocation: Equatable {
+enum IssuePriority: String, Codable, CaseIterable, Identifiable {
+    case low, normal, high, urgent
+    var id: Self { self }
+    var title: String {
+        switch self { case .low: "Niedrig"; case .normal: "Normal"; case .high: "Hoch"; case .urgent: "Dringend" }
+    }
+}
+
+struct IssueLocation: Codable, Equatable {
     var documentID: Int
     var spaceID: Int?
     var room: String
@@ -50,8 +59,9 @@ struct IssueLocation: Equatable {
 
 extension AccountModel {
     func issues(buildingID: Int) async throws -> [BuildingIssue] { try await request("buildings/\(buildingID)/issues") }
-    func reportIssue(buildingID: Int, title: String, description: String, room: String, location: IssueLocation?, requestKey: UUID) async throws -> BuildingIssue {
+    func reportIssue(buildingID: Int, title: String, description: String, room: String, priority: IssuePriority?, location: IssueLocation?, requestKey: UUID) async throws -> BuildingIssue {
         var body: [String: Any] = ["title": title, "description": description, "room": room, "request_key": requestKey.uuidString.lowercased()]
+        if let priority { body["priority"] = priority.rawValue }
         if let location {
             body["document_id"] = location.documentID
             if let space = location.spaceID { body["space_id"] = space }
@@ -97,6 +107,7 @@ struct BuildingIssuesView: View {
     @State private var filter = "Offen"
     @State private var reporting = false
     @State private var selected: BuildingIssue?
+    @State private var discard: PendingIssue?
     private var shown: [BuildingIssue] {
         switch filter {
         case "Offen": issues.filter { $0.state != .done }
@@ -109,6 +120,7 @@ struct BuildingIssuesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                synchronization
                 if let problem { Label(problem, systemImage: "exclamationmark.icloud").font(.footnote).foregroundStyle(.orange) }
                 Picker("Anzeigen", selection: $filter) { ForEach(["Offen", "Erledigt", "Alle"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
                 if loaded && shown.isEmpty {
@@ -130,14 +142,48 @@ struct BuildingIssuesView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .refreshable { await load() }
         .task(id: building.id) { await load() }
+        .onChange(of: account.issueSyncGeneration) { _, _ in Task { await load() } }
         .sheet(isPresented: $reporting) {
             IssueReportSheet(building: building, account: account, location: nil) { created in upsert(created) }
+        }
+        .confirmationDialog("Lokalen Eintrag verwerfen?", isPresented: Binding(get: { discard != nil }, set: { if !$0 { discard = nil } }), presenting: discard) { draft in
+            Button("Lokal verwerfen", role: .destructive) { account.discardPendingIssue(draft.id); discard = nil }
+        } message: { draft in
+            Text(draft.serverID == nil ? "Der lokale Eintrag wird von diesem Gerät entfernt." : "Die bereits übertragene Meldung bleibt auf dem Server.")
         }
         .sheet(item: $selected) { issue in
             IssueDetailSheet(issue: issue, building: building, account: account, changed: upsert, deleted: { id in issues.removeAll { $0.id == id } },
                              show3D: issue.point != nil && issue.document_id == building.model_document_id ? { IssueFocus.shared.issueID = issue.id; selected = nil; open("3D") } : nil)
         }
     }
+    @ViewBuilder private var synchronization: some View {
+        if let problem = account.issueQueueError {
+            Label(problem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange)
+        }
+        if account.lastSynchronizedBuilding == building.id {
+            Label("Synchronisiert", systemImage: "checkmark.icloud").foregroundStyle(.secondary)
+        }
+        ForEach(account.pendingIssues.filter { $0.buildingID == building.id }) { draft in
+            VStack(alignment: .leading, spacing: 6) {
+                Text(draft.title).font(.headline)
+                Label(draft.failure == nil ? "Lokal gespeichert" : "Fehler", systemImage: draft.failure == nil ? "tray" : "exclamationmark.icloud")
+                    .font(.footnote).foregroundStyle(draft.failure == nil ? Color.secondary : .orange)
+                if let failure = draft.failure {
+                    Text(failure).font(.footnote).foregroundStyle(.secondary)
+                }
+                ViewThatFits(in: .horizontal) {
+                    HStack { pendingActions(draft) }
+                    VStack(alignment: .leading) { pendingActions(draft) }
+                }.buttonStyle(.bordered).disabled(account.syncingIssues)
+            }.padding(14).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 18)
+        }
+    }
+
+    @ViewBuilder private func pendingActions(_ draft: PendingIssue) -> some View {
+        Button("Erneut versuchen") { Task { await account.retryIssue(draft.id) } }
+        Button("Verwerfen", role: .destructive) { discard = draft }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
             ViewThatFits(in: .horizontal) {
@@ -220,8 +266,9 @@ struct IssueReportSheet: View {
     @State private var camera = false
     @State private var busy = false
     @State private var problem: String?
-    @State private var requestKey = UUID()
-    @State private var created: BuildingIssue?
+    @State private var priority: IssuePriority?
+    @State private var queuedID: UUID?
+    private var pending: PendingIssue? { account.pendingIssues.first { $0.id == queuedID } }
     private struct ModelRoom: Decodable, Identifiable { let id: Int; let name: String }
     private struct RoomList: Decodable { let rooms: [ModelRoom] }
     private let suggestions = ["Riss", "Feuchtigkeit / Schimmel", "Licht defekt", "Tür klemmt", "Fenster undicht", "Heizung kalt"]
@@ -234,6 +281,10 @@ struct IssueReportSheet: View {
                         HStack { ForEach(suggestions, id: \.self) { s in Button(s) { title = s }.buttonStyle(.bordered).controlSize(.small).tint(d21Accent) } }
                     }
                     TextField("Beschreibung (optional)", text: $details, axis: .vertical).lineLimit(3...6)
+                    Picker("Priorität", selection: $priority) {
+                        Text("Nicht festgelegt").tag(IssuePriority?.none)
+                        ForEach(IssuePriority.allCases) { Text($0.title).tag(Optional($0)) }
+                    }
                 } header: { Text("Mangel") }
                 Section {
                     if let place, place.point != nil {
@@ -264,13 +315,22 @@ struct IssueReportSheet: View {
                     Text("Meldung, Ort und Foto sehen alle Mitglieder dieses Gebäudes. Standortdaten im Foto werden vor dem Hochladen entfernt. Bitte keine Personen fotografieren.")
                 }
                 if let problem { Section { Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) } }
+                if queuedID != nil {
+                    Section("Synchronisation") {
+                        Text(pending == nil ? "Synchronisiert" : pending?.failure == nil ? "Lokal gespeichert" : "Fehler")
+                        if let failure = pending?.failure { Text(failure).foregroundStyle(.orange) }
+                    }
+                }
             }
+            .disabled(queuedID != nil || busy)
             .navigationTitle("Mangel melden").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { if let created { done(created) }; dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .cancellationAction) { Button(queuedID == nil ? "Abbrechen" : "Schließen") { dismiss() }.disabled(busy) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(busy ? "Wird gesendet …" : "Senden") { Task { await send() } }
-                        .disabled(busy || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if queuedID == nil {
+                        Button(busy ? "Wird gesendet …" : "Senden") { Task { await send() } }
+                            .disabled(busy || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
             }
             .fullScreenCover(isPresented: $camera) { CameraPicker { image in photo = image }.ignoresSafeArea() }
@@ -290,27 +350,36 @@ struct IssueReportSheet: View {
     private func send() async {
         busy = true; defer { busy = false }; problem = nil
         do {
-            var issue: BuildingIssue
-            if let created { issue = created } else {
-                var where_ = place
-                var room = roomText.trimmingCharacters(in: .whitespacesAndNewlines)
-                if where_ == nil, let roomID, let model = building.model_document_id, let chosen = rooms.first(where: { $0.id == roomID }) {
-                    where_ = IssueLocation(documentID: model, spaceID: chosen.id, room: chosen.name, point: nil)
-                    if room.isEmpty { room = chosen.name }
-                }
-                if room.isEmpty, let where_ { room = where_.room }
-                issue = try await account.reportIssue(buildingID: building.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), description: details.trimmingCharacters(in: .whitespacesAndNewlines), room: String(room.prefix(100)), location: where_, requestKey: requestKey)
-                created = issue
+            let summary = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let description = details.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard (1...120).contains(summary.utf16.count), description.utf16.count <= 2000 else {
+                throw APIError(status: 400, message: "Der Titel darf 120, die Beschreibung 2.000 Zeichen enthalten.")
             }
-            if let photo {
-                guard let jpeg = IssuePhoto.jpeg(photo) else { throw APIError(status: 0, message: "Das Foto konnte nicht verkleinert werden.") }
-                issue = try await account.uploadIssuePhoto(buildingID: building.id, issueID: issue.id, jpeg: jpeg)
+            var position = place
+            var room = roomText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if position == nil, let roomID, let model = building.model_document_id, let chosen = rooms.first(where: { $0.id == roomID }) {
+                position = IssueLocation(documentID: model, spaceID: chosen.id, room: chosen.name, point: nil)
+                if room.isEmpty { room = chosen.name }
             }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            done(issue); dismiss()
-        } catch {
-            problem = created == nil ? error.localizedDescription : "Der Mangel ist gespeichert, das Foto aber noch nicht: \(error.localizedDescription) Bitte erneut senden."
-        }
+            if room.isEmpty, let position { room = position.room }
+            guard room.utf16.count <= 100 else {
+                throw APIError(status: 400, message: "Die Ortsangabe darf 100 Zeichen enthalten.")
+            }
+            let jpeg = photo.flatMap(IssuePhoto.jpeg)
+            if photo != nil && jpeg == nil {
+                throw APIError(status: 400, message: "Das Foto konnte nicht verkleinert werden.")
+            }
+            let draft = PendingIssue(id: UUID(), buildingID: building.id, title: summary, description: description,
+                room: room, priority: priority, location: position, jpeg: jpeg)
+            try account.enqueueIssue(draft)
+            queuedID = draft.id
+            let synced = await account.syncIssueOutbox()
+            if let issue = synced[draft.id] {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                done(issue)
+                dismiss()
+            }
+        } catch { problem = error.localizedDescription }
     }
 }
 
@@ -360,6 +429,7 @@ struct IssueDetailSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(issue.state.title, systemImage: issue.state.symbol).font(.caption.weight(.bold)).foregroundStyle(issue.state.color)
                         Text(issue.title).font(.title2.bold())
+                        if let priority = issue.priority { Label(priority.title, systemImage: "flag").font(.subheadline) }
                         if !issue.room.isEmpty { Label(issue.room, systemImage: "door.left.hand.open").font(.subheadline).foregroundStyle(.secondary) }
                         HStack(spacing: 4) {
                             Text("Gemeldet von \(issue.reporter)")

@@ -1,10 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
+import { useAppearance } from '@/lib/Appearance';
 import { request } from '@/api/base44Client';
 import { ifcViewerUrl } from '@/lib/ifcViewerUrl';
 import ModelTerrainPanel from './ModelTerrainPanel';
 
-export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage }) {
+function applyViewerAppearance(root, theme, scale) {
+  root.dataset.theme = theme;
+  root.style.fontSize = `${13 * scale / 100}px`;
+}
+
+export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage, issueFocus, focusVersion, onIssueLocation, readOnly = false }) {
+  const { resolvedTheme, value } = useAppearance();
   const frame = useRef(null);
+  useEffect(() => {
+    if (!readOnly) return;
+    const sendFocus = () => frame.current?.contentWindow?.postMessage({ type: 'd21-issue-focus', focus: issueFocus }, window.location.origin);
+    const receive = event => {
+      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
+      if (event.data?.type === 'd21-issue-view-ready') sendFocus();
+      if (event.data?.type === 'd21-issue-location') onIssueLocation?.(event.data.location);
+    };
+    window.addEventListener('message', receive);
+    sendFocus();
+    return () => window.removeEventListener('message', receive);
+  }, [readOnly, issueFocus, focusVersion, onIssueLocation]);
+  useEffect(() => {
+    const root = frame.current?.contentDocument?.documentElement;
+    if (root) applyViewerAppearance(root, resolvedTheme, value.font_scale);
+  }, [resolvedTheme, value.font_scale]);
   const [error, setError] = useState('');
   const [viewerError, setViewerError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -14,7 +37,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
   const terrainReady = useRef(false);
   const pendingTerrain = useRef(null);
   const roomHeatMode = Boolean(onRoomHeatMessage);
-  const canEditTerrain = presentation === 'bim' && document.canEditTerrain;
+  const canEditTerrain = presentation === 'bim' && document.canEditTerrain && !readOnly;
   function openTerrain(view) {
     if (!terrainReady.current || !frame.current?.contentWindow) {
       pendingTerrain.current = view;
@@ -66,7 +89,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
         return;
       }
       if (event.data?.type !== 'd21-scene-request' || typeof event.data.id !== 'string' || event.data.id.length > 100) return;
-      if (document.campus || roomHeatMode) return;
+      if (document.campus || roomHeatMode || readOnly) return;
       const {id,operation,revision} = event.data;
       const target = event.source;
       try {
@@ -88,9 +111,9 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
       if (roomHeatMode) onRoomHeatMessage({ type: 'd21-room-heat-error', message: e.message });
     });
     return () => { active = false; buffer = undefined; terrainReady.current = false; window.removeEventListener('message', receive); };
-  }, [document.id, document.example, document.campus, document.mapOnly, attempt, roomHeatMode, onRoomHeatMessage, canEditTerrain, onHeatStatus, document.latitude, document.longitude, document.model_heading_degrees, document.map_provider_consent]);
+  }, [document.id, document.example, document.campus, document.mapOnly, attempt, roomHeatMode, onRoomHeatMessage, canEditTerrain, onHeatStatus, document.latitude, document.longitude, document.model_heading_degrees, document.map_provider_consent, readOnly]);
   const mapOnly = document.mapOnly || mapFallback;
-  const source = ifcViewerUrl({ example: document.example, campus: document.campus, mapOnly, heat: Boolean(heatmap), roomHeat: roomHeatMode, presentation });
+  const source = ifcViewerUrl({ example: document.example, campus: document.campus, mapOnly, heat: Boolean(heatmap), roomHeat: roomHeatMode, presentation, readOnly });
   function onFrameLoad(event) {
     const loadedFrame = event.currentTarget;
     if (!loadedFrame.contentDocument?.getElementById('scene')) {
@@ -101,6 +124,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
       return;
     }
     setViewerError('');
+    applyViewerAppearance(loadedFrame.contentDocument.documentElement, resolvedTheme, value.font_scale);
     if (!document.example && !mapOnly) {
       loadedFrame.contentWindow?.postMessage({ type: 'd21-ifc-request' }, window.location.origin);
     }
@@ -116,6 +140,6 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     {canEditTerrain && <ModelTerrainPanel documentID={document.id} site={site} onTerrain={openTerrain} />}
     {loading && <p role="status" className="px-4 py-3 text-xs text-muted-foreground">{document.campus ? 'Originales D21-Modell wird geschützt geladen …' : 'Modell wird aus deiner Gebäudemappe geladen …'}</p>}
     {message && <div role="alert" className="p-5 text-sm text-destructive"><p>{message}</p>{!roomHeatMode && <button className="mt-2 underline" onClick={retry}>Erneut versuchen</button>}</div>}
-    <iframe onLoad={onFrameLoad} ref={frame} key={`${document.id}-${attempt}-${Boolean(mapOnly)}`} src={source} title={roomHeatMode ? `3D-Geschossschnitt · ${document.name}` : heatmap ? 'Heat map: D21 und h_da-Campus' : mapOnly ? 'h_da-Campuskarte' : `3D-Modell: ${document.name}`} className={`block ${roomHeatMode ? 'h-[360px] sm:h-[460px]' : presentation === 'dashboard' ? 'h-[450px]' : presentation === 'bim' ? 'h-[clamp(420px,62dvh,750px)] sm:h-[clamp(490px,66dvh,860px)]' : heatmap ? 'h-[560px] min-h-[420px] max-sm:h-[470px]' : 'h-[calc(100dvh-240px)] min-h-[480px]'} w-full border-0 ${hideFrame ? 'hidden' : ''}`} />
+    <iframe onLoad={onFrameLoad} ref={frame} key={`${document.id}-${attempt}-${Boolean(mapOnly)}`} src={source} title={roomHeatMode ? `3D-Geschossschnitt · ${document.name}` : heatmap ? 'Heat map: D21 und h_da-Campus' : mapOnly ? 'h_da-Campuskarte' : `3D-Modell: ${document.name}`} className={`block ${roomHeatMode ? 'h-[360px] sm:h-[460px]' : presentation === 'dashboard' ? 'h-[450px]' : readOnly ? 'h-[23rem] xl:h-[28rem]' : presentation === 'bim' ? 'h-[clamp(420px,62dvh,750px)] sm:h-[clamp(490px,66dvh,860px)]' : heatmap ? 'h-[560px] min-h-[420px] max-sm:h-[470px]' : 'h-[calc(100dvh-240px)] min-h-[480px]'} w-full border-0 ${hideFrame ? 'hidden' : ''}`} />
   </div>;
 }

@@ -203,6 +203,59 @@ body:has(#map-attribution:not([hidden])) #tools, body:has(#map-attribution:not([
   .summary-stat { padding-left: 6px; }
   .summary-heading small { display: none; }
 }
+
+.issue-presentation :is(#modes, #tools, #selection, #commands, #viewer-summary, #explode) { display: none !important; }
+.issue-presentation #hint { max-width: calc(100% - 1rem); }
+.issue-marker {
+  position: absolute;
+  z-index: 8;
+  transform: translate(-.3em, -50%);
+  border: 2px solid white;
+  background: #823225;
+  color: white;
+  padding: .25em .55em;
+  border-radius: 1em;
+  box-shadow: 0 2px 6px #0007;
+  font-size: 1rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+.issue-marker::before {
+  content: '';
+  position: absolute;
+  width: .5em;
+  height: .5em;
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 50%;
+}
+html[data-theme="dark"], [data-theme="dark"] .bim-presentation {
+  color-scheme: dark;
+  color: #e4edf2;
+  background: #18232c;
+  --panel: #242f3cf7;
+  --line: #4b6373;
+  --glass-shadow: 0 4px 14px #0005;
+}
+[data-theme="dark"] :is(#modes, #view-controls, #camera-tools, #tools, #levels, #selection, #home, #status, #commands, #bim-view-settings, #viewer-summary, #map-attribution, .model-label) {
+  border-color: var(--line);
+  background: var(--panel);
+  color: #e4edf2;
+}
+[data-theme="dark"] :is(button, #bim-view-settings label, #bim-active-view, #sync-status, #hint, .summary-heading small, .summary-stat span, .panel-heading, #floor-count, #floor-note) {
+  color: #e4edf2;
+  text-shadow: none;
+}
+[data-theme="dark"] :is(button:hover, button[aria-pressed=true], #bim-floor) {
+  background: #344d5e;
+  color: #f3fbff;
+  border-color: var(--line);
+}
+[data-theme="dark"] :is(#map-attribution a, #status.error) { color: #fbc6a6; }
+[data-theme="dark"] #status.error { background: #37241f; }
+
 @media (prefers-reduced-transparency: reduce) {
   :root, .bim-presentation { --panel: #f8f9f8; }
   :is(#modes, #view-controls, #camera-tools, #tools, #levels, #selection, #home, #commands, #viewer-summary, .model-label) {

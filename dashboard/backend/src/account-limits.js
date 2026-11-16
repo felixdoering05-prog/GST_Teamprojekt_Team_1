@@ -16,6 +16,11 @@ const CATALOG=[
  {key:'map_hour',label:'Kartenladungen pro Stunde',default:10},
  {key:'weather_hour',label:'Wetterabrufe pro Stunde',default:6},
  {key:'light_minute',label:'Lichtaufträge pro Minute',default:20},
+ {key:'ha_links',label:'Home-Assistant-Verbindungen (eigene Gebäude)',default:2},
+ {key:'ha_entities',label:'Home-Assistant-Sensoren pro Gebäude',default:50},
+ {key:'ha_values_hour',label:'Home-Assistant-Messwerte pro Stunde',default:3000},
+ {key:'ha_sync_hour',label:'Home-Assistant-Abgleiche aus der App pro Stunde',default:30},
+ {key:'ha_history_day',label:'Home-Assistant-Verlaufsimporte pro 24 Stunden',default:5},
  {key:'message_minute',label:'Chatnachrichten pro Minute und Gebäude',default:20},
  {key:'contact_hour',label:'Kontaktanfragen pro Stunde',default:20}
 ];
