@@ -97,11 +97,19 @@ function telemetryRouter(db,requireAccount){
   const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
   if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   // Device mapping is server-owned. Never accept sensor IDs or a source from the caller.
-  const devices=(await db.query('SELECT sensors FROM app_sensor_devices WHERE user_id=$1 AND building_id=$2 AND revoked=false ORDER BY created_at,id LIMIT 21',[building.user_id,building.id])).rows;
-  const ids=[...new Set(devices.slice(0,20).flatMap(d=>['temperature','humidity','co2'].map(metric=>d.sensors?.[metric]).filter(id=>typeof id==='string'&&id.length<=100)))];
-  const snapshot=await telemetrySnapshot(db,building,'demo',ids);
+  const devices=(await db.query('SELECT sensors,hardware FROM app_sensor_devices WHERE user_id=$1 AND building_id=$2 AND revoked=false ORDER BY created_at,id LIMIT 21',[building.user_id,building.id])).rows;
+  const idsFor=real=>[...new Set(devices.slice(0,20).filter(d=>(d.hardware==='bme280')===real).flatMap(d=>['temperature','humidity','co2'].map(metric=>d.sensors?.[metric]).filter(id=>typeof id==='string'&&id.length<=100)))];
+  const realIDs=idsFor(true),demoIDs=idsFor(false);
+  const demo=await telemetrySnapshot(db,building,'demo',demoIDs);
+  let snapshot=demo;
+  if(realIDs.length){
+   // Echte Geräte (BME280): eigene Messwerte mit source=real; Simulationen bleiben getrennt als demo.
+   const real=await telemetrySnapshot(db,building,'real',realIDs);
+   const points=[...real.measurements,...(demoIDs.length?demo.measurements:[])].sort((a,b)=>a.measured_at.localeCompare(b.measured_at)||a.id.localeCompare(b.id)).slice(-500);
+   snapshot={...real,source:demoIDs.length?'mixed':'real',sensors:[...real.sensors,...(demoIDs.length?demo.sensors:[])],measurements:points,truncated:real.truncated||demo.truncated};
+  }
   snapshot.truncated=snapshot.truncated||devices.length>20;
-  snapshot.scope='ESP32 · übertragene simulierte Messwerte. Nur zugeordnete Sensoren aktiver Geräte dieses Gebäudes; keine echten Sensormessungen. Maximal 20 Geräte, 60 Sensoren und 500 zuletzt gespeicherte Messwerte. Kein Energieimport und keine sonstigen Demodaten.';
+  snapshot.scope=realIDs.length?(demoIDs.length?'ESP32 · echte Messwerte (BME280) und getrennt gekennzeichnete simulierte Testwerte.':'ESP32 · echte Messwerte vom BME280 (Temperatur, Luftfeuchte). Importiert, nicht unabhängig kalibriert.')+' Maximal 20 Geräte, 60 Sensoren und 500 zuletzt gespeicherte Messwerte.':'ESP32 · übertragene simulierte Messwerte. Nur zugeordnete Sensoren aktiver Geräte dieses Gebäudes; keine echten Sensormessungen. Maximal 20 Geräte, 60 Sensoren und 500 zuletzt gespeicherte Messwerte. Kein Energieimport und keine sonstigen Demodaten.';
   res.json(snapshot);
  }));
  r.get(base+'/room-temperatures',wrap(async(req,res)=>{
