@@ -54,9 +54,18 @@ struct LaunchIntroView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(accent)
                         .frame(width: 44, height: 3)
-                    Text("Titan FS")
-                        .font(.system(.title2, design: .rounded, weight: .semibold))
-                        .foregroundStyle(ink)
+                    VStack(spacing: 8) {
+                        Text("Nala")
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .foregroundStyle(ink)
+                        Text("Dein Gebäude. Digital verstanden.")
+                            .font(.system(.headline, design: .rounded, weight: .medium))
+                            .foregroundStyle(accent)
+                        Text("Networked Architecture & Lifecycle Assistant")
+                            .font(.caption)
+                            .foregroundStyle(ink.opacity(0.6))
+                    }
+                    .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: 430)
                 Spacer(minLength: 28)

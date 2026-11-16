@@ -48,7 +48,7 @@ import ElevenLabs
                 lease = session.session_id
                 let config = ConversationConfig(dynamicVariables: session.dynamic_variables,
                     onError: { [weak self] _ in Task { @MainActor in guard let self, self.generation == ticket else { return }; self.stop(message: "Das Gespräch wurde unterbrochen. Bitte starte bei Bedarf neu.") } },
-                    onAgentResponse: { [weak self] text,_ in Task { @MainActor in self?.append("Assistent: " + text, ticket: ticket) } },
+                    onAgentResponse: { [weak self] text,_ in Task { @MainActor in self?.append("Nala: " + text, ticket: ticket) } },
                     onUserTranscript: { [weak self] text,_ in Task { @MainActor in self?.append("Du: " + text, ticket: ticket) } },
                     onVadScore: { [weak self] score in Task { @MainActor in if self?.generation == ticket { self?.level = min(1, max(0, score)) } } })
                 let call = try await ElevenLabs.startConversation(conversationToken: session.token, config: config)
@@ -57,7 +57,7 @@ import ElevenLabs
                 call.$agentState.sink { [weak self] state in
                     guard let self, self.generation == ticket else { return }
                     self.speaking = state == .speaking
-                    self.phase = state == .speaking ? "Dein Assistent spricht" : state == .thinking ? "Ich denke nach …" : self.muted ? "Mikrofon pausiert" : "Ich höre zu"
+                    self.phase = state == .speaking ? "Nala spricht" : state == .thinking ? "Ich denke nach …" : self.muted ? "Mikrofon pausiert" : "Ich höre zu"
                 }.store(in: &subscriptions)
                 call.$state.dropFirst().sink { [weak self] state in
                     guard let self, self.generation == ticket else { return }
@@ -191,7 +191,7 @@ struct BuildingVoiceView: View {
                 NavigationLink("KI-Einstellungen") { AISettingsView(account: account) }.font(.footnote)
             }.padding(24)
         }.background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("Sprachassistent").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Nala").navigationBarTitleDisplayMode(.inline)
         .task { await account.refreshAIPreferences() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { voice.stop() } }
         .onChange(of: account.aiPreferences.active) { _, enabled in if !enabled { voice.stop() } }
