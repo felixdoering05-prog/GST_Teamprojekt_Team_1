@@ -4,7 +4,7 @@
   "properties": {
     "sensor_code": {
       "type": "string",
-      "description": "Eindeutige Sensorkennung"
+      "description": "Lesbarer Zeichenschlüssel: Gebäude-Geschoss-Raum-Anlage-Funktion-Typ"
     },
     "name": {
       "type": "string"
@@ -14,7 +14,19 @@
     },
     "room_id": {
       "type": "string",
-      "description": "Zugeordneter Raum"
+      "description": "Zugeordneter Raum; leer bedeutet keinem Raum zugeordnet"
+    },
+    "asset_number": {
+      "type": "string",
+      "description": "Anlagennummer im Zeichenschlüssel"
+    },
+    "function_key": {
+      "type": "string",
+      "description": "Funktionskürzel im Zeichenschlüssel"
+    },
+    "asset_type": {
+      "type": "string",
+      "description": "Anlagentyp-Kürzel im Zeichenschlüssel"
     },
     "metric": {
       "type": "string",
@@ -23,11 +35,11 @@
         "co2",
         "humidity"
       ],
-      "description": "Messgr\u00f6\u00dfe: Temperatur, CO\u2082 oder Luftfeuchte"
+      "description": "Messgröße: Temperatur, CO₂ oder Luftfeuchte"
     },
     "unit": {
       "type": "string",
-      "description": "Messeinheit, z. B. \u00b0C, ppm, %"
+      "description": "Messeinheit, z. B. °C, ppm, %"
     },
     "status": {
       "type": "string",
@@ -40,7 +52,7 @@
     },
     "hardware_type": {
       "type": "string",
-      "description": "Sensortyp / Ger\u00e4t"
+      "description": "Sensortyp / Gerät"
     },
     "interfaces": {
       "type": "array",
