@@ -22,7 +22,7 @@ const METRICS={
 };
 const BY_CLASS=Object.fromEntries(Object.entries(METRICS).map(([metric,m])=>[m.device_class,metric]));
 const TELEMETRY_METRICS=new Set(['temperature','humidity','co2']);
-const ENTITY_RE=/^sensor\.[a-z0-9_]{1,200}$/,REF_RE=/^[A-Za-z0-9_.-]{1,64}$/;
+const ENTITY_RE=/^sensor\.[a-z0-9_]{1,200}$/,LIGHT_RE=/^light\.[a-z0-9_]{1,200}$/,REF_RE=/^[A-Za-z0-9_.-]{1,64}$/;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 async function initHAImport(db){
@@ -36,6 +36,8 @@ async function initHAImport(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_areas(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,area_id TEXT NOT NULL,name TEXT NOT NULL,room_id TEXT,PRIMARY KEY(link_id,area_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_devices(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,device_id TEXT NOT NULL,name TEXT NOT NULL,manufacturer TEXT NOT NULL DEFAULT '',model TEXT NOT NULL DEFAULT '',area_id TEXT,PRIMARY KEY(link_id,device_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_entities(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,name TEXT NOT NULL,metric TEXT NOT NULL,source_unit TEXT NOT NULL,device_id TEXT,area_id TEXT,selected BOOLEAN NOT NULL DEFAULT false,PRIMARY KEY(link_id,entity_id))`);
+ await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS supports_color BOOLEAN NOT NULL DEFAULT false');
+ await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS light_state JSONB');
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_samples(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,metric TEXT NOT NULL,value DOUBLE PRECISION NOT NULL,measured_at TIMESTAMPTZ NOT NULL,PRIMARY KEY(link_id,entity_id,measured_at))`);
  await db.query('CREATE INDEX IF NOT EXISTS app_ha_samples_time ON app_ha_samples(link_id,measured_at)');
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_events(id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,kind TEXT NOT NULL,count INTEGER NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
@@ -70,13 +72,22 @@ async function applyInventory(c,link,b){
   const areas=new Map(),devices=new Map(),entities=new Map();
   for(const a of b.areas){if(!onlyKeys(a,['area_id','name'])||!ref(a.area_id)||!clean(a.name))fail('Ungültiger Bereich.');areas.set(a.area_id,clean(a.name));}
   for(const d of b.devices){if(!onlyKeys(d,['device_id','name','manufacturer','model','area_id'])||!ref(d.device_id))fail('Ungültiges Gerät.');const area=ref(d.area_id);devices.set(d.device_id,{name:clean(d.name)||d.device_id,manufacturer:clean(d.manufacturer),model:clean(d.model),area_id:area&&areas.has(area)?area:null});}
+  let lights=0;
   for(const e of b.entities){
-   if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensor-Entitäten (sensor.*) sind erlaubt.');
+   if(e&&typeof e.entity_id==='string'&&LIGHT_RE.test(e.entity_id)){
+    // Lampen: nur Name, Gerät, Bereich und ob Farbe möglich ist.
+    if(!onlyKeys(e,['entity_id','name','supports_color','device_id','area_id'])||(e.supports_color!==undefined&&typeof e.supports_color!=='boolean'))fail('Ungültige Lampe.');
+    if(++lights>100)fail('Höchstens 100 Lampen übernehmen.');
+    const device=ref(e.device_id),area=ref(e.area_id);
+    entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric:'light',unit:'',supports_color:e.supports_color===true,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
+    continue;
+   }
+   if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensoren (sensor.*) und Lampen (light.*) sind erlaubt.');
    const metric=BY_CLASS[e.device_class];
    if(!metric)fail(`Nicht unterstützte Sensorart bei ${e.entity_id}. Erlaubt: Temperatur, Luftfeuchte, CO₂, Leistung, Energie.`);
    if(typeof e.unit!=='string'||!METRICS[metric].units[e.unit])fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
    const device=ref(e.device_id),area=ref(e.area_id);
-   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
+   entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,supports_color:false,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
   }
   // Bereiche und Geräte nur speichern, wenn ein übernommener Sensor sie braucht (Datensparsamkeit).
   const usedDevices=new Set([...entities.values()].map(e=>e.device_id).filter(Boolean));
@@ -86,9 +97,24 @@ async function applyInventory(c,link,b){
   await c.query('DELETE FROM app_ha_devices WHERE link_id=$1',[link.id]);
   for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6)',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
   await c.query('DELETE FROM app_ha_entities WHERE link_id=$1 AND NOT (entity_id = ANY($2::text[]))',[link.id,[...entities.keys()]]);
-  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id) VALUES($1,$2,$3,$4,$5,$6,$7)
-   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id]);
+  for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id,supports_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+   ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,supports_color=EXCLUDED.supports_color,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id,e.supports_color]);
   await c.query('UPDATE app_ha_links SET last_inventory_at=now() WHERE id=$1',[link.id]);
+}
+
+// Lampenzustand, wie ihn das iPhone in Home Assistant gelesen hat.
+function parseLights(list){
+ if(!Array.isArray(list)||list.length>100)fail('Höchstens 100 Lampenzustände senden.');
+ return list.map(l=>{
+  if(!onlyKeys(l,['entity_id','available','is_on','brightness','rgb'])||typeof l.entity_id!=='string'||!LIGHT_RE.test(l.entity_id)||typeof l.available!=='boolean'||!(l.is_on===null||typeof l.is_on==='boolean')
+   ||l.brightness!==undefined&&l.brightness!==null&&!(Number.isInteger(l.brightness)&&l.brightness>=0&&l.brightness<=255)
+   ||l.rgb!==undefined&&l.rgb!==null&&!(Array.isArray(l.rgb)&&l.rgb.length===3&&l.rgb.every(x=>Number.isInteger(x)&&x>=0&&x<=255)))fail('Ungültiger Lampenzustand.');
+  return {entity_id:l.entity_id,state:{available:l.available,is_on:l.available?l.is_on:null,brightness:l.brightness??null,rgb:l.rgb??null,updated_at:new Date().toISOString()}};
+ });
+}
+async function storeLights(c,link,lights){
+ let n=0;for(const l of lights){const r=await c.query("UPDATE app_ha_entities SET light_state=$3 WHERE link_id=$1 AND entity_id=$2 AND metric='light' AND selected",[link.id,l.entity_id,JSON.stringify(l.state)]);n+=Number(r.affectedRows??r.rowCount??0);}
+ return n;
 }
 
 // Brückenschlüssel prüfen und Sperren in der etablierten Reihenfolge (Konto, Gebäude, Verbindung) setzen.
@@ -180,14 +206,14 @@ async function overview(db,building,user){
  const [areas,devices,entities]=await Promise.all([
   db.query('SELECT area_id,name,room_id FROM app_ha_areas WHERE link_id=$1 ORDER BY name,area_id',[link.id]),
   db.query('SELECT device_id,name,manufacturer,model,area_id FROM app_ha_devices WHERE link_id=$1 ORDER BY name,device_id',[link.id]),
-  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.selected,s.value,s.measured_at FROM app_ha_entities e
+  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.selected,e.supports_color,e.light_state,s.value,s.measured_at FROM app_ha_entities e
    LEFT JOIN LATERAL (SELECT value,measured_at FROM app_ha_samples WHERE link_id=e.link_id AND entity_id=e.entity_id ORDER BY measured_at DESC LIMIT 1) s ON true
    WHERE e.link_id=$1 ORDER BY e.metric,e.name,e.entity_id`,[link.id])
  ]);
  return {...base,
   link:{id:link.id,status:link.status,mode:link.mode,instance_name:link.instance_name,ha_version:link.ha_version,revision:link.revision,paired_at:link.paired_at,last_inventory_at:link.last_inventory_at,last_push_at:link.last_push_at,pairing_expires_at:owner&&link.status==='pending'?link.pairing_expires_at:null},
   areas:areas.rows,devices:devices.rows,
-  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric].unit,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
+  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric]?.unit||'',supports_color:e.supports_color,light:e.metric==='light'&&e.selected&&e.light_state?e.light_state:null,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
 }
 
 function haImportRouter(db,requireAccount){
@@ -227,7 +253,7 @@ function haImportRouter(db,requireAccount){
  }));
  r.put(base+'/entities',ownerTx(async(c,req,res,b,link)=>{
   const body=req.body||{};if(!link)fail('Home Assistant ist nicht verbunden.',404);
-  if(!onlyKeys(body,['selected','revision'])||!Array.isArray(body.selected)||body.selected.length>500||body.selected.some(x=>typeof x!=='string'||!ENTITY_RE.test(x))||new Set(body.selected).size!==body.selected.length)fail('Bitte eine Liste von Sensor-Entitäten senden.');
+  if(!onlyKeys(body,['selected','revision'])||!Array.isArray(body.selected)||body.selected.length>500||body.selected.some(x=>typeof x!=='string'||!(ENTITY_RE.test(x)||LIGHT_RE.test(x)))||new Set(body.selected).size!==body.selected.length)fail('Bitte eine Liste von Sensor-Entitäten senden.');
   checkRevision(link,body);
   const max=(await accountLimits(c,b.user_id)).values.ha_entities;if(max!==null&&body.selected.length>max)fail(`Höchstens ${max} Sensoren pro Gebäude übernehmen.`,429);
   const known=new Set((await c.query('SELECT entity_id FROM app_ha_entities WHERE link_id=$1',[link.id])).rows.map(r=>r.entity_id));
@@ -270,13 +296,31 @@ function haImportRouter(db,requireAccount){
  }));
  r.post(base+'/samples',ownerTx(async(c,req,res,b,link)=>{
   appLink(link);const body=req.body||{};
-  if(!onlyKeys(body,['points']))fail('Ungültige Messwerte.');
-  const points=parsePoints(body.points,2000);
+  if(!onlyKeys(body,['points','lights'])||body.points===undefined&&body.lights===undefined)fail('Ungültige Messwerte.');
+  const points=body.points===undefined?[]:parsePoints(body.points,2000),lights=body.lights===undefined?[]:parseLights(body.lights);
   if(reached(await accountLimits(c,b.user_id),'ha_sync_hour',await eventCount(c,b.user_id,'app_sync','1 hour')))fail('Stundenlimit für Abgleiche erreicht. Bitte später erneut versuchen.',429);
-  const result=await storePoints(c,link,points);
+  const result=points.length?await storePoints(c,link,points):{stored:0,ignored:0};
+  result.lights=await storeLights(c,link,lights);
   await c.query("INSERT INTO app_ha_events(user_id,kind,count) VALUES($1,'app_sync',1)",[b.user_id]);
   await c.query('UPDATE app_ha_links SET last_push_at=now() WHERE id=$1',[link.id]);
   res.status(201).json({...result,selected:await selectedIDs(c,link.id)});
+ }));
+ // Schalten passiert auf dem iPhone direkt in Home Assistant. Vorher prüft der Server Rechte,
+ // Auswahl und das Kontolimit light_minute (gleiche Tabelle wie die bisherigen Lichtaufträge).
+ r.post(base+'/lights/:haLight/command',ownerTx(async(req_c,req,res,b,link)=>{
+  const c=req_c;appLink(link);const body=req.body||{},key=(req.get('X-Request-ID')||'').toLowerCase(),entity=req.params.haLight;
+  if(!LIGHT_RE.test(entity)||!onlyKeys(body,['on','brightness','rgb'])||typeof body.on!=='boolean'||!UUID_RE.test(key)
+   ||body.brightness!==undefined&&!(Number.isInteger(body.brightness)&&body.brightness>=1&&body.brightness<=255)
+   ||body.rgb!==undefined&&!(Array.isArray(body.rgb)&&body.rgb.length===3&&body.rgb.every(x=>Number.isInteger(x)&&x>=0&&x<=255))
+   ||!body.on&&(body.brightness!==undefined||body.rgb!==undefined))fail('Bitte einen gültigen Lichtauftrag senden.');
+  const light=(await c.query("SELECT supports_color FROM app_ha_entities WHERE link_id=$1 AND entity_id=$2 AND metric='light' AND selected",[link.id,entity])).rows[0];
+  if(!light)fail('Lampe nicht übernommen.',404);
+  if(body.rgb&&!light.supports_color)fail('Diese Lampe unterstützt keine Farbe.',409);
+  if((await c.query('SELECT 1 FROM app_ha_commands WHERE user_id=$1 AND request_key=$2',[req.account.id,key])).rows.length)fail('Dieser Auftrag wurde bereits angenommen.',409);
+  const n=(await c.query("SELECT COUNT(*) n FROM app_ha_commands WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[req.account.id])).rows[0].n;
+  if(reached(await accountLimits(c,req.account.id),'light_minute',n))fail('Bitte kurz warten: Lichtlimit pro Minute erreicht.',429);
+  await c.query("INSERT INTO app_ha_commands(user_id,light_key,request_key,desired_on,status,finished_at) VALUES($1,$2,$3,$4,'delegated',now())",[req.account.id,entity.slice(0,200),key,body.on]);
+  res.status(201).json({allowed:true});
  }));
  r.delete(base,ownerTx(async(c,req,res,b,link)=>{if(link)await c.query('DELETE FROM app_ha_links WHERE id=$1',[link.id]);res.json({ok:true,deleted:!!link});}));
  r.use(errors);return r;

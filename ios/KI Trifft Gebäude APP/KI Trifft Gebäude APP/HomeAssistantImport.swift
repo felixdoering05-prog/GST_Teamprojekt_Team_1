@@ -13,8 +13,11 @@ struct HADevice: Decodable, Identifiable { let device_id: String; let name: Stri
 struct HAEntity: Decodable, Identifiable {
     let entity_id: String; let name: String; let metric: String; let unit: String
     let device_id: String?; let area_id: String?; let selected: Bool; let latest: HALatest?
+    var supports_color: Bool? = nil; var light: HALightState? = nil
     var id: String { entity_id }
+    var isLight: Bool { metric == "light" }
 }
+struct HALightState: Decodable { let available: Bool; let is_on: Bool?; let brightness: Int?; let rgb: [Int]?; let updated_at: String? }
 struct HARoom: Decodable, Identifiable, Hashable { let id: String; let name: String; let room_code: String }
 struct HALimits: Decodable { let entities: Int? }
 struct HAOverview: Decodable {
@@ -26,9 +29,9 @@ struct HAHistoryPoint: Decodable, Identifiable { let value: Double; let measured
 struct HAHistory: Decodable { let entity_id: String; let metric: String; let unit: String; let truncated: Bool; let points: [HAHistoryPoint] }
 
 enum HAMetric {
-    static func title(_ metric: String) -> String { ["temperature":"Temperatur","humidity":"Luftfeuchte","co2":"CO₂","power":"Leistung","energy":"Energie"][metric] ?? metric }
-    static func symbol(_ metric: String) -> String { ["temperature":"thermometer.medium","humidity":"humidity.fill","co2":"carbon.dioxide.cloud","power":"bolt.fill","energy":"bolt.batteryblock"][metric] ?? "sensor" }
-    static let order = ["temperature","humidity","co2","power","energy"]
+    static func title(_ metric: String) -> String { ["light":"Lampen","temperature":"Temperatur","humidity":"Luftfeuchte","co2":"CO₂","power":"Leistung","energy":"Energie"][metric] ?? metric }
+    static func symbol(_ metric: String) -> String { ["light":"lightbulb.fill","temperature":"thermometer.medium","humidity":"humidity.fill","co2":"carbon.dioxide.cloud","power":"bolt.fill","energy":"bolt.batteryblock"][metric] ?? "sensor" }
+    static let order = ["light","temperature","humidity","co2","power","energy"]
     static func date(_ text: String?) -> Date? {
         guard let text else { return nil }
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -69,6 +72,8 @@ struct HomeAssistantImportView: View {
             if let problem { Section { Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) } }
             if let notice { Section { Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(.green) } }
             if active, let overview {
+                let lamps = overview.entities.filter { $0.isLight && $0.selected }
+                if !lamps.isEmpty && appMode { Section { ForEach(lamps) { lamp in HALampControl(account: account, building: building, lamp: lamp, area: overview.areas.first { $0.area_id == lamp.area_id }, rooms: overview.rooms, canSwitch: owner && hasLocalAccess, changed: { await reload(keepEdits: true) }) } } header: { Text("Lampen steuern") } footer: { Text(owner && hasLocalAccess ? "Geschaltet wird direkt in deinem Home Assistant (im WLAN oder über Home Assistant Cloud). Es gilt dein Limit für Lichtaufträge pro Minute." : "Schalten kann der Besitzer auf dem iPhone, das mit Home Assistant angemeldet ist.") } }
                 sensorsSection(overview)
                 if !overview.areas.isEmpty { areasSection(overview) }
                 if !overview.devices.isEmpty { devicesSection(overview) }
@@ -154,7 +159,7 @@ struct HomeAssistantImportView: View {
         let changed = selection != savedSelection
         return Group {
             if overview.entities.isEmpty {
-                Section("Sensoren") { Text("Home Assistant hat noch keine passenden Sensoren gemeldet. Unterstützt werden Temperatur, Luftfeuchte, CO₂, Leistung und Energie.").font(.footnote).foregroundStyle(.secondary) }
+                Section("Sensoren") { Text("Home Assistant hat noch keine passenden Geräte gemeldet. Unterstützt werden Lampen sowie Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie.").font(.footnote).foregroundStyle(.secondary) }
             }
             ForEach(HAMetric.order.filter { grouped[$0] != nil }, id: \.self) { metric in
                 Section(HAMetric.title(metric)) {
@@ -182,9 +187,10 @@ struct HomeAssistantImportView: View {
                 Text(entity.name).lineLimit(2)
                 Text([area, entity.entity_id].compactMap { $0 }.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 if entity.selected, let latest = entity.latest { Text(HAMetric.value(latest.value, entity.unit)).font(.caption.weight(.semibold)).foregroundStyle(d21Accent) }
+                if entity.selected, let light = entity.light { Text(HALightText.status(light)).font(.caption.weight(.semibold)).foregroundStyle(light.is_on == true ? d21Accent : .secondary) }
             }
             // Verlauf gibt es nur für bereits übernommene Sensoren.
-            if entity.selected { NavigationLink { HAEntityHistoryView(account: account, building: building, entity: entity) } label: { label } }
+            if entity.selected && !entity.isLight { NavigationLink { HAEntityHistoryView(account: account, building: building, entity: entity) } label: { label } }
             else { label; Spacer(minLength: 0) }
             if owner {
                 Toggle("", isOn: Binding(get: { on }, set: { value in if value { selection.insert(entity.entity_id) } else { selection.remove(entity.entity_id) } }))
@@ -340,6 +346,64 @@ struct HAConnectSheet: View {
     private func connect(_ url: URL) async {
         guard !busy else { return }; busy = true; defer { busy = false }
         do { try await HASync.connect(account: account, building: building, url: url, login: login); dismiss() }
+        catch { problem = error.localizedDescription }
+    }
+}
+
+enum HALightText {
+    static func status(_ light: HALightState) -> String {
+        guard light.available, let on = light.is_on else { return "Nicht erreichbar" }
+        guard on else { return "Aus" }
+        return light.brightness.map { "An · \(Int((Double($0) / 255 * 100).rounded())) %" } ?? "An"
+    }
+}
+
+/// Eine übernommene Lampe: Zustand, Raum und – für den Besitzer mit HA-Anmeldung – Schalten, Helligkeit, Farbe.
+struct HALampControl: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let lamp: HAEntity
+    let area: HAArea?
+    let rooms: [HARoom]
+    let canSwitch: Bool
+    let changed: () async -> Void
+    @State private var busy = false
+    @State private var problem: String?
+    @State private var brightness: Double = 255
+    @State private var color: Color = .white
+    private var room: String { area?.room_id.flatMap { id in rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum" }
+    private var on: Bool { lamp.light?.is_on == true }
+    private var available: Bool { lamp.light?.available ?? true }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: on ? "lightbulb.fill" : "lightbulb").font(.title3).foregroundStyle(on ? lightColor(lamp.light?.rgb) == .white ? Color.yellow : lightColor(lamp.light?.rgb) : .secondary).frame(width: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lamp.name)
+                    Text(room + " · " + (lamp.light.map(HALightText.status) ?? "Zustand folgt beim nächsten Abgleich")).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if busy { ProgressView() }
+                else if canSwitch {
+                    Toggle("", isOn: Binding(get: { on }, set: { value in Task { await send(on: value) } })).labelsHidden().tint(d21Accent).disabled(!available).accessibilityLabel("\(lamp.name) schalten")
+                }
+            }
+            if canSwitch && on && available {
+                HStack { Image(systemName: "sun.min").foregroundStyle(.secondary); Slider(value: $brightness, in: 1...255) { editing in if !editing { Task { await send(on: true, brightness: Int(brightness)) } } }.tint(d21Accent); Image(systemName: "sun.max").foregroundStyle(.secondary) }
+                    .accessibilityLabel("Helligkeit")
+                if lamp.supports_color == true {
+                    ColorPicker("Farbe", selection: $color, supportsOpacity: false).font(.subheadline)
+                        .onChange(of: color) { _, value in Task { await send(on: true, rgb: lightRGB(value)) } }
+                }
+            }
+            if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
+        }
+        .padding(.vertical, 2)
+        .onAppear { brightness = Double(lamp.light?.brightness ?? 255); color = lightColor(lamp.light?.rgb) }
+    }
+    private func send(on: Bool, brightness: Int? = nil, rgb: [Int]? = nil) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { try await HASync.switchLight(account: account, building: building.id, entity: lamp.entity_id, on: on, brightness: brightness, rgb: rgb); problem = nil; await changed() }
         catch { problem = error.localizedDescription }
     }
 }
