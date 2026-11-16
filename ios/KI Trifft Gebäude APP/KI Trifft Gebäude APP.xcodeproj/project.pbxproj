@@ -351,12 +351,13 @@
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
                 DEVELOPMENT_TEAM = 95A5TC5H7R;
-				CURRENT_PROJECT_VERSION = 139;
+				CURRENT_PROJECT_VERSION = 140;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nala;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
                 INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“, den Raumscan und das Abfotografieren von Grundrissen verwendet. Bilder und Tiefendaten aus „Wo bin ich?“ und dem Raumscan bleiben auf dem iPhone. Abfotografierte Grundrisse werden in deine Gebäudemappe auf dem Projektserver hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
@@ -373,7 +374,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.139;
+				MARKETING_VERSION = 1.0.140;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -397,12 +398,13 @@
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
                 DEVELOPMENT_TEAM = 95A5TC5H7R;
-				CURRENT_PROJECT_VERSION = 139;
+				CURRENT_PROJECT_VERSION = 140;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nala;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
                 INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“, den Raumscan und das Abfotografieren von Grundrissen verwendet. Bilder und Tiefendaten aus „Wo bin ich?“ und dem Raumscan bleiben auf dem iPhone. Abfotografierte Grundrisse werden in deine Gebäudemappe auf dem Projektserver hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
@@ -419,7 +421,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.139;
+				MARKETING_VERSION = 1.0.140;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -442,18 +444,18 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/Widgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 139;
+				CURRENT_PROJECT_VERSION = 140;
 				DEVELOPMENT_TEAM = 95A5TC5H7R;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Titan FS";
+				INFOPLIST_KEY_CFBundleDisplayName = Nala;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.139;
+				MARKETING_VERSION = 1.0.140;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE).widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -474,18 +476,18 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = SupportFiles/Widgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 139;
+				CURRENT_PROJECT_VERSION = 140;
 				DEVELOPMENT_TEAM = 95A5TC5H7R;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Titan FS";
+				INFOPLIST_KEY_CFBundleDisplayName = Nala;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.139;
+				MARKETING_VERSION = 1.0.140;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE).widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;

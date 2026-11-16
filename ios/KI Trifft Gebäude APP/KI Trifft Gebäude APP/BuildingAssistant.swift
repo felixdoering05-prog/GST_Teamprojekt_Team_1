@@ -93,8 +93,8 @@ struct BuildingAssistantView: View {
             Image(systemName: "sparkles").font(.title3).foregroundStyle(d21Accent)
                 .frame(width: 40, height: 40).background(d21Accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 13))
             VStack(alignment: .leading, spacing: 3) {
-                Text("Gebäude-Assistent").font(.headline)
-                Text(building.name + " · Privater Chat").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text("Nala").font(.headline)
+                Text("Gebäudeassistentin · " + building.name).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 6)
             Button { showInfo = true } label: { Image(systemName: "info.circle").font(.title3) }.accessibilityLabel("Informationen zu KI und Datenübertragung")
@@ -103,8 +103,8 @@ struct BuildingAssistantView: View {
     private var emptyConversation: some View {
         VStack(alignment: .leading, spacing: 24) {
             Image(systemName: "sparkles").font(.system(size: 38, weight: .medium)).foregroundStyle(d21Accent).padding(.top, 30)
-            Text("Was möchtest du\nüber dein Gebäude wissen?").font(.system(.largeTitle, design: .rounded, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
-            Text("Frage zu deinen Unterlagen oder erkunde das verknüpfte Modell. Du entscheidest, was geändert wird.").font(.subheadline).foregroundStyle(.secondary)
+            Text("Hi, ich bin Nala,\ndeine Gebäudeassistentin.").font(.system(.largeTitle, design: .rounded, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+            Text("Was möchtest du über dein Gebäude wissen? Frag mich zu deinen Unterlagen oder erkunde mit mir das Modell. Du entscheidest, was geändert wird.").font(.subheadline).foregroundStyle(.secondary)
             VStack(spacing: 10) {
                 suggestion("Unterlagen im Überblick", detail: "Welche Unterlagen sind hinterlegt?", symbol: "folder", command: false)
                 suggestion("Mein Modell verstehen", detail: "Wie viele Wände enthält das ausgewählte IFC-Modell?", symbol: "cube.transparent", command: false)
@@ -129,7 +129,7 @@ struct BuildingAssistantView: View {
         VStack(alignment: .leading, spacing: 20) {
             questionBubble(turn.question)
             VStack(alignment: .leading, spacing: 13) {
-                Label("Gebäude-Assistent", systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(d21Accent)
+                Label("Nala", systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(d21Accent)
                 Text(turn.answer).font(.body).lineSpacing(5).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 if let command = turn.command, command.action != "unsupported", let document = turn.document_id {
                     Button("Modelländerung prüfen", systemImage: "cube.transparent") { Task { await prepare(command, document: document) } }
@@ -192,7 +192,7 @@ struct BuildingAssistantView: View {
                 Section("Fragen und Gerätesteuerung") { Text("Deine Frage, bis zu sechs bisherige Frage-Antwort-Paare, Gebäudename/Adresse und begrenzte Dateiangaben werden an Google Gemini gesendet. Bei Modellauswahl kommen Modellname und IFC-Typzahlen hinzu. Keine Datei-Inhalte, vollständige Geometrie, Teamnachrichten oder Kontakte. Verbundene Lampen können entsprechend deiner Kontofreigabe per Auftrag gesteuert werden.") }
                 Section("Modelländerungen") { Text("Für einen Modellbefehl werden Befehlstext und erlaubte Aktionen übertragen. Keine IFC-Datei oder Gesprächshistorie. Die Änderung prüfst du vor dem gemeinsamen Speichern; die Originaldatei bleibt erhalten.") }
                 Section { Text("20 KI-Anfragen je Konto in 24 Stunden. Es gibt in diesem Build keine Live-Sprache und keine gestreamte Antwort; der Server liefert die Antwort vollständig zurück.").font(.footnote); NavigationLink { AISettingsView(account: account) } label: { Label("KI-Einstellungen", systemImage: "slider.horizontal.3") } }
-            }.navigationTitle("Über den Assistenten").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle("Über Nala").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { showInfo = false } } }
         }
     }
@@ -217,7 +217,7 @@ struct BuildingAssistantView: View {
             let query = commandMode ? "?mode=ifc-command" : selectedID.map { "?document_id=\($0)" } ?? ""
             struct Status: Decodable { let enabled: Bool; let context_hash: String }
             let info: Status = try await account.request("buildings/\(building.id)/assistant" + query)
-            guard info.enabled else { throw APIError(status: 503, message: "Der Assistent ist gerade nicht verfügbar.") }
+            guard info.enabled else { throw APIError(status: 503, message: "Nala ist gerade nicht verfügbar.") }
             var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true]
             if commandMode { body["mode"] = "ifc-command" }
             if let selectedID { body["document_id"] = selectedID }

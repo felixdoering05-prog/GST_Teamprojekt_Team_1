@@ -125,7 +125,7 @@ struct BuildingWidgetView: View {
     private var empty: some View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: "building.2.fill").font(.title2).foregroundStyle(accent)
-            Text("Titan FS").font(.headline)
+            Text("Nala").font(.headline)
             Text(entry.sharedDataAvailable ? "Melde dich in der App an und öffne ein Gebäude." : "Tippen, um die App zu öffnen.")
                 .font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
