@@ -87,6 +87,57 @@ def measure(plan):
     return level, None
 
 
+def render_pdf_page(path, page, dpi=150):
+    """A scanned PDF page as BGR image for the raster path (pdfplumber renders with pypdfium2, no network)."""
+    import numpy as np
+    import pdfplumber
+    with pdfplumber.open(path) as pdf:
+        if page >= len(pdf.pages):
+            return None
+        pg = pdf.pages[page]
+        # Limit to about 20 MP independent of the paper size.
+        res = min(dpi, int((20e6 / max(float(pg.width) * float(pg.height) / 72 / 72, 1)) ** 0.5))
+        img = pg.to_image(resolution=res).original.convert('RGB')
+    return np.asarray(img)[:, :, ::-1].copy()
+
+
+def _dedupe(levels, notes):
+    """Several photos of the same floor: keep the richest one."""
+    out = []
+    for lv in sorted(levels, key=lambda l: (-len(l['rooms']), -len(l['walls']))):
+        same = next((o for o in out if abs(o['width'] / max(lv['width'], 1) - 1) < 0.15 and abs(o['depth'] / max(lv['depth'], 1) - 1) < 0.15
+                     and abs(len(o['walls']) - len(lv['walls'])) <= max(2, 0.3 * len(o['walls']))), None)
+        if same:
+            notes.append('Mehrere Fotos zeigen offenbar dasselbe Geschoss: das deutlichste wurde verwendet.')
+        else:
+            out.append(lv)
+    return sorted(out, key=lambda l: l['source']['input'])
+
+
+def extract_raster_inputs(raster, workdir, plan_dir=None):
+    """raster: [(input index, path or None, image or None, page)] -> (levels, skipped, notes)."""
+    from .raster import extract_raster, plan_image, RasterError
+    levels, skipped, notes = [], [], []
+    for index, path, img, page in raster:
+        try:
+            level, reason = extract_raster(path, gray=img)
+        except RasterError as e:
+            level, reason = None, str(e)
+        except Exception:
+            level, reason = None, 'detection_failed'
+        if not level:
+            skipped.append({'input': index, 'page': page, 'reason': reason})
+            continue
+        level['source'].update({'input': index, 'page': page})
+        levels.append(level)
+        if plan_dir:
+            # Normalised plan for the correction editor; its px grid is level['raster'] (scaled by 'image_scale').
+            name = f'plan-{index}-{page}.jpg'
+            level['raster']['image'] = name
+            level['raster']['image_scale'] = plan_image(path, os.path.join(plan_dir, name), gray=img)
+    return _dedupe(levels, notes), skipped, notes
+
+
 def read_any(path, kind, workdir):
     if kind == 'pdf':
         return read_pdf(path)
@@ -97,10 +148,16 @@ def read_any(path, kind, workdir):
     raise ValueError('unsupported')
 
 
-def extract(inputs, workdir):
-    """inputs: [(path, kind)] -> {'levels': [...], 'skipped': [...]}"""
-    levels, skipped = [], []
+def extract(inputs, workdir, plan_dir=None):
+    """inputs: [(path, kind)] with kind dxf | dwg | pdf | image -> {'levels': [...], 'skipped': [...], 'notes': [...]}
+
+    Vector plans are measured exactly. Photos, scans and scanned PDF pages go the raster path, but only if no vector
+    plan could be measured (a measured plan beats a photo of it)."""
+    levels, skipped, raster = [], [], []
     for index, (path, kind) in enumerate(inputs):
+        if kind == 'image':
+            raster.append((index, path, None, 0))
+            continue
         try:
             plans = read_any(path, kind, workdir)
         except ConversionError as e:
@@ -119,8 +176,28 @@ def extract(inputs, workdir):
                 levels.append(level)
             else:
                 skipped.append({'input': index, 'page': plan.page, 'reason': reason})
+                if kind == 'pdf' and reason in ('no_vectors', 'raster_page', 'no_walls', 'no_scale'):
+                    raster.append((index, path, 'pdf', plan.page))
+    notes = []
+    if not levels and raster:
+        items = []
+        for index, path, img, page in raster[:4]:
+            if img == 'pdf':
+                try:
+                    bgr = render_pdf_page(path, page)
+                except Exception:
+                    bgr = None
+                if bgr is None:
+                    continue
+                items.append((index, None, bgr, page))
+            else:
+                items.append((index, path, None, page))
+        rl, rs, notes = extract_raster_inputs(items, workdir, plan_dir)
+        tried = {(i, p) for i, _, _, p in items}
+        skipped = [s for s in skipped if (s['input'], s.get('page')) not in tried] + rs
+        levels = rl
     names = ['EG', '1. OG', '2. OG', '3. OG']
     for i, l in enumerate(levels[:4]):
         l['name'] = names[i]
         l['elevation'] = i * (DEFAULT_HEIGHT + 200.0)
-    return {'version': 1, 'levels': levels[:4], 'skipped': skipped}
+    return {'version': 1, 'levels': levels[:4], 'skipped': skipped, 'notes': notes}

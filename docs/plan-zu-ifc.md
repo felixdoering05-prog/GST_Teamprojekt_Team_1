@@ -1,6 +1,6 @@
 # Aus Grundrissen einen IFC-Entwurf erstellen
 
-Stand: 15. November 2026. Experimentelle Planerkennung, keine Fachplanung und keine baurechtliche Prüfung. Vektorpläne (PDF mit Linien, DXF, DWG) werden seit iOS 1.0.129 **vermessen** statt geschätzt, siehe [Vektorpläne vermessen](#vektorpläne-vermessen-phase-1).
+Stand: 16. November 2026. Experimentelle Planerkennung, keine Fachplanung und keine baurechtliche Prüfung. Vektorpläne (PDF mit Linien, DXF, DWG) werden seit iOS 1.0.129 **vermessen** statt geschätzt, siehe [Vektorpläne vermessen](#vektorpläne-vermessen-phase-1). Fotos, Scans und Skizzen werden seit iOS 1.0.137 **auf dem Server erkannt** (OpenCV), Gemini liest dort nur noch Raumnamen und Gesamtmaße, siehe [Fotos und Scans](#fotos-und-scans-phase-3).
 
 ## Bedienung
 
@@ -34,12 +34,30 @@ Die Annahmen stehen im Auftrag und der Dateiname enthält TEST. Bei abgelehnter 
 - **IFC:** IfcOpenShell, IFC4: Geschoss, IfcWall mit echter Stärke und Wandtyp, IfcOpeningElement + IfcDoor/IfcWindow mit Breite/Höhe, IfcSpace mit Fläche, Bodenplatte (20 cm Annahme). BIMCraft bleibt Rückfall für den Bildweg.
 - **Gemini:** bekommt bei PDF-Quellen Original-PDF, eine Draufsicht mit IDs (W/O/R) und die Kandidatenliste. Antwort nur über IDs: Nicht-Wände markieren (höchstens 30 % der Wände, sonst ignoriert), unklare Öffnungen einordnen, abgelesene Höhen, unbeschriftete Räume benennen, Geschosshöhe. Keine Koordinaten. Fällt die Prüfung aus, bleibt das vermessene Ergebnis mit Hinweis. DXF/DWG werden nie an Google gesendet.
 - **Qualitätsbericht** (`app_plan_jobs.quality`, in App unter dem Auftrag): Maßstab und Herkunft, Anzahl Wände/Türen/Fenster/unklare Öffnungen/Räume, jede Planmaßzahl gemessen vs. beschriftet mit Abweichung, Räume ohne Tür, Flächenvergleich. „gut“ nur bei ≤ 2 % Maßabweichung, mindestens drei Maßzahlen und Tür in jedem Raum.
-- **Grenzen:** Fotos/Scans bleiben auf dem Gemini-Weg (Phase 3: Rastererkennung). Schräge Wände werden wie gerade gepaart (in den Testplänen nicht abgedeckt), Bögen/runde Wände gar nicht. Ein PDF-Plan mit großem Rasterbild und wenigen Linien gilt als Scan.
+- **Grenzen:** Fotos/Scans: siehe Phase 3. Schräge Wände werden wie gerade gepaart (in den Testplänen nicht abgedeckt), Bögen/runde Wände gar nicht. Ein PDF-Plan mit großem Rasterbild und wenigen Linien gilt als Scan.
 - **Tests:** `test/fixtures/plans/` enthält selbst erzeugte Pläne mit bekannten Maßen (`plan-extract/tests/make_fixtures.py`, `expected.json`): DXF mit Layern/Blöcken/DIMENSION, einheitenlose cm-DXF mit aufgelösten Symbolen, Vektor-PDF 1:100 und 1:50, Text-PDF, Scan mit Rahmen. `cd dashboard/backend/plan-extract && python -m unittest discover -s tests` prüft Wand-, Tür-, Fensterzahl, Gesamtmaße, Wandstärken und Raumflächen (≤ 2 %), IFC-Validierung und die ID-basierte KI-Prüfung. `node --test test/plan-vector.test.js` prüft die Worker-Anbindung (mit `PLAN_PYTHON=<venv>/bin/python` auch Ende-zu-Ende).
+
+## Fotos und Scans (Phase 3)
+
+`plan-worker → run.py extract (Rasterweg, OpenCV) → Gemini liest Raumnamen + Gesamtmaße (nur IDs/Zahlen) → run.py build → IFC + Vorschau + Bericht`
+
+Ziel: Auch aus schlechten oder wenigen Plänen entsteht immer ein stimmiges Modell. Was nicht messbar ist, wird geschätzt und so gekennzeichnet; nichts wird stillschweigend erfunden.
+
+- **Aufnahme in der App:** „Grundriss abfotografieren“ nutzt den iOS-Dokumentscanner (VisionKit): Blatt finden, entzerren, zuschneiden. Zusätzlich Import aus Fotos und Dateien (JPG, PNG, HEIC, PDF, DXF, DWG). HEIC wird auf dem iPhone in JPEG umgewandelt, Pläne mit bis zu 3200 px Kantenlänge.
+- **Vorverarbeitung** (`planextract/raster.py`): Blatterkennung und Perspektivkorrektur für Handyfotos, Ausgleich von Schatten und ungleichmäßigem Licht, Geradedrehen, danach Entzerren an den langen Außenlinien des Plans (Restperspektive). Blattrahmen werden als lange dünne Randlinien entfernt.
+- **Wände:** Die typische Wanddicke wird direkt im Bild gemessen (Strichbreite gefüllter Wände bzw. Abstand paralleler Linien). Daraus folgen alle Schwellen. Gefüllte, schraffierte und doppellinige Wände werden zu Wandbändern, dünne Linien (Maßketten, Möbel, Text) fallen weg. Jede Wand muss im Querschnitt über mindestens 45 % ihrer Länge wie eine Wand aussehen (gefüllt oder zwei Kantenlinien). Danach werden Ecken und T-Stöße geschlossen, Wände auf den Umriss der geschlossenen Räume zugeschnitten, und bei offenem Außenumriss werden fehlende Seiten ergänzt (mit Hinweis). Skizzen mit Einzellinien laufen über einen Linienweg mit angenommenen Wandstärken (30 / 11,5 cm).
+- **Öffnungen:** Querschnitt entlang jeder Wand: keine Tinte ergibt eine Öffnung, und passt ein Viertelkreis (Türaufschlag) dazu, ist es eine Tür. Dünne Linien im Wandband ergeben ein Fenster. Höhen werden angenommen.
+- **Maßstab**, in dieser Reihenfolge: 1. von Gemini abgelesene **beschriftete Gesamtmaße** (Breite/Tiefe in mm, nur Zahlen, keine Koordinaten; beide müssen auf 15 % zusammenpassen), 2. später eine vom Nutzer markierte Strecke (Editor), 3. Schätzung aus Türbreiten (0,90 m) und Außenwandstärke (32 cm), 4. übliche Hausgröße (110 m²). Geschätzte Maße stehen im Bericht als „Maße ungefähr“.
+- **Aufräumen und Ausgabe:** Wände rechtwinklig, nahe Linien fluchtend, Wandstärken auf übliche Werte (24/30/36,5 cm außen, 10/11,5/17,5/24 cm innen) gerundet. Ausgabe im selben Format wie Phase 1, daher bauen `build.py`/`ifc_writer.py` die IFC unverändert.
+- **Vorrang und Rückfall:** Ein vermessbarer Vektorplan hat Vorrang vor Fotos davon. Mehrere Fotos desselben Geschosses werden zusammengefasst. Gescannte PDF-Seiten gehen in den Rasterweg. Erkennt der Rasterweg nichts, bleibt der bisherige Gemini-Geometrieweg als Rückfall.
+- **Qualitätsbericht:** Fotos/Scans sind nie automatisch „gut“, sondern immer „prüfen“. Angezeigt werden Herkunft des Maßstabs und gegebenenfalls „Maße ungefähr“.
+- **Messlatte:** [plan-raster-messung.md](plan-raster-messung.md). Mit 14 Testbildern (Scan, Kopie, Handyfoto, Skizze) entsteht 14/14 ein Modell und 10/14 sind brauchbar, vorher (Prototyp) 3/14 und 0/14. Mit abgelesenen Gesamtmaßen liegt der Maßfehler bei 0–8 %.
+- **Lizenzen:** OpenCV (opencv-python-headless 5.0, Apache-2.0), NumPy (BSD-3), keine trainierten Modelle oder fremden Datensätze. CubiCasa5k (CC BY-NC 4.0) wird bewusst nicht verwendet. Der Prototyp in `ki/plan-raster/` bleibt als Referenz.
+- **Grenzen:** nur rechtwinklige Wände; Fenster in Doppellinienplänen oft nicht erkannt; Skizzen ohne Maße nur ungefähr; echte Fotos (Möbel, Handschrift) noch nicht im Testsatz. Die nächste Etappe ist ein Korrektur-Editor (Wände verschieben, löschen, ergänzen; Räume benennen; bekannte Strecke markieren).
 
 ## Aufbau und Datenhaltung
 
-`App/Web → API → PostgreSQL-Auftrag → plan-worker → Vektorplan? vermessen (IfcOpenShell) : Gemini → geprüfte Geometriedaten → BIMCraft 0.11.0 → Vorschau → manuelle Übernahme`
+`App/Web → API → PostgreSQL-Auftrag → plan-worker → Vektorplan vermessen / Foto-Scan erkennen (IfcOpenShell) – nur wenn beides scheitert: Gemini-Geometrie → BIMCraft 0.11.0 → Vorschau → manuelle Übernahme`
 
 - `app_plan_settings`: Freigabe, Richtlinienversion und Änderungsstand je Gebäude.
 - `app_plan_jobs`: Quelle-IDs, SHA-256, Status, Geometriedaten, Anbieter/Tokenangaben, Vorschau und vorläufige IFC. Bytes bleiben serverseitig und sind nur für den Eigentümer abrufbar. Bei Übernahme wandert die IFC nach `app_documents` und wird aus dem Auftrag entfernt.

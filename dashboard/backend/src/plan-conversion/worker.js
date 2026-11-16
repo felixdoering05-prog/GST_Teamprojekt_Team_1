@@ -6,7 +6,8 @@ const {extractVector,buildVector,CAD}=require('./vector');
 const {reviewCandidates}=require('./review');
 const FAILURE_MESSAGES={needs_input:'Grundriss oder Maßstab nicht eindeutig. Bitte gut lesbaren, bemaßten Plan hochladen.',invalid_geometry:'Die erkannte Geometrie ist nicht konsistent. Bitte Plan prüfen oder einen klareren Ausschnitt hochladen.',provider_unreachable:'Gemini momentan nicht erreichbar. Bitte später erneut versuchen.',provider_limit:'Gemini-Nutzungslimit erreicht. Bitte später erneut versuchen.',provider_rejected:'Gemini hat die Anfrage abgelehnt. Serverkonfiguration prüfen lassen.',provider_response_invalid:'Keine vollständige Geometrie von Gemini erhalten.',provider_config:'Plananalyse auf dem Server noch nicht richtig konfiguriert.',model_generation_failed:'IFC-Erzeugung konnte nicht zuverlässig abgeschlossen werden.',output_too_large:'Der Entwurf überschreitet die erlaubte Größe.',worker_interrupted:'Verarbeitung unterbrochen. Bitte neuen Auftrag starten.',consent_changed:'Plananalyse inzwischen deaktiviert oder Einstellung geändert.',source_changed:'Quelldateien wurden verändert oder entfernt.',cad_unreadable:'In der DXF/DWG wurden keine auswertbaren Wände oder Maße gefunden. Bitte nur den Grundriss (Wand-, Tür-, Fenster- und Bemaßungslayer) als DXF mit Einheit Millimeter exportieren.'};
 const REVIEW_SKIPPED={provider_limit:'Gemini-Limit erreicht',provider_unreachable:'Gemini nicht erreichbar'};
-// Vector plans are measured deterministically; Gemini only reviews candidate IDs (PDF sources only).
+// Vector plans are measured, photos/scans recognised locally (OpenCV); Gemini only reviews candidate IDs and reads
+// plan texts (names, overall dimensions). If nothing is recognised, the older Gemini geometry path is the fallback.
 async function vectorJob(c,job,docs,{extract,review,build}){
  const cadOnly=docs.every(d=>CAD.has(d.mime_type));let vector;
  try{vector=await extract(docs);}catch(e){if(cadOnly)throw Object.assign(Error(),{code:'cad_unreadable'});console.error('plan-job',job.id,'vector extraction failed');return null;}
@@ -14,8 +15,8 @@ async function vectorJob(c,job,docs,{extract,review,build}){
  const notes=[...vector.notes];let checked=null;
  try{checked=await review(docs,vector);}catch(e){notes.push(`KI-Prüfung übersprungen (${REVIEW_SKIPPED[e.code]||'keine gültige Antwort'}); Ergebnis rein aus der Vermessung.`);}
  if(checked)notes.push(...checked.review.warnings.map(w=>'KI-Hinweis: '+w));else if(vector.cadOnly)notes.push('CAD-Datei lokal vermessen, nicht an Google übertragen.');
- if(docs.some(d=>!vector.documents.includes(d.id)))notes.push('Fotos/Bilder in diesem Auftrag wurden nicht verwendet, weil ein vermessbarer Vektorplan vorliegt.');
- return {analysis:{source:'vector',version:1,candidates:vector.candidates,review:checked?.review||null,notes},model:checked?.model||'vektor-vermessung',usage:checked?.usage||null};
+ if(docs.some(d=>!vector.documents.includes(d.id)))notes.push(vector.raster?'Nicht alle Bilder wurden verwendet (doppelt oder kein Grundriss erkennbar).':'Fotos/Bilder in diesem Auftrag wurden nicht verwendet, weil ein vermessbarer Vektorplan vorliegt.');
+ return {analysis:{source:'vector',version:1,candidates:vector.candidates,review:checked?.review||null,notes},model:checked?.model||(vector.raster?'raster-erkennung':'vektor-vermessung'),usage:checked?.usage||null};
 }
 async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=extractVector,review=reviewCandidates,build=buildVector,enabled=process.env.PLAN_CONVERSION_ENABLED==='true'}={}){
  if(!enabled)return false;

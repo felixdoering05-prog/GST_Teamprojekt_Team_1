@@ -44,7 +44,7 @@ struct BuildingFilesView: View {
             } header: { Text("Deine Gebäudemappe") }
             Section("3D-Modell") {
                 if building.is_owner != false {
-                    NavigationLink { PlanConversionView(building: building, account: model, onAdopt: { Task { await reload() } }) } label: { Label("Aus Plänen einen 3D-Entwurf erstellen", systemImage: "wand.and.stars") }
+                    NavigationLink { PlanConversionView(building: building, account: model, flow: flow, onAdopt: { Task { await reload() } }) } label: { Label("Aus Plänen einen 3D-Entwurf erstellen", systemImage: "wand.and.stars") }
                 }
                 Text("IFC-Datei unten hochladen. Gespeicherte Modelle lassen sich hier in 3D öffnen.").font(.footnote).foregroundStyle(.secondary)
             }

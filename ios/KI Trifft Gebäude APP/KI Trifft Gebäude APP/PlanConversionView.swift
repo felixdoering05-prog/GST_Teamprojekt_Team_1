@@ -2,12 +2,13 @@ import SwiftUI
 import UIKit
 
 struct PlanConversionSetting: Decodable { let enabled: Bool; let revision: Int }
-/// Plan types the server can turn into a draft: images/PDFs (Gemini) and CAD plans (measured locally).
+/// Plan types the server can turn into a draft: CAD/vector PDF (measured), photos/scans (recognised on the server).
 let planConversionMimeTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf", "application/dxf", "application/acad"]
 struct PlanDimensionCheck: Decodable { let label: String?; let labelled_mm: Double; let measured_mm: Double; let error_pct: Double }
-struct PlanScaleInfo: Decodable { let method: String?; let ratio: Double? }
+struct PlanScaleInfo: Decodable { let method: String?; let ratio: Double?; let estimated: Bool? }
 struct PlanQualityLevel: Decodable {
     let level: String
+    let source: String?
     let scale: PlanScaleInfo?
     let walls: Int
     let doors: Int
@@ -18,7 +19,9 @@ struct PlanQualityLevel: Decodable {
     let dimensions: [PlanDimensionCheck]?
     let dimension_max_error_pct: Double?
     let grade: String?
+    var fromPhoto: Bool { source == "raster" }
     var scaleText: String {
+        if fromPhoto { return scale?.method ?? "geschätzt" }
         if let ratio = scale?.ratio { return "1:\(Int(ratio.rounded()))" }
         switch scale?.method { case "units", "units+dimensions": return "DXF-Einheit"; case "dimensions": return "aus Maßketten"; default: return "geschätzt" }
     }
@@ -32,9 +35,12 @@ struct PlanQualityView: View {
                 .font(.subheadline.weight(.semibold)).foregroundStyle(quality.grade == "gut" ? .green : .orange)
             ForEach(Array(quality.levels.enumerated()), id: \.offset) { _, level in
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(level.level) · Maßstab \(level.scaleText)").font(.footnote.weight(.semibold))
+                    Text("\(level.level) · " + (level.fromPhoto ? "aus Foto/Scan · " : "") + "Maßstab \(level.scaleText)").font(.footnote.weight(.semibold))
                     Text("\(level.walls) Wände · \(level.doors) Türen · \(level.windows) Fenster · \(level.rooms) Räume" + ((level.openings_unclear ?? 0) > 0 ? " · \(level.openings_unclear ?? 0) unklare Öffnungen" : "")).font(.footnote)
-                    if let error = level.dimension_max_error_pct {
+                    if level.fromPhoto {
+                        if level.scale?.estimated == true { Text("Maße ungefähr. Für genaue Maße die Gesamtmaße im Plan gut lesbar fotografieren.").font(.footnote).foregroundStyle(.orange) }
+                        else { Text("Größe aus den beschrifteten Gesamtmaßen übernommen.").font(.footnote).foregroundStyle(.secondary) }
+                    } else if let error = level.dimension_max_error_pct {
                         Text("\(level.dimensions?.count ?? 0) Planmaße nachgemessen, größte Abweichung \(error.formatted(.number.precision(.fractionLength(1)))) %").font(.footnote).foregroundStyle(error <= 2 ? Color.secondary : Color.orange)
                     } else { Text("Keine Maßzahlen zum Gegenprüfen gefunden").font(.footnote).foregroundStyle(.orange) }
                     if let missing = level.rooms_without_door, !missing.isEmpty { Text("Ohne erkannte Tür: \(missing.joined(separator: ", "))").font(.footnote).foregroundStyle(.orange) }
@@ -88,6 +94,7 @@ struct PlanConversionView: View {
     let building: Building
     @ObservedObject var account: AccountModel
     let onAdopt: () -> Void
+    @StateObject private var flow: BuildingWorkflowModel
     @State private var reply: PlanConversionReply?
     @State private var documents: [BuildingDocument] = []
     @State private var selected: Set<Int> = []
@@ -95,6 +102,11 @@ struct PlanConversionView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var consent = false
+    /// Pass the caller's upload queue when it already has one for this building, so both screens share one draft.
+    init(building: Building, account: AccountModel, flow: BuildingWorkflowModel? = nil, onAdopt: @escaping () -> Void) {
+        self.building = building; self.account = account; self.onAdopt = onAdopt
+        _flow = StateObject(wrappedValue: flow ?? BuildingWorkflowModel(account: account, building: building))
+    }
     private var base: String { "buildings/\(building.id)/plan-conversion" }
     private func load() async {
         do {
@@ -120,7 +132,7 @@ struct PlanConversionView: View {
     var body: some View {
         List {
             Section {
-                Text("Lade einen bemaßten Grundriss hoch (am genauesten: Vektor-PDF, DXF oder DWG). Daraus entsteht ein vorläufiger IFC-Entwurf, den du vor der Übernahme prüfst.")
+                Text("Fotografiere einen Grundriss ab oder lade ihn hoch – auch ein schiefes Foto, ein Scan oder eine Skizze reicht. Daraus entsteht ein 3D-Entwurf, den du vor der Übernahme prüfst. Am genauesten sind Vektor-PDF, DXF oder DWG.")
                 Text("Experimentell · keine Fachplanung · vorhandene Modelle bleiben erhalten.").font(.footnote).foregroundStyle(.secondary)
             }
             if let reply {
@@ -130,11 +142,15 @@ struct PlanConversionView: View {
                             if enabled { consent = true }
                             else { Task { await action("", body: ["enabled": false, "revision": reply.settings.revision, "policy_version": reply.policy_version], method: "PATCH") } }
                         })).disabled(busy || (!reply.ai_enabled && !reply.settings.enabled))
-                        Text("Vektor-PDFs, DXF und DWG werden auf dem Server exakt vermessen. Neue Bilder und PDFs werden zusätzlich an Google Gemini übertragen; DXF/DWG bleiben auf dem Server. Nur freigegebene Pläne hochladen. Maximal 4 Dateien / 10 MB pro Auftrag und 3 Aufträge je Konto in 24 Stunden. Deaktivieren bricht offene Entwürfe ab.").font(.footnote).foregroundStyle(.secondary)
+                        Text("Vektor-PDFs, DXF und DWG werden auf dem Server exakt vermessen, Fotos und Scans auf dem Server erkannt. Neue Bilder und PDFs werden zusätzlich an Google Gemini übertragen, das nur Raumnamen und Maßangaben liest; DXF/DWG bleiben auf dem Server. Nur freigegebene Pläne hochladen. Maximal 4 Dateien / 10 MB pro Auftrag und 3 Aufträge je Konto in 24 Stunden. Deaktivieren bricht offene Entwürfe ab.").font(.footnote).foregroundStyle(.secondary)
                         if !reply.ai_enabled { Text("Bitte zuerst KI unter Profil → KI-Einstellungen aktivieren.") }
                     } else { Text("Auf diesem Server noch nicht verfügbar.") }
                 }
                 if reply.settings.enabled {
+                    Section {
+                        PlanCaptureButtons(flow: flow, disabled: busy || !reply.ai_enabled)
+                        if flow.draft.pendingCount > 0 { UploadQueueView(flow: flow, includeSaved: false) }
+                    } header: { Text("Neuen Grundriss hinzufügen") } footer: { Text("Neue Grundrisse starten automatisch einen Entwurf. Tipp: Blatt flach hinlegen, gutes Licht, Gesamtmaße mit ins Bild.") }
                     Section("Vorhandene Pläne auswählen") {
                         if documents.isEmpty { Text("Lade zuerst einen Grundriss in die Gebäudemappe.") }
                         ForEach(documents) { doc in
@@ -170,6 +186,8 @@ struct PlanConversionView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load(); while !Task.isCancelled { do { try await Task.sleep(for: .seconds(7)) } catch { break }; if !busy { await load() } } }
         .refreshable { if !busy { await load() } }
+        .onChange(of: flow.lastSavedID) { _, _ in Task { await load() } }
+        .alert("Grundriss", isPresented: Binding(get: { flow.problem != nil }, set: { if !$0 { flow.problem = nil } })) { Button("OK", role: .cancel) { flow.problem = nil } } message: { Text(flow.problem ?? "") }
         .confirmationDialog("Pläne an Google Gemini übertragen?", isPresented: $consent, titleVisibility: .visible) {
             Button("Für dieses Gebäude aktivieren") { if let reply { Task { await action("", body: ["enabled": true, "revision": reply.settings.revision, "policy_version": reply.policy_version], method: "PATCH") } } }
         } message: { Text("Neue Bilder/PDFs werden automatisch zur Analyse an Google gesendet, DXF/DWG nur auf dem Server vermessen. Vorhandene Pläne erst nach deiner Auswahl. Nur Dateien verwenden, die du dafür freigeben darfst.") }

@@ -53,11 +53,37 @@ test('extractor is called without shell, with fixed script and typed inputs; fai
  let call;const runner=async(bin,args,opts)=>{call={bin,args,opts};const out=args[args.indexOf('--out')+1];fs.writeFileSync(out,JSON.stringify(candidates()));return {stdout:'{"levels":1,"skipped":[]}\n'};};
  const v=await extractVector([{id:1,mime_type:'application/pdf',content:Buffer.from('%PDF')},{id:2,mime_type:'image/png',content:Buffer.from('x')},{id:3,mime_type:'application/acad',content:Buffer.from('AC1032')}],{runner,python:'/opt/py',script:'/app/run.py'});
  assert.equal(call.bin,'/opt/py');assert.deepEqual(call.args.slice(0,4),['-E','-s','/app/run.py','extract']);
- assert.ok(call.args.some(a=>/plan-0\.pdf:pdf$/.test(a))&&call.args.some(a=>/plan-1\.dwg:dwg$/.test(a)));assert.ok(!call.args.some(a=>a.includes('.png:')));
- assert.equal(call.opts.env.PATH,'/usr/bin:/bin');assert.deepEqual(v.documents,[1,3]);assert.equal(v.cadOnly,false);
- assert.equal(await extractVector([{id:2,mime_type:'image/png',content:Buffer.from('x')}],{runner}),null);
+ assert.ok(call.args.some(a=>/plan-0\.pdf:pdf$/.test(a))&&call.args.some(a=>/plan-1\.png:image$/.test(a))&&call.args.some(a=>/plan-2\.dwg:dwg$/.test(a)));
+ assert.equal(call.opts.env.PATH,'/usr/bin:/bin');assert.equal(v.cadOnly,false);assert.equal(v.raster,false);
+ assert.equal(await extractVector([{id:2,mime_type:'image/heic',content:Buffer.from('x')}],{runner}),null);
  await assert.rejects(extractVector([{id:1,mime_type:'application/pdf',content:Buffer.from('%PDF')}],{runner:async()=>({stdout:'{"error":"ValueError"}'})}),{code:'model_generation_failed'});
  await assert.rejects(buildVector({candidates:candidates()},{runner:async()=>{throw Object.assign(Error('killed'),{stdout:''});}}),{code:'model_generation_failed'});
+});
+
+test('photos: overall dimensions are accepted only for estimated raster levels, images go to the reviewer',async()=>{
+ const raster={...candidates(),levels:[{...candidates().levels[0],source:{kind:'raster',input:0},scale:{evidence:[],estimated:true}}]};
+ const r=validateReview({levels:[{walls:[],openings:[],rooms:[],storey_height:0,overall_width_mm:12000,overall_depth_mm:0}],warnings:[]},raster);
+ assert.equal(r.levels[0].overall_width_mm,12000);assert.equal(r.levels[0].overall_depth_mm,undefined);
+ const v=validateReview({levels:[{walls:[],openings:[],rooms:[],storey_height:0,overall_width_mm:12000,overall_depth_mm:9000}],warnings:[]},candidates());
+ assert.equal(v.levels[0].overall_width_mm,undefined,'vector levels keep their measured scale');
+ assert.throws(()=>validateReview({levels:[{walls:[],openings:[],rooms:[],storey_height:0,overall_width_mm:-5,overall_depth_mm:0}],warnings:[]},raster));
+ assert.throws(()=>validateReview({levels:[{walls:[],openings:[],rooms:[],storey_height:0,x:[1,2]}],warnings:[]},raster));
+ let parts;const fetchProvider=async(u,o)=>{const body=JSON.parse(o.body);parts=body.contents[0].parts;assert.ok(body.generationConfig.responseJsonSchema.properties.levels.items.properties.overall_width_mm);
+  return new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({levels:[{walls:[],openings:[],rooms:[{id:'R1',name:'Küche'}],storey_height:0,overall_width_mm:12000,overall_depth_mm:9000}],warnings:[]})}]}}]}));};
+ const out=await reviewCandidates([{id:photo,mime_type:'image/jpeg',content:Buffer.from('jpg')}],{candidates:raster,labels:Buffer.from('png'),documents:[photo]},{fetchProvider,getKey:()=>'k',model:'m'});
+ assert.deepEqual(parts.map(p=>p.inlineData?.mimeType||'text'),['image/jpeg','image/png','text']);assert.match(parts[2].text,/"scale_estimated":true/);
+ assert.equal(out.review.levels[0].overall_depth_mm,9000);assert.equal(out.review.levels[0].rooms[0].name,'Küche');
+});
+
+test('photo job: recognised locally, Gemini only reviews; nothing recognised falls back to the Gemini geometry path',async()=>{
+ await clear();await enqueue([photo]);let analyzed=0;
+ await processNext(db,{enabled:true,analyze:async()=>{analyzed++;},extract:async()=>({candidates:candidates(),labels:null,documents:[photo],notes:[],cadOnly:false,raster:true}),
+  review:async()=>null,build:async a=>({ifc:IFC,preview:Buffer.from('png'),quality,warnings:['EG: aus Foto/Scan erkannt']})});
+ let j=(await api()).body.jobs[0];assert.equal(analyzed,0);assert.equal(j.status,'ready');assert.equal(j.provider_model,'raster-erkennung');
+ await clear();await enqueue([photo]);let sent;
+ await processNext(db,{enabled:true,extract:async()=>({candidates:{levels:[],skipped:[{input:0,reason:'no_walls'}]},documents:[photo],notes:[],cadOnly:false,raster:false}),
+  analyze:async docs=>{sent=docs;throw Object.assign(Error(),{code:'needs_input'});}});
+ assert.deepEqual(sent.map(d=>d.id),[photo]);await clear();
 });
 
 test('review accepts candidate IDs only and never coordinates',()=>{
@@ -100,6 +126,14 @@ test('unreadable CAD asks for a better export; non-vector PDFs fall back to the 
  await clear();await enqueue([pdf]);
  await processNext(db,{enabled:true,extract:async()=>{throw Error('crash');},analyze:async docs=>{sent=docs;throw Object.assign(Error(),{code:'needs_input'});}});
  assert.equal((await api()).body.jobs[0].status,'needs_input');await clear();
+});
+
+test('real extractor recognises a phone photo end to end',{skip:!python&&'Python extractor not installed'},async()=>{
+ const docs=[{id:7,mime_type:'image/jpeg',content:fs.readFileSync(path.join(FIX,'raster','gross-gefuellt-foto.jpg'))}];
+ const v=await extractVector(docs,{python:PY});assert.equal(v.raster,true);assert.deepEqual(v.documents,[7]);
+ const lv=v.candidates.levels[0];assert.equal(lv.source.kind,'raster');assert.ok(lv.walls.length>=6&&lv.rooms.length>=5);
+ const r=await buildVector({candidates:v.candidates,review:{levels:[{walls:[],openings:[],rooms:[],storey_height:0,overall_width_mm:12000,overall_depth_mm:9000}]}},{python:PY});
+ assert.ok(Math.abs(r.quality.levels[0].width_mm-12000)<400);assert.equal(r.quality.grade,'prüfen');assert.ok(r.warnings.some(w=>/Foto\/Scan/.test(w)));
 });
 
 test('real extractor measures the fixture plans end to end',{skip:!python&&'Python extractor not installed'},async()=>{

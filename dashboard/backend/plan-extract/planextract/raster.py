@@ -124,6 +124,7 @@ def normalise(img):
 
 
 def _line_eq(x1, y1, x2, y2):
+    x1, y1, x2, y2 = float(x1), float(y1), float(x2), float(y2)
     a, b = y2 - y1, x1 - x2
     return a, b, a * x1 + b * y1
 
@@ -291,7 +292,7 @@ def wall_thickness_px(ink, size):
             br = np.flatnonzero(np.diff(on) > 1)
             runs.append((np.r_[on[0], on[br + 1]], np.r_[on[br], on[-1]]))
     if not runs:
-        return None, 0.0
+        return [], 0.0
     lengths = np.concatenate([e - a + 1 for a, e in runs])
     lw = max(1, int(np.bincount(np.minimum(lengths, tmax)).argmax()))
     hist = np.zeros(tmax + 1)
@@ -307,7 +308,7 @@ def wall_thickness_px(ink, size):
             if d <= tmax:
                 hist[d] += 1
     if hist.sum() < 20:
-        return None, 0.0
+        return [], 0.0
     sm = np.convolve(hist, np.ones(3) / 3, mode='same')
     sm[:max(3, int(2.5 * lw))] = 0
     k = int(sm.argmax())
@@ -653,11 +654,9 @@ def real_walls(walls, ink, u):
 
 
 def detect(norm, u):
-    ink = _ink(norm)
-    ink = remove_frames(ink)
+    ink = remove_frames(_ink(norm))
     mask, clean = wall_mask(ink, u)
-    text = cv2.subtract(ink, clean)
-    items = runs_from_mask(mask, u, text=text)
+    items = runs_from_mask(mask, u)
     mode = 'flächig'
     walls = connected(close_corners(real_walls(join_runs(items, u), ink, u), u)) if items else []
     if len(walls) < 4:
@@ -827,13 +826,17 @@ def build_level(walls, ops, s, method, evidence, norm, M, mode, added, notes):
     H = norm.shape[0]
     tout = float(np.median([w['t'] for w in outer_walls(walls)] or [w['t'] for w in walls]))
     outer_ids = {id(w) for w in outer_walls(walls)}
+    sketch = drawn_lines(walls)
     x0 = min(min(w['off'] for w in walls if w['axis'] == 'v'), min(w['s0'] for w in walls if w['axis'] == 'h')) - tout / 2
     y1 = max(max(w['off'] for w in walls if w['axis'] == 'h'), max(w['s1'] for w in walls if w['axis'] == 'v')) + tout / 2
     P = lambda along, off, axis: ((along - x0) * s, (y1 - off) * s) if axis == 'h' else ((off - x0) * s, (y1 - along) * s)
     out_walls, out_ops = [], []
     for k, w in enumerate(walls, 1):
         t_mm = w['t'] * s
-        t_mm = _snap(t_mm, OUTER_STD if id(w) in outer_ids else INNER_STD) if 60 <= t_mm <= 700 else min(max(t_mm, 100.0), 500.0)
+        if mode == 'Linien' or sketch:
+            t_mm = 300.0 if id(w) in outer_ids else 115.0
+        else:
+            t_mm = _snap(t_mm, OUTER_STD if id(w) in outer_ids else INNER_STD) if 60 <= t_mm <= 700 else min(max(t_mm, 100.0), 500.0)
         a, b = P(w['s0'], w['off'], w['axis']), P(w['s1'], w['off'], w['axis'])
         a, b = [round(a[0], 1), round(a[1], 1)], [round(b[0], 1), round(b[1], 1)]
         if a[0] > b[0] or a[1] > b[1]:
