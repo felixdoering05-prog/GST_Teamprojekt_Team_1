@@ -1,4 +1,4 @@
-"""Konstanten der Integration „KI trifft Gebäude“."""
+"""Konstanten der Integration „Nala Solutions“."""
 DOMAIN = "ki_trifft_gebaeude"
 CONF_SERVER = "server"
 CONF_CODE = "code"

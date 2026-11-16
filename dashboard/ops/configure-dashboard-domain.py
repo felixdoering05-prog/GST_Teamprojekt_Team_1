@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish the account-authenticated dashboard at titanfs.de; keep the landing domain separate."""
+"""Publish the account-authenticated dashboard at a supported project domain; keep the landing domain separate."""
 from pathlib import Path
 import argparse
 import shutil
@@ -13,6 +13,21 @@ WEBROOT = Path('/var/www/letsencrypt')
 CONFIG = Path('/etc/nginx/conf.d/titanfs.conf')
 CERT_DIR = Path('/etc/letsencrypt/live') / DOMAIN
 MARKER = '# D21 managed dashboard domain titanfs.de'
+
+
+SUPPORTED_DOMAINS = ('titanfs.de', 'nala-solutions.de')
+
+
+def select_domain(name):
+    """Select an isolated host configuration; never overwrite another domain's file/certificate."""
+    if name not in SUPPORTED_DOMAINS:
+        raise ValueError('Unsupported dashboard domain')
+    global DOMAIN, WWW, CONFIG, CERT_DIR, MARKER
+    DOMAIN = name
+    WWW = 'www.' + name
+    CONFIG = Path('/etc/nginx/conf.d') / (name.removesuffix('.de') + '.conf')
+    CERT_DIR = Path('/etc/letsencrypt/live') / name
+    MARKER = '# D21 managed dashboard domain ' + name
 
 
 def render(include_tls=True, include_www=False):
@@ -114,12 +129,15 @@ def activate(text, previous):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--domain', choices=SUPPORTED_DOMAINS, default='titanfs.de')
     args = parser.parse_args()
+    if args.domain != DOMAIN:
+        select_domain(args.domain)
     if not resolves_here(DOMAIN):
         raise SystemExit(f'{DOMAIN}: A muss nur auf {SERVER_IP} zeigen; abweichende AAAA-Eintraege entfernen. Keine Serveraenderung.')
     include_www = resolves_here(WWW)
     if not args.apply:
-        print('Bereit: Dashboard mit Account-Anmeldung auf https://titanfs.de. Mit --apply aktivieren.')
+        print(f'Bereit: Dashboard mit Account-Anmeldung auf https://{DOMAIN}. Mit --apply aktivieren.')
         return
     previous = CONFIG.read_text() if CONFIG.exists() else None
     if previous is not None and MARKER not in previous:
@@ -143,7 +161,7 @@ def main():
     except Exception:
         restore(previous)
         raise
-    print('Aktiv: https://titanfs.de/ — Dashboard mit Account-Anmeldung. Landingpage und bisheriger App-Zugang bleiben erhalten.')
+    print(f'Aktiv: https://{DOMAIN}/ — Dashboard mit Account-Anmeldung. Landingpage und bisheriger App-Zugang bleiben erhalten.')
 
 
 if __name__ == '__main__':

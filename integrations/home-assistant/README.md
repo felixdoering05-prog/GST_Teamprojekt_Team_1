@@ -1,4 +1,4 @@
-# Home Assistant → KI trifft Gebäude
+# Home Assistant → Nala Solutions
 
 > **Standardweg ohne Installation (ab App 1.0.134):** In der App *Geräte → Home Assistant → Mit Home Assistant verbinden*.
 > Die App findet Home Assistant im WLAN, du meldest dich mit deinem Home-Assistant-Konto an und wählst die Sensoren aus.
@@ -24,8 +24,8 @@ Der Server prüft das zusätzlich und weist alles andere ab.
 
 1. Den Ordner `custom_components/ki_trifft_gebaeude` nach `<HA-Konfiguration>/custom_components/` kopieren, zum Beispiel mit dem File-Editor- oder Samba-Add-on.
 2. Home Assistant neu starten.
-3. In der App „KI trifft Gebäude“ das Gebäude öffnen und dort **Geräte → Home Assistant → Kopplungscode erzeugen** wählen. Nur der Besitzer des Gebäudes kann das. Der Code gilt 10 Minuten.
-4. In Home Assistant **Einstellungen → Geräte & Dienste → Integration hinzufügen → „KI trifft Gebäude“** wählen. Dort die Serveradresse aus der App und den Code eingeben.
+3. In der App „Nala Solutions“ das Gebäude öffnen und dort **Geräte → Home Assistant → Kopplungscode erzeugen** wählen. Nur der Besitzer des Gebäudes kann das. Der Code gilt 10 Minuten.
+4. In Home Assistant **Einstellungen → Geräte & Dienste → Integration hinzufügen → „Nala Solutions“** wählen. Dort die Serveradresse aus der App und den Code eingeben.
 5. In der App die gewünschten Sensoren auswählen und die HA-Bereiche den Räumen des Gebäudes zuordnen.
 
 ## Trennen

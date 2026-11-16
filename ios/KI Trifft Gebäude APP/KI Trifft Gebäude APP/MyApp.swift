@@ -54,7 +54,7 @@ struct LaunchIntroView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(accent)
                         .frame(width: 44, height: 3)
-                    Text("Titan FS")
+                    Text("Nala Solutions")
                         .font(.system(.title2, design: .rounded, weight: .semibold))
                         .foregroundStyle(ink)
                 }

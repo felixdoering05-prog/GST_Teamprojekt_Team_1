@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Nala Solutions (iPhone 1.0.140)
+
+- Der Produktname lautet jetzt **Nala Solutions**: App-Anzeigename, Startansicht, Widget, Web-Dashboard, Web-App-Metadaten, Datenschutztexte, Exporte und Passwort-E-Mails sind angepasst.
+- Neuer Dashboard-Zugang: `https://nala-solutions.de`, mit persönlicher Account-Anmeldung ohne zusätzlichen Browser-Passwortdialog. Der bisherige Dashboard-Zugang bleibt erreichbar; `kitrifftgebäude.de` bleibt die Landingpage mit aktualisiertem Namen und Dashboard-Link.
+- Die Home-Assistant-Integration verwendet den neuen Anzeigenamen; ihre technische Kennung bleibt kompatibel. Bestehende App-Kennungen, Sitzungen, Gerätebrücken und Signierungsressourcen werden nicht umbenannt oder automatisch migriert.
+- Die Domain wird mit eigenem HTTPS-Zertifikat und eigener nginx-Datei eingerichtet. Eine native Installation von 1.0.140 ist damit noch nicht erfolgt.
+
 ## 16. November 2026 – Planentwurf: Fortschritt und Ebenenwahl (iPhone 1.0.139)
 
 - Die Anzeige unterscheidet Warteschlange, laufende Verarbeitung und fertigen Entwurf. Die animierte Prozentanzeige ist phasen- und zeitbasiert geschätzt, keine gemessene Fertigstellungsquote.

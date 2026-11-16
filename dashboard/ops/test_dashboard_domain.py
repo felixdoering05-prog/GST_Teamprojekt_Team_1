@@ -28,6 +28,21 @@ class DashboardDomainChecks(unittest.TestCase):
         self.assertIn('client_max_body_size 26m;', config)
         self.assertIn('proxy_read_timeout 125s;', config)
 
+    def test_nala_domain_has_isolated_config_certificate_and_no_basic_auth(self):
+        before={key:getattr(module,key) for key in ['DOMAIN','WWW','CONFIG','CERT_DIR','MARKER']}
+        with patch.multiple(module, **before):
+            module.select_domain('nala-solutions.de')
+            config=module.render(include_www=True)
+            self.assertIn('server_name nala-solutions.de;', config)
+            self.assertIn('server_name www.nala-solutions.de;', config)
+            self.assertEqual(module.CONFIG,Path('/etc/nginx/conf.d/nala-solutions.conf'))
+            self.assertIn('/etc/letsencrypt/live/nala-solutions.de/fullchain.pem',config)
+            self.assertIn('auth_basic off;',config)
+            self.assertIn('return 301 https://nala-solutions.de$request_uri;',config)
+            self.assertNotIn('titanfs.de',config)
+            with self.assertRaises(ValueError):module.select_domain('../invalid')
+        self.assertEqual(module.DOMAIN,'titanfs.de')
+
     def test_https_certificate_and_canonical_www(self):
         config = module.render(include_www=True)
         self.assertIn('server_name www.titanfs.de;', config)

@@ -1,4 +1,4 @@
-# D21 · Website, API und Serverbetrieb
+# Nala Solutions · Website, API und Serverbetrieb
 
 [← Projektübersicht](../README.md) · [Neueste Änderungen](../CHANGELOG.md)
 
@@ -22,19 +22,19 @@ Aktiver Serverpfad: `/opt/gst/dashboard`. Veröffentlichung ausschließlich mit 
 ssh root@185.56.151.249 d21-deploy
 ```
 
-`/opt/d21` ist veraltet. Compose-Projektname `d21`, bestehendes Datenbank-Volume `d21_dbdata`. Niemals den Datenbank-Container oder das Volume löschen; niemals `docker-compose down -v` ausführen. Das Deployment-Skript berücksichtigt die ältere Compose-Version und ersetzt ausschließlich die App-Container. Port 8088 bleibt an `127.0.0.1` gebunden; Zugriff von außen über `https://titanfs.de` mit persönlicher Account-Anmeldung ohne vorgeschalteten Browser-Passwortdialog; der separate Cloudflare-Tunnel `d21-tunnel` bleibt als bisheriger App-Zugang erhalten. Die öffentliche Landingpage liegt getrennt auf `https://kitrifftgebäude.de`.
+`/opt/d21` ist veraltet. Compose-Projektname `d21`, bestehendes Datenbank-Volume `d21_dbdata`. Niemals den Datenbank-Container oder das Volume löschen; niemals `docker-compose down -v` ausführen. Das Deployment-Skript berücksichtigt die ältere Compose-Version und ersetzt ausschließlich die App-Container. Port 8088 bleibt an `127.0.0.1` gebunden; Zugriff von außen über `https://nala-solutions.de` mit persönlicher Account-Anmeldung ohne vorgeschalteten Browser-Passwortdialog; der separate Cloudflare-Tunnel `d21-tunnel` bleibt als bisheriger App-Zugang erhalten. Die öffentliche Landingpage liegt getrennt auf `https://kitrifftgebäude.de`.
 
 Die aktive `.env` und weitere Geheimnisse liegen ausschließlich geschützt auf dem Server. `.env`, `access-password`, `tunnel-url`, API-Tokens und private Schlüssel niemals committen. Ein iPhone-Update wird separat gebaut und installiert.
 
 ## Dashboard-Domain
 
-`dashboard/ops/configure-dashboard-domain.py` richtet ausschließlich `titanfs.de` ein. Es liefert die Weboberfläche über `127.0.0.1:8088` ohne vorgeschaltete Basic-Auth-Anmeldung aus. Die gemeinsame `/api/v1/` prüft weiterhin die Account-Sitzung und Gebäuderechte; Administration erfordert zusätzlich die vorhandene Admin-Freigabe. Andere alte `/api/`-Routen werden abgewiesen. `/app-api/v1/` bleibt als Alias zur gleichen Account-API verfügbar. Upload-Limit 26 MB, Antwortzeit bis 125 Sekunden. Der bisherige iPhone-Zugang bleibt gültig.
+`dashboard/ops/configure-dashboard-domain.py` unterstützt `nala-solutions.de` und den bisherigen Zugang `titanfs.de` mit getrennten Zertifikaten und Konfigurationsdateien. Es liefert die Weboberfläche über `127.0.0.1:8088` ohne vorgeschaltete Basic-Auth-Anmeldung aus. Die gemeinsame `/api/v1/` prüft weiterhin die Account-Sitzung und Gebäuderechte; Administration erfordert zusätzlich die vorhandene Admin-Freigabe. Andere alte `/api/`-Routen werden abgewiesen. `/app-api/v1/` bleibt als Alias zur gleichen Account-API verfügbar. Upload-Limit 26 MB, Antwortzeit bis 125 Sekunden. Der bisherige iPhone-Zugang bleibt gültig.
 
-Voraussetzung: A-Eintrag ausschließlich `185.56.151.249`, kein abweichender AAAA-Eintrag. `www` wird nur bei passendem DNS in das Zertifikat aufgenommen und anschließend auf `titanfs.de` umgeleitet. Nach geprüftem PR, Datenbanksicherung und `d21-deploy`:
+Voraussetzung: A-Eintrag ausschließlich `185.56.151.249`, kein abweichender AAAA-Eintrag. `www` wird nur bei passendem DNS in das Zertifikat aufgenommen und anschließend auf die gewählte Hauptdomain umgeleitet. Nach geprüftem PR, Datenbanksicherung und `d21-deploy`:
 
 ```bash
-python3 /opt/gst/dashboard/ops/configure-dashboard-domain.py
-python3 /opt/gst/dashboard/ops/configure-dashboard-domain.py --apply
+python3 /opt/gst/dashboard/ops/configure-dashboard-domain.py --domain nala-solutions.de
+python3 /opt/gst/dashboard/ops/configure-dashboard-domain.py --domain nala-solutions.de --apply
 ```
 
 Das Skript prüft nginx vor dem Neuladen, richtet Let’s Encrypt samt Erneuerung ein und stellt die vorherige Domain-Konfiguration bei Fehlern wieder her. `kitrifftgebäude.de` bleibt unabhängig davon die öffentliche Landingpage. Keine automatischen Änderungen an gespeicherten App-Zugängen.

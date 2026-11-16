@@ -135,7 +135,7 @@ nonisolated final class PCMVoiceRecorder: @unchecked Sendable {
             guard let self else { return }
             let permitted = await AVAudioApplication.requestRecordPermission()
             guard !Task.isCancelled else { return }
-            guard permitted else { self.problem = "Bitte erlaube den Mikrofonzugriff unter Einstellungen → Titan FS."; return }
+            guard permitted else { self.problem = "Bitte erlaube den Mikrofonzugriff unter Einstellungen → Nala Solutions."; return }
             do {
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])

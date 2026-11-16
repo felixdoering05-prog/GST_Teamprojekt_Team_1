@@ -34,7 +34,7 @@ class KITrifftGebaeudeConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._abort_if_unique_id_configured()
                     # Nur der eigene Brückenschlüssel wird gespeichert, kein Home-Assistant-Zugang verlässt das System.
                     return self.async_create_entry(
-                        title=f"KI trifft Gebäude · {result.get('building', '')}".strip(" ·"),
+                        title=f"Nala Solutions · {result.get('building', '')}".strip(" ·"),
                         data={CONF_SERVER: server, CONF_TOKEN: result["token"], CONF_LINK_ID: result["link_id"], CONF_BUILDING: result.get("building", "")},
                     )
         schema = vol.Schema({
