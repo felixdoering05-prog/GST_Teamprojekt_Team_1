@@ -71,6 +71,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     private var tokenOrigin: String?
     private var connectionRevision = UUID()
     private var origin: String? { CredentialScope.origin(serverURL) }
+    /// Adresse, die die Home-Assistant-Integration für die Brücken-Endpunkte braucht (ohne Zugangsdaten).
+    var bridgeAddress: String? { origin.map { $0 + String(apiPrefix.dropLast()) } }
     private var sessionKey: String? { origin.map { CredentialScope.key("session",origin:$0) } }
     private func discardLegacyCredentials() {
         // The old global entries have no trustworthy origin binding. Never reuse them.

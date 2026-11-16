@@ -11,7 +11,7 @@ enum DeviceIntegration: String, CaseIterable, Codable {
     var title: String { switch self { case .none: "Noch offen"; case .homeAssistant: "Home Assistant"; case .mqtt: "MQTT"; case .matter: "Matter" } }
     var detail: String { switch self {
     case .none: "Zuerst Gerät und Raum erfassen. Die technische Anbindung kann später ergänzt werden."
-    case .homeAssistant: "Später verbindet eine serverseitige Schnittstelle die freigegebenen Home-Assistant-Geräte. Zugangsdaten gehören auf den Server, nicht in die App."
+    case .homeAssistant: "Sensorwerte aus Home Assistant übernimmst du oben unter „Home Assistant“. Ein Home-Assistant-Zugang wird dafür nirgends gespeichert."
     case .mqtt: "Später verarbeitet der Server Messwerte und Schaltbefehle über einen geschützten MQTT-Broker. Themen und Berechtigungen müssen vorher abgestimmt werden."
     case .matter: "Später wird ein geeigneter Matter-Controller oder eine Bridge benötigt. Die App führt aktuell noch keine Kopplung durch."
     } }
@@ -79,6 +79,18 @@ struct BuildingDevicesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                NavigationLink { HomeAssistantImportView(building: building, account: account) } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "house.and.flag.fill").font(.title3.weight(.semibold)).foregroundStyle(d21Accent)
+                            .frame(width: 46, height: 46).background(d21Accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Home Assistant").font(.headline)
+                            Text("Sensoren, Geräte und Bereiche übernehmen").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }.padding(16).d21Card(cornerRadius: 20).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityHint("Home Assistant verbinden und Sensoren auswählen")
                 if let problem {
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange)

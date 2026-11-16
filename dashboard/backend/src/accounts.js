@@ -18,6 +18,7 @@ const {initAdmin,adminRouter}=require('./admin');
 const {campusRouter}=require('./campus');
 const {initDevices,devicesRouter}=require('./devices');
 const {initTelemetry,telemetryRouter}=require('./telemetry');
+const {initHAImport,haImportRouter,bridgeRouter}=require('./ha-import');
 const {initVoice,voiceRouter}=require('./voice');
 const {initAIPreferences,aiPreferencesRouter}=require('./ai-preferences');
 const {initLiveVoice,liveVoiceRouter}=require('./live-voice');
@@ -68,7 +69,7 @@ async function initAccounts(db) {
  await initMapViews(db);
  await initIssues(db);
  await initBuildingWeather(db);
- await initTelemetry(db);await initSensorDevices(db);
+ await initTelemetry(db);await initSensorDevices(db);await initHAImport(db);
  await initVoice(db);
  await initAIPreferences(db);
  await initUIPreferences(db);
@@ -161,6 +162,8 @@ function accountRouter(db,options={}) {
  router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use(sensorDevicesRouter(db,requireAccount));
+ router.use(bridgeRouter(db));
+ router.use(haImportRouter(db,requireAccount));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
  router.use('/campus',campusRouter(db,requireAccount,options.campus));
  router.use(devicesRouter(db,requireAccount));

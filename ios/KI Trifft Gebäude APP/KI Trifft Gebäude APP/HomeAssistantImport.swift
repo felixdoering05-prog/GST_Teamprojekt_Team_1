@@ -1,0 +1,271 @@
+import SwiftUI
+import Charts
+
+// Home-Assistant-Import: koppeln, Sensoren auswählen, HA-Bereiche den Räumen zuordnen.
+// Die App sieht nie einen Home-Assistant-Zugang. Home Assistant sendet über eine Custom Integration.
+struct HALatest: Decodable { let value: Double; let measured_at: String }
+struct HALink: Decodable {
+    let id: String; let status: String; let instance_name: String; let ha_version: String; let revision: Int
+    let paired_at: String?; let last_inventory_at: String?; let last_push_at: String?; let pairing_expires_at: String?
+}
+struct HAArea: Decodable, Identifiable { let area_id: String; let name: String; let room_id: String?; var id: String { area_id } }
+struct HADevice: Decodable, Identifiable { let device_id: String; let name: String; let manufacturer: String; let model: String; let area_id: String?; var id: String { device_id } }
+struct HAEntity: Decodable, Identifiable {
+    let entity_id: String; let name: String; let metric: String; let unit: String
+    let device_id: String?; let area_id: String?; let selected: Bool; let latest: HALatest?
+    var id: String { entity_id }
+}
+struct HARoom: Decodable, Identifiable, Hashable { let id: String; let name: String; let room_code: String }
+struct HALimits: Decodable { let entities: Int? }
+struct HAOverview: Decodable {
+    let role: String; let link: HALink?; let areas: [HAArea]; let devices: [HADevice]; let entities: [HAEntity]; let rooms: [HARoom]; let limits: HALimits
+    var isOwner: Bool { role == "owner" }
+}
+struct HAPairing: Decodable { let link_id: String; let code: String; let expires_at: String }
+struct HAHistoryPoint: Decodable, Identifiable { let value: Double; let measured_at: String; var id: String { measured_at } }
+struct HAHistory: Decodable { let entity_id: String; let metric: String; let unit: String; let truncated: Bool; let points: [HAHistoryPoint] }
+
+enum HAMetric {
+    static func title(_ metric: String) -> String { ["temperature":"Temperatur","humidity":"Luftfeuchte","co2":"CO₂","power":"Leistung","energy":"Energie"][metric] ?? metric }
+    static func symbol(_ metric: String) -> String { ["temperature":"thermometer.medium","humidity":"humidity.fill","co2":"carbon.dioxide.cloud","power":"bolt.fill","energy":"bolt.batteryblock"][metric] ?? "sensor" }
+    static let order = ["temperature","humidity","co2","power","energy"]
+    static func date(_ text: String?) -> Date? {
+        guard let text else { return nil }
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+    }
+    static func value(_ v: Double, _ unit: String) -> String { v.formatted(.number.precision(.fractionLength(abs(v) >= 100 ? 0 : 1))) + " " + unit }
+}
+
+struct HomeAssistantImportView: View {
+    let building: Building
+    @ObservedObject var account: AccountModel
+    @State private var overview: HAOverview?
+    @State private var pairing: HAPairing?
+    @State private var selection: Set<String> = []
+    @State private var mapping: [String: String] = [:]
+    @State private var loading = false
+    @State private var busy = false
+    @State private var problem: String?
+    @State private var notice: String?
+    @State private var confirmDisconnect = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var link: HALink? { overview?.link }
+    private var active: Bool { link?.status == "active" }
+    private var owner: Bool { overview?.isOwner == true }
+    private var savedSelection: Set<String> { Set(overview?.entities.filter(\.selected).map(\.entity_id) ?? []) }
+    private var savedMapping: [String: String] { Dictionary(uniqueKeysWithValues: (overview?.areas ?? []).compactMap { a in a.room_id.map { (a.area_id, $0) } }) }
+    private var limit: Int? { overview?.limits.entities }
+
+    var body: some View {
+        List {
+            statusSection
+            if let problem { Section { Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) } }
+            if let notice { Section { Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(.green) } }
+            if active, let overview {
+                sensorsSection(overview)
+                if !overview.areas.isEmpty { areasSection(overview) }
+                if !overview.devices.isEmpty { devicesSection(overview) }
+                if owner { Section { Button("Verbindung trennen", role: .destructive) { confirmDisconnect = true }.disabled(busy) } footer: { Text("Löscht den Brückenschlüssel, die Geräteübersicht und alle übernommenen Werte auf dem Projektserver.") } }
+            }
+            Section {
+                Text("Home Assistant sendet nur Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie, und laufende Werte nur von ausgewählten Sensoren. Personen, Standorte, Kameras und Anwesenheit bleiben in Home Assistant. Auf dem Projektserver liegt kein Home-Assistant-Zugang. Werte werden 90 Tage gespeichert und sind für Mitglieder dieses Gebäudes sichtbar.").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Home Assistant").navigationBarTitleDisplayMode(.inline)
+        .refreshable { await reload() }
+        .confirmationDialog("Verbindung zu Home Assistant trennen?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+            Button("Trennen und Daten löschen", role: .destructive) { Task { await disconnect() } }
+        } message: { Text("Alle übernommenen Werte dieses Gebäudes werden gelöscht. Home Assistant sendet danach nichts mehr.") }
+        .task {
+            await reload()
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(link?.status == "pending" ? 5 : 30)) } catch { return }
+                if scenePhase == .active && !busy { await reload(keepEdits: true) }
+            }
+        }
+    }
+
+    @ViewBuilder private var statusSection: some View {
+        Section {
+            HStack(spacing: 14) {
+                Image(systemName: "house.and.flag.fill").font(.title2).foregroundStyle(.white).frame(width: 48, height: 48)
+                    .background(LinearGradient(colors: [Color(red: 0.07, green: 0.6, blue: 0.85), d21Accent], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(active ? "Verbunden" : link?.status == "pending" ? "Wartet auf Home Assistant" : "Nicht verbunden").font(.headline)
+                    Text(statusDetail).font(.caption).foregroundStyle(.secondary)
+                }
+            }.accessibilityElement(children: .combine)
+            if overview == nil && loading { HStack { ProgressView(); Text("Wird geladen …").foregroundStyle(.secondary) } }
+            if let overview, !active {
+                if overview.isOwner {
+                    if let pairing { pairingCard(pairing) }
+                    else {
+                        Text("Übernimm Sensorwerte, Geräte und Bereiche direkt aus deinem Home Assistant. Home Assistant muss dafür nicht aus dem Internet erreichbar sein.").font(.subheadline).foregroundStyle(.secondary)
+                        Button { Task { await createCode() } } label: { Label(link?.status == "pending" ? "Neuen Kopplungscode erzeugen" : "Kopplungscode erzeugen", systemImage: "link.badge.plus") }.disabled(busy)
+                    }
+                } else { Text("Nur der Besitzer des Gebäudes kann Home Assistant verbinden.").font(.subheadline).foregroundStyle(.secondary) }
+            }
+        }
+    }
+    private var statusDetail: String {
+        guard let link else { return building.name }
+        if link.status == "pending" { return "Code in Home Assistant eingeben" }
+        var parts = [link.instance_name.isEmpty ? "Home Assistant" : link.instance_name]
+        if !link.ha_version.isEmpty { parts.append(link.ha_version) }
+        if let push = HAMetric.date(link.last_push_at) { parts.append("zuletzt " + push.formatted(.relative(presentation: .named))) }
+        else { parts.append("noch keine Werte") }
+        return parts.joined(separator: " · ")
+    }
+    private func pairingCard(_ pairing: HAPairing) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("1. Ordner „ki_trifft_gebaeude“ nach custom_components kopieren und Home Assistant neu starten.\n2. Einstellungen → Geräte & Dienste → Integration hinzufügen → „KI trifft Gebäude“.\n3. Diese Angaben eingeben:").font(.footnote)
+            LabeledContent("Serveradresse") { Text(account.bridgeAddress ?? "–").font(.footnote.monospaced()).textSelection(.enabled).multilineTextAlignment(.trailing) }
+            LabeledContent("Kopplungscode") { Text(pairing.code).font(.title2.monospaced().bold()).textSelection(.enabled) }
+            if let expires = HAMetric.date(pairing.expires_at) { Text("Gültig bis \(expires.formatted(date: .omitted, time: .shortened)) Uhr · nur einmal verwendbar").font(.caption).foregroundStyle(.secondary) }
+            HStack { ProgressView(); Text("Warte auf Home Assistant …").font(.caption).foregroundStyle(.secondary) }
+        }.padding(.vertical, 4)
+    }
+
+    private func sensorsSection(_ overview: HAOverview) -> some View {
+        let grouped = Dictionary(grouping: overview.entities, by: \.metric)
+        let changed = selection != savedSelection
+        return Group {
+            if overview.entities.isEmpty {
+                Section("Sensoren") { Text("Home Assistant hat noch keine passenden Sensoren gemeldet. Unterstützt werden Temperatur, Luftfeuchte, CO₂, Leistung und Energie.").font(.footnote).foregroundStyle(.secondary) }
+            }
+            ForEach(HAMetric.order.filter { grouped[$0] != nil }, id: \.self) { metric in
+                Section(HAMetric.title(metric)) {
+                    ForEach(grouped[metric] ?? []) { entity in entityRow(entity, overview: overview) }
+                }
+            }
+            if !overview.entities.isEmpty {
+                Section {
+                    if owner {
+                        Button(busy ? "Wird gespeichert …" : "Auswahl speichern (\(selection.count))") { Task { await saveSelection() } }
+                            .disabled(!changed || busy || limit.map { selection.count > $0 } == true)
+                    }
+                } footer: {
+                    Text(owner ? "Ausgewählt: \(selection.count)\(limit.map { " von höchstens \($0)" } ?? ""). Für neu ausgewählte Sensoren liefert Home Assistant einmalig die Stundenwerte der letzten 7 Tage nach." : "Nur der Besitzer kann die Auswahl ändern.")
+                }
+            }
+        }
+    }
+    private func entityRow(_ entity: HAEntity, overview: HAOverview) -> some View {
+        let area = overview.areas.first { $0.area_id == entity.area_id }?.name
+        let on = selection.contains(entity.entity_id)
+        return HStack(spacing: 12) {
+            Image(systemName: HAMetric.symbol(entity.metric)).foregroundStyle(d21Accent).frame(width: 26)
+            let label = VStack(alignment: .leading, spacing: 2) {
+                Text(entity.name).lineLimit(2)
+                Text([area, entity.entity_id].compactMap { $0 }.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                if entity.selected, let latest = entity.latest { Text(HAMetric.value(latest.value, entity.unit)).font(.caption.weight(.semibold)).foregroundStyle(d21Accent) }
+            }
+            // Verlauf gibt es nur für bereits übernommene Sensoren.
+            if entity.selected { NavigationLink { HAEntityHistoryView(account: account, building: building, entity: entity) } label: { label } }
+            else { label; Spacer(minLength: 0) }
+            if owner {
+                Toggle("", isOn: Binding(get: { on }, set: { value in if value { selection.insert(entity.entity_id) } else { selection.remove(entity.entity_id) } }))
+                    .labelsHidden().tint(d21Accent).accessibilityLabel("\(entity.name) übernehmen")
+            } else if entity.selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(d21Accent).accessibilityLabel("übernommen") }
+        }
+    }
+    private func areasSection(_ overview: HAOverview) -> some View {
+        Section {
+            if overview.rooms.isEmpty { Text("Dieses Gebäude hat noch keine Räume. Räume entstehen zum Beispiel aus einem IFC-Modell oder einem Raumscan.").font(.footnote).foregroundStyle(.secondary) }
+            ForEach(overview.areas) { area in
+                if owner && !overview.rooms.isEmpty {
+                    Picker(area.name, selection: Binding(get: { mapping[area.area_id] ?? "" }, set: { mapping[area.area_id] = $0.isEmpty ? nil : $0 })) {
+                        Text("Kein Raum").tag("")
+                        ForEach(overview.rooms) { room in Text(room.room_code.isEmpty || room.room_code == room.name ? room.name : "\(room.name) · \(room.room_code)").tag(room.id) }
+                    }
+                } else {
+                    LabeledContent(area.name, value: overview.rooms.first { $0.id == area.room_id }?.name ?? "Kein Raum")
+                }
+            }
+            if owner && !overview.rooms.isEmpty {
+                Button("Zuordnung speichern") { Task { await saveMapping() } }.disabled(mapping == savedMapping || busy)
+            }
+        } header: { Text("Bereiche → Räume") } footer: { Text("Zugeordnete Temperatur-, Feuchte- und CO₂-Werte erscheinen in Sensorik, Wärmekarte und KI-Auswertung des Raums.") }
+    }
+    private func devicesSection(_ overview: HAOverview) -> some View {
+        Section("Geräte aus Home Assistant") {
+            ForEach(overview.devices) { device in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(device.name)
+                    Text([device.manufacturer, device.model, overview.areas.first { $0.area_id == device.area_id }?.name ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    // Ungespeicherte Änderungen des jeweils anderen Abschnitts bleiben beim Speichern/Neuladen erhalten.
+    private func apply(_ value: HAOverview, keepEdits: Bool = false, keepSelection: Bool = false, keepMapping: Bool = false) {
+        let dirtySelection = (keepEdits || keepSelection) && overview != nil && selection != savedSelection
+        let dirtyMapping = (keepEdits || keepMapping) && overview != nil && mapping != savedMapping
+        overview = value
+        if !dirtySelection { selection = savedSelection }
+        if !dirtyMapping { mapping = savedMapping }
+        if value.link?.status != "pending" { pairing = nil }
+    }
+    private func reload(keepEdits: Bool = false) async {
+        guard !loading else { return }; loading = true; defer { loading = false }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant"); apply(value, keepEdits: keepEdits); problem = nil }
+        catch { if !Task.isCancelled { problem = error.localizedDescription } }
+    }
+    private func createCode() async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { pairing = try await account.request("buildings/\(building.id)/home-assistant/pairing", method: "POST", body: [:]); problem = nil; notice = nil; await reload() }
+        catch { problem = error.localizedDescription }
+    }
+    private func saveSelection() async {
+        guard !busy, let link else { return }; busy = true; defer { busy = false }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/entities", method: "PUT", body: ["selected": Array(selection).sorted(), "revision": link.revision]); apply(value, keepMapping: true); problem = nil; notice = "Auswahl gespeichert. Home Assistant sendet ab dem nächsten Abgleich (spätestens in einer Minute)." }
+        catch { problem = error.localizedDescription }
+    }
+    private func saveMapping() async {
+        guard !busy, let link, let overview else { return }; busy = true; defer { busy = false }
+        var body: [String: Any] = [:]
+        for area in overview.areas { body[area.area_id] = mapping[area.area_id] ?? NSNull() }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/areas", method: "PUT", body: ["mapping": body, "revision": link.revision]); apply(value, keepSelection: true); problem = nil; notice = "Raumzuordnung gespeichert." }
+        catch { problem = error.localizedDescription }
+    }
+    private func disconnect() async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { let _: [String: Bool] = try await account.request("buildings/\(building.id)/home-assistant", method: "DELETE"); pairing = nil; notice = "Verbindung getrennt und Daten gelöscht."; await reload() }
+        catch { problem = error.localizedDescription }
+    }
+}
+
+struct HAEntityHistoryView: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let entity: HAEntity
+    @State private var hours = 24
+    @State private var history: HAHistory?
+    @State private var problem: String?
+    var body: some View {
+        List {
+            Section {
+                Picker("Zeitraum", selection: $hours) { Text("24 h").tag(24); Text("7 Tage").tag(168); Text("30 Tage").tag(720) }.pickerStyle(.segmented)
+                if let history, !history.points.isEmpty {
+                    Chart(history.points) { p in
+                        if let d = HAMetric.date(p.measured_at) { LineMark(x: .value("Zeit", d), y: .value(HAMetric.title(entity.metric), p.value)).foregroundStyle(d21Accent).interpolationMethod(.monotone) }
+                    }.chartYScale(domain: .automatic(includesZero: false)).frame(height: 220).accessibilityLabel("Verlauf \(entity.name)")
+                    if let last = history.points.last { LabeledContent("Letzter Wert", value: HAMetric.value(last.value, history.unit)) }
+                    let values = history.points.map(\.value)
+                    if let lo = values.min(), let hi = values.max() { LabeledContent("Minimum / Maximum", value: "\(HAMetric.value(lo, history.unit)) / \(HAMetric.value(hi, history.unit))") }
+                    if history.truncated { Text("Es werden die letzten 1000 Werte gezeigt.").font(.caption).foregroundStyle(.secondary) }
+                } else if history != nil { Text("Für diesen Zeitraum liegen noch keine Werte vor.").foregroundStyle(.secondary) }
+                else if problem == nil { ProgressView() }
+                if let problem { Text(problem).foregroundStyle(.orange) }
+            } footer: { Text("Quelle: Home Assistant · \(entity.entity_id)") }
+        }
+        .navigationTitle(entity.name).navigationBarTitleDisplayMode(.inline)
+        .task(id: hours) {
+            do { history = try await account.request("buildings/\(building.id)/home-assistant/history?entity_id=\(entity.entity_id)&hours=\(hours)"); problem = nil }
+            catch { if !Task.isCancelled { problem = error.localizedDescription } }
+        }
+    }
+}
