@@ -67,6 +67,7 @@ struct PlanConversionJob: Decodable, Identifiable {
     let request_key: String?
     let phase: String?
     let can_rebuild: Bool?
+    let can_edit: Bool?
     let warnings: [String]
     let quality: PlanQuality?
     let document_ids: [Int]
@@ -171,6 +172,11 @@ struct PlanConversionView: View {
                         }
                         if job.status == "ready" {
                             if let image = previews[job.id] { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Vorläufiger IFC-Entwurf") }
+                            if job.can_edit == true {
+                                NavigationLink { PlanEditorView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
+                                    Label { VStack(alignment: .leading, spacing: 2) { Text("Grundriss korrigieren").font(.headline); Text("Wände verschieben, löschen oder ergänzen, Türen und Fenster setzen, Räume benennen, eine bekannte Strecke angeben").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "pencil.and.ruler.fill").foregroundStyle(d21Accent) }
+                                }.disabled(busy).accessibilityIdentifier("plan-edit")
+                            }
                             Text("Bitte Proportionen und Hinweise prüfen. Übernehmen legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.").font(.footnote)
                             Button("Entwurf in Gebäudemappe übernehmen") { Task { await action("/jobs/\(job.id)/approve", body: [:]) } }.disabled(busy || !reply.ai_enabled)
                         }

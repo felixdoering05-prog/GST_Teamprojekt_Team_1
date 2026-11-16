@@ -53,7 +53,24 @@ Ziel: Auch aus schlechten oder wenigen Plänen entsteht immer ein stimmiges Mode
 - **Qualitätsbericht:** Fotos/Scans sind nie automatisch „gut“, sondern immer „prüfen“. Angezeigt werden Herkunft des Maßstabs und gegebenenfalls „Maße ungefähr“.
 - **Messlatte:** [plan-raster-messung.md](plan-raster-messung.md). Mit 14 Testbildern (Scan, Kopie, Handyfoto, Skizze) entsteht 14/14 ein Modell und 10/14 sind brauchbar, vorher (Prototyp) 3/14 und 0/14. Mit abgelesenen Gesamtmaßen liegt der Maßfehler bei 0–8 %.
 - **Lizenzen:** OpenCV (opencv-python-headless 5.0, Apache-2.0), NumPy (BSD-3), keine trainierten Modelle oder fremden Datensätze. CubiCasa5k (CC BY-NC 4.0) wird bewusst nicht verwendet. Der Prototyp in `ki/plan-raster/` bleibt als Referenz.
-- **Grenzen:** nur rechtwinklige Wände; Fenster in Doppellinienplänen oft nicht erkannt; Skizzen ohne Maße nur ungefähr; echte Fotos (Möbel, Handschrift) noch nicht im Testsatz. Die nächste Etappe ist ein Korrektur-Editor (Wände verschieben, löschen, ergänzen; Räume benennen; bekannte Strecke markieren).
+- **Grenzen:** nur rechtwinklige Wände; Fenster in Doppellinienplänen oft nicht erkannt; Skizzen ohne Maße nur ungefähr; echte Fotos (Möbel, Handschrift) noch nicht im Testsatz. Dafür gibt es den Korrektur-Editor.
+
+## Korrektur-Editor (App und Web)
+
+Bei jedem fertigen Entwurf aus der neuen Pipeline (Foto/Scan und Vektorplan) gibt es „Grundriss korrigieren“. Der Editor zeigt die erkannten Wände, Türen, Fenster und Räume über dem entzerrten Planfoto. Er ist für Laien gedacht: fünf Werkzeuge, Rückgängig, Klartext-Hinweise.
+
+| Erkannt | Durchgang gewählt | Strecke angeben | Korrigiert |
+|---|---|---|---|
+| ![](screenshots/plan-editor-1-editor-erkannt.jpg) | ![](screenshots/plan-editor-2-durchgang-gewaehlt.jpg) | ![](screenshots/plan-editor-3-strecke-angeben.jpg) | ![](screenshots/plan-editor-4-korrigiert.jpg) |
+
+- **Ändern:** Wand, Tür oder Fenster antippen und ziehen. Wände bleiben dabei waagrecht bzw. senkrecht, angrenzende Wandenden und Öffnungen wandern mit. Dazu „Löschen“, „Außen/Innen“ (Wandstärke 30 / 11,5 cm) und bei einem Durchgang „Wand hier öffnen“, falls die Erkennung eine Wand quer durch einen Flur gezogen hat. Raumnamen antippen zum Umbenennen.
+- **Wand:** neue Wand ziehen; sie rastet rechtwinklig und an vorhandenen Wandenden und -linien ein.
+- **Tür / Fenster:** auf eine Wand tippen, um eine Tür (88,5 cm) oder ein Fenster (1,26 m) einzusetzen.
+- **Strecke:** Anfang und Ende einer bekannten Länge antippen (z. B. Gesamtmaß) und die Länge in Metern eingeben. Damit wird das ganze Geschoss richtig skaliert („Maßstab: Strecke vom Nutzer“).
+- **Gebäude erstellen** sendet die Geometrie an `POST …/jobs/:id/edit`. Der Server prüft streng (Anzahl, Wertebereiche, Wand-IDs, Raumnamen ohne Steuerzeichen) und setzt denselben Auftrag zurück in die Warteschlange (`phase=model_only`). `plan-extract` baut daraus ohne KI und ohne neuen Auftrag (kein Tageslimit) IFC, Vorschau und Bericht. Räume werden aus den Wänden neu berechnet und nach den Namen benannt. Bis zu 30 Durchläufe je Entwurf.
+- **Daten:** `GET …/editor` liefert die Geometrie nach Prüfung bzw. Korrektur (`analysis.final`) und die Bildzuordnung (mm ↔ px). `GET …/plan-image/:name` liefert das entzerrte Planfoto (Tabelle `app_plan_images`). Das Foto wird bei Übernahme, Verwerfen oder nach sieben Tagen gelöscht. Nur der Eigentümer hat Zugriff.
+- **Web-App:** `dashboard/base44-frontend/src/components/rooms/PlanEditor.jsx` (SVG) und `planEditorModel.js` (Geometrie, `node --test src/components/rooms/planEditorModel.test.js`) im `PlanConversionPanel`.
+- **Simulator-Vorschau:** `-D21WorkflowPreview -D21PlanEditorPreview` öffnet den Editor mit dem echten Erkennungsergebnis eines Testfotos (CC0), `-D21PlanPreview` die Auftragsansicht.
 
 ## Aufbau und Datenhaltung
 
