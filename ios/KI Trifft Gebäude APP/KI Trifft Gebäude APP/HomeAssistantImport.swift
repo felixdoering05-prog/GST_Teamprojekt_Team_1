@@ -13,8 +13,12 @@ struct HADevice: Decodable, Identifiable { let device_id: String; let name: Stri
 struct HAEntity: Decodable, Identifiable {
     let entity_id: String; let name: String; let metric: String; let unit: String
     let device_id: String?; let area_id: String?; let selected: Bool; let latest: HALatest?
+    var supports_color: Bool? = nil; var capabilities: HALightCaps? = nil; var light: HALightState? = nil
     var id: String { entity_id }
+    var isLight: Bool { metric == "light" }
 }
+struct HALightState: Decodable { let available: Bool; let is_on: Bool?; let brightness: Int?; let rgb: [Int]?; var color_temp_kelvin: Int? = nil; let updated_at: String? }
+struct HALightCaps: Decodable { let brightness: Bool; let color: Bool; let temp: Bool; let min_kelvin: Int?; let max_kelvin: Int? }
 struct HARoom: Decodable, Identifiable, Hashable { let id: String; let name: String; let room_code: String }
 struct HALimits: Decodable { let entities: Int? }
 struct HAOverview: Decodable {
@@ -26,9 +30,9 @@ struct HAHistoryPoint: Decodable, Identifiable { let value: Double; let measured
 struct HAHistory: Decodable { let entity_id: String; let metric: String; let unit: String; let truncated: Bool; let points: [HAHistoryPoint] }
 
 enum HAMetric {
-    static func title(_ metric: String) -> String { ["temperature":"Temperatur","humidity":"Luftfeuchte","co2":"CO₂","power":"Leistung","energy":"Energie"][metric] ?? metric }
-    static func symbol(_ metric: String) -> String { ["temperature":"thermometer.medium","humidity":"humidity.fill","co2":"carbon.dioxide.cloud","power":"bolt.fill","energy":"bolt.batteryblock"][metric] ?? "sensor" }
-    static let order = ["temperature","humidity","co2","power","energy"]
+    static func title(_ metric: String) -> String { ["light":"Lampen","temperature":"Temperatur","humidity":"Luftfeuchte","co2":"CO₂","power":"Leistung","energy":"Energie"][metric] ?? metric }
+    static func symbol(_ metric: String) -> String { ["light":"lightbulb.fill","temperature":"thermometer.medium","humidity":"humidity.fill","co2":"carbon.dioxide.cloud","power":"bolt.fill","energy":"bolt.batteryblock"][metric] ?? "sensor" }
+    static let order = ["light","temperature","humidity","co2","power","energy"]
     static func date(_ text: String?) -> Date? {
         guard let text else { return nil }
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -69,6 +73,8 @@ struct HomeAssistantImportView: View {
             if let problem { Section { Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) } }
             if let notice { Section { Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(.green) } }
             if active, let overview {
+                let lamps = overview.entities.filter { $0.isLight && $0.selected }
+                if !lamps.isEmpty && appMode { Section { ForEach(lamps) { lamp in HALampControl(account: account, building: building, lamp: lamp, area: overview.areas.first { $0.area_id == lamp.area_id }, rooms: overview.rooms, canSwitch: owner && hasLocalAccess, changed: { await reload(keepEdits: true) }) } } header: { Text("Lampen steuern") } footer: { Text(owner && hasLocalAccess ? "Geschaltet wird direkt in deinem Home Assistant (im WLAN oder über Home Assistant Cloud). Es gilt dein Limit für Lichtaufträge pro Minute." : "Schalten kann der Besitzer auf dem iPhone, das mit Home Assistant angemeldet ist.") } }
                 sensorsSection(overview)
                 if !overview.areas.isEmpty { areasSection(overview) }
                 if !overview.devices.isEmpty { devicesSection(overview) }
@@ -154,7 +160,7 @@ struct HomeAssistantImportView: View {
         let changed = selection != savedSelection
         return Group {
             if overview.entities.isEmpty {
-                Section("Sensoren") { Text("Home Assistant hat noch keine passenden Sensoren gemeldet. Unterstützt werden Temperatur, Luftfeuchte, CO₂, Leistung und Energie.").font(.footnote).foregroundStyle(.secondary) }
+                Section("Sensoren") { Text("Home Assistant hat noch keine passenden Geräte gemeldet. Unterstützt werden Lampen sowie Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie.").font(.footnote).foregroundStyle(.secondary) }
             }
             ForEach(HAMetric.order.filter { grouped[$0] != nil }, id: \.self) { metric in
                 Section(HAMetric.title(metric)) {
@@ -182,9 +188,10 @@ struct HomeAssistantImportView: View {
                 Text(entity.name).lineLimit(2)
                 Text([area, entity.entity_id].compactMap { $0 }.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 if entity.selected, let latest = entity.latest { Text(HAMetric.value(latest.value, entity.unit)).font(.caption.weight(.semibold)).foregroundStyle(d21Accent) }
+                if entity.selected, let light = entity.light { Text(HALightText.status(light)).font(.caption.weight(.semibold)).foregroundStyle(light.is_on == true ? d21Accent : .secondary) }
             }
             // Verlauf gibt es nur für bereits übernommene Sensoren.
-            if entity.selected { NavigationLink { HAEntityHistoryView(account: account, building: building, entity: entity) } label: { label } }
+            if entity.selected && !entity.isLight { NavigationLink { HAEntityHistoryView(account: account, building: building, entity: entity) } label: { label } }
             else { label; Spacer(minLength: 0) }
             if owner {
                 Toggle("", isOn: Binding(get: { on }, set: { value in if value { selection.insert(entity.entity_id) } else { selection.remove(entity.entity_id) } }))
@@ -343,3 +350,236 @@ struct HAConnectSheet: View {
         catch { problem = error.localizedDescription }
     }
 }
+
+enum HALightText {
+    static func status(_ light: HALightState) -> String {
+        guard light.available, let on = light.is_on else { return "Nicht erreichbar" }
+        guard on else { return "Aus" }
+        return light.brightness.map { "An · \(Int((Double($0) / 255 * 100).rounded())) %" } ?? "An"
+    }
+}
+
+/// Eine übernommene Lampe in der Liste: Zustand, Raum, Schalter und Weg zur großen Steuerung.
+struct HALampControl: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let lamp: HAEntity
+    let area: HAArea?
+    let rooms: [HARoom]
+    let canSwitch: Bool
+    let changed: () async -> Void
+    @State private var busy = false
+    @State private var problem: String?
+    private var room: String { area?.room_id.flatMap { id in rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum" }
+    private var on: Bool { lamp.light?.is_on == true }
+    private var available: Bool { lamp.light?.available ?? true }
+    var body: some View {
+        HStack(spacing: 12) {
+            let row = HStack(spacing: 12) {
+                Image(systemName: on ? "lightbulb.fill" : "lightbulb").font(.title3).foregroundStyle(on ? HALampLook.tint(lamp.light) : .secondary).frame(width: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lamp.name).foregroundStyle(.primary)
+                    Text(room + " · " + (lamp.light.map(HALightText.status) ?? "Zustand folgt beim nächsten Abgleich")).font(.caption).foregroundStyle(.secondary)
+                    if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
+                }
+                Spacer(minLength: 0)
+            }
+            if canSwitch && available { NavigationLink { HALampDetailView(account: account, building: building, lamp: lamp, room: room, changed: changed) } label: { row } }
+            else { row }
+            if busy { ProgressView() }
+            else if canSwitch {
+                Toggle("", isOn: Binding(get: { on }, set: { value in Task { await send(on: value) } })).labelsHidden().tint(d21Accent).disabled(!available).accessibilityLabel("\(lamp.name) schalten")
+            }
+        }
+    }
+    private func send(on: Bool) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { try await HASync.switchLight(account: account, building: building.id, entity: lamp.entity_id, on: on); problem = nil; await changed() }
+        catch { problem = error.localizedDescription }
+    }
+}
+
+enum HALampLook {
+    static func color(kelvin: Int) -> Color {
+        // Näherung Schwarzkörper 2000–6500 K für die Vorschau.
+        let t = min(max(Double(kelvin - 2000) / 4500, 0), 1)
+        return Color(red: 1, green: 0.62 + 0.33 * t, blue: 0.28 + 0.72 * t)
+    }
+    static func tint(_ light: HALightState?) -> Color {
+        if let k = light?.color_temp_kelvin { return color(kelvin: k) }
+        if let rgb = light?.rgb { return lightColor(rgb) }
+        return Color(red: 1, green: 0.84, blue: 0.55)
+    }
+}
+
+struct HALampScene: Identifiable {
+    let id: String; let symbol: String; let brightness: Int; let kelvin: Int; let rgb: [Int]
+    static let all = [
+        HALampScene(id: "Hell", symbol: "sun.max.fill", brightness: 255, kelvin: 5000, rgb: [255, 245, 230]),
+        HALampScene(id: "Lesen", symbol: "book.fill", brightness: 220, kelvin: 4000, rgb: [255, 232, 200]),
+        HALampScene(id: "Gemütlich", symbol: "sofa.fill", brightness: 110, kelvin: 2700, rgb: [255, 190, 120]),
+        HALampScene(id: "Abend", symbol: "moon.stars.fill", brightness: 40, kelvin: 2200, rgb: [255, 150, 70])
+    ]
+}
+
+/// Große Steuerung wie im Kontrollzentrum: Helligkeit, Szenen, Farbtemperatur, Farbe.
+/// Nur was die Lampe laut Home Assistant kann. Während des Ziehens wird höchstens alle 3 s gesendet
+/// (passt zum Limit von 20 Lichtaufträgen pro Minute), der letzte Wert immer beim Loslassen.
+struct HALampDetailView: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let lamp: HAEntity
+    let room: String
+    let changed: () async -> Void
+    @State private var on = false
+    @State private var level: Double = 1
+    @State private var kelvin: Double = 3000
+    @State private var color: Color = .white
+    @State private var mode = "temp"
+    @State private var lastSent = Date.distantPast
+    @State private var pending: Task<Void, Never>?
+    @State private var sending = false
+    @State private var problem: String?
+    @State private var ready = false
+    private var caps: HALightCaps { lamp.capabilities ?? HALightCaps(brightness: true, color: lamp.supports_color == true, temp: false, min_kelvin: nil, max_kelvin: nil) }
+    private var minK: Double { Double(caps.min_kelvin ?? 2000) }
+    private var maxK: Double { Double(caps.max_kelvin ?? 6500) }
+    private var preview: Color { mode == "color" ? color : caps.temp ? HALampLook.color(kelvin: Int(kelvin)) : Color(red: 1, green: 0.84, blue: 0.55) }
+    static let swatches: [[Int]] = [[255, 59, 48], [255, 149, 0], [255, 204, 0], [52, 199, 89], [48, 176, 199], [0, 122, 255], [88, 86, 214], [175, 82, 222], [255, 45, 85], [255, 255, 255]]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                VStack(spacing: 6) {
+                    Text(room).font(.subheadline).foregroundStyle(.secondary)
+                    Text(on ? (caps.brightness ? "\(Int((level * 100).rounded())) %" : "An") : "Aus").font(.system(size: 44, weight: .bold, design: .rounded)).contentTransition(.numericText())
+                }
+                HStack(alignment: .bottom, spacing: 24) {
+                    if caps.brightness { brightnessSlider } else { powerButton }
+                }
+                if let problem { Label(problem, systemImage: "exclamationmark.triangle.fill").font(.footnote).foregroundStyle(.orange) }
+                if caps.brightness || caps.temp || caps.color { scenes }
+                if caps.temp && caps.color {
+                    Picker("Art", selection: $mode) { Text("Weißton").tag("temp"); Text("Farbe").tag("color") }.pickerStyle(.segmented)
+                }
+                if caps.temp && (mode == "temp" || !caps.color) { temperature }
+                if caps.color && (mode == "color" || !caps.temp) { colors }
+                Text("Geschaltet wird direkt in deinem Home Assistant. Beim Ziehen sendet die App höchstens alle 3 Sekunden, damit dein Limit für Lichtaufträge reicht.").font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }.padding(20)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle(lamp.name).navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { if sending { ProgressView() } } }
+        .onAppear {
+            on = lamp.light?.is_on == true
+            level = Double(lamp.light?.brightness ?? 255) / 255
+            kelvin = Double(lamp.light?.color_temp_kelvin ?? Int((minK + maxK) / 2)).clamped(minK, maxK)
+            if let rgb = lamp.light?.rgb { color = lightColor(rgb); mode = caps.color ? "color" : "temp" } else { mode = caps.temp ? "temp" : "color" }
+            Task { try? await Task.sleep(for: .milliseconds(300)); ready = true }
+        }
+        .onDisappear { pending?.cancel() }
+    }
+
+    // Großer Regler wie im Kontrollzentrum; Tippen ohne Ziehen schaltet um.
+    private var brightnessSlider: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 34, style: .continuous).fill(Color(uiColor: .tertiarySystemFill))
+                Rectangle().fill(LinearGradient(colors: [preview.opacity(0.75), preview], startPoint: .bottom, endPoint: .top))
+                    .frame(height: on ? max(geo.size.height * level, 18) : 0)
+                Image(systemName: on ? "lightbulb.max.fill" : "lightbulb").font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(on && level > 0.18 ? Color.black.opacity(0.55) : Color.secondary).padding(.bottom, 22)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { g in
+                    let value = min(max(1 - g.location.y / geo.size.height, 0.01), 1)
+                    if abs(g.translation.height) < 4 && abs(g.translation.width) < 4 { return }
+                    withAnimation(.interactiveSpring) { level = value; on = true }
+                    schedule(final: false)
+                }
+                .onEnded { g in
+                    if abs(g.translation.height) < 4 && abs(g.translation.width) < 4 { on.toggle(); send(final: true); return }
+                    schedule(final: true)
+                })
+        }
+        .frame(width: 130, height: 320)
+        .shadow(color: on ? preview.opacity(0.45) : .clear, radius: 24, y: 8)
+        .accessibilityElement().accessibilityLabel("Helligkeit").accessibilityValue(on ? "\(Int(level * 100)) Prozent" : "Aus")
+        .accessibilityAdjustableAction { direction in
+            level = min(max(level + (direction == .increment ? 0.1 : -0.1), 0.01), 1); on = true; schedule(final: true)
+        }
+    }
+    private var powerButton: some View {
+        Button { on.toggle(); send(final: true) } label: {
+            Image(systemName: "power").font(.system(size: 44, weight: .semibold)).foregroundStyle(on ? .black.opacity(0.6) : .secondary)
+                .frame(width: 150, height: 150).background(on ? AnyShapeStyle(preview) : AnyShapeStyle(Color(uiColor: .tertiarySystemFill)), in: Circle())
+        }.buttonStyle(.plain).accessibilityLabel(on ? "Ausschalten" : "Einschalten")
+    }
+    private var scenes: some View {
+        HStack(spacing: 10) {
+            ForEach(HALampScene.all) { scene in
+                Button { apply(scene) } label: {
+                    VStack(spacing: 6) { Image(systemName: scene.symbol).font(.title3); Text(scene.id).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8) }
+                        .frame(maxWidth: .infinity, minHeight: 66)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }.buttonStyle(.plain).foregroundStyle(d21Accent)
+            }
+        }
+    }
+    private var temperature: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack { Text("Weißton").font(.headline); Spacer(); Text("\(Int(kelvin)) K").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary) }
+            ZStack {
+                Capsule().fill(LinearGradient(colors: [HALampLook.color(kelvin: Int(minK)), HALampLook.color(kelvin: Int((minK + maxK) / 2)), HALampLook.color(kelvin: Int(maxK))], startPoint: .leading, endPoint: .trailing)).frame(height: 34)
+                Slider(value: $kelvin, in: minK...maxK) { editing in if !editing && ready { schedule(final: true) } }.tint(.clear).padding(.horizontal, 4)
+            }
+            HStack { Text("Warm").font(.caption); Spacer(); Text("Kalt").font(.caption) }.foregroundStyle(.secondary)
+        }.padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .onChange(of: kelvin) { _, _ in guard ready else { return }; mode = "temp"; schedule(final: false) }
+    }
+    private var colors: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Farbe").font(.headline)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
+                ForEach(Self.swatches, id: \.self) { rgb in
+                    Button { color = lightColor(rgb); mode = "color"; on = true; send(final: true) } label: {
+                        Circle().fill(lightColor(rgb)).frame(height: 44)
+                            .overlay(Circle().stroke(Color.primary.opacity(lightRGB(color) == rgb && mode == "color" ? 0.8 : 0.12), lineWidth: lightRGB(color) == rgb && mode == "color" ? 3 : 1))
+                    }.buttonStyle(.plain).accessibilityLabel("Farbe \(rgb.map(String.init).joined(separator: ", "))")
+                }
+            }
+            ColorPicker("Eigene Farbe", selection: $color, supportsOpacity: false)
+                .onChange(of: color) { _, _ in if ready && mode == "color" { schedule(final: false) } }
+        }.padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func apply(_ scene: HALampScene) {
+        on = true
+        if caps.brightness { level = Double(scene.brightness) / 255 }
+        if caps.temp { kelvin = Double(scene.kelvin).clamped(minK, maxK); mode = "temp" }
+        else if caps.color { color = lightColor(scene.rgb); mode = "color" }
+        send(final: true)
+    }
+    /// Drosselung: höchstens alle 3 s während des Ziehens, der Endwert wird immer gesendet.
+    private func schedule(final: Bool, temperatureChange: Bool = false) {
+        pending?.cancel()
+        let wait = final ? 0 : max(0, 3 - Date().timeIntervalSince(lastSent))
+        if !final && wait > 0 { pending = Task { try? await Task.sleep(for: .seconds(wait)); if !Task.isCancelled { send(final: false) } }; return }
+        send(final: final)
+    }
+    private func send(final: Bool) {
+        lastSent = Date()
+        let isOn = on, brightness = caps.brightness && isOn ? max(1, Int((level * 255).rounded())) : nil
+        let rgb = isOn && caps.color && mode == "color" ? lightRGB(color) : nil
+        let k = isOn && caps.temp && (mode == "temp" || !caps.color) ? Int(kelvin.rounded()) : nil
+        Task {
+            sending = true; defer { sending = false }
+            do { try await HASync.switchLight(account: account, building: building.id, entity: lamp.entity_id, on: isOn, brightness: brightness, rgb: rgb, kelvin: k); problem = nil; if final { await changed() } }
+            catch { problem = error.localizedDescription }
+        }
+    }
+}
+
+private extension Double { func clamped(_ lo: Double, _ hi: Double) -> Double { Swift.min(Swift.max(self, lo), hi) } }

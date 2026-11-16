@@ -1,5 +1,13 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Lampen aus Home Assistant übernehmen (iPhone 1.0.135)
+
+- Beim App-Import aus Home Assistant stehen jetzt auch Lampen (`light.*`) zur Auswahl: Name, Gerät, Bereich → Raum, Farbfähigkeit und Zustand (an/aus, Helligkeit, Farbe).
+- Zustände kommen beim Abgleich mit (`POST …/samples` mit `lights`) und sind für Gebäudemitglieder sichtbar.
+- Schalten: Der Eigentümer schaltet auf seinem angemeldeten iPhone direkt in Home Assistant. Vorher prüft `POST …/home-assistant/lights/:entity/command` Rechte, Auswahl, Farbfähigkeit und das Kontolimit `light_minute` (Tabelle `app_ha_commands`, Status `delegated`).
+- Lampen zählen zum Limit `ha_entities`; höchstens 100 Lampen je Übersicht.
+- Lampensteuerung neu: großer Helligkeitsregler wie im Kontrollzentrum, Szenen (Hell, Lesen, Gemütlich, Abend), Weißton-Regler (warm–kalt, `color_temp_kelvin` im Bereich der Lampe) und Farbfelder plus eigene Farbe. Angezeigt wird nur, was die Lampe laut `supported_color_modes` kann. Beim Ziehen höchstens ein Auftrag alle 3 s, der Endwert immer.
+
 ## 16. November 2026 – Home Assistant ohne Installation verbinden (iPhone 1.0.134)
 
 - Neuer Standardweg: Die App findet Home Assistant per Bonjour im WLAN (oder per eingegebener Adresse), der Nutzer meldet sich auf der normalen Home-Assistant-Anmeldeseite an (OAuth/IndieAuth, `client_id` = `/app-api/v1/ha-client`, Rückleitung `kitrifftgebaeude://ha-auth`). Kein Token kopieren, kein YAML, keine Freigabe nach außen.

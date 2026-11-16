@@ -141,6 +141,12 @@ struct HAClient {
         var request = URLRequest(url: parts.url!); request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         return try JSONSerialization.jsonObject(with: try await data(request))
     }
+    func post(_ path: String, body: [String: Any], token: String) async throws -> Any {
+        var request = URLRequest(url: base.appendingPathComponent(path)); request.httpMethod = "POST"
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try JSONSerialization.jsonObject(with: try await data(request))
+    }
     func template(_ text: String, token: String) async throws -> Any {
         var request = URLRequest(url: base.appendingPathComponent("api/template")); request.httpMethod = "POST"
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -167,7 +173,7 @@ enum HAPayload {
     // Registry-Daten (Bereiche, Geräte) über die Template-API, ohne WebSocket.
     static let registryTemplate = """
     {%- set ns = namespace(s=[], a=[]) -%}
-    {%- for s in states.sensor if s.attributes.device_class in ['temperature','humidity','carbon_dioxide','power','energy'] -%}
+    {%- for s in (states.sensor | selectattr('attributes.device_class', 'in', ['temperature','humidity','carbon_dioxide','power','energy']) | list) + (states.light | list) -%}
     {%- set d = device_id(s.entity_id) -%}
     {%- set ns.s = ns.s + [{'e': s.entity_id, 'a': area_id(s.entity_id), 'd': d, 'dn': (device_attr(d, 'name_by_user') or device_attr(d, 'name')) if d else none, 'dm': device_attr(d, 'manufacturer') if d else none, 'do': device_attr(d, 'model') if d else none, 'da': device_attr(d, 'area_id') if d else none}] -%}
     {%- endfor -%}
@@ -183,11 +189,30 @@ enum HAPayload {
         for row in (registry?["s"] as? [[String: Any]]) ?? [] { if let e = row["e"] as? String { meta[e] = row } }
         var areaNames: [String: String] = [:]
         for pair in (registry?["a"] as? [[Any]]) ?? [] where pair.count == 2 { if let id = ref(pair[0]), let name = pair[1] as? String { areaNames[id] = name } }
-        var entities: [[String: Any]] = [], devices: [String: [String: Any]] = [:], usedAreas = Set<String>()
+        var entities: [[String: Any]] = [], devices: [String: [String: Any]] = [:], usedAreas = Set<String>(), lights = 0
         for state in states.sorted(by: { ($0["entity_id"] as? String ?? "") < ($1["entity_id"] as? String ?? "") }) {
             guard let id = state["entity_id"] as? String, let attributes = state["attributes"] as? [String: Any] else { continue }
+            if id.range(of: #"^light\.[a-z0-9_]{1,200}$"#, options: .regularExpression) != nil {
+                guard lights < 100 else { continue }; lights += 1
+                let row = meta[id], area = ref(row?["a"]).flatMap { areaNames[$0] != nil ? $0 : nil }, device = ref(row?["d"])
+                if let d = device {
+                    let deviceArea = ref(row?["da"]).flatMap { areaNames[$0] != nil ? $0 : nil }
+                    devices[d] = ["device_id": d, "name": text(row?["dn"]).isEmpty ? d : text(row?["dn"]), "manufacturer": text(row?["dm"]), "model": text(row?["do"]), "area_id": deviceArea as Any? ?? NSNull()]
+                    if let deviceArea { usedAreas.insert(deviceArea) }
+                }
+                if let area { usedAreas.insert(area) }
+                let name = text(attributes["friendly_name"])
+                let modes = (attributes["supported_color_modes"] as? [String]) ?? []
+                var lamp: [String: Any] = ["entity_id": id, "name": name.isEmpty ? id : name, "supports_color": supportsColor(attributes), "supports_brightness": !(modes.isEmpty || modes == ["onoff"]), "supports_temp": modes.contains("color_temp")]
+                if modes.contains("color_temp") {
+                    if let lo = attributes["min_color_temp_kelvin"] as? Int, (1000...12000).contains(lo) { lamp["min_kelvin"] = lo }
+                    if let hi = attributes["max_color_temp_kelvin"] as? Int, (1000...12000).contains(hi), hi >= (lamp["min_kelvin"] as? Int ?? 0) { lamp["max_kelvin"] = hi }
+                }
+                entities.append(lamp.merging(["device_id": device as Any? ?? NSNull(), "area_id": area as Any? ?? NSNull()]) { a, _ in a })
+                continue
+            }
             let deviceClass = attributes["device_class"] as? String, unit = attributes["unit_of_measurement"] as? String
-            guard allowed(id, deviceClass, unit), entities.count < 500 else { continue }
+            guard allowed(id, deviceClass, unit), entities.count - lights < 500 else { continue }
             let row = meta[id]
             let area = ref(row?["a"]).flatMap { areaNames[$0] != nil ? $0 : nil }
             var device = ref(row?["d"])
@@ -204,6 +229,22 @@ enum HAPayload {
         return ["areas": areas, "devices": devices.keys.sorted().map { devices[$0]! }, "entities": entities]
     }
 
+    static func supportsColor(_ attributes: [String: Any]) -> Bool {
+        ((attributes["supported_color_modes"] as? [String]) ?? []).contains { ["hs", "xy", "rgb", "rgbw", "rgbww"].contains($0) }
+    }
+    /// Lampenzustand für den Server (nur ausgewählte Lampen).
+    static func lightStates(states: [[String: Any]], selected: Set<String>) -> [[String: Any]] {
+        states.compactMap { state in
+            guard let id = state["entity_id"] as? String, id.hasPrefix("light."), selected.contains(id) else { return nil }
+            let value = state["state"] as? String ?? "", attributes = state["attributes"] as? [String: Any] ?? [:]
+            let available = value == "on" || value == "off"
+            var item: [String: Any] = ["entity_id": id, "available": available, "is_on": available ? (value == "on") as Any : NSNull()]
+            if let b = attributes["brightness"] as? Int, (0...255).contains(b) { item["brightness"] = b }
+            if let rgb = attributes["rgb_color"] as? [Int], rgb.count == 3, rgb.allSatisfy({ (0...255).contains($0) }) { item["rgb"] = rgb }
+            if attributes["color_mode"] as? String == "color_temp", let k = attributes["color_temp_kelvin"] as? Int, (1000...12000).contains(k) { item["color_temp_kelvin"] = k; item["rgb"] = nil }
+            return item
+        }
+    }
     static func iso(_ date: Date) -> String { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f.string(from: date) }
     static func date(_ text: Any?) -> Date? {
         guard let text = text as? String else { return nil }
@@ -297,8 +338,9 @@ enum HAPayload {
         let selected = Set(overview.entities.filter(\.selected).map(\.entity_id))
         guard overview.link?.mode == "app", !selected.isEmpty else { return Result(stored: 0) }
         let now = Date(), start = max(credentials.lastSync?.addingTimeInterval(-3600) ?? .distantPast, now.addingTimeInterval(-7 * 86400))
-        let history = (try await client.get("api/history/period/" + HAPayload.iso(start), query: [
-            URLQueryItem(name: "filter_entity_id", value: selected.sorted().joined(separator: ",")), URLQueryItem(name: "end_time", value: HAPayload.iso(now)),
+        let sensors = selected.filter { $0.hasPrefix("sensor.") }
+        let history = sensors.isEmpty ? [] : (try await client.get("api/history/period/" + HAPayload.iso(start), query: [
+            URLQueryItem(name: "filter_entity_id", value: selected.filter { $0.hasPrefix("sensor.") }.sorted().joined(separator: ",")), URLQueryItem(name: "end_time", value: HAPayload.iso(now)),
             URLQueryItem(name: "minimal_response", value: nil), URLQueryItem(name: "no_attributes", value: nil)], token: token) as? [[[String: Any]]]) ?? []
         let states = (try await client.get("api/states", token: token) as? [[String: Any]]) ?? []
         let points = HAPayload.buckets(history: history, selected: selected, now: now) + HAPayload.live(states: states, selected: selected)
@@ -307,6 +349,8 @@ enum HAPayload {
             let result: HASyncResponse = try await account.request("buildings/\(building)/home-assistant/samples", method: "POST", body: ["points": chunk], timeout: 40)
             stored += result.stored
         }
+        let lights = HAPayload.lightStates(states: states, selected: selected)
+        if !lights.isEmpty { let _: HASyncResponse = try await account.request("buildings/\(building)/home-assistant/samples", method: "POST", body: ["lights": lights]) }
         credentials.lastSync = now; try credentials.save(building, account: account)
         return Result(stored: stored)
     }
@@ -319,6 +363,31 @@ enum HAPayload {
         }
     }
 
+    /// Lampe schalten: Server prüft Rechte und Lichtlimit, dann schaltet das iPhone direkt in Home Assistant
+    /// und meldet den neuen Zustand zurück.
+    static func switchLight(account: AccountModel, building: Int, entity: String, on: Bool, brightness: Int? = nil, rgb: [Int]? = nil, kelvin: Int? = nil) async throws {
+        var body: [String: Any] = ["on": on]
+        if let brightness { body["brightness"] = brightness }; if let rgb { body["rgb"] = rgb }; if let kelvin { body["color_temp_kelvin"] = kelvin }
+        let _: HALightPermit = try await account.request("buildings/\(building)/home-assistant/lights/\(entity)/command", method: "POST", body: body, headers: ["X-Request-ID": UUID().uuidString.lowercased()])
+        #if DEBUG
+        if WorkflowPreview.enabled {
+            var state: [String: Any] = ["entity_id": entity, "available": true, "is_on": on]
+            if let brightness { state["brightness"] = brightness }; if let rgb { state["rgb"] = rgb; state["color_temp_kelvin"] = NSNull() }; if let kelvin { state["color_temp_kelvin"] = kelvin; state["rgb"] = NSNull() }
+            let _: HASyncResponse = try await account.request("buildings/\(building)/home-assistant/samples", method: "POST", body: ["lights": [state]]); return
+        }
+        #endif
+        guard let credentials = HACredentials.load(building, account: account), let url = URL(string: credentials.url) else { throw HALocalError.message("Auf diesem iPhone ist Home Assistant nicht angemeldet.") }
+        let client = HAClient(base: url, clientID: credentials.clientID)
+        let token = try await client.access(refresh: credentials.refreshToken)
+        var service: [String: Any] = ["entity_id": entity]
+        if let brightness { service["brightness"] = brightness }; if let rgb { service["rgb_color"] = rgb }; if let kelvin { service["color_temp_kelvin"] = kelvin }
+        _ = try await client.post("api/services/light/" + (on ? "turn_on" : "turn_off"), body: service, token: token)
+        try? await Task.sleep(for: .milliseconds(600))
+        let state = (try await client.get("api/states/" + entity, token: token) as? [String: Any]) ?? [:]
+        let lights = HAPayload.lightStates(states: [state], selected: [entity])
+        if !lights.isEmpty { let _: HASyncResponse = try await account.request("buildings/\(building)/home-assistant/samples", method: "POST", body: ["lights": lights]) }
+    }
+
     static func disconnect(account: AccountModel, building: Int) async {
         if let credentials = HACredentials.load(building, account: account), let url = URL(string: credentials.url), credentials.refreshToken != "preview" {
             await HAClient(base: url, clientID: credentials.clientID).revoke(refresh: credentials.refreshToken)
@@ -328,3 +397,4 @@ enum HAPayload {
 }
 
 struct HASyncResponse: Decodable { let stored: Int; let ignored: Int }
+struct HALightPermit: Decodable { let allowed: Bool }
