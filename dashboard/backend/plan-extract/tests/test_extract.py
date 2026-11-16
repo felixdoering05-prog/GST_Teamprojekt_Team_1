@@ -246,3 +246,27 @@ class FrameSelection(unittest.TestCase):
         kept = det._largest_component(building + symbol + frame)
         self.assertEqual(len(kept), len(building))
         self.assertTrue(all(w['t'] == 300.0 for w in kept))
+
+
+class StoreyStacking(unittest.TestCase):
+    """Edited storeys keep their elevation and are shifted by the user's offset in the model."""
+
+    def test_offset_and_elevation_in_ifc(self):
+        def level(name, elevation, offset):
+            walls = [{'id': 'W1', 'a': [150, 150], 'b': [9850, 150], 'thickness': 300}, {'id': 'W2', 'a': [9850, 150], 'b': [9850, 7850], 'thickness': 300},
+                     {'id': 'W3', 'a': [9850, 7850], 'b': [150, 7850], 'thickness': 300}, {'id': 'W4', 'a': [150, 7850], 'b': [150, 150], 'thickness': 300}]
+            return {'name': name, 'source': {'kind': 'pdf'}, 'scale': {'method': 'dimensions', 'ratio': 100, 'evidence': [], 'support': 1, 'mm_per_unit': 35.28}, 'height': 2500, 'height_assumed': False,
+                    'elevation': elevation, 'width': 10000, 'depth': 8000, 'offset': offset, 'walls': walls,
+                    'openings': [{'kind': 'door', 'wall': 'W1', 'at': [5000, 150], 'width': 900, 'height': 2010, 'sill': 0, 'height_assumed': True, 'evidence': 'user'}],
+                    'rooms': [], 'texts': [], 'room_names': [{'point': [5000, 4000], 'name': 'Flur'}], 'edited': True, 'warnings': []}
+        cand = {'version': 1, 'skipped': [], 'levels': [level('UG', -2700.0, [0, 0]), level('EG', 0.0, [2000, -1000])]}
+        with tempfile.TemporaryDirectory() as d:
+            rep = build(cand, None, os.path.join(d, 'm.ifc'), os.path.join(d, 'p.png'))
+            f = ifcopenshell.open(os.path.join(d, 'm.ifc'))
+        self.assertEqual(sorted(round(s.Elevation, 2) for s in f.by_type('IfcBuildingStorey')), [-2.7, 0.0])
+        eg = rep['levels'][1]
+        self.assertEqual(eg['offset'], [2000, -1000])
+        self.assertEqual(min(c for w in eg['walls'] for c in (w['a'][0], w['b'][0])), 2150.0)
+        self.assertEqual(rep['levels'][0]['walls'][0]['a'], [150.0, 150.0])
+        self.assertEqual(len(eg['rooms']), 1)
+        self.assertEqual(eg['rooms'][0]['name'], 'Flur')

@@ -245,9 +245,29 @@ def apply_edits(level, warnings):
     return level
 
 
+def _apply_offset(level):
+    """Shifts a storey in the building plan (user alignment over the other storeys); keeps the photo overlay in place."""
+    off = level.get('offset')
+    if not (isinstance(off, list) and len(off) == 2 and all(_num(v, -50000, 50000) for v in off)) or off == [0, 0]:
+        return
+    ox, oy = float(off[0]), float(off[1])
+    move = lambda p: [round(p[0] + ox, 1), round(p[1] + oy, 1)]
+    for w in level['walls']:
+        w['a'], w['b'] = move(w['a']), move(w['b'])
+    for o in level['openings']:
+        o['at'] = move(o['at'])
+    for r in level.get('rooms', []):
+        r['point'] = move(r['point'])
+        r['polygon'] = [move(p) for p in r['polygon']]
+    level['boundary'] = [move(p) for p in level.get('boundary', [])]
+    ras = level.get('raster')
+    if ras and ras.get('mm_per_px'):
+        ras['origin_px'] = [round(ras['origin_px'][0] - ox / ras['mm_per_px'], 2), round(ras['origin_px'][1] + oy / ras['mm_per_px'], 2)]
+
+
 def final_levels(levels):
     """Geometry after review/edits, for the correction editor (JSON-safe)."""
-    keep = ('name', 'source', 'scale', 'width', 'depth', 'height', 'height_assumed', 'elevation', 'walls', 'openings', 'raster')
+    keep = ('name', 'source', 'scale', 'width', 'depth', 'height', 'height_assumed', 'elevation', 'offset', 'walls', 'openings', 'raster')
     out = []
     for l in levels:
         lv = {k: copy.deepcopy(l[k]) for k in keep if k in l}
@@ -263,6 +283,7 @@ def build(candidates, review, ifc_path, preview_path):
     for i, level in enumerate(candidates['levels']):
         if level.get('edited'):
             lv = apply_edits(level, warnings)
+            _apply_offset(lv)
         else:
             r = reviews[i] if i < len(reviews) and isinstance(reviews[i], dict) else None
             lv = apply_review(level, r, warnings)

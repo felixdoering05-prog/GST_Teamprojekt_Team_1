@@ -181,3 +181,28 @@ test('real extractor measures the fixture plans end to end',{skip:!python&&'Pyth
  assert.equal(r.quality.levels[0].doors,4);assert.equal(r.quality.levels[0].windows,5);assert.equal(r.quality.levels[1].walls,8);
  assert.ok(r.quality.levels.every(l=>l.dimension_max_error_pct<=2));assert.match(r.ifc.subarray(0,20).toString(),/ISO-10303-21/);
 });
+
+test('storeys: owner picks which plans are used, names them and they are stacked (EG at 0, UG below)',async()=>{
+ await clear();await enqueue([photo]);
+ const room=(x)=>[{id:'R1',name:'Kellerraum',area_m2:73,point:[x+5000,4000],polygon:[[x+300,300],[x+9700,300],[x+9700,7700],[x+300,7700]]}];
+ const box=(x)=>[{id:'W1',a:[x+150,150],b:[x+9850,150],thickness:300},{id:'W2',a:[x+9850,150],b:[x+9850,7850],thickness:300},{id:'W3',a:[x+9850,7850],b:[x+150,7850],thickness:300},{id:'W4',a:[x+150,7850],b:[x+150,150],thickness:300}];
+ const final=[0,1,2].map(i=>({name:['EG','1. OG','2. OG'][i],source:{kind:'pdf',input:i},scale:{method:'dimensions',ratio:100},width:10000,depth:8000,height:2500,elevation:i*2700,walls:box(0),openings:[{id:'O1',kind:'door',wall:'W1',at:[5000,150],width:900}],rooms:room(0)}));
+ const build=async a=>({ifc:IFC,preview:Buffer.from('png'),quality,levels:a.candidates.levels[0].edited?a.candidates.levels.map(l=>({...l,rooms:[]})):final,warnings:[]});
+ await processNext(db,{enabled:true,extract:async()=>({candidates:candidates(),labels:null,images:[],documents:[photo],notes:[],cadOnly:false,raster:false}),review:async()=>null,build});
+ let j=(await api()).body.jobs[0];const ed=(await api('/jobs/'+j.id+'/editor')).body;assert.equal(ed.levels.length,3);assert.equal(ed.levels[1].elevation,2700);assert.deepEqual(ed.levels[0].offset,[0,0]);
+ const bad=async(levels,re)=>{const r=await api('/jobs/'+j.id+'/levels',{levels});assert.equal(r.status,400,JSON.stringify(r.body));if(re)assert.match(r.body.error,re);};
+ await bad([]);await bad([{index:5,name:'EG',height:2500}]);await bad([{index:0,name:'Keller',height:2500}],/Unbekannte/);
+ await bad([{index:0,name:'EG',height:1500}],/Geschosshöhe/);await bad([{index:0,name:'EG',height:2500},{index:0,name:'UG',height:2500}],/nur einer Ebene/);
+ await bad([{index:0,name:'EG',height:2500},{index:1,name:'EG',height:2500}],/nur einmal/);await bad([{index:0,name:'EG',height:2500,offset:[60000,0]}],/Versatz/);
+ const ok=await api('/jobs/'+j.id+'/levels',{levels:[{index:2,name:'1. OG',height:2800,offset:[1000,-500]},{index:0,name:'UG',height:2400},{index:1,name:'EG',height:3000}]});
+ assert.equal(ok.status,202,JSON.stringify(ok.body));j=(await api()).body.jobs[0];assert.equal(j.status,'queued');
+ let sent;await processNext(db,{enabled:true,analyze:async()=>assert.fail('no AI'),extract:async()=>assert.fail('no extraction'),review:async()=>assert.fail('no AI'),build:async a=>{sent=a;return build(a);}});
+ const L=sent.candidates.levels;assert.deepEqual(L.map(l=>l.name),['UG','EG','1. OG']);assert.deepEqual(L.map(l=>l.elevation),[-2600,0,3200]);
+ assert.deepEqual(L.map(l=>l.height),[2400,3000,2800]);assert.deepEqual(L[2].offset,[1000,-500]);assert.ok(L.every(l=>l.edited&&l.walls.length===4&&l.openings.length===1));
+ assert.deepEqual(L[0].room_names,[{point:[5000,4000],name:'Kellerraum'}]);
+ j=(await api()).body.jobs[0];assert.equal(j.status,'ready');const after=(await api('/jobs/'+j.id+'/editor')).body;assert.equal(after.levels.length,3);assert.equal(after.levels[0].name,'UG');assert.deepEqual(after.levels[2].offset,[1000,-500]);
+ // A later correction keeps storey names, heights and offsets.
+ const e=await api('/jobs/'+j.id+'/edit',{levels:after.levels.map(l=>({walls:l.walls,openings:[],rooms:[]}))});assert.equal(e.status,202,JSON.stringify(e.body));
+ await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});assert.deepEqual(sent.candidates.levels.map(l=>[l.name,l.elevation,l.height]),[['UG',-2600,2400],['EG',0,3000],['1. OG',3200,2800]]);assert.deepEqual(sent.candidates.levels[2].offset,[1000,-500]);
+ await clear();
+});
