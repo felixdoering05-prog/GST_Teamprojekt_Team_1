@@ -47,4 +47,5 @@ with tempfile.TemporaryDirectory(prefix='d21-esp-build-') as tmp:
    # Never echo raw uploader logs: they can contain private paths/build details.
    if isinstance(error,RuntimeError):raise SystemExit(str(error))
    raise SystemExit('ESP32-Werkzeuge oder USB-Port nicht erreichbar. Installation nicht bestaetigt.')
-  print('Simulation auf dem ESP32 verifiziert und gestartet. Der erste Serverwert kann bis zu einer Minute dauern.')
+  print('Simulation auf dem ESP32 verifiziert. Automatischer Neustart wurde angefordert.')
+  print('Falls keine Werte ankommen: RESET/EN kurz druecken oder USB neu verbinden (ohne BOOT). Danach bis zu einer Minute warten.')

@@ -6,6 +6,8 @@ Der lokale Installer verwendet esptool 5.6.0 (Pfad mit `--esptool` anpassbar) un
 
 Die Wiederverbindung und Fehlerfälle lassen sich ohne angeschlossenes Gerät prüfen: `python3 -m unittest discover -s sensorik/esp32-simulation -p 'test_*.py' -v`.
 
+Bleibt das Board trotz verifizierter Firmware im Programmiermodus, RESET/EN kurz drücken oder USB ohne gedrückte BOOT-Taste neu verbinden. Ein angeforderter automatischer Neustart ist noch kein Nachweis, dass die Anwendung gestartet ist.
+
 Historische Referenz: https://github.com/felixdoering05-prog/team1 , Juni/Juli 2026. Dort ESP32-S3 mit ST7789, GNSS und BMP280. Am Mac ausgelesenes Board: ESP32-S3, 4 MB Flash, 2 MB PSRAM. Diese Simulation benötigt keine Sensorhardware und verändert keine Display-Pins.
 
 Alle 60 Sekunden werden synthetische Temperatur, relative Feuchte und CO₂ über WLAN/HTTPS gesendet. Diese sind **keine echten Messungen**. Der Server erzwingt `source=demo`; die Demo-/Simulationsansicht der App verwenden. Kein Raumtemperatur-Nachweis und keine realen Warnungen ableiten.
