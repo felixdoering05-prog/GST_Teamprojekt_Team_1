@@ -173,7 +173,7 @@ function accountRouter(db,options={}) {
  router.use(placementRouter(db,requireAccount));
  router.use(buildingWeatherRouter(db,requireAccount,options.weather));
  router.use(uiPreferencesRouter(db,requireAccount));
- router.use(issuesRouter(db,requireAccount));
+ router.use(issuesRouter(db,requireAccount,options.campus));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));
  router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));
  router.use(liveVoiceRouter(db,requireAccount,{...options.liveVoice,homeAssistant:options.homeAssistant}));

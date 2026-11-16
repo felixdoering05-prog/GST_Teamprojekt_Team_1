@@ -107,7 +107,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     }).catch(e => {
       if (!active) return;
       setError(e.message); setLoading(false);
-      if (document.campus && !roomHeatMode) setMapFallback(true);
+      if (document.campus && !roomHeatMode && !readOnly) setMapFallback(true);
       if (roomHeatMode) onRoomHeatMessage({ type: 'd21-room-heat-error', message: e.message });
     });
     return () => { active = false; buffer = undefined; terrainReady.current = false; window.removeEventListener('message', receive); };
@@ -135,7 +135,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     setAttempt(current => current + 1);
   }
   const message = viewerError || error;
-  const hideFrame = viewerError || (error && (!document.campus || roomHeatMode));
+  const hideFrame = viewerError || (error && (!document.campus || roomHeatMode || readOnly));
   return <div>
     {canEditTerrain && <ModelTerrainPanel documentID={document.id} site={site} onTerrain={openTerrain} />}
     {loading && <p role="status" className="px-4 py-3 text-xs text-muted-foreground">{document.campus ? 'Originales D21-Modell wird geschützt geladen …' : 'Modell wird aus deiner Gebäudemappe geladen …'}</p>}

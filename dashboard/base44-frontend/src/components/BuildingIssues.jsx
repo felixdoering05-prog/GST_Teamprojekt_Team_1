@@ -50,14 +50,28 @@ function History({ entries }) {
 
 function IssueDetails({ issue, path, refresh }) {
   const [spatial, setSpatial] = useState(null);
-  const [showModel, setShowModel] = useState(Boolean(issue.document_id && (issue.point || issue.space_id || issue.element_id)));
+  const [previewRequested, setPreviewRequested] = useState(false);
   const [focusVersion, setFocusVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const hasReference = Boolean(issue.document_id && (issue.point || issue.space_id || issue.element_id));
-  const focus = useMemo(() => hasReference ? {
+  const modelID = issue.location_model ?? issue.document_id;
+  const campus = modelID === 'campus-d21';
+  const hasLocation = Boolean(issue.point || issue.space_id || issue.element_id || issue.room?.trim());
+  const focus = useMemo(() => ({
     id: issue.id, point: issue.point, spaceID: issue.space_id, elementID: issue.element_id,
-  } : undefined, [hasReference, issue.id, issue.point, issue.space_id, issue.element_id]);
+    location: issue.room, building: issue.building_name,
+  }), [issue.id, issue.point, issue.space_id, issue.element_id, issue.room, issue.building_name]);
+
+  let locationMessage = '';
+  if (!hasLocation) locationMessage = 'Position nicht hinterlegt.';
+  else if (!modelID) locationMessage = 'Für diese Ortsangabe ist kein IFC-Modell hinterlegt.';
+  else if (spatial && !spatial.point) {
+    if (spatial.roomHighlighted) locationMessage = 'Der Meldungsraum ist hervorgehoben. Ein genauer Punkt ist nicht verfügbar.';
+    else if (spatial.floor) locationMessage = 'Das Geschoss wird angezeigt. Der Meldungsraum lässt sich im Modell nicht eindeutig darstellen.';
+    else if (spatial.room) locationMessage = 'Für diesen Raum enthält das Modell keine darstellbare Geometrie.';
+    else if (issue.point) locationMessage = 'Der gespeicherte Punkt lässt sich in diesem Modell nicht darstellen.';
+    else if (!spatial.element) locationMessage = 'Die Ortsangabe lässt sich keinem Raum oder Geschoss eindeutig zuordnen.';
+  }
 
   async function update(fields) {
     setError('');
@@ -104,19 +118,16 @@ function IssueDetails({ issue, path, refresh }) {
       <section className="space-y-3 self-start rounded-xl border bg-card p-3 sm:p-4" aria-label="Gebäudeposition">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="font-semibold">Gebäudeposition</h4>
-          {issue.document_id && <Button variant="outline" size="sm" onClick={() => { setShowModel(true); setFocusVersion(value => value + 1); }}>
+          {modelID && <Button variant="outline" size="sm" onClick={() => { setPreviewRequested(true); setFocusVersion(value => value + 1); }}>
             <MapPin className="h-4 w-4" /> Im Gebäude anzeigen
           </Button>}
         </div>
-        {(!issue.point || spatial?.point === false) && <p className="text-sm text-muted-foreground">
-          {spatial?.point === false && issue.point ? 'Gespeicherte Position passt nicht zur dargestellten IFC-Geometrie.' : 'Position nicht hinterlegt.'}
-          {spatial?.room && <span> Der zugeordnete IFC-Raum ist im Modell kenntlich gemacht, sofern Raumgeometrie vorhanden ist.</span>}
-        </p>}
-        {issue.document_id && showModel && <IFCModelFrame key={issue.document_id}
-          document={{ id: issue.document_id, name: issue.building_name }} presentation="bim"
-          issueFocus={focus} focusVersion={focusVersion} onIssueLocation={setSpatial} readOnly />}
-        {issue.document_id && <Link className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          to={`/bim-viewer?model=${issue.document_id}`}>Modellbibliothek öffnen <ArrowUpRight className="h-4 w-4" /></Link>}
+        {locationMessage && <p role="status" className="text-sm text-muted-foreground">{locationMessage}</p>}
+        {modelID && (hasLocation || previewRequested) && <IFCModelFrame key={modelID}
+          document={{ id: modelID, name: issue.building_name, campus }} presentation="bim"
+          issueFocus={hasLocation ? focus : undefined} focusVersion={focusVersion} onIssueLocation={setSpatial} readOnly />}
+        {modelID && <Link className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          to={`/bim-viewer?model=${modelID}`}>Modellbibliothek öffnen <ArrowUpRight className="h-4 w-4" /></Link>}
       </section>
     </div>
   </>;
