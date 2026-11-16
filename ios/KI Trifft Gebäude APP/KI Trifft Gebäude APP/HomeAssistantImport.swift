@@ -118,7 +118,7 @@ struct HomeAssistantImportView: View {
                         Text("Übernimm Sensorwerte, Geräte und Bereiche aus deinem Home Assistant. Du meldest dich einfach mit deinem Home-Assistant-Konto an – nichts installieren, nichts kopieren.").font(.subheadline).foregroundStyle(.secondary)
                         Button { connecting = true } label: { Label("Mit Home Assistant verbinden", systemImage: "link") }.buttonStyle(.borderedProminent).tint(d21Accent).disabled(busy)
                         DisclosureGroup("Fortgeschritten: rund um die Uhr übertragen", isExpanded: $advanced) {
-                            Text("Die App gleicht Werte ab, wenn du sie öffnest. Für Werte rund um die Uhr kannst du stattdessen die Integration „Nala Solutions“ in Home Assistant installieren und mit einem Code koppeln.").font(.footnote).foregroundStyle(.secondary)
+                            Text("Die App gleicht Werte ab, wenn du sie öffnest. Für Werte rund um die Uhr kannst du stattdessen die Integration „Nala“ in Home Assistant installieren und mit einem Code koppeln.").font(.footnote).foregroundStyle(.secondary)
                             Button { Task { await createCode() } } label: { Label(link?.status == "pending" ? "Neuen Kopplungscode erzeugen" : "Kopplungscode erzeugen", systemImage: "link.badge.plus") }.disabled(busy)
                         }.font(.subheadline)
                     }
@@ -147,7 +147,7 @@ struct HomeAssistantImportView: View {
     }
     private func pairingCard(_ pairing: HAPairing) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("1. Ordner „ki_trifft_gebaeude“ nach custom_components kopieren und Home Assistant neu starten.\n2. Einstellungen → Geräte & Dienste → Integration hinzufügen → „Nala Solutions“.\n3. Diese Angaben eingeben:").font(.footnote)
+            Text("1. Ordner „ki_trifft_gebaeude“ nach custom_components kopieren und Home Assistant neu starten.\n2. Einstellungen → Geräte & Dienste → Integration hinzufügen → „Nala“.\n3. Diese Angaben eingeben:").font(.footnote)
             LabeledContent("Serveradresse") { Text(account.bridgeAddress ?? "–").font(.footnote.monospaced()).textSelection(.enabled).multilineTextAlignment(.trailing) }
             LabeledContent("Kopplungscode") { Text(pairing.code).font(.title2.monospaced().bold()).textSelection(.enabled) }
             if let expires = HAMetric.date(pairing.expires_at) { Text("Gültig bis \(expires.formatted(date: .omitted, time: .shortened)) Uhr · nur einmal verwendbar").font(.caption).foregroundStyle(.secondary) }

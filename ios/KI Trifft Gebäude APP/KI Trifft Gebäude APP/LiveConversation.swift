@@ -240,7 +240,7 @@ nonisolated final class LiveAudioEngine: @unchecked Sendable {
         tasks.append(Task { [weak self] in
             guard let self else { return }
             do {
-                guard await AVAudioApplication.requestRecordPermission() else { throw APIError(status: 0, message: "Bitte erlaube den Mikrofonzugriff unter Einstellungen → Nala Solutions.") }
+                guard await AVAudioApplication.requestRecordPermission() else { throw APIError(status: 0, message: "Bitte erlaube den Mikrofonzugriff unter Einstellungen → Nala.") }
                 await account.refreshAIPreferences()
                 guard self.generation == ticket, account.user?.id == owner else { return }
                 guard account.aiPreferences.active else { throw APIError(status: 403, message: "Aktiviere KI einmal in deinen KI-Einstellungen.") }
