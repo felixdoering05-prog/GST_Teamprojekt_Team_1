@@ -5,14 +5,33 @@ ARG TARGETARCH
 RUN case "$TARGETARCH" in arm64) arch=aarch64; sum=a94d598d821b1da3366e6655147d318991a5a542c298da263f1fb97cc704d4c1;; amd64|'') arch=x86_64; sum=932a7c6c16bc3328b508b723f664760814bb23e03603f05a46da68eeef1e2341;; *) exit 1;; esac && \
  curl -fL --proto '=https' --retry 3 "https://github.com/IPedrax/BIMCraft/releases/download/v0.11.0/bimcraft-0.11.0-linux-${arch}.tar.gz" -o /tmp/bimcraft.tar.gz && \
  echo "$sum  /tmp/bimcraft.tar.gz" | sha256sum -c - && mkdir -p /opt/bimcraft && tar -xzf /tmp/bimcraft.tar.gz -C /opt/bimcraft --strip-components=1 && rm /tmp/bimcraft.tar.gz
+# LibreDWG (GPL-3) is only used as a separate dwg2dxf executable; it is not linked into our code.
+FROM ubuntu:24.04 AS libredwg
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils build-essential pkg-config python3 && rm -rf /var/lib/apt/lists/*
+RUN curl -fL --proto '=https' --retry 3 https://ftp.gnu.org/gnu/libredwg/libredwg-0.14.tar.xz -o /tmp/libredwg.tar.xz && \
+ echo "62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275  /tmp/libredwg.tar.xz" | sha256sum -c - && \
+ mkdir /src && tar -xJf /tmp/libredwg.tar.xz -C /src --strip-components=1 && cd /src && \
+ ./configure --prefix=/opt/libredwg --disable-shared --enable-static --disable-bindings --disable-werror && \
+ make -j"$(nproc)" -C src && make -j"$(nproc)" -C programs dwg2dxf && \
+ mkdir -p /opt/libredwg/bin && install -m 0755 programs/dwg2dxf /opt/libredwg/bin/dwg2dxf && /opt/libredwg/bin/dwg2dxf --version
+# Plan extractor: ezdxf, pdfplumber (MIT), shapely (BSD), IfcOpenShell (LGPL), Pillow.
+FROM ubuntu:24.04 AS plan-python
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv && rm -rf /var/lib/apt/lists/*
+COPY plan-extract/requirements.txt /tmp/plan-requirements.txt
+RUN python3 -m venv /opt/plan-venv && /opt/plan-venv/bin/pip install --no-cache-dir -r /tmp/plan-requirements.txt
 FROM ubuntu:24.04
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libgcc-s1 libstdc++6 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libgcc-s1 libstdc++6 python3 fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/ /usr/local/
 COPY --from=bimcraft /opt/bimcraft /opt/bimcraft
+COPY --from=libredwg /opt/libredwg/bin/dwg2dxf /opt/libredwg/bin/dwg2dxf
+COPY --from=plan-python /opt/plan-venv /opt/plan-venv
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY src ./src
-ENV BIMCRAFT_NO_UPDATE_CHECK=1 HOME=/tmp NODE_OPTIONS=--max-old-space-size=256
+COPY plan-extract/run.py plan-extract/requirements.txt ./plan-extract/
+COPY plan-extract/planextract ./plan-extract/planextract
+RUN /opt/plan-venv/bin/python -c "import ezdxf, pdfplumber, shapely, ifcopenshell, PIL" && /opt/plan-venv/bin/python -m compileall -q /app/plan-extract
+ENV BIMCRAFT_NO_UPDATE_CHECK=1 HOME=/tmp NODE_OPTIONS=--max-old-space-size=256 PLAN_PYTHON=/opt/plan-venv/bin/python PLAN_EXTRACT_SCRIPT=/app/plan-extract/run.py
 USER 65534:65534
 CMD ["node","src/plan-conversion/worker.js"]

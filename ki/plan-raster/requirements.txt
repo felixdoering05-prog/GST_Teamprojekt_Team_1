@@ -1,0 +1,5 @@
+numpy==2.5.5
+opencv-python-headless==5.0.0.93
+shapely==2.2.0
+pytesseract==0.3.13
+pytest==9.2.0

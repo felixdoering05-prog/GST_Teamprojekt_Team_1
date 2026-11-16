@@ -1,0 +1,36 @@
+{
+ "haus-rechteck": {
+  "width": 10000,
+  "depth": 8000,
+  "outer_thickness": 365,
+  "inner_thickness": [
+   115,
+   240
+  ],
+  "doors": 4,
+  "windows": 5,
+  "rooms": {
+   "Küche": 11.637,
+   "Bad": 16.152,
+   "Schlafen": 16.152,
+   "Wohnen": 20.667
+  },
+  "walls": 7
+ },
+ "haus-l": {
+  "width": 9000,
+  "depth": 9000,
+  "outer_thickness": 300,
+  "inner_thickness": [
+   175
+  ],
+  "doors": 3,
+  "windows": 3,
+  "rooms": {
+   "Arbeiten": 20.295,
+   "Wohnen": 16.617,
+   "Schlafen": 12.283
+  },
+  "walls": 8
+ }
+}

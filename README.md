@@ -40,11 +40,11 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 14. November 2026, Abendprüfung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 16. November 2026, Morgenprüfung.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Bis **1.0.127** sind Änderungen am LiDAR-Raumscan mit serverseitigem IFC4-Export gemergt ([#160](../../pull/160)); Qualitätsverbesserungen aus [#159](../../pull/159). Ein erfolgreicher TestFlight-Upload oder echter Gerätetest dieser Version ist hier **nicht bestätigt**. Mängelmelder **1.0.128** befindet sich noch im offenen [PR #163](../../pull/163) |
+| **iPhone-App** | Bis **1.0.127** sind Änderungen am LiDAR-Raumscan mit serverseitigem IFC4-Export gemergt ([#160](../../pull/160)); Qualitätsverbesserungen aus [#159](../../pull/159). Ein erfolgreicher TestFlight-Upload oder echter Gerätetest dieser Version ist hier **nicht bestätigt**. Mängelmelder **1.0.128** befindet sich noch im offenen [PR #163](../../pull/163); **1.0.129** (maßbasierter Vektorplan-Import, [#169](../../pull/169)) und **1.0.130** (Widget/Siri, [#171](../../pull/171)) sind ebenfalls **offene PRs, nicht in `main` bestätigt** |
 | **Web & IFC** | Gemeinsame Gebäudemappen, Viewer und Heatmaps; IFC-Analyse v3 ergänzt Raumflächen aus Geometrie, Höhe, Volumen und Hintergrund-Neuanalyse ([#162](../../pull/162)). Modellabhängige Ergebnisse müssen am echten D21-Modell validiert werden |
 | **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
 | **D21-Messdaten** | Erster echter Datenpunkt mit Quelle, Einheit, Zeitstempel und Zugriffsfreigabe noch **nicht als abgeschlossen nachgewiesen** |
@@ -60,12 +60,14 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 3. **P1 · [#105](../../issues/105)** – Datenschutz und erforderliche Freigaben klären.
 4. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
 5. **P2 · [#73](../../issues/73)** – Revit-/IFC-Übergabe zum Server reproduzierbar dokumentieren.
+6. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
+7. **P2 · Review** – [#163](../../pull/163), [#169](../../pull/169) und [#171](../../pull/171) technisch und hinsichtlich Datenschutz, Berechtigungen und Build-/Gerätenachweisen prüfen.
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
 
-Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** ist weiterhin **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Weitere Termine nur mit tatsächlichem Nachweis aufnehmen. Der ältere [README-PR #153](../../pull/153) ist wegen Konflikten mit der inzwischen übernommenen Neugestaltung [#158](../../pull/158) **nicht direkt mergefähig**; Inhalte vor einem Schließen oder Neuaufsetzen prüfen. Der [Mängelmelder-PR #163](../../pull/163) wartet auf Review und Integration.
+Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** ist weiterhin **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Weitere Termine nur mit tatsächlichem Nachweis aufnehmen. Der ältere [README-PR #153](../../pull/153) ist wegen Konflikten mit der inzwischen übernommenen Neugestaltung [#158](../../pull/158) **nicht direkt mergefähig**; Inhalte vor einem Schließen oder Neuaufsetzen prüfen. Der [Mängelmelder-PR #163](../../pull/163) wartet auf Review und Integration. Die neuen PRs [#169](../../pull/169) (Vektorpläne vermessen) und [#171](../../pull/171) (Widget/Siri) benötigen technische Prüfung einschließlich Dateikonvertierung, Lizenzen, Datenschutz, iOS-Signierung und tatsächlicher Gerätetests. [#167](../../pull/167) (Marktforschung) und [#168](../../pull/168) (Ideenradar) sind Dokumentations-PRs, derzeit nicht direkt mergefähig; Inhalte vor Konfliktauflösung abgleichen. Kein erfolgreicher TestFlight-Upload dieser Kandidaten nachgewiesen.
 
 ## 🧩 So funktioniert das System
 

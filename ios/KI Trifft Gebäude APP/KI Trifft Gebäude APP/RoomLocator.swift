@@ -175,6 +175,8 @@ struct RoomLocatorView: View {
     @State private var running = false
     @State private var snapNote: String?
     @State private var showAR = false
+    @State private var reportHere: IssueLocation?
+    @State private var reportedNote: String?
     @Environment(\.scenePhase) private var scenePhase
 
     private var floors: [(id: Int, name: String, base: Double)] { plan?.floors ?? [] }
@@ -206,6 +208,9 @@ struct RoomLocatorView: View {
             if let calibration {
                 RoomARExperience(tracker: tracker, calibration: calibration, rooms: plan?.rooms ?? [], floors: floors, currentFloorID: currentFloor?.id, currentRoom: currentRoom) { showAR = false }
             }
+        }
+        .sheet(isPresented: Binding(get: { reportHere != nil }, set: { if !$0 { reportHere = nil } })) {
+            IssueReportSheet(building: building, account: account, location: reportHere) { issue in reportedNote = "„\(issue.title)“ gemeldet" }
         }
         .task { await loadModels() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { tracker.stop(); running = false } }
@@ -350,6 +355,14 @@ struct RoomLocatorView: View {
             Button { showAR = true } label: {
                 Label("AR-Ansicht · Simulation", systemImage: "arkit").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
             }.buttonStyle(.borderedProminent).tint(.indigo)
+            if let point = modelPoint, let document = selectedModel {
+                Button {
+                    // Model coordinates: plan x/z plus about 1 m above the current floor.
+                    reportHere = IssueLocation(documentID: document, spaceID: currentRoom?.id, room: currentRoom?.name ?? "", point: .init(x: Double(point.x), y: floorBase + 1.0, z: Double(point.y)))
+                } label: { Label("Mangel hier melden", systemImage: "exclamationmark.bubble").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity) }
+                .buttonStyle(.bordered).tint(.red)
+                if let reportedNote { Label(reportedNote, systemImage: "checkmark.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.green) }
+            }
             if let room = currentRoom {
                 let roomLamps = lamps.filter { $0.location?.space_id == room.id }
                 let roomDevices = devices.filter { $0.space_id == room.id }

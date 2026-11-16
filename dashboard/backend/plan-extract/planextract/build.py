@@ -1,0 +1,166 @@
+"""Applies the (optional) AI review to the measured candidates, writes IFC, preview and quality report."""
+import copy, math, re
+from shapely.geometry import LineString, Point, Polygon
+from .primitives import Text
+from .rooms import find_rooms, attach_openings
+from .ifc_writer import write_ifc
+from .preview import render
+
+MAX_REJECTED_SHARE = 0.3
+NAME = re.compile(r'^[^\x00-\x1f]{1,60}$')
+
+
+def _num(v, lo, hi):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and lo <= v <= hi
+
+
+def _rehost(o, walls):
+    """Nearest parallel wall whose band can take the opening."""
+    best = None
+    for w in walls:
+        line = LineString([w['a'], w['b']])
+        d = line.distance(Point(o['at']))
+        if d <= w['thickness'] / 2 + 200 and line.length >= o['width'] and (best is None or d < best[0]):
+            best = (d, w)
+    if not best:
+        return None
+    w = best[1]
+    line = LineString([w['a'], w['b']])
+    s = min(max(line.project(Point(o['at'])), o['width'] / 2), line.length - o['width'] / 2)
+    p = line.interpolate(s)
+    return {**o, 'wall': w['id'], 'at': [round(p.x, 1), round(p.y, 1)]}
+
+
+def apply_review(level, review, warnings):
+    """review uses candidate IDs only; unknown IDs or values out of range are ignored."""
+    level = copy.deepcopy(level)
+    if not review:
+        return level
+    ids = {w['id'] for w in level['walls']}
+    rejected = {c['id'] for c in review.get('walls', []) if isinstance(c, dict) and c.get('id') in ids and c.get('is_wall') is False}
+    if rejected and len(rejected) <= MAX_REJECTED_SHARE * len(ids) and len(ids) - len(rejected) >= 3:
+        old_rooms = level['rooms']
+        level['walls'] = [w for w in level['walls'] if w['id'] not in rejected]
+        kept, lost = [], 0
+        for o in level['openings']:
+            if o['wall'] in rejected:
+                o = _rehost(o, level['walls'])
+                if not o:
+                    lost += 1
+                    continue
+            kept.append(o)
+        level['openings'] = kept
+        texts = [Text(t['text'], tuple(t['at'])) for t in level.get('texts', [])]
+        rooms, outline = find_rooms(level['walls'], texts)
+        for r in rooms:
+            prev = next((o for o in old_rooms if Polygon(r['polygon']).contains(Point(o['point']))), None)
+            if prev:
+                r['name'], r['name_source'], r['id'] = prev['name'], prev['name_source'], prev['id']
+        level['rooms'] = rooms
+        if outline is not None and hasattr(outline, 'exterior'):
+            level['boundary'] = [[round(x, 1), round(y, 1)] for x, y in list(outline.exterior.coords)[:-1]]
+        warnings.append(f'{level["name"]}: KI-Prüfung hat {len(rejected)} Linienpaar(e) als Nicht-Wand verworfen.' + (f' {lost} Öffnung(en) ohne Wand entfallen.' if lost else ''))
+    elif rejected:
+        warnings.append(f'{level["name"]}: KI wollte {len(rejected)} von {len(ids)} Wänden verwerfen – ignoriert, Geometrie bleibt erhalten.')
+    by_id = {o['id']: o for o in level['openings']}
+    for c in review.get('openings', []):
+        o = by_id.get(c.get('id')) if isinstance(c, dict) else None
+        if not o:
+            continue
+        if c.get('kind') in ('door', 'window', 'opening') and c['kind'] != o['kind']:
+            o['kind'] = c['kind']
+            o['evidence'] = (o.get('evidence') or '') + '+ki'
+            if c['kind'] == 'door':
+                o['sill'], o['height'] = 0.0, 2010.0
+            elif c['kind'] == 'window' and o['sill'] == 0:
+                o['sill'], o['height'] = 900.0, 1350.0
+        if _num(c.get('height'), 300, 3500):
+            o['height'] = float(c['height'])
+            o['height_assumed'] = False
+        if o['kind'] == 'window' and _num(c.get('sill'), 0, 2500):
+            o['sill'] = float(c['sill'])
+    rooms = {r['id']: r for r in level['rooms']}
+    for c in review.get('rooms', []):
+        r = rooms.get(c.get('id')) if isinstance(c, dict) else None
+        name = c.get('name') if isinstance(c, dict) else None
+        if r and isinstance(name, str) and NAME.match(name.strip()) and r['name_source'] != 'label':
+            r['name'] = name.strip()
+            r['name_source'] = 'ki'
+    if _num(review.get('storey_height'), 2000, 6000):
+        level['height'] = float(review['storey_height'])
+        level['height_assumed'] = False
+    return level
+
+
+def _exterior_walls(level):
+    if not level.get('boundary'):
+        return set()
+    ring = Polygon(level['boundary']).exterior
+    return {w['id'] for w in level['walls'] if LineString([w['a'], w['b']]).distance(ring) <= w['thickness'] / 2 + 20}
+
+
+def report(level):
+    attach_openings(level['rooms'], level['walls'], level['openings'])
+    for o in level['openings']:
+        if o['height'] + o['sill'] > level['height']:
+            o['height'] = max(300.0, level['height'] - o['sill'])
+    ev = level['scale']['evidence']
+    errors = [e['error_pct'] for e in ev]
+    areas = [{'room': r['name'], 'measured_m2': r['area_m2'], 'labelled_m2': r['labelled_area_m2'],
+              'error_pct': round(abs(r['area_m2'] - r['labelled_area_m2']) / r['labelled_area_m2'] * 100, 2)}
+             for r in level['rooms'] if r.get('labelled_area_m2')]
+    kinds = [o['kind'] for o in level['openings']]
+    no_door = [r['name'] for r in level['rooms'] if r['doors'] == 0]
+    rep = {
+        'level': level['name'],
+        'scale': {'method': level['scale']['method'], 'ratio': level['scale']['ratio'], 'support': level['scale']['support']},
+        'width_mm': level['width'], 'depth_mm': level['depth'],
+        'walls': len(level['walls']), 'doors': kinds.count('door'), 'windows': kinds.count('window'), 'openings_unclear': kinds.count('opening'),
+        'rooms': len(level['rooms']), 'rooms_without_door': no_door,
+        'dimensions': ev[:40], 'dimension_max_error_pct': max(errors) if errors else None,
+        'dimension_mean_error_pct': round(sum(errors) / len(errors), 2) if errors else None,
+        'room_areas': areas, 'heights_assumed': level['height_assumed'] or any(o['height_assumed'] for o in level['openings']),
+    }
+    good = rep['dimension_max_error_pct'] is not None and rep['dimension_max_error_pct'] <= 2 and len(ev) >= 3 and not no_door and rep['rooms'] > 0
+    rep['grade'] = 'gut' if good else 'prüfen'
+    return rep
+
+
+def summary_lines(reports):
+    out = []
+    for r in reports:
+        sc = r['scale']
+        scale = f"1:{sc['ratio']:g}" if sc['ratio'] else {'units': 'DXF-Einheit', 'units+dimensions': 'DXF-Einheit, durch Maße bestätigt'}.get(sc['method'], 'aus Maßketten')
+        size = f"{r['width_mm'] / 1000:.2f} × {r['depth_mm'] / 1000:.2f} m".replace('.', ',')
+        line = f"{r['level']}: vermessen ({scale}), {size}, {r['walls']} Wände, {r['doors']} Türen, {r['windows']} Fenster, {r['rooms']} Räume."
+        out.append(line)
+        if r['dimension_max_error_pct'] is not None:
+            pct = f"{r['dimension_max_error_pct']:.1f}".replace('.', ',')
+            out.append(f"{r['level']}: {len(r['dimensions'])} Planmaße geprüft, größte Abweichung {pct} %.")
+        else:
+            out.append(f"{r['level']}: keine Maßzahlen zum Gegenprüfen gefunden – Maße bitte kontrollieren.")
+        if r['rooms_without_door']:
+            out.append(f"{r['level']}: Räume ohne erkannte Tür: {', '.join(r['rooms_without_door'][:8])}.")
+        if r['openings_unclear']:
+            out.append(f"{r['level']}: {r['openings_unclear']} Wandöffnung(en) ohne eindeutiges Tür-/Fenstersymbol als Durchgang modelliert.")
+        if r['heights_assumed']:
+            out.append(f"{r['level']}: Höhen teilweise angenommen (Geschoss 2,50 m, Türen 2,01 m, Fenster Brüstung 0,90 m / Höhe 1,35 m).")
+    return out
+
+
+def build(candidates, review, ifc_path, preview_path):
+    warnings = []
+    levels = []
+    reviews = (review or {}).get('levels', [])
+    for i, level in enumerate(candidates['levels']):
+        r = reviews[i] if i < len(reviews) and isinstance(reviews[i], dict) else None
+        lv = apply_review(level, r, warnings)
+        lv['exterior_walls'] = _exterior_walls(lv)
+        levels.append(lv)
+    reports = [report(l) for l in levels]
+    write_ifc(levels, ifc_path)
+    render(levels, preview_path)
+    for l in levels:
+        warnings += [w for w in l.get('warnings', [])]
+    return {'version': 1, 'quality': {'levels': reports, 'grade': 'gut' if all(r['grade'] == 'gut' for r in reports) else 'prüfen'},
+            'summary': summary_lines(reports), 'warnings': warnings[:20]}

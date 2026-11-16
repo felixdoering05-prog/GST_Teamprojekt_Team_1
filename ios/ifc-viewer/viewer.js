@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { IfcAPI, IFCRELAGGREGATES, IFCBUILDINGSTOREY, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENTEDCASE, IFCDOOR, IFCWINDOW, IFCROOF, IFCSLAB } from 'web-ifc';
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
+import { createIssueMarkers } from './issue-markers.js';
 
 const placementMode=new URLSearchParams(location.search).get('placement')==='true';
 const roomsMode=new URLSearchParams(location.search).get('rooms')==='true';
@@ -184,12 +185,22 @@ async function open() {
   const changed = operation => synchronization?.change(operation);
   const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, changed, destroyed: () => destroyed });
   const ray = new THREE.Raycaster();
+  // Defect markers (native app only); a tap on a marker opens the defect, a tap on geometry offers
+  // "report a defect here" with the hit point in model coordinates.
+  const issues = heatMode || previewMode || !window.webkit?.messageHandlers?.ifcIssueRequest ? null : createIssueMarkers(root);
   function pick(x, y) {
     if(heatMode)return;
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
     cancelCommand();
-    appearance.select(ray.intersectObjects(appearance.visibleMeshes, false)[0]?.object.userData.expressID);
+    const issueID = issues?.hit(ray);
+    if (issueID) { window.webkit.messageHandlers.ifcIssue?.postMessage(issueID); return; }
+    const hit = ray.intersectObjects(appearance.visibleMeshes, false)[0];
+    appearance.select(hit?.object.userData.expressID);
     updateSelection();
+    if (issues) {
+      const local = hit ? root.worldToLocal(hit.point.clone()) : undefined;
+      window.webkit?.messageHandlers?.ifcPick?.postMessage(local ? { x: local.x, y: local.y, z: local.z } : {});
+    }
   }
   // Cancel long presses during rotation, multi-touch, pointer cancellation or page exit.
   let down, holdTimer, held = false;
@@ -274,6 +285,17 @@ async function open() {
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);
   document.querySelector('#command-execute').disabled = true;
+  if (issues) {
+    window.d21SetIssues = list => { issues.set(list); render(); };
+    window.d21FocusIssue = id => {
+      const p = issues.position(id); if (!p) return false;
+      orbiting = false; controls.autoRotate = false;
+      const offset = camera.position.clone().sub(controls.target).setLength(Math.max(span * .3, 6));
+      controls.target.copy(p); camera.position.copy(p.clone().add(offset)); controls.update(); render(); return true;
+    };
+    window.d21RequestIssues = () => window.webkit?.messageHandlers?.ifcIssueRequest?.postMessage('load');
+    window.d21RequestIssues();
+  }
   // The smart-home overlay is retired from the viewer; device control lives under Geräte.
   document.querySelector('#modes')?.remove(); document.querySelector('#home')?.remove();
   if(heatMode)mountNativeHeat(root,render,applyMap);

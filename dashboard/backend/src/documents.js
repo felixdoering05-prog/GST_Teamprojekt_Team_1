@@ -20,6 +20,11 @@ function fileType(buffer, name) {
  if(extension==='.png' && buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'image/png';
  if(extension==='.webp' && buffer.subarray(0,4).toString()==='RIFF' && buffer.subarray(8,12).toString()==='WEBP')return 'image/webp';
  if(extension==='.dwg' && /^AC10\d{2}$/.test(buffer.subarray(0,6).toString('ascii')))return 'application/acad';
+ if(extension==='.dxf'){
+  if(buffer.subarray(0,22).equals(Buffer.from('AutoCAD Binary DXF\r\n\x1a\x00','latin1')))return 'application/dxf';
+  const head=buffer.subarray(0,2048).toString('latin1');
+  if(/^(\s*999\r?\n[^\n]*\n)*\s*0\r?\nSECTION\r?\n/.test(head))return 'application/dxf';
+ }
  return null;
 }
 async function initDocuments(db) {
@@ -52,7 +57,7 @@ function documentRouter(db,requireAccount) {
   name=name.replace(/[\x00-\x1f\x7f/\\]/g,'_').trim();
   if(!name||name.length>200)return res.status(400).json({error:'Dateiname erforderlich (maximal 200 Zeichen).'});
   const mime=fileType(req.body,name);
-  if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP, DWG und unkomprimierte IFC2x3-/IFC4-Dateien mit passender Dateikennung.'});
+  if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP, DWG, DXF und unkomprimierte IFC2x3-/IFC4-Dateien mit passender Dateikennung.'});
   if(mime==='application/x-step' && req.body.length>MAX_IFC)return res.status(413).json({error:'Maximal 20 MB pro IFC-Modell. Bitte einen kleineren Ausschnitt exportieren.'});
   const uploadKey=req.get('X-Upload-ID')||null;
   if(uploadKey&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(uploadKey))return res.status(400).json({error:'Ungültige Upload-Kennung.'});
@@ -92,7 +97,7 @@ function documentRouter(db,requireAccount) {
    await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[building.user_id]);
    const doc=(await client.query(`SELECT d.id,d.mime_type FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND ${accessSQL}`,[req.params.documentId,req.account.id])).rows[0];
    if(!doc){await client.query('ROLLBACK');return res.status(404).json({error:'Datei nicht gefunden.'});}
-   const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg'],'application/x-step':['.ifc']};
+   const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg'],'application/dxf':['.dxf'],'application/x-step':['.ifc']};
    if(!extensions[doc.mime_type]?.includes(path.extname(name).toLowerCase())){await client.query('ROLLBACK');return res.status(400).json({error:'Die passende Dateiendung muss erhalten bleiben.'});}
    const updated=(await client.query('UPDATE app_documents SET name=$1 WHERE id=$2 RETURNING id,building_id,name,mime_type,size,created_at',[name,doc.id])).rows[0];
    await client.query('COMMIT');res.json(updated);
@@ -116,7 +121,7 @@ function documentRouter(db,requireAccount) {
   const doc=(await db.query(`SELECT d.* FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE d.id=$1 AND ${accessSQL}`,[req.params.documentId,req.account.id])).rows[0];
   if(!doc)return res.status(404).json({error:'Datei nicht gefunden.'});
   const encoded=encodeURIComponent(doc.name).replace(/['()*]/g,c=>'%'+c.charCodeAt(0).toString(16));
-  const disposition=['application/acad','application/x-step'].includes(doc.mime_type)?'attachment':'inline';
+  const disposition=['application/acad','application/dxf','application/x-step'].includes(doc.mime_type)?'attachment':'inline';
   res.set({'Content-Type':doc.mime_type,'Content-Length':String(doc.size),'Content-Disposition':`${disposition}; filename="document-${doc.id}${path.extname(doc.name).toLowerCase()}"; filename*=UTF-8''${encoded}`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"});
   res.send(Buffer.from(doc.content));
  }));
