@@ -5,7 +5,7 @@ import Charts
 // Die App sieht nie einen Home-Assistant-Zugang. Home Assistant sendet über eine Custom Integration.
 struct HALatest: Decodable { let value: Double; let measured_at: String }
 struct HALink: Decodable {
-    let id: String; let status: String; let instance_name: String; let ha_version: String; let revision: Int
+    let id: String; let status: String; let mode: String?; let instance_name: String; let ha_version: String; let revision: Int
     let paired_at: String?; let last_inventory_at: String?; let last_push_at: String?; let pairing_expires_at: String?
 }
 struct HAArea: Decodable, Identifiable { let area_id: String; let name: String; let room_id: String?; var id: String { area_id } }
@@ -49,6 +49,10 @@ struct HomeAssistantImportView: View {
     @State private var problem: String?
     @State private var notice: String?
     @State private var confirmDisconnect = false
+    @State private var connecting = false
+    @State private var syncing = false
+    @State private var advanced = false
+    @State private var hasLocalAccess = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var link: HALink? { overview?.link }
@@ -57,6 +61,7 @@ struct HomeAssistantImportView: View {
     private var savedSelection: Set<String> { Set(overview?.entities.filter(\.selected).map(\.entity_id) ?? []) }
     private var savedMapping: [String: String] { Dictionary(uniqueKeysWithValues: (overview?.areas ?? []).compactMap { a in a.room_id.map { (a.area_id, $0) } }) }
     private var limit: Int? { overview?.limits.entities }
+    private var appMode: Bool { link?.mode == "app" }
 
     var body: some View {
         List {
@@ -67,19 +72,21 @@ struct HomeAssistantImportView: View {
                 sensorsSection(overview)
                 if !overview.areas.isEmpty { areasSection(overview) }
                 if !overview.devices.isEmpty { devicesSection(overview) }
-                if owner { Section { Button("Verbindung trennen", role: .destructive) { confirmDisconnect = true }.disabled(busy) } footer: { Text("Löscht den Brückenschlüssel, die Geräteübersicht und alle übernommenen Werte auf dem Projektserver.") } }
+                if owner { Section { Button("Verbindung trennen", role: .destructive) { confirmDisconnect = true }.disabled(busy || syncing) } footer: { Text(appMode ? "Löscht die Geräteübersicht und alle übernommenen Werte auf dem Projektserver und meldet dieses iPhone bei Home Assistant ab." : "Löscht den Brückenschlüssel, die Geräteübersicht und alle übernommenen Werte auf dem Projektserver.") } }
             }
             Section {
-                Text("Home Assistant sendet nur Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie, und laufende Werte nur von ausgewählten Sensoren. Personen, Standorte, Kameras und Anwesenheit bleiben in Home Assistant. Auf dem Projektserver liegt kein Home-Assistant-Zugang. Werte werden 90 Tage gespeichert und sind für Mitglieder dieses Gebäudes sichtbar.").font(.footnote).foregroundStyle(.secondary)
+                Text("Übernommen werden nur Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie, Werte nur von ausgewählten Sensoren. Personen, Standorte, Kameras und Anwesenheit bleiben in Home Assistant. Deine Home-Assistant-Anmeldung bleibt auf diesem iPhone; auf dem Projektserver liegt kein Home-Assistant-Zugang. Werte werden 90 Tage gespeichert und sind für Mitglieder dieses Gebäudes sichtbar.").font(.footnote).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Home Assistant").navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
+        .refreshable { await reload(); if appMode && hasLocalAccess { await syncNow(quiet: true) } }
+        .sheet(isPresented: $connecting, onDismiss: { Task { await reload(); if hasLocalAccess { await syncNow(quiet: true) } } }) { HAConnectSheet(account: account, building: building) }
         .confirmationDialog("Verbindung zu Home Assistant trennen?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
             Button("Trennen und Daten löschen", role: .destructive) { Task { await disconnect() } }
         } message: { Text("Alle übernommenen Werte dieses Gebäudes werden gelöscht. Home Assistant sendet danach nichts mehr.") }
         .task {
             await reload()
+            if appMode && hasLocalAccess { await syncNow(quiet: true) }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(link?.status == "pending" ? 5 : 30)) } catch { return }
                 if scenePhase == .active && !busy { await reload(keepEdits: true) }
@@ -102,16 +109,30 @@ struct HomeAssistantImportView: View {
                 if overview.isOwner {
                     if let pairing { pairingCard(pairing) }
                     else {
-                        Text("Übernimm Sensorwerte, Geräte und Bereiche direkt aus deinem Home Assistant. Home Assistant muss dafür nicht aus dem Internet erreichbar sein.").font(.subheadline).foregroundStyle(.secondary)
-                        Button { Task { await createCode() } } label: { Label(link?.status == "pending" ? "Neuen Kopplungscode erzeugen" : "Kopplungscode erzeugen", systemImage: "link.badge.plus") }.disabled(busy)
+                        Text("Übernimm Sensorwerte, Geräte und Bereiche aus deinem Home Assistant. Du meldest dich einfach mit deinem Home-Assistant-Konto an – nichts installieren, nichts kopieren.").font(.subheadline).foregroundStyle(.secondary)
+                        Button { connecting = true } label: { Label("Mit Home Assistant verbinden", systemImage: "link") }.buttonStyle(.borderedProminent).tint(d21Accent).disabled(busy)
+                        DisclosureGroup("Fortgeschritten: rund um die Uhr übertragen", isExpanded: $advanced) {
+                            Text("Die App gleicht Werte ab, wenn du sie öffnest. Für Werte rund um die Uhr kannst du stattdessen die Integration „KI trifft Gebäude“ in Home Assistant installieren und mit einem Code koppeln.").font(.footnote).foregroundStyle(.secondary)
+                            Button { Task { await createCode() } } label: { Label(link?.status == "pending" ? "Neuen Kopplungscode erzeugen" : "Kopplungscode erzeugen", systemImage: "link.badge.plus") }.disabled(busy)
+                        }.font(.subheadline)
                     }
                 } else { Text("Nur der Besitzer des Gebäudes kann Home Assistant verbinden.").font(.subheadline).foregroundStyle(.secondary) }
+            }
+            if active && appMode && owner {
+                if hasLocalAccess {
+                    Button { Task { await syncNow(quiet: false) } } label: { HStack { Label(syncing ? "Wird abgeglichen …" : "Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath"); if syncing { Spacer(); ProgressView() } } }.disabled(syncing || busy)
+                    Text("Werte werden abgeglichen, wenn du die App öffnest – im selben WLAN wie Home Assistant oder unterwegs über Home Assistant Cloud. Fehlende Stunden holt die App aus dem Verlauf von Home Assistant nach.").font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Button { connecting = true } label: { Label("Auf diesem iPhone bei Home Assistant anmelden", systemImage: "person.badge.key") }
+                    Text("Die Home-Assistant-Anmeldung liegt nur auf dem iPhone, mit dem verbunden wurde.").font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
     }
     private var statusDetail: String {
         guard let link else { return building.name }
         if link.status == "pending" { return "Code in Home Assistant eingeben" }
+        if link.mode == "app", let synced = HAMetric.date(link.last_push_at) { return [link.instance_name.isEmpty ? "Home Assistant" : link.instance_name, "abgeglichen " + synced.formatted(.relative(presentation: .named))].joined(separator: " · ") }
         var parts = [link.instance_name.isEmpty ? "Home Assistant" : link.instance_name]
         if !link.ha_version.isEmpty { parts.append(link.ha_version) }
         if let push = HAMetric.date(link.last_push_at) { parts.append("zuletzt " + push.formatted(.relative(presentation: .named))) }
@@ -211,7 +232,7 @@ struct HomeAssistantImportView: View {
     }
     private func reload(keepEdits: Bool = false) async {
         guard !loading else { return }; loading = true; defer { loading = false }
-        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant"); apply(value, keepEdits: keepEdits); problem = nil }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant"); apply(value, keepEdits: keepEdits); hasLocalAccess = HACredentials.load(building.id, account: account) != nil; problem = nil }
         catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func createCode() async {
@@ -221,7 +242,7 @@ struct HomeAssistantImportView: View {
     }
     private func saveSelection() async {
         guard !busy, let link else { return }; busy = true; defer { busy = false }
-        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/entities", method: "PUT", body: ["selected": Array(selection).sorted(), "revision": link.revision]); apply(value, keepMapping: true); problem = nil; notice = "Auswahl gespeichert. Home Assistant sendet ab dem nächsten Abgleich (spätestens in einer Minute)." }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/entities", method: "PUT", body: ["selected": Array(selection).sorted(), "revision": link.revision]); apply(value, keepMapping: true); problem = nil; notice = appMode ? "Auswahl gespeichert." : "Auswahl gespeichert. Home Assistant sendet ab dem nächsten Abgleich (spätestens in einer Minute)."; if appMode && hasLocalAccess { busy = false; await syncNow(quiet: false) } }
         catch { problem = error.localizedDescription }
     }
     private func saveMapping() async {
@@ -231,9 +252,14 @@ struct HomeAssistantImportView: View {
         do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/areas", method: "PUT", body: ["mapping": body, "revision": link.revision]); apply(value, keepSelection: true); problem = nil; notice = "Raumzuordnung gespeichert." }
         catch { problem = error.localizedDescription }
     }
+    private func syncNow(quiet: Bool) async {
+        guard !syncing else { return }; syncing = true; defer { syncing = false }
+        do { let result = try await HASync.sync(account: account, building: building.id, refreshInventory: !quiet); if !quiet { notice = result.stored == 1 ? "1 neuer Wert übernommen." : "\(result.stored) neue Werte übernommen." }; await reload(keepEdits: true) }
+        catch { if !quiet || problem == nil { problem = error.localizedDescription } }
+    }
     private func disconnect() async {
         guard !busy else { return }; busy = true; defer { busy = false }
-        do { let _: [String: Bool] = try await account.request("buildings/\(building.id)/home-assistant", method: "DELETE"); pairing = nil; notice = "Verbindung getrennt und Daten gelöscht."; await reload() }
+        do { let _: [String: Bool] = try await account.request("buildings/\(building.id)/home-assistant", method: "DELETE"); await HASync.disconnect(account: account, building: building.id); pairing = nil; notice = "Verbindung getrennt und Daten gelöscht."; await reload() }
         catch { problem = error.localizedDescription }
     }
 }
@@ -267,5 +293,53 @@ struct HAEntityHistoryView: View {
             do { history = try await account.request("buildings/\(building.id)/home-assistant/history?entity_id=\(entity.entity_id)&hours=\(hours)"); problem = nil }
             catch { if !Task.isCancelled { problem = error.localizedDescription } }
         }
+    }
+}
+
+/// Verbinden in drei Schritten: Home Assistant finden, anmelden, fertig.
+struct HAConnectSheet: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var discovery = HADiscovery()
+    @State private var manual = ""
+    @State private var busy = false
+    @State private var problem: String?
+    @State private var login = HALogin()
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Label("Dein iPhone sucht Home Assistant im WLAN. Danach meldest du dich mit deinem Home-Assistant-Konto an.", systemImage: "wifi").font(.subheadline)
+                }
+                Section("Gefunden") {
+                    if discovery.found.isEmpty {
+                        HStack { ProgressView(); Text("Suche im WLAN …").foregroundStyle(.secondary) }
+                    }
+                    ForEach(discovery.found) { instance in
+                        Button { Task { await connect(instance.url) } } label: {
+                            HStack { Image(systemName: "house.fill").foregroundStyle(d21Accent); VStack(alignment: .leading) { Text(instance.name).foregroundStyle(.primary); Text(instance.url.absoluteString).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.tertiary) }
+                        }.disabled(busy)
+                    }
+                }
+                Section {
+                    TextField("z. B. homeassistant.local:8123", text: $manual).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                    Button("Mit dieser Adresse verbinden") { if let url = HASetup.normalize(manual) { Task { await connect(url) } } else { problem = "Bitte eine Adresse wie homeassistant.local:8123 eingeben." } }.disabled(busy || manual.isEmpty)
+                } header: { Text("Nicht gefunden?") } footer: { Text("Die Adresse steht in Home Assistant unter Einstellungen → System → Netzwerk. Unterwegs funktioniert auch deine Home-Assistant-Cloud-Adresse (Nabu Casa).") }
+                if busy { Section { HStack { ProgressView(); Text("Verbinde …") } } }
+                if let problem { Section { Text(problem).foregroundStyle(.red) } }
+                Section { Text("Übernommen werden nur Sensoren für Temperatur, Luftfeuchte, CO₂, Leistung und Energie. Welche, wählst du im nächsten Schritt aus.").font(.footnote).foregroundStyle(.secondary) }
+            }
+            .navigationTitle("Home Assistant verbinden").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(busy) } }
+            .interactiveDismissDisabled(busy)
+            .onAppear { discovery.start() }
+            .onDisappear { discovery.stop() }
+        }
+    }
+    private func connect(_ url: URL) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { try await HASync.connect(account: account, building: building, url: url, login: login); dismiss() }
+        catch { problem = error.localizedDescription }
     }
 }

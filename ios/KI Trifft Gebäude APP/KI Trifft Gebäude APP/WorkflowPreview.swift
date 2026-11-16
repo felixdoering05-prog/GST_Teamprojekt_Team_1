@@ -21,6 +21,7 @@ enum WorkflowPreview {
     static var sceneState: [String:Any] = ["hidden":[],"colors":[:],"lights":[]]
     // Home-Assistant-Import: "none" → "pending" (Code erzeugt) → beim nächsten Laden "active" (simulierte Kopplung).
     static var haStatus = "none"
+    static var haMode = "app"
     static var haSelected: Set<String> = ["sensor.besprechung_temperatur"]
     static var haMapping: [String:String] = ["besprechung":"room-1"]
     static var haRevision = 1
@@ -36,7 +37,7 @@ enum WorkflowPreview {
             ["entity_id":"sensor.hauszaehler_energie","name":"Hauszähler","metric":"energy","unit":"kWh","device_id":"wb","area_id":"technik","value":18234.6]
         ].map { e in var item = e; let on = haSelected.contains(e["entity_id"] as! String); item["selected"] = on
             item["latest"] = on ? ["value":e["value"]!,"measured_at":iso.string(from: now.addingTimeInterval(-40))] as Any : NSNull(); item["value"] = nil; return item }
-        let link: Any = haStatus == "none" ? NSNull() : ["id":"preview-link","status":haStatus,"instance_name":"Zuhause","ha_version":"2026.11.2","revision":haRevision,"paired_at":iso.string(from: now.addingTimeInterval(-3600)),"last_inventory_at":iso.string(from: now.addingTimeInterval(-600)),"last_push_at":iso.string(from: now.addingTimeInterval(-40)),"pairing_expires_at":haStatus == "pending" ? iso.string(from: now.addingTimeInterval(600)) as Any : NSNull()]
+        let link: Any = haStatus == "none" ? NSNull() : ["id":"preview-link","status":haStatus,"mode":haMode,"instance_name":"Zuhause","ha_version":"2026.11.2","revision":haRevision,"paired_at":iso.string(from: now.addingTimeInterval(-3600)),"last_inventory_at":iso.string(from: now.addingTimeInterval(-600)),"last_push_at":iso.string(from: now.addingTimeInterval(-40)),"pairing_expires_at":haStatus == "pending" ? iso.string(from: now.addingTimeInterval(600)) as Any : NSNull()]
         let areas: [[String:Any]] = [["area_id":"besprechung","name":"Besprechung"],["area_id":"labor","name":"Labor"],["area_id":"technik","name":"Technikraum"]].map { a in var item = a; item["room_id"] = haMapping[a["area_id"] as! String] ?? NSNull(); return item }
         let active = haStatus == "active"
         return ["role":"owner","link":link,"limits":["entities":50],
@@ -136,7 +137,10 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.hasSuffix("/weather") { let now = ISO8601DateFormatter().string(from: Date()); result = ["location":["latitude":49.8667,"longitude":8.6383,"revision":1,"source":"preview"],"weather":["provider":"preview","kind":"forecast","current":["time":now,"temperature":11.4,"humidity":72,"cloud_cover":45,"wind_speed":9],"hourly":[],"fetched_at":now,"attribution":"Lokale Vorschau","source_url":"https://open-meteo.com/"]] }
         else if path.hasSuffix("/telemetry") { result = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(TelemetrySnapshot.demo()))) ?? [:] }
         else if path.contains("/home-assistant") {
-            if path.hasSuffix("/pairing") { WorkflowPreview.haStatus = "pending"; status = 201; result = ["link_id":"preview-link","code":"K7QX-M4TP","expires_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(600))] }
+            if path.hasSuffix("/app-connect") { WorkflowPreview.haStatus = "active"; WorkflowPreview.haMode = "app"; status = 201; result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/inventory") && method == "PUT" { result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/samples") && method == "POST" { status = 201; result = ["stored":(object["points"] as? [Any])?.count ?? 0,"ignored":0,"selected":Array(WorkflowPreview.haSelected)] }
+            else if path.hasSuffix("/pairing") { WorkflowPreview.haStatus = "pending"; WorkflowPreview.haMode = "bridge"; status = 201; result = ["link_id":"preview-link","code":"K7QX-M4TP","expires_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(600))] }
             else if path.hasSuffix("/history") {
                 let start = Date().addingTimeInterval(-24*3600), iso = ISO8601DateFormatter()
                 result = ["entity_id":"sensor.besprechung_temperatur","metric":"temperature","unit":"°C","truncated":false,"points":(0..<48).map { i in ["value":21 + sin(Double(i)/5) * 1.5,"measured_at":iso.string(from: start.addingTimeInterval(Double(i)*1800))] }]
