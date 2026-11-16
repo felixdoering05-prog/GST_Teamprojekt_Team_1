@@ -1,6 +1,7 @@
 const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
 const {accessibleBuilding,accessSQL,notifyBuilding}=require('./collaboration');
+const {campusBuildingID}=require('./campus');
 // Defect reports ("Mängel") per building: text, optional photo and an optional position in an IFC model
 // (model coordinates as used by the iOS viewer and room locator). Members may report and change the
 // status; reporter and owner may edit, replace the photo or delete.
@@ -71,7 +72,7 @@ function photoType(buffer){
  if(buffer.length>8&&buffer.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])))return 'image/png';
  return null;
 }
-function issuesRouter(db,requireAccount){
+function issuesRouter(db,requireAccount,campusOptions){
  const r=express.Router(),base='/buildings/:issueBuilding/issues';
  r.use(base,requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');if(!idOK(req.params.issueBuilding))return res.status(400).json({error:'Ungültiges Gebäude.'});next();});
  async function building(c,req,lock=false){const b=await accessibleBuilding(c,req.params.issueBuilding,req.account.id,lock);if(!b)fail('Gebäude nicht gefunden.',404);return b;}
@@ -101,7 +102,14 @@ function issuesRouter(db,requireAccount){
   const history=(await db.query(`SELECT h.revision,h.action,h.changes,h.occurred_at,u.name AS actor
    FROM app_issue_history h LEFT JOIN app_users u ON u.id=h.actor_id WHERE h.issue_id=$1
    ORDER BY h.revision DESC LIMIT 100`,[row.id])).rows.map(entry=>({...entry,actor:firstName(entry.actor)}));
-  res.json({...present(row,req.account.id,b.user_id),building_name:b.name,building_address:b.address,history});
+  // Older reports may carry only a room label. Use the building's current model for a name lookup.
+  // Stored coordinates and IFC IDs still belong exclusively to the originally linked document.
+  let location_model = row.document_id;
+  if (!location_model && row.room) {
+   const current = await db.query("SELECT id FROM app_documents WHERE building_id=$1 AND mime_type='application/x-step' ORDER BY id DESC LIMIT 1",[b.id]);
+   location_model = current.rows[0]?.id ?? (campusBuildingID(campusOptions) === String(b.id) ? 'campus-d21' : null);
+  }
+  res.json({...present(row,req.account.id,b.user_id),location_model,building_name:b.name,building_address:b.address,history});
  }));
  r.get(base,wrap(async(req,res)=>{
   const b=await building(db,req);

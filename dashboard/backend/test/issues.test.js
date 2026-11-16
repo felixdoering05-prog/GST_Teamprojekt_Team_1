@@ -14,15 +14,15 @@ before(async()=>{
  await pg.exec("CREATE TABLE app_documents(id SERIAL PRIMARY KEY,building_id INTEGER REFERENCES app_buildings(id) ON DELETE CASCADE,mime_type TEXT);INSERT INTO app_documents(building_id,mime_type) VALUES(1,'application/x-step'),(2,'application/x-step'),(1,'application/pdf')");
  await initCollaboration(db);await initAccountLimits(db);await initIssues(db);await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
  const app=express();app.use(express.json({limit:'16kb'}));
- app.use(issuesRouter(db,(req,res,next)=>{const id=Number(req.get('X-Test-User'));if(![1,2,3].includes(id))return res.sendStatus(401);req.account={id};next();}));
+ app.use(issuesRouter(db,(req,res,next)=>{const id=Number(req.get('X-Test-User'));if(![1,2,3].includes(id))return res.sendStatus(401);req.account={id};next();},{buildingID:3}));
  app.use((e,req,res,next)=>res.status(500).json({error:e.message}));
  server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base=`http://127.0.0.1:${server.address().port}/buildings/1/issues`;
 });
 after(async()=>{if(server)await new Promise(r=>server.close(r));if(db)await db.end()});
-async function call(user,{method='GET',suffix='',body,raw,type}={}){
+async function call(user,{method='GET',suffix='',body,raw,type,buildingID=1}={}){
  const headers={'X-Test-User':String(user)};let payload;
  if(raw){headers['Content-Type']=type||'image/jpeg';payload=raw;}else if(body){headers['Content-Type']='application/json';payload=JSON.stringify(body);}
- const r=await fetch(base+suffix,{method,headers,body:payload});
+ const r=await fetch(new URL(`/buildings/${buildingID}/issues${suffix}`,base),{method,headers,body:payload});
  const ct=r.headers.get('content-type')||'';return {status:r.status,type:ct,data:r.status===401?null:ct.includes('json')?await r.json():Buffer.from(await r.arrayBuffer())};
 }
 const issue=(extra={})=>({title:'Riss in der Wand',description:'Neben der Tür',room:'Raum 1.12',request_key:randomUUID(),...extra});
@@ -110,6 +110,25 @@ test('mobile posts reach the web overview once, with scoped detail, priority and
  } finally {
   await db.query("INSERT INTO app_building_members(building_id,user_id,status) VALUES(1,2,'accepted')");
  }
+});
+test('room-only details use the current model from the same building or the configured private campus',async()=>{
+ const legacy=(await call(2,{method:'POST',body:issue({room:'D21, 1. Stock, Raum 3'})})).data;
+ const suffix='/'+legacy.id;
+ const detail=(await call(1,{suffix})).data;
+ assert.equal(detail.location_model,1);
+ assert.equal(detail.document_id,null);
+ assert.equal(detail.point,null);
+ assert.equal(detail.room,'D21, 1. Stock, Raum 3');
+ assert.equal((await call(3,{suffix})).status,404);
+ const empty=(await call(1,{method:'POST',body:issue({room:''})})).data;
+ assert.equal((await call(1,{suffix:'/'+empty.id})).data.location_model,null);
+ const campus=await db.query("INSERT INTO app_buildings(user_id,name) VALUES(1,'Campus') RETURNING id");
+ const buildingID=campus.rows[0].id;
+ assert.equal(buildingID,3);
+ const report=(await call(1,{buildingID,method:'POST',body:issue()})).data;
+ assert.equal((await call(1,{buildingID,suffix:'/'+report.id})).data.location_model,'campus-d21');
+ assert.equal((await call(3,{buildingID,suffix:'/'+report.id})).status,404);
+ await db.query('DELETE FROM app_buildings WHERE id=$1',[buildingID]);
 });
 test('delete: reporter or owner only; issues disappear with the building',async()=>{
  const owner=(await call(1,{method:'POST',body:issue()})).data,member=(await call(2,{method:'POST',body:issue()})).data;

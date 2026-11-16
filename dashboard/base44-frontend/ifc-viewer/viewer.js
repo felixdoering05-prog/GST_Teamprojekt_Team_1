@@ -6,7 +6,7 @@ import { IfcAPI, IFCSITE, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENT
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 import { exampleIFC } from './example.js';
-import { resolveIssueLocation } from './issue-location.js';
+import { matchIssueRoom, resolveIssueLocation } from './issue-location.js';
 import { readStoreys, floorCut } from './storeys.js';
 import { addSurroundings } from './surroundings.js';
 import { addCampusMap } from './campus-map.js';
@@ -357,7 +357,7 @@ async function open() {
       if (slab.min.y > floor.base + (floor.top - floor.base) * .5) floor.ceiling = Math.min(floor.ceiling ?? Infinity, slab.min.y);
     }
   }
-  if (isCampus && !isRoomHeat) {
+  if (isCampus && !isRoomHeat && !readOnly) {
     const ground = storeys.find(floor => /^EG$|Erdgeschoss/i.test(floor.name))?.base ?? centeredBounds.min.y;
     campusEnvironment = addCampusMap(scene, { groundY: ground, subdued: isDashboard || isHeat });
     releaseSurroundings = () => campusEnvironment.dispose();
@@ -556,7 +556,8 @@ async function open() {
     const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
     const row = document.createElement('div'); row.className = 'room';
     const label = document.createElement('span');
-    label.textContent = [text(line.Name), text(line.LongName)].filter(Boolean).join(' · ') || `Raum ${n + 1}`;
+    const names = [text(line.Name), text(line.LongName)].filter(Boolean);
+    label.textContent = names.join(' · ') || `Raum ${n + 1}`;
     row.append(label);
     const meshes = [], heatMeshes = [], flat = api.GetFlatMesh(modelID, id);
     const floorID = spatial.assignments.get(id);
@@ -589,7 +590,7 @@ async function open() {
         }
       } finally { data.delete(); }
     }
-    if (readOnly) roomsByID.set(id, { name: label.textContent, meshes });
+    if (readOnly) roomsByID.set(id, { name: names.join(' · ') || `IFC-Raum #${id}`, aliases: names, meshes });
     heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
@@ -645,7 +646,7 @@ async function open() {
     explodeButton.setAttribute('aria-label', explodeButton.textContent);
     explodeButton.title = explodeButton.textContent;
     campusButton.setAttribute('aria-pressed', 'false');
-    if (isCampus || modelMap) {
+    if (!readOnly && (isCampus || modelMap)) {
       document.querySelector('#view-controls').prepend(campusButton);
       campusButton.textContent = 'Gelände';
       campusButton.setAttribute('aria-label', 'Gelände anzeigen');
@@ -670,9 +671,9 @@ async function open() {
     issueMarker.setAttribute('aria-hidden', 'true');
     issueMarker.hidden = true;
     if (readOnly) document.body.append(issueMarker);
-    let locatedIssue, issueMeshes = [];
+    let locatedIssue, roomLabelPosition, issueMeshes = [];
     updateLabels = () => {
-      const point = locatedIssue?.point;
+      const point = locatedIssue?.point || roomLabelPosition;
       const floor = locatedIssue?.floor;
       if (point && !campusVisible && (!floor || selectedFloor === null || selectedFloor === floor.id)) {
         placeLabel(issueMarker, point.clone().add(new THREE.Vector3(0, bimFloors.elevationOffset(floor?.id), 0)));
@@ -732,9 +733,14 @@ async function open() {
         let point = rawPoint && [rawPoint.x, rawPoint.y, rawPoint.z].every(Number.isFinite)
           ? new THREE.Vector3(rawPoint.x, rawPoint.y, rawPoint.z) : null;
         point = point && modelRegion.containsPoint(point) ? root.localToWorld(point) : null;
-        const room = roomsByID.get(focus.spaceID);
         const element = appearance.elements.get(focus.elementID);
-        locatedIssue = resolveIssueLocation({ focus, floors, assignments: spatial.assignments, room, element, point });
+        const textMatch = !focus.spaceID && !focus.elementID && !focus.point && focus.location
+          ? matchIssueRoom({ location: focus.location, building: focus.building, floors, assignments: spatial.assignments, rooms: roomsByID })
+          : null;
+        const spaceID = focus.spaceID ?? textMatch?.spaceID;
+        const room = roomsByID.get(spaceID);
+        locatedIssue = resolveIssueLocation({ focus: { ...focus, spaceID }, floors, assignments: spatial.assignments,
+          room, element, point, textFloor: textMatch?.floor });
         if (!locatedIssue) return;
         selectedFloor = locatedIssue.floor?.id ?? null;
         exploded = false;
@@ -743,19 +749,26 @@ async function open() {
         issueMeshes = room?.meshes || [];
         issueMeshes.forEach(mesh => { mesh.visible = true; });
         if (element) appearance.select(focus.elementID);
-        issueMarker.textContent = `#${focus.id}`;
+        const roomBounds = new THREE.Box3();
+        for (const mesh of issueMeshes) roomBounds.union(boundsByMesh.get(mesh) || new THREE.Box3().setFromObject(mesh));
+        roomLabelPosition = roomBounds.isEmpty() ? null : roomBounds.getCenter(new THREE.Vector3());
+        issueMarker.dataset.kind = point ? 'point' : 'room';
+        issueMarker.textContent = room ? `#${focus.id} · ${room.name}` : `#${focus.id}`;
         const target = new THREE.Box3();
         if (point) {
           const radius = Math.max(1.5, Math.min(6, span * .055));
           target.setFromCenterAndSize(point, new THREE.Vector3(radius, radius, radius));
-        } else for (const mesh of element || issueMeshes) {
+        } else if (!roomBounds.isEmpty()) {
+          target.copy(roomBounds);
+        } else for (const mesh of element || []) {
           target.union(boundsByMesh.get(mesh) || new THREE.Box3().setFromObject(mesh));
         }
-        if (!target.isEmpty()) bimCamera.fit(target, { cut: selectedFloor !== null });
+        if (!target.isEmpty()) bimCamera.fit(target, { cut: selectedFloor !== null, top: !point && Boolean(roomLabelPosition) && selectedFloor !== null });
         const line = element ? api.GetLine(modelID, focus.elementID, false) : null;
         window.parent.postMessage({ type: 'd21-issue-location', location: {
           floor: locatedIssue.floor?.name,
           room: room?.name,
+          roomHighlighted: Boolean(roomLabelPosition),
           element: element ? text(line?.Name) || `IFC-Element #${focus.elementID}` : null,
           point: Boolean(point),
         } }, location.origin);

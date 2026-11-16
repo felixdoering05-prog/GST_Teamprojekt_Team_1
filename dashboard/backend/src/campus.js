@@ -5,13 +5,18 @@ const { accessibleBuilding } = require('./collaboration');
 const MAX_MODEL = 20 * 1024 * 1024;
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 
+function campusBuildingID(options = {}) {
+  const id = String(options.buildingID ?? process.env.D21_CAMPUS_BUILDING_ID ?? '');
+  return /^[1-9]\d*$/.test(id) && Number(id) <= 2147483647 ? id : null;
+}
+
 // The original is a private read-only deployment file, never a frontend build asset or DB upload.
 function campusRouter(db, requireAccount, options = {}) {
   const router = express.Router();
   router.use(requireAccount, (req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
   const model = async (req, res) => {
-    const buildingID = String(options.buildingID ?? process.env.D21_CAMPUS_BUILDING_ID ?? '');
-    if (!/^[1-9]\d*$/.test(buildingID) || Number(buildingID) > 2147483647) {
+    const buildingID = campusBuildingID(options);
+    if (!buildingID) {
       res.status(503).json({error:'Das D21-Campusmodell ist auf dem Projektserver nicht konfiguriert.'}); return null;
     }
     const configuredBuilding = (await db.query('SELECT id FROM app_buildings WHERE id=$1', [buildingID])).rows[0];
@@ -47,4 +52,4 @@ function campusRouter(db, requireAccount, options = {}) {
   }));
   return router;
 }
-module.exports = { campusRouter, MAX_MODEL };
+module.exports = { campusRouter, campusBuildingID, MAX_MODEL };

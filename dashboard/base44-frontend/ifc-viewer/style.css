@@ -219,8 +219,15 @@ body:has(#map-attribution:not([hidden])) #tools, body:has(#map-attribution:not([
   font-size: 1rem;
   font-weight: 700;
   pointer-events: none;
+  max-width: min(16rem, 48vw);
+  overflow-wrap: anywhere;
 }
-.issue-marker::before {
+.issue-marker[data-kind="room"] {
+  transform: translate(-50%, -50%);
+  background: #1e5b57;
+  text-align: center;
+}
+.issue-marker[data-kind="point"]::before {
   content: '';
   position: absolute;
   width: .5em;
