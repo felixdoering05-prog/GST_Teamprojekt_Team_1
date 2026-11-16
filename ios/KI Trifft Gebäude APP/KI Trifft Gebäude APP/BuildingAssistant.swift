@@ -79,6 +79,7 @@ struct BuildingAssistantView: View {
             // Keep the pinned input bar from covering half of the conversation at the largest text sizes.
             composer.dynamicTypeSize(...DynamicTypeSize.accessibility1)
         }
+        .onAppear { if question.isEmpty, let prefilled = AppRouter.shared.takeQuestion(for: building.id) { question = prefilled } }
         .task { await load() }
         .onDisappear { sendTask?.cancel() }
         .sheet(isPresented: $showInfo) { information }

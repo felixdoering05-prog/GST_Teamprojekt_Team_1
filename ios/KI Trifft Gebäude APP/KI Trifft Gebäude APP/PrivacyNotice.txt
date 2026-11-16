@@ -1,5 +1,5 @@
 Datenschutzhinweise zum externen Test
-Stand: 12. November 2026
+Stand: 16. November 2026
 
 Verantwortlicher und Support
 Felix Döring
@@ -32,6 +32,10 @@ Ist ein Modell auf der Karte platziert, lädt die App für den Kartenboden einen
 
 Mängelmelder (ab Version 1.0.128)
 Mängel meldest du mit Titel, optionaler Beschreibung, Raum oder Ort und optional einem Foto. Kommt die Position aus „Wo bin ich?“ oder aus einem Tipp im 3D-Modell, wird sie als Punkt im IFC-Modell gespeichert, nicht als GPS-Standort. Fotos werden vor dem Hochladen verkleinert und neu gespeichert; eingebettete Standort- und Kameradaten werden dabei entfernt. Meldung, Foto, Ort, Status und dein Vorname sind für alle akzeptierten Mitglieder des Gebäudes sichtbar; sie erhalten eine Mitteilung über neue Meldungen. Löschen können die meldende Person und der Eigentümer des Gebäudes. Bitte fotografiere keine Personen.
+
+Widget und Siri-Kurzbefehle (ab Version 1.0.130)
+Das optionale Home-Bildschirm-Widget zeigt für ein Gebäude den letzten Innen-Messwert (Temperatur, CO₂), das zuletzt auf dem Projektserver gespeicherte Wetter und die Zahl ungelesener Mitteilungen. Dafür schreibt die App nach dem Laden eine kleine Zusammenfassung (Gebäudenamen und -nummern, diese Werte, keine Adressen, Dateien, Nachrichtentexte oder Zugangsdaten) in einen geschützten Speicherbereich auf dem iPhone, den nur die App und ihr Widget lesen können. Das Widget hat keine eigene Anmeldung und stellt keine Serververbindung her. Der Home-Bildschirm ist für alle sichtbar, die dein entsperrtes iPhone sehen; entferne das Widget, wenn du das nicht möchtest. Beim Abmelden oder Löschen des Kontos wird die Zusammenfassung gelöscht.
+Siri und Kurzbefehle öffnen nur die App: „Frag mein Gebäude …“ trägt die Frage in den Gebäude-Assistenten ein, gesendet wird sie erst nach deinem Tipp auf Senden. Die Spracherkennung der Siri-Eingabe erfolgt durch Apple nach dessen Bedingungen. Für die Gebäudeauswahl kennt Siri nur die Gebäudenamen aus der Zusammenfassung.
 
 Lokale Speicherung und Sicherheit
 Sitzungen und Website-Zugangsdaten liegen im iOS-Schlüsselbund und sind an den eingestellten HTTPS-Server einschließlich Port gebunden. Lokale Upload-Entwürfe sind kontogebunden. Eine eigene Werbeverfolgung oder Werbe-ID wird nicht eingesetzt. Die Verbindung zum Projektserver erfolgt per HTTPS. Technische API-Statistiken dienen dem Betrieb und werden nach 30 Tagen bereinigt; sie enthalten keine vollständigen Anfrageinhalte.

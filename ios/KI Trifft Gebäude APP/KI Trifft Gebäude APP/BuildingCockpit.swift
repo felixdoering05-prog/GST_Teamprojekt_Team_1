@@ -165,6 +165,7 @@ struct BuildingCockpit: View {
         do {
             let data: TelemetrySnapshot = try await account.request("buildings/\(building.id)/telemetry?source=real")
             guard !Task.isCancelled else { return }
+            WidgetSnapshotWriter.telemetry(data, buildingID: building.id)
             #if DEBUG
             if WorkflowPreview.enabled { snapshot = data; problem = nil; return }
             #endif

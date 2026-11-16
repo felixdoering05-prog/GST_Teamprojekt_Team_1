@@ -9,8 +9,35 @@
 
 
 
+/* Begin PBXBuildFile section */
+		000000000000000151000000 /* KTGWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000121 /* KTGWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		000000000000000160000000 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000200000000;
+			remoteInfo = KTGWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		000000000000000150000000 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				000000000000000151000000 /* KTGWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* KI Trifft Gebäude APP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "KI Trifft Gebäude APP.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000121 /* KTGWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KTGWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -19,10 +46,25 @@
 			path = "KI Trifft Gebäude APP";
 			sourceTree = "<group>";
 		};
+		000000000000000000000011 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		000000000000000000000012 /* KI Trifft Gebäude Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "KI Trifft Gebäude Widgets";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		000000000000000230000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -34,6 +76,8 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* KI Trifft Gebäude APP */,
+				000000000000000000000011 /* Shared */,
+				000000000000000000000012 /* KI Trifft Gebäude Widgets */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -42,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* KI Trifft Gebäude APP.app */,
+				000000000000000000000121 /* KTGWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -56,16 +101,40 @@
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
+				000000000000000150000000 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
+			dependencies = (
+				000000000000000161000000 /* PBXTargetDependency */,
+			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* KI Trifft Gebäude APP */,
+				000000000000000000000011 /* Shared */,
 			);
 			name = "KI Trifft Gebäude APP";
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* KI Trifft Gebäude APP.app */;
 			productType = "com.apple.product-type.application";
+		};
+		000000000000000200000000 /* KTGWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000210000000 /* Build configuration list for PBXNativeTarget "KTGWidgets" */;
+			buildPhases = (
+				000000000000000220000000 /* Sources */,
+				000000000000000230000000 /* Frameworks */,
+				000000000000000240000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				000000000000000000000011 /* Shared */,
+				000000000000000000000012 /* KI Trifft Gebäude Widgets */,
+			);
+			name = KTGWidgets;
+			productName = KTGWidgets;
+			productReference = 000000000000000000000121 /* KTGWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -80,6 +149,9 @@
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					000000000000000200000000 = {
+						CreatedOnToolsVersion = 27.2;
+					};
 				};
 			};
 			buildConfigurationList = 000000000000000010000000 /* Build configuration list for PBXProject "KI Trifft Gebäude APP" */;
@@ -87,6 +159,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				de,
 				Base,
 			);
 			mainGroup = 000000000000000000000001;
@@ -97,12 +170,18 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* KI Trifft Gebäude APP */,
+				000000000000000200000000 /* KTGWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		000000000000000240000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -115,7 +194,20 @@
 			files = (
 			);
 		};
+		000000000000000220000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		000000000000000161000000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000200000000 /* KTGWidgets */;
+			targetProxy = 000000000000000160000000 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "KI Trifft Gebäude APP" */ = {
@@ -178,6 +270,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				KTG_BUNDLE_ID_BASE = de.kitrifftgebaeude.d21team1;
 				PROJECT_UNIQUE_VALUE = VBGBFEG5;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -241,6 +334,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				KTG_BUNDLE_ID_BASE = de.kitrifftgebaeude.d21team1;
 				PROJECT_UNIQUE_VALUE = VBGBFEG5;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -254,13 +348,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
                 DEVELOPMENT_TEAM = 95A5TC5H7R;
-				CURRENT_PROJECT_VERSION = 129;
+				CURRENT_PROJECT_VERSION = 130;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
                 INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“ und den Raumscan verwendet. Bilder und Tiefendaten werden ausschließlich auf dem iPhone ausgewertet und nicht gespeichert oder hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
@@ -277,8 +373,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.129;
-				PRODUCT_BUNDLE_IDENTIFIER = de.kitrifftgebaeude.d21team1;
+				MARKETING_VERSION = 1.0.130;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -298,13 +394,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
                 DEVELOPMENT_TEAM = 95A5TC5H7R;
-				CURRENT_PROJECT_VERSION = 129;
+				CURRENT_PROJECT_VERSION = 130;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportFiles/AppInfo.plist;
                 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
                 INFOPLIST_KEY_NSCameraUsageDescription = "Die Kamera wird für „Wo bin ich?“ und den Raumscan verwendet. Bilder und Tiefendaten werden ausschließlich auf dem iPhone ausgewertet und nicht gespeichert oder hochgeladen.";
                 INFOPLIST_KEY_NSMicrophoneUsageDescription = "Das Mikrofon wird nur während eines Sprachgesprächs mit dem Gebäude-Assistenten verwendet. Deine Stimme wird verschlüsselt an den Sprachdienst übertragen und nicht auf dem iPhone gespeichert.";
@@ -321,8 +419,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.129;
-				PRODUCT_BUNDLE_IDENTIFIER = de.kitrifftgebaeude.d21team1;
+				MARKETING_VERSION = 1.0.130;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -331,6 +429,70 @@
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		000000000000000211000000 /* Debug configuration for PBXNativeTarget "KTGWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/Widgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 130;
+				DEVELOPMENT_TEAM = 95A5TC5H7R;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "KI trifft Gebäude";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.130;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		000000000000000212000000 /* Release configuration for PBXNativeTarget "KTGWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SupportFiles/Widgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 130;
+				DEVELOPMENT_TEAM = 95A5TC5H7R;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportFiles/WidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "KI trifft Gebäude";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.130;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KTG_BUNDLE_ID_BASE).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -354,6 +516,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "KI Trifft Gebäude APP" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "KI Trifft Gebäude APP" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		000000000000000210000000 /* Build configuration list for PBXNativeTarget "KTGWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000211000000 /* Debug configuration for PBXNativeTarget "KTGWidgets" */,
+				000000000000000212000000 /* Release configuration for PBXNativeTarget "KTGWidgets" */,
 			);
 			defaultConfigurationName = Release;
 		};

@@ -17,6 +17,7 @@ import SwiftUI
                         .transition(.opacity)
                 }
             }
+            .onOpenURL { AppRouter.shared.open($0) }
             .task {
                 guard showingIntro else { return }
                 #if DEBUG
