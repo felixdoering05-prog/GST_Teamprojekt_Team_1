@@ -1,5 +1,15 @@
 # Änderungsverlauf
 
+## 16. November 2026 – Home-Assistant-Import (iPhone 1.0.132)
+
+- Neue Custom Integration `integrations/home-assistant/custom_components/ki_trifft_gebaeude`: Home Assistant schickt ausgewählte Sensorwerte (Temperatur, Luftfeuchte, CO₂, Leistung, Energie) samt Geräten und Bereichen an den Projektserver. Die Verbindung geht nur nach außen. Auf dem Server liegt kein HA-Token, nur der Hash eines eigenen Brückenschlüssels.
+- Koppeln per Einmalcode (10 Minuten). Nur der Eigentümer verbindet, wählt Sensoren aus, ordnet HA-Bereiche den Räumen zu und trennt. Mitglieder sehen die Werte.
+- Laufende Werte (höchstens 1 Paket pro Minute) und einmalig ein Verlauf mit Stundenwerten der letzten 7 Tage. Temperatur, Feuchte und CO₂ erscheinen auch in Sensorik, Wärmekarte und KI-Auswertung.
+- Neue Limits pro Konto: `ha_links`, `ha_entities`, `ha_values_hour`, `ha_history_day`.
+- iPhone: Geräte → Home Assistant.
+
+[Anleitung](integrations/home-assistant/README.md)
+
 ## 16. November 2026 – Widget und Siri-Kurzbefehle (iPhone 1.0.130)
 
 - Home-Bildschirm-Widget (klein/mittel): Lieblingsgebäude mit letztem Temperatur-/CO₂-Messwert, gespeichertem Wetter und ungelesenen Mitteilungen. Tippen öffnet das Gebäude.
