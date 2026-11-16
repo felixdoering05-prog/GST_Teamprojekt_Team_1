@@ -1,3 +1,4 @@
+const {accountLimits,reached}=require('./account-limits');
 const {buildingLocation}=require('./building-weather');
 const express=require('express');
 const {accessibleBuilding}=require('./collaboration');
@@ -65,7 +66,8 @@ function mapViewRouter(db,requireAccount,options={}){
   const c=await db.connect();let view,requestID;
   try{await c.query('BEGIN');await c.query('SELECT id FROM app_ai_budget WHERE id=1 FOR UPDATE');
    const count=(await c.query("SELECT COUNT(*) n,COUNT(*) FILTER(WHERE user_id=$1 AND created_at>now()-interval '1 hour') own,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '25 seconds') active FROM app_map_requests WHERE created_at>now()-interval '24 hours'",[req.account.id])).rows[0];
-   if(Number(count.n)>=100||Number(count.own)>=10)fail('Kartenkontingent erreicht. Bitte gespeicherte Umgebung verwenden oder später erneut laden.',429);if(Number(count.active)>=2)fail('Kartendienst gerade ausgelastet. Bitte später erneut laden.',503);
+   const lim=await accountLimits(c,req.account.id);
+   if(!lim.projectExempt()&&Number(count.n)>=100||reached(lim,'map_hour',count.own))fail('Kartenkontingent erreicht. Bitte gespeicherte Umgebung verwenden oder später erneut laden.',429);if(Number(count.active)>=2)fail('Kartendienst gerade ausgelastet. Bitte später erneut laden.',503);
    const rows=await c.query("UPDATE app_model_map_views SET last_attempt=now() WHERE document_id=$1 AND revision=$2 AND (last_attempt IS NULL OR last_attempt<now()-interval '1 minute') RETURNING latitude,longitude,revision",[doc.id,b.revision]);
    view=rows.rows[0];
    if(!view){

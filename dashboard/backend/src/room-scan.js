@@ -1,9 +1,10 @@
+const {accountLimits,reached}=require('./account-limits');
 // LiDAR room scans from the iPhone (Apple RoomPlan). The app uploads the captured structure as JSON;
 // the ifc-worker (ifc-analysis/roomscan.py) builds an IFC4 draft that the person checks and adds to the building.
 // No AI provider is involved: room names and types are derived locally from RoomPlan labels and furniture.
 const express=require('express');
 const {accessibleBuilding,notifyBuilding}=require('./collaboration');
-const MAX_BODY=4*1024*1024,MAX_ACCOUNT=250*1024*1024;
+const MAX_BODY=4*1024*1024;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const CATEGORIES=['table','chair','sofa','bed','storage','fireplace','television','refrigerator','stove','oven','dishwasher','washerDryer','sink','toilet','bathtub','stairs','unknown'];
 const LABELS=['bathroom','bedroom','diningRoom','kitchen','livingRoom','unidentified'];
@@ -65,8 +66,9 @@ function roomScanRouter(db,requireAccount){
    const old=(await c.query('SELECT id,status,building_id FROM app_room_scan_jobs WHERE user_id=$1 AND request_key=$2',[req.account.id,key])).rows[0];
    if(old){if(old.building_id!==b.id)fail('Diese Anfrage-Kennung wurde bereits verwendet.',409);return {id:old.id,status:old.status};}
    const usage=(await c.query("SELECT COUNT(*) FILTER(WHERE status IN ('queued','running','ready')) active,COUNT(*) FILTER(WHERE created_at>now()-interval '24 hours') today FROM app_room_scan_jobs WHERE user_id=$1",[req.account.id])).rows[0];
-   if(Number(usage.active)>=3)fail('Bitte zuerst die vorhandenen Raumscans prüfen oder verwerfen.',429);
-   if(Number(usage.today)>=20)fail('Limit erreicht: 20 Raumscans pro Konto innerhalb von 24 Stunden.',429);
+   const lim=await accountLimits(c,req.account.id);
+   if(reached(lim,'scan_open',usage.active))fail('Bitte zuerst die vorhandenen Raumscans prüfen oder verwerfen.',429);
+   if(reached(lim,'scan_day',usage.today))fail(`Limit erreicht: ${lim.values.scan_day} Raumscans pro Konto innerhalb von 24 Stunden.`,429);
    return (await c.query("INSERT INTO app_room_scan_jobs(building_id,user_id,request_key,status,payload) VALUES($1,$2,$3,'queued',$4) RETURNING id,status",[b.id,req.account.id,key,JSON.stringify(payload)])).rows[0];
   }));
  }));
@@ -84,7 +86,8 @@ function roomScanRouter(db,requireAccount){
    if(j.status!=='ready'||!j.output_ifc)fail('Der IFC-Entwurf ist noch nicht bereit.',409);
    const content=Buffer.from(j.output_ifc);
    const used=Number((await c.query('SELECT COALESCE(SUM(d.size),0) total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[b.user_id])).rows[0].total);
-   if(used+content.length>MAX_ACCOUNT)fail('Speicherlimit erreicht: maximal 250 MB pro Konto.',413);
+   const storage=(await accountLimits(c,b.user_id)).values.storage_mb;
+   if(storage!==null&&used+content.length>storage*1024*1024)fail(`Speicherlimit erreicht: maximal ${storage} MB pro Konto.`,413);
    const storey=String(j.summary?.storey||'Scan').replace(/[\x00-\x1f\x7f/\\]/g,'_').slice(0,60);
    const name=`Raumscan ${storey} ${new Date().toISOString().slice(0,10)}.ifc`;
    const d=(await c.query("INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,'application/x-step',$3,$4,$5) RETURNING id,building_id,name,mime_type,size,created_at",[b.id,name,content.length,content,j.id])).rows[0];

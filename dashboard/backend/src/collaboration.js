@@ -1,3 +1,4 @@
+const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const idOK=v=>/^[1-9]\d*$/.test(String(v))&&Number(v)<=2147483647;
@@ -66,7 +67,7 @@ function collaborationRouter(db,requireAccount){
    await c.query('SELECT id FROM app_users WHERE id=$1 FOR NO KEY UPDATE',[req.account.id]);
    await c.query("DELETE FROM app_contact_attempts WHERE created_at<now()-interval '1 hour'");
    const count=Number((await c.query('SELECT COUNT(*) AS count FROM app_contact_attempts WHERE user_id=$1',[req.account.id])).rows[0].count);
-   if(count>=20)return false;
+   if(reached(await accountLimits(c,req.account.id),'contact_hour',count))return false;
    await c.query('INSERT INTO app_contact_attempts(user_id) VALUES($1)',[req.account.id]);
    const target=(await c.query('SELECT id FROM app_users WHERE email=$1',[email])).rows[0];
    if(target&&target.id!==req.account.id){
@@ -170,7 +171,7 @@ function collaborationRouter(db,requireAccount){
    const existing=(await c.query('SELECT id,text,deleted_at FROM app_messages WHERE building_id=$1 AND user_id=$2 AND request_key=$3',[b.id,req.account.id,key])).rows[0];
    if(existing){if(existing.deleted_at)return fail(res,409,'Diese Nachricht wurde gelöscht.');if(existing.text!==text)return fail(res,409,'Die Kennung gehört zu einer anderen Nachricht.');return res.json({ok:true});}
    const count=Number((await c.query("SELECT COUNT(*) AS count FROM app_messages WHERE user_id=$1 AND building_id=$2 AND created_at>now()-interval '1 minute'",[req.account.id,b.id])).rows[0].count);
-   if(count>=20)return fail(res,429,'Bitte kurz warten, bevor du weitere Nachrichten sendest.');
+   if(reached(await accountLimits(c,req.account.id),'message_minute',count))return fail(res,429,'Bitte kurz warten, bevor du weitere Nachrichten sendest.');
    const inserted=(await c.query('INSERT INTO app_messages(building_id,user_id,text,request_key) VALUES($1,$2,$3,$4) RETURNING id',[b.id,req.account.id,text,key])).rows[0];
    await notifyBuilding(c,b.id,req.account.id,'chat',`${firstName(req.account.name)}: ${text.slice(0,120)}`,inserted.id);res.status(201).json({ok:true});
   });

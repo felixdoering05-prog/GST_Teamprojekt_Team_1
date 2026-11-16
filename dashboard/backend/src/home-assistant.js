@@ -1,3 +1,4 @@
+const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
 const {readFileSync}=require('node:fs');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -63,7 +64,7 @@ async function executeLampCommand(db,user,lightKey,body,requestKey,options={}){
    await c.query('BEGIN');await c.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[user]);
    if((await c.query('SELECT 1 FROM app_ha_commands WHERE user_id=$1 AND request_key=$2',[user,key.toLowerCase()])).rows.length)fail('Dieser Auftrag wurde bereits angenommen. Status neu laden; nicht automatisch wiederholen.',409);
    const count=(await c.query("SELECT COUNT(*) n,COUNT(*) FILTER(WHERE status='processing' AND created_at>now()-interval '30 seconds') active FROM app_ha_commands WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[user])).rows[0];
-   if(Number(count.n)>=20)fail('Bitte kurz warten: maximal 20 Lichtaufträge pro Minute.',429);if(Number(count.active)>0)fail('Ein Lichtauftrag läuft noch. Bitte zuerst den Status neu laden.',409);
+   if(reached(await accountLimits(c,user),'light_minute',count.n))fail('Bitte kurz warten: maximal 20 Lichtaufträge pro Minute.',429);if(Number(count.active)>0)fail('Ein Lichtauftrag läuft noch. Bitte zuerst den Status neu laden.',409);
    id=(await c.query('INSERT INTO app_ha_commands(user_id,light_key,request_key,desired_on) VALUES($1,$2,$3,$4) RETURNING id',[user,light.key,key.toLowerCase(),b.on])).rows[0].id;
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}

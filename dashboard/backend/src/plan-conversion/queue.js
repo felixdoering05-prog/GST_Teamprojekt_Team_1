@@ -1,3 +1,4 @@
+const {accountLimits,reached}=require('../account-limits');
 const {randomUUID,createHash}=require('node:crypto');
 const {aiEnabled}=require('../ai-preferences');
 const IMAGE_MIME=['image/jpeg','image/png','image/webp','application/pdf'];
@@ -30,10 +31,10 @@ function dailyLimit(user){
 async function quota(db,user){
  await db.query('SELECT pg_advisory_xact_lock(610211)');
  const r=(await db.query("SELECT COUNT(*) FILTER(WHERE user_id=$1) own,COUNT(*) total FROM (SELECT user_id,created_at FROM app_plan_jobs UNION ALL SELECT user_id,created_at FROM app_plan_deleted_usage) usage WHERE created_at>now()-interval '24 hours'",[user])).rows[0];
- const limit=dailyLimit(user);
- if(limit!==null&&Number(r.own)>=limit)fail('Plananalyse-Limit erreicht: 3 Aufträge pro Konto innerhalb von 24 Stunden.',429);
- if(Number(r.total)>=10)fail('Projektlimit erreicht: 10 Planaufträge innerhalb von 24 Stunden.',429);
- if(Number((await db.query("SELECT count(*) n FROM app_plan_jobs WHERE user_id=$1 AND status IN ('queued','running','ready')",[user])).rows[0].n)>=3)fail('Bitte zuerst vorhandene Planentwürfe prüfen.',429);
+ const lim=await accountLimits(db,user);
+ if(reached(lim,'plan_day',r.own))fail(`Plananalyse-Limit erreicht: ${lim.values.plan_day} Aufträge pro Konto innerhalb von 24 Stunden.`,429);
+ if(!lim.projectExempt('plan')&&Number(r.total)>=10)fail('Projektlimit erreicht: 10 Planaufträge innerhalb von 24 Stunden.',429);
+ if(reached(lim,'plan_open',(await db.query("SELECT count(*) n FROM app_plan_jobs WHERE user_id=$1 AND status IN ('queued','running','ready')",[user])).rows[0].n))fail('Bitte zuerst vorhandene Planentwürfe prüfen.',429);
 }
 async function enqueue(db,{building,user,documentIds,requestKey,automatic=false}){
  const previous=(await db.query('SELECT id,status,building_id,document_ids FROM app_plan_jobs WHERE user_id=$1 AND request_key=$2',[user,requestKey])).rows[0];if(previous){if(!Array.isArray(documentIds))fail('Bitte Plan-Dateien wählen.');if(previous.building_id!==building||JSON.stringify([...previous.document_ids].sort())!==JSON.stringify([...documentIds].sort()))fail('Diese Auftragskennung wurde bereits für andere Pläne verwendet.',409);return {id:previous.id,status:previous.status};}
