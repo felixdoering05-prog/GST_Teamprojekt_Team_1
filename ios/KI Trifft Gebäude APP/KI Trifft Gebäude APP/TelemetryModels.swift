@@ -9,6 +9,8 @@ enum TelemetryMetric: String, Codable, CaseIterable {
 struct TelemetrySensor: Codable, Identifiable {
     let id: String; let sensor_code: String; let name: String; let metric: TelemetryMetric; let unit: String
     let source: String
+    var room_id: String? = nil
+    var room_name: String? = nil
 }
 enum MeasurementTime {
     static func parse(_ text: String) -> Date? {

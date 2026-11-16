@@ -38,6 +38,7 @@ struct TelemetryDashboardView: View {
     @State private var operation = UUID()
     @State private var importCSV = false
     @State private var addSensor = false
+    @State private var assignSensor = false
     @Environment(\.scenePhase) private var scenePhase
     init(account: AccountModel?, building: Building?, localDemo: Bool = false, initialArea: String = "Dashboard") {
         self.account = account; self.building = building; self.localDemo = localDemo
@@ -74,8 +75,9 @@ struct TelemetryDashboardView: View {
             }
         }
         .toolbar {
-            if !localDemo { ToolbarItem(placement: .topBarTrailing) { Menu { Button("CSV-Sensor anlegen", systemImage: "sensor") { addSensor = true }; Button("Messwerte aus CSV importieren", systemImage: "square.and.arrow.down") { importCSV = true } } label: { Label("Daten", systemImage: "plus.circle") } } }
+            if !localDemo { ToolbarItem(placement: .topBarTrailing) { Menu { Button("Sensor einem Raum zuordnen", systemImage: "link") { assignSensor = true }; Button("CSV-Sensor anlegen", systemImage: "sensor") { addSensor = true }; Button("Messwerte aus CSV importieren", systemImage: "square.and.arrow.down") { importCSV = true } } label: { Label("Daten", systemImage: "plus.circle") } } }
         }
+        .sheet(isPresented: $assignSensor, onDismiss: { Task { await load() } }) { if let account, let building { SensorRoomAssignmentView(account: account, building: building, sensors: (espSnapshot?.sensors ?? []) + (snapshot?.sensors ?? [])) } }
         .sheet(isPresented: $addSensor, onDismiss: { Task { await load() } }) { if let account, let building { AddTelemetrySensorView(account: account, building: building, source: source) } }
         .sheet(isPresented: $importCSV, onDismiss: { Task { await load() } }) { if let account, let building { MeasurementImportView(account: account, building: building, source: source, sensors: snapshot?.sensors ?? []) } }
         .refreshable { await load() }
@@ -184,6 +186,7 @@ struct ESP32TelemetryContent: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Label(sensor.name, systemImage: sensor.metric.symbol).font(.subheadline)
+                        Text(sensor.room_name.flatMap { $0.isEmpty ? nil : $0 } ?? "Noch keinem Raum zugeordnet").font(.caption).foregroundStyle(.secondary)
                         if let point = data.latest(sensor) {
                             Text(point.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
                             if Date().timeIntervalSince(point.date) > 180 { Label("Seit über drei Minuten kein neuer Wert", systemImage: "clock").font(.caption).foregroundStyle(.orange) }
@@ -287,5 +290,67 @@ struct MeasurementImportView: View {
         struct Result: Decodable { let imported: Int }
         do { let result: Result = try await account.request("buildings/\(building.id)/telemetry/import", method: "POST", body: ["source":source,"rows":rows.map(\.json),"request_key":requestKey.uuidString.lowercased()]); imported = result.imported; problem = nil }
         catch { problem = error.localizedDescription }
+    }
+}
+
+
+private struct SensorRoom: Decodable, Identifiable {
+    let id: String
+    let name: String?
+    let room_code: String?
+    var title: String { [room_code, name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ") }
+}
+private struct SensorRoomPage: Decodable { let rooms: [SensorRoom]; let truncated: Bool }
+private struct SensorRoomResult: Decodable { let id: String; let room_id: String }
+struct SensorRoomAssignmentView: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let sensors: [TelemetrySensor]
+    @Environment(\.dismiss) private var dismiss
+    @State private var rooms: [SensorRoom] = []
+    @State private var sensorID = ""
+    @State private var roomID = ""
+    @State private var roomName = ""
+    @State private var problem: String?
+    @State private var loading = true
+    @State private var saving = false
+    private var uniqueSensors: [TelemetrySensor] { var seen = Set<String>(); return sensors.filter { !$0.id.hasPrefix("ha:") && seen.insert($0.id).inserted } }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section { Label(building.name, systemImage: "building.2"); Text("Die Zuordnung gilt für alle Personen, mit denen dieses Gebäude geteilt ist. Bereits gespeicherte Messwerte behalten ihren bisherigen Raum.").font(.footnote).foregroundStyle(.secondary) }
+                if loading { ProgressView("Räume laden …") }
+                else if uniqueSensors.isEmpty { Text("Noch keine Sensoren verbunden. Verbinde zuerst deinen ESP32 oder lege einen CSV-Sensor an.") }
+                else {
+                    Section("Sensor und Raum verbinden") {
+                        Picker("Sensor", selection: $sensorID) { ForEach(uniqueSensors) { Text($0.name).tag($0.id) } }
+                        Picker("Raum", selection: $roomID) { Text("Raum auswählen").tag(""); Text("Neuen Raum anlegen …").tag("__new__"); ForEach(rooms) { Text($0.title).tag($0.id) } }
+                        if roomID == "__new__" { TextField("Raumname, z. B. Arbeitszimmer", text: $roomName) }
+                        Button(saving ? "Wird gespeichert …" : "Zuordnung speichern") { Task { await save() } }.disabled(saving || sensorID.isEmpty || roomID.isEmpty || (roomID == "__new__" && (roomName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || roomName.count > 80)))
+                    }
+                }
+                if let problem { Section { Text(problem).foregroundStyle(.red); Button("Erneut laden") { Task { await load() } }.disabled(saving) } }
+            }.navigationTitle("Sensor zuordnen").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() }.disabled(saving) } }
+                .task { await load() }
+                .onChange(of: sensorID) { _, id in roomID = uniqueSensors.first { $0.id == id }?.room_id ?? "" }
+                .interactiveDismissDisabled(saving)
+        }
+    }
+    private func load() async {
+        loading = true; problem = nil
+        do {
+            let page: SensorRoomPage = try await account.request("buildings/\(building.id)/telemetry/rooms")
+            rooms = page.rooms
+            if sensorID.isEmpty { sensorID = uniqueSensors.first?.id ?? ""; roomID = uniqueSensors.first?.room_id ?? "" }
+            if page.truncated { problem = "Es werden die ersten 500 Räume angezeigt." }
+        } catch { problem = error.localizedDescription }
+        loading = false
+    }
+    private func save() async {
+        saving = true; problem = nil
+        do { let _: SensorRoomResult = try await account.request("buildings/\(building.id)/telemetry/sensors/\(sensorID)/room", method: "PUT", body: roomID == "__new__" ? ["room_name":roomName.trimmingCharacters(in: .whitespacesAndNewlines)] : ["room_id":roomID]); dismiss() }
+        catch { problem = error.localizedDescription }
+        saving = false
     }
 }

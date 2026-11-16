@@ -7,6 +7,12 @@
 - Neuer lesender Endpunkt `GET /documents/:id/sensor-overlay` liefert die neuesten Werte je IFC-Raum (nur mit Gebäudezugang, ohne Geräteschlüssel). `GET /buildings/:id/sensor-devices` listet Geräte ohne Schlüssel.
 - 3D-Ansicht (iPhone): kleines Popup über der Mitte des zugeordneten Raums mit Temperatur und Luftfeuchte, Aktualisierung alle 30 Sekunden, „alt“ nach drei Minuten ohne Werte. Die ESP32-Karte im Dashboard kennzeichnet echte Werte nicht mehr als simuliert.
 - Prüfung: neue Backend-Tests für Rechte, Revision, Raumprüfung, Messwertannahme und Overlay; Viewer-Tests für Eingabeprüfung und Formatierung. Der iOS-Build steht aus (lokales Xcode 16.1 kann das Projektformat nicht öffnen).
+## 16. November 2026 – Sensoren gemeinsam Räumen zuordnen (iPhone 1.0.138)
+
+- Unter Sensorik → Daten → Sensor einem Raum zuordnen lassen sich ESP32- und CSV-Sensoren mit vorhandenen Räumen verbinden. Ein neuer Raum kann direkt beim Zuordnen angelegt werden.
+- Das gewählte Gebäude ist der feste Rahmen: Räume und Sensoren anderer Gebäude werden abgewiesen. Eigentümer und angenommene Mitglieder sehen und bearbeiten dieselbe Zuordnung.
+- ESP32-Karten zeigen den Raumnamen. Neue Pakete übernehmen die aktuelle Zuordnung; historische Messwerte behalten ihren früheren Raum. Simulierte Werte bleiben ausdrücklich als Testwerte gekennzeichnet.
+- Home-Assistant-Sensoren behalten ihre eigene Bereich/Raum-Zuordnung im Home-Assistant-Import.
 
 ## 16. November 2026 – kitrifftgebäude.de ausschließlich für die Landingpage
 
