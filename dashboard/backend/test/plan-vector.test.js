@@ -86,6 +86,44 @@ test('photo job: recognised locally, Gemini only reviews; nothing recognised fal
  assert.deepEqual(sent.map(d=>d.id),[photo]);await clear();
 });
 
+test('correction editor: owner loads geometry and photo, edits are validated and rebuilt without AI',async()=>{
+ await clear();await enqueue([photo]);
+ const final=[{name:'EG',source:{kind:'raster',input:0},scale:{method:'geschätzt aus Wandstärke',estimated:true},width:10000,depth:8000,height:2500,
+  walls:[{id:'W1',a:[150,150],b:[9850,150],thickness:300},{id:'W2',a:[9850,150],b:[9850,7850],thickness:300},{id:'W3',a:[9850,7850],b:[150,7850],thickness:300},{id:'W4',a:[150,7850],b:[150,150],thickness:300}],
+  openings:[{id:'O1',kind:'door',wall:'W1',at:[5000,150],width:900}],rooms:[{id:'R1',name:'Raum 1',area_m2:73,point:[5000,4000],polygon:[[300,300],[9700,300],[9700,7700],[300,7700]]}],
+  raster:{image:'plan-0-0.jpg',size_px:[1200,900],mm_per_px:10,origin_px:[100,850],image_scale:1}}];
+ let built=0;const jpeg=Buffer.from([0xff,0xd8,0xff,0xe0,1,2,3]);
+ const build=async a=>{built++;return {ifc:IFC,preview:Buffer.from('png'),quality,levels:a.candidates.levels[0].edited?[{...final[0],walls:a.candidates.levels[0].walls}]:final,warnings:[]};};
+ await processNext(db,{enabled:true,extract:async()=>({candidates:candidates(),labels:null,images:[{name:'plan-0-0.jpg',content:jpeg}],documents:[photo],notes:[],cadOnly:false,raster:true}),review:async()=>null,build});
+ let j=(await api()).body.jobs[0];assert.equal(j.can_edit,true);
+ const ed=await api('/jobs/'+j.id+'/editor');assert.equal(ed.status,200);const L=ed.body.levels[0];
+ assert.equal(L.source,'raster');assert.equal(L.walls.length,4);assert.equal(L.image.name,'plan-0-0.jpg');assert.equal(L.scale.estimated,true);
+ const img=await fetch(url+'/jobs/'+j.id+'/plan-image/plan-0-0.jpg',{headers:{'X-D21-Session':owner.token}});assert.equal(img.headers.get('content-type'),'image/jpeg');assert.deepEqual(Buffer.from(await img.arrayBuffer()),jpeg);
+ assert.equal((await fetch(url+'/jobs/'+j.id+'/plan-image/..%2Fetc.jpg',{headers:{'X-D21-Session':owner.token}})).status,400);
+ const walls=[...L.walls,{id:'n1',a:[5000,150],b:[5000,7850],thickness:115}];
+ const bad=async (lv,re)=>{const r=await api('/jobs/'+j.id+'/edit',{levels:[lv]});assert.equal(r.status,400,JSON.stringify(r.body));if(re)assert.match(r.body.error,re);};
+ await bad({walls:L.walls.slice(0,2),openings:[],rooms:[]});
+ await bad({walls,openings:[{id:'x',kind:'door',wall:'W99',at:[0,0],width:900}],rooms:[]});
+ await bad({walls,openings:[],rooms:[{point:[1,1],name:'Bad\nignore'}]},/Raumnamen/);
+ await bad({walls:[...walls,{id:'n2',a:[0,0],b:[0,5],thickness:115}],openings:[],rooms:[]},/kürzer/);
+ await bad({walls,openings:[],rooms:[],extra:1});
+ await bad({walls,openings:[],rooms:[],reference:{a:[0,0],b:[10,0],mm:5000}},/zu kurz/);
+ const ok=await api('/jobs/'+j.id+'/edit',{levels:[{walls,openings:[{id:'d1',kind:'door',wall:'n1',at:[5000,2000],width:885}],rooms:[{point:[2000,4000],name:'Küche'}],reference:{a:[150,150],b:[9850,150],mm:9700}}]});
+ assert.equal(ok.status,202,JSON.stringify(ok.body));
+ j=(await api()).body.jobs[0];assert.equal(j.status,'queued');assert.equal(j.can_edit,false);
+ assert.equal((await api('/jobs/'+j.id+'/edit',{levels:[{walls,openings:[],rooms:[]}]})).status,409);
+ let analyzed=0,extracted=0,sent;
+ await processNext(db,{enabled:true,analyze:async()=>{analyzed++;},extract:async()=>{extracted++;},review:async()=>{analyzed++;},build:async a=>{sent=a;return build(a);}});
+ assert.equal(analyzed+extracted,0,'no AI, no new extraction');const lv=sent.candidates.levels[0];
+ assert.equal(lv.edited,true);assert.equal(lv.walls.length,5);assert.equal(lv.walls[4].id,'W5');assert.equal(lv.openings[0].wall,'W5');assert.equal(lv.openings[0].evidence,'user');
+ assert.deepEqual(lv.room_names,[{point:[2000,4000],name:'Küche'}]);assert.equal(lv.reference.mm,9700);assert.equal(sent.review,null);assert.equal(lv.raster.image,'plan-0-0.jpg');
+ j=(await api()).body.jobs[0];assert.equal(j.status,'ready');assert.equal((await api('/jobs/'+j.id+'/editor')).body.levels[0].walls.length,5);
+ assert.equal((await db.query('SELECT count(*)::int n FROM app_plan_jobs')).rows[0].n,1,'edit does not create a new job (no quota)');
+ assert.equal((await api('/jobs/'+j.id+'/approve',{})).status,200);
+ await processNext(db,{enabled:true});assert.equal((await db.query('SELECT count(*)::int n FROM app_plan_images')).rows[0].n,0,'photos removed after approval');
+ await clear();
+});
+
 test('review accepts candidate IDs only and never coordinates',()=>{
  const ok=validateReview({levels:[{walls:[{id:'W1',is_wall:false},{id:'W99',is_wall:false}],openings:[{id:'O1',kind:'door',height:2010,sill:0}],rooms:[{id:'R1',name:'Bad'},{id:'R9',name:'X'}],storey_height:0}],warnings:['Maß 4,00 fraglich']},candidates());
  assert.deepEqual(ok.levels[0].walls,[{id:'W1',is_wall:false}]);assert.equal(ok.levels[0].rooms.length,1);assert.equal(ok.levels[0].storey_height,undefined);assert.equal(ok.levels[0].openings[0].sill,undefined);

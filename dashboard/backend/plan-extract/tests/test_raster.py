@@ -100,6 +100,28 @@ class RasterPipeline(unittest.TestCase):
         self.assertEqual([w['id'] for w in level['walls']], [w['id'] for w in before['walls']])
         self.assertAlmostEqual(level['rooms'][0]['area_m2'], before['rooms'][0]['area_m2'] * 4, delta=0.05)
 
+    def test_user_edits_rebuild_rooms_names_and_scale(self):
+        res = extract([(os.path.join(FIX, 'rechteck-gefuellt.png'), 'image')], self.work)
+        ifc, png = os.path.join(self.work, 'm.ifc'), os.path.join(self.work, 'p.png')
+        final = build(res, None, ifc, png)['levels'][0]
+        inner = [w for w in final['walls'] if w['thickness'] < 200]
+        walls = [w for w in final['walls'] if w is not inner[0]]          # user deletes one partition
+        big = max(final['rooms'], key=lambda r: r['area_m2'])
+        level = {**final, 'walls': walls, 'openings': [o for o in final['openings'] if o['wall'] != inner[0]['id']] + [
+                     {'kind': 'window', 'wall': walls[0]['id'], 'at': walls[0]['a'], 'width': 1000, 'height': 1350, 'sill': 900, 'height_assumed': True, 'evidence': 'user'}],
+                 'rooms': [], 'texts': [], 'edited': True, 'room_names': [{'point': big['point'], 'name': 'Wohnküche'}],
+                 'reference': {'a': [0, 0], 'b': [final['width'], 0], 'mm': 10000}}
+        out = build({'version': 1, 'levels': [level], 'skipped': []}, None, ifc, png)
+        lv = out['levels'][0]
+        self.assertEqual(len(lv['rooms']), len(final['rooms']) - 1)
+        self.assertIn('Wohnküche', [r['name'] for r in lv['rooms']])
+        self.assertAlmostEqual(lv['width'], 10000, delta=50)
+        self.assertEqual(lv['scale']['method'], 'Strecke vom Nutzer')
+        self.assertFalse(out['quality']['levels'][0]['scale']['estimated'])
+        self.assertTrue(any(o['evidence'] == 'user' for o in lv['openings']))
+        self.assertTrue(any('korrigiert' in w for w in out['warnings']))
+        self.assertGreaterEqual(len(ifcopenshell.open(ifc).by_type('IfcWindow')), 1)
+
     def test_unreadable_and_empty_images(self):
         bad = os.path.join(self.work, 'x.png')
         with open(bad, 'wb') as f:

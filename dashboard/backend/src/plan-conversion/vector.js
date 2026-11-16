@@ -8,6 +8,7 @@ const {promisify}=require('node:util');
 const {PlanError}=require('./model');
 const exec=promisify(execFile);
 const KIND={'application/pdf':'pdf','application/acad':'dwg','application/dxf':'dxf','image/jpeg':'image','image/png':'image','image/webp':'image'};
+const IMAGE_NAME=/^plan-\d-\d{1,3}\.jpg$/;
 const EXT={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
 const CAD=new Set(['application/acad','application/dxf']);
 const SKIP_REASONS={unreadable_image:'Bild nicht lesbar',too_large:'Bild zu groß',no_vectors:'enthält keine Vektorlinien',no_scale:'Maßstab nicht bestimmbar',no_walls:'keine Wände erkannt',too_complex:'zu umfangreich',
@@ -29,8 +30,9 @@ async function extractVector(docs,{runner=exec,...opts}={}){
  try{
   const inputs=[];
   for(const [i,d] of usable.entries()){const file=path.join(dir,`plan-${i}.${EXT[d.mime_type]||KIND[d.mime_type]}`);await fs.writeFile(file,d.content,{mode:0o600});inputs.push(`${file}:${KIND[d.mime_type]}`);}
-  const out=path.join(dir,'candidates.json'),labels=path.join(dir,'labels.png');
-  await run(runner,python,script,['extract','--out',out,'--labels',labels,...inputs],dir);
+  const out=path.join(dir,'candidates.json'),labels=path.join(dir,'labels.png'),plans=path.join(dir,'plans');
+  await fs.mkdir(plans,{mode:0o700});
+  await run(runner,python,script,['extract','--out',out,'--labels',labels,'--plan-dir',plans,...inputs],dir);
   const candidates=JSON.parse((await readLimited(out,4*1024*1024)).toString('utf8'));
   if(!Array.isArray(candidates.levels))throw new PlanError('model_generation_failed');
   const png=candidates.levels.length?await readLimited(labels,3*1024*1024).catch(()=>null):null;
@@ -38,7 +40,11 @@ async function extractVector(docs,{runner=exec,...opts}={}){
   // Documents that actually produced a level (a photo next to a measured PDF is not used).
   const used=[...new Set(candidates.levels.map(l=>usable[l.source?.input]?.id).filter(Boolean))];
   const notes=[...skippedNotes(candidates.skipped,usable),...(Array.isArray(candidates.notes)?candidates.notes.filter(n=>typeof n==='string').map(n=>n.slice(0,200)):[])].slice(0,6);
-  return {candidates,labels:png,documents:used.length?used:usable.map(d=>d.id),notes,cadOnly:docs.every(d=>CAD.has(d.mime_type)),raster};
+  // Plan photos for the editor: fixed name pattern only, JPEG magic checked, at most 4 x 2 MiB.
+  const images=[];
+  for(const l of candidates.levels){const name=l.raster?.image;if(typeof name!=='string'||!IMAGE_NAME.test(name)||images.some(i=>i.name===name)||images.length>=4)continue;
+   const content=await readLimited(path.join(plans,name),2*1024*1024).catch(()=>null);if(content&&content.subarray(0,3).toString('hex')==='ffd8ff')images.push({name,content});else delete l.raster.image;}
+  return {candidates,labels:png,images,documents:used.length?used:usable.map(d=>d.id),notes,cadOnly:docs.every(d=>CAD.has(d.mime_type)),raster};
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 }
 async function buildVector(analysis,{runner=exec,...opts}={}){
@@ -53,7 +59,7 @@ async function buildVector(analysis,{runner=exec,...opts}={}){
   const output=await readLimited(ifc,4*1024*1024),png=await readLimited(preview,2*1024*1024),rep=JSON.parse((await readLimited(report,1024*1024)).toString('utf8'));
   if(!output.subarray(0,64).toString().includes('ISO-10303-21')||png.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')throw new PlanError('model_generation_failed');
   const levels=rep.quality?.levels;if(!Array.isArray(levels)||!levels.length||levels.every(l=>!l.walls))throw new PlanError('model_generation_failed');
-  return {ifc:output,preview:png,quality:rep.quality,warnings:[...(rep.summary||[]),...(rep.warnings||[])].filter(s=>typeof s==='string').map(s=>s.slice(0,300)).slice(0,24)};
+  return {ifc:output,preview:png,quality:rep.quality,levels:Array.isArray(rep.levels)?rep.levels:null,warnings:[...(rep.summary||[]),...(rep.warnings||[])].filter(s=>typeof s==='string').map(s=>s.slice(0,300)).slice(0,24)};
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 }
-module.exports={extractVector,buildVector,KIND,CAD};
+module.exports={extractVector,buildVector,KIND,CAD,IMAGE_NAME};

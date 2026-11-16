@@ -183,13 +183,89 @@ def summary_lines(reports):
     return out
 
 
+def _normalise_origin(level):
+    """Moves the geometry so the lower left outer corner is (0, 0); keeps the photo overlay in place."""
+    xs = [c for w in level['walls'] for c in (w['a'][0] - w['thickness'] / 2, w['b'][0] - w['thickness'] / 2, w['a'][0] + w['thickness'] / 2, w['b'][0] + w['thickness'] / 2)]
+    ys = [c for w in level['walls'] for c in (w['a'][1] - w['thickness'] / 2, w['b'][1] - w['thickness'] / 2, w['a'][1] + w['thickness'] / 2, w['b'][1] + w['thickness'] / 2)]
+    dx, dy = min(xs), min(ys)
+    move = lambda p: [round(p[0] - dx, 1), round(p[1] - dy, 1)]
+    for w in level['walls']:
+        w['a'], w['b'] = move(w['a']), move(w['b'])
+    for o in level['openings']:
+        o['at'] = move(o['at'])
+    for r in level.get('room_names', []):
+        r['point'] = move(r['point'])
+    level['width'], level['depth'] = round(max(xs) - dx, 1), round(max(ys) - dy, 1)
+    ras = level.get('raster')
+    if ras and ras.get('mm_per_px'):
+        ras['origin_px'] = [round(ras['origin_px'][0] + dx / ras['mm_per_px'], 2), round(ras['origin_px'][1] - dy / ras['mm_per_px'], 2)]
+
+
+def apply_edits(level, warnings):
+    """A level corrected by the user in the editor: optional known distance (scale), openings re-hosted on the edited
+    walls, rooms recomputed from the walls and named from the user's labels."""
+    from .raster import rescale
+    level = copy.deepcopy(level)
+    for w in level['walls']:
+        w['length'] = round(math.dist(w['a'], w['b']), 1)
+    ref = level.pop('reference', None)
+    if ref:
+        d = math.dist(ref['a'], ref['b'])
+        if d > 50 and _num(ref.get('mm'), 100, 200000):
+            f = ref['mm'] / d
+            level.setdefault('rooms', [])
+            rescale(level, f)
+            for r in level.get('room_names', []):
+                r['point'] = [r['point'][0] * f, r['point'][1] * f]
+            label = f"{ref['mm'] / 1000:.2f} m".replace('.', ',')
+            level['scale'].update({'method': 'Strecke vom Nutzer', 'estimated': False, 'support': 1,
+                                   'evidence': [{'label': label, 'value_mm': ref['mm'], 'measured_mm': ref['mm'], 'error_pct': 0.0}]})
+            level['warnings'] = [w for w in level.get('warnings', []) if not w.startswith('Maßstab geschätzt')]
+    kept, lost = [], 0
+    for o in level['openings']:
+        h = _rehost(o, level['walls'])
+        if h:
+            kept.append(h)
+        else:
+            lost += 1
+    level['openings'] = [{**o, 'id': f'O{k}'} for k, o in enumerate(kept, 1)]
+    if lost:
+        warnings.append(f'{level["name"]}: {lost} Öffnung(en) ohne passende Wand entfallen.')
+    _normalise_origin(level)
+    rooms, outline = find_rooms(level['walls'], [])
+    names = level.pop('room_names', [])
+    for r in rooms:
+        poly = Polygon(r['polygon'])
+        hit = next((n for n in names if poly.contains(Point(n['point']))), None)
+        if hit:
+            r['name'], r['name_source'] = hit['name'], 'user'
+    level['rooms'] = rooms
+    level['boundary'] = [[round(x, 1), round(y, 1)] for x, y in list(outline.exterior.coords)[:-1]] if outline is not None and hasattr(outline, 'exterior') else []
+    level['warnings'] = [w for w in level.get('warnings', []) if not w.startswith('Außenwand nicht vollständig')] + ['Von Hand korrigiert.']
+    return level
+
+
+def final_levels(levels):
+    """Geometry after review/edits, for the correction editor (JSON-safe)."""
+    keep = ('name', 'source', 'scale', 'width', 'depth', 'height', 'height_assumed', 'elevation', 'walls', 'openings', 'raster')
+    out = []
+    for l in levels:
+        lv = {k: copy.deepcopy(l[k]) for k in keep if k in l}
+        lv['rooms'] = [{k: r[k] for k in ('id', 'name', 'name_source', 'area_m2', 'point', 'polygon')} for r in l['rooms']]
+        out.append(lv)
+    return out
+
+
 def build(candidates, review, ifc_path, preview_path):
     warnings = []
     levels = []
     reviews = (review or {}).get('levels', [])
     for i, level in enumerate(candidates['levels']):
-        r = reviews[i] if i < len(reviews) and isinstance(reviews[i], dict) else None
-        lv = apply_review(level, r, warnings)
+        if level.get('edited'):
+            lv = apply_edits(level, warnings)
+        else:
+            r = reviews[i] if i < len(reviews) and isinstance(reviews[i], dict) else None
+            lv = apply_review(level, r, warnings)
         lv['exterior_walls'] = _exterior_walls(lv)
         levels.append(lv)
     reports = [report(l) for l in levels]
@@ -198,4 +274,4 @@ def build(candidates, review, ifc_path, preview_path):
     for l in levels:
         warnings += [w for w in l.get('warnings', [])]
     return {'version': 1, 'quality': {'levels': reports, 'grade': 'gut' if all(r['grade'] == 'gut' for r in reports) else 'prüfen'},
-            'summary': summary_lines(reports), 'warnings': warnings[:20]}
+            'summary': summary_lines(reports), 'warnings': warnings[:20], 'levels': final_levels(levels)}

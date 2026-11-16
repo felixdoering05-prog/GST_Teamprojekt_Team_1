@@ -16,7 +16,7 @@ async function vectorJob(c,job,docs,{extract,review,build}){
  try{checked=await review(docs,vector);}catch(e){notes.push(`KI-Prüfung übersprungen (${REVIEW_SKIPPED[e.code]||'keine gültige Antwort'}); Ergebnis rein aus der Vermessung.`);}
  if(checked)notes.push(...checked.review.warnings.map(w=>'KI-Hinweis: '+w));else if(vector.cadOnly)notes.push('CAD-Datei lokal vermessen, nicht an Google übertragen.');
  if(docs.some(d=>!vector.documents.includes(d.id)))notes.push(vector.raster?'Nicht alle Bilder wurden verwendet (doppelt oder kein Grundriss erkennbar).':'Fotos/Bilder in diesem Auftrag wurden nicht verwendet, weil ein vermessbarer Vektorplan vorliegt.');
- return {analysis:{source:'vector',version:1,candidates:vector.candidates,review:checked?.review||null,notes},model:checked?.model||(vector.raster?'raster-erkennung':'vektor-vermessung'),usage:checked?.usage||null};
+ return {images:vector.images||[],analysis:{source:'vector',version:1,candidates:vector.candidates,review:checked?.review||null,notes},model:checked?.model||(vector.raster?'raster-erkennung':'vektor-vermessung'),usage:checked?.usage||null};
 }
 async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=extractVector,review=reviewCandidates,build=buildVector,enabled=process.env.PLAN_CONVERSION_ENABLED==='true'}={}){
  if(!enabled)return false;
@@ -26,6 +26,7 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=
  try{
   await c.query("UPDATE app_plan_jobs SET status='failed',failure_code='worker_interrupted',lease_until=NULL,updated_at=now() WHERE status='running' AND lease_until<now()");
   await c.query("UPDATE app_plan_jobs SET status=CASE WHEN status='ready' THEN 'rejected' ELSE status END,output_ifc=NULL,preview_png=NULL,analysis=NULL,updated_at=now() WHERE (output_ifc IS NOT NULL OR preview_png IS NOT NULL OR analysis IS NOT NULL) AND updated_at<now()-interval '7 days'");
+  await c.query("DELETE FROM app_plan_images i USING app_plan_jobs j WHERE j.id=i.job_id AND (j.analysis IS NULL OR j.status IN ('approved','rejected','cancelled','failed'))");
   job=(await c.query("UPDATE app_plan_jobs SET status='running',attempts=attempts+1,phase=CASE WHEN phase='model_only' THEN 'model_only' ELSE 'analysis' END,lease_until=now()+interval '5 minutes',updated_at=now() WHERE id=(SELECT id FROM app_plan_jobs WHERE status='queued' AND not_before<=now() ORDER BY created_at LIMIT 1) RETURNING *")).rows[0];if(!job)return false;
   if(!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
   let docs;try{docs=await Q.validateSources(c,job);}catch{throw Object.assign(Error(),{code:'source_changed'});}
@@ -39,6 +40,7 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=
   }
   const updated=await c.query("UPDATE app_plan_jobs SET analysis=$2,provider_model=$3,usage=$4,phase='modelling',updated_at=now() WHERE id=$1 AND status='running' RETURNING id",[job.id,JSON.stringify(analysis.geometry),analysis.model,JSON.stringify(analysis.usage)]);
   if(!updated.rows.length||!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
+  if(vector?.images){await c.query('DELETE FROM app_plan_images WHERE job_id=$1',[job.id]);for(const img of vector.images)await c.query('INSERT INTO app_plan_images(job_id,name,content) VALUES($1,$2,$3)',[job.id,img.name,img.content]);}
   if(vector){result=await build(vector.analysis);quality=result.quality||null;}else result=await generate(analysis.geometry);
   await c.query('BEGIN');
   try{
@@ -46,7 +48,8 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=
    await c.query('SELECT id FROM app_buildings WHERE id=$1 FOR UPDATE',[job.building_id]);
    if(!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
    try{await Q.validateSources(c,job);}catch{throw Object.assign(Error(),{code:'source_changed'});}
-   const completed=await c.query("UPDATE app_plan_jobs SET status='ready',phase='review',output_ifc=$2,preview_png=$3,warnings=$4,quality=$5,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running' RETURNING id",[job.id,result.ifc,result.preview,JSON.stringify(vector?[...result.warnings,...(analysis.warnings||[])]:[...(analysis.warnings||[]),...result.warnings]),quality?JSON.stringify(quality):null]);
+   // final = geometry after review/edits, shown in the correction editor.
+   const completed=await c.query("UPDATE app_plan_jobs SET status='ready',phase='review',output_ifc=$2,preview_png=$3,warnings=$4,quality=$5,analysis=CASE WHEN $6::jsonb IS NULL THEN analysis ELSE analysis||jsonb_build_object('final',$6::jsonb) END,lease_until=NULL,updated_at=now() WHERE id=$1 AND status='running' RETURNING id",[job.id,result.ifc,result.preview,JSON.stringify(vector?[...result.warnings,...(analysis.warnings||[])]:[...(analysis.warnings||[]),...result.warnings]),quality?JSON.stringify(quality):null,vector&&result.levels?JSON.stringify(result.levels):null]);
    if(completed.rows.length)await c.query("INSERT INTO app_notifications(user_id,kind,title,building_id) VALUES($1,'plan_ready',$2,$3)",[job.user_id,'Dein 3D-Gebäudeentwurf ist fertig. Bitte vor der Übernahme prüfen.',job.building_id]);
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e;}
