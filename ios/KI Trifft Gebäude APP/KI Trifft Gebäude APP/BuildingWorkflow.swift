@@ -60,7 +60,8 @@ import UniformTypeIdentifiers
             throw APIError(status: 0, message: "Die Datei konnte lokal nicht vorgemerkt werden. Bitte erneut auswählen.")
         }
     }
-    func importFile(_ url: URL) throws {
+    /// asPlan: images are kept with more detail and listed as plans (floor plan photos/scans).
+    func importFile(_ url: URL, asPlan: Bool = false) throws {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 25 * 1024 * 1024 else { throw DraftStorageError.tooLarge }
@@ -68,7 +69,7 @@ import UniformTypeIdentifiers
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         if UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true {
             let stem = url.deletingPathExtension().lastPathComponent
-            try stage(PhotoPreparation.jpeg(data), name: String(stem.prefix(180)) + ".jpg", photo: true)
+            try stage(PhotoPreparation.jpeg(data, dimension: asPlan ? PlanImage.maxDimension : 2048), name: String(stem.prefix(180)) + ".jpg", photo: !asPlan)
         } else { try stage(data, name: url.lastPathComponent, photo: false) }
     }
     func removePending(_ item: DraftUpload) {
@@ -235,10 +236,11 @@ struct AddBuildingView: View {
                                     BuildingOptionTile(symbol: "camera.metering.matrix", color: .indigo, title: "Räume mit LiDAR scannen", subtitle: "Wände, Türen, Fenster und Möbel erfassen – daraus entsteht ein IFC-Modell")
                                 }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
                             }
+                            PlanCaptureButtons(flow: flow, tiles: true, disabled: locked)
                             Button { importing = true } label: {
-                                BuildingOptionTile(symbol: "doc.badge.plus", color: d21Accent, title: "Pläne oder IFC hochladen", subtitle: "Bemaßte PDF-Grundrisse, IFC (bis 20 MB) oder DWG")
+                                BuildingOptionTile(symbol: "doc.badge.plus", color: d21Accent, title: "IFC-Modell hochladen", subtitle: "Vorhandenes IFC (bis 20 MB) öffnet sich direkt in 3D")
                             }.buttonStyle(BuildingTileButtonStyle()).disabled(locked)
-                            Label("Aus PDF-Grundrissen kann im nächsten Schritt ein 3D-Entwurf auf dem Server entstehen. Ein IFC – hochgeladen oder gescannt – öffnet sich direkt in 3D.", systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
+                            Label("Aus Grundrissen – auch Fotos, Scans oder Skizzen – kann im nächsten Schritt ein 3D-Entwurf auf dem Server entstehen. Ein IFC – hochgeladen oder gescannt – öffnet sich direkt in 3D.", systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
                             #if DEBUG
                             if WorkflowPreview.enabled { Button("Testplan hinzufügen") { Task { do { try flow.stage(WorkflowPreview.pdf, name: "Grundriss.pdf", photo: false); await flow.uploadPending() } catch { flow.problem = error.localizedDescription } } } }
                             #endif

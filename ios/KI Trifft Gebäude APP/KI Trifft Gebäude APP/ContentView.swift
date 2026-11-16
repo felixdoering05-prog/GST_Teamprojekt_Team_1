@@ -590,6 +590,9 @@ struct AccountHomeView: View {
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProfile = false
+    #if DEBUG
+    @State private var planPreviewBuilding: Building?
+    #endif
     @State private var path: [Building] = []
     @State private var buildingPreview: Building?
     @State private var deletionTarget: Building?
@@ -682,6 +685,18 @@ struct AccountHomeView: View {
                 .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
                 .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Dashboard"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
+                #if DEBUG
+                .fullScreenCover(item: $planPreviewBuilding) { building in
+                    NavigationStack {
+                        if ProcessInfo.processInfo.arguments.contains("-D21PlanEditorPreview") { PlanEditorView(building: building, jobID: PlanEditorPreviewData.jobID, account: model, onSaved: {}) }
+                        else { PlanConversionView(building: building, account: model, onAdopt: {}) }
+                    }
+                }
+                .task(id: model.buildings.count) {
+                    let args = ProcessInfo.processInfo.arguments
+                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
+                }
+                #endif
                 .task { refreshDraft(); await HASync.syncAll(account: model) }
                 .onChange(of: model.buildings) { _, _ in refreshDraft() }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft(); Task { await HASync.syncAll(account: model) } } }

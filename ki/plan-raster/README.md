@@ -1,5 +1,7 @@
 # Raster-Grundrisse: Phase 3, eigenständiger Prototyp
 
+> **Stand 16.11.2026:** Der produktive Rasterweg liegt jetzt in `dashboard/backend/plan-extract/planextract/raster.py` und ist an die Plan-Pipeline angeschlossen. Messlatte und Vergleich mit diesem Prototyp: [docs/plan-raster-messung.md](../../docs/plan-raster-messung.md). Dieser Ordner bleibt als Referenz unverändert.
+
 Lokale CPU-Pipeline für PNG/JPG-Scans und Fotos. Keine Gemini-/Cloud-Aufrufe, kein Projektserver-Zugriff, keine automatischen Modell-Downloads. Nur dieser Ordner wird geändert. Die Einbindung in App/Produktivpipeline ist **noch nicht vorgenommen**.
 
 ## Installation und Nutzung

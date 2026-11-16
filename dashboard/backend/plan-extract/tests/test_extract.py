@@ -77,15 +77,19 @@ class FixturePlans(unittest.TestCase):
         self.assertEqual(level['detection'], 'layer')
         self.assertTrue(all(o['evidence'].startswith('block:') for o in level['openings']))
 
-    def test_text_only_pdf_is_left_to_raster_path(self):
+    def test_text_only_pdf_gives_no_model(self):
         res = extract([(os.path.join(FIX, 'nur-text.pdf'), 'pdf')], self.work)
         self.assertEqual(res['levels'], [])
-        self.assertEqual(res['skipped'][0]['reason'], 'no_vectors')
+        self.assertEqual(res['skipped'][0]['reason'], 'no_walls')
 
-    def test_scanned_pdf_with_vector_frame_is_left_to_raster_path(self):
+    def test_scanned_pdf_with_vector_frame_goes_the_raster_path(self):
+        # The page frame is not a building; the scanned image inside (two rooms) is recognised from pixels.
         res = extract([(os.path.join(FIX, 'scan-mit-rahmen.pdf'), 'pdf')], self.work)
-        self.assertEqual(res['levels'], [])
-        self.assertIn(res['skipped'][0]['reason'], ('raster_page', 'no_vectors', 'no_walls'))
+        self.assertEqual(len(res['levels']), 1)
+        level = res['levels'][0]
+        self.assertEqual(level['source']['kind'], 'raster')
+        self.assertEqual(len(level['rooms']), 2)
+        self.assertTrue(level['scale']['estimated'])
 
     def test_several_plans_become_storeys(self):
         res = extract([(os.path.join(FIX, 'haus-rechteck-1zu100.pdf'), 'pdf'), (os.path.join(FIX, 'haus-l-cm-ohne-einheit.dxf'), 'dxf')], self.work)

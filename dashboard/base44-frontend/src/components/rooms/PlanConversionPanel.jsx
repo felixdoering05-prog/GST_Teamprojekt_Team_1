@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {request} from '@/api/base44Client';
 import {Button} from '@/components/ui/button';
+import PlanEditor from './PlanEditor';
 const labels={queued:'Wartet auf Analyse',running:'Entwurf wird erstellt …',ready:'Entwurf prüfen',approved:'In Gebäudemappe übernommen',rejected:'Verworfen',failed:'Nicht abgeschlossen',cancelled:'Abgebrochen',needs_input:'Besserer Plan erforderlich'};
 function Preview({path}){
  const [url,setURL]=useState(null);
@@ -8,16 +9,16 @@ function Preview({path}){
  return url?<img src={url} alt="Vorläufiger IFC-Entwurf zur Prüfung" className="max-h-80 rounded-lg bg-white object-contain"/>:<p>Vorschau wird geladen …</p>;
 }
 export default function PlanConversionPanel({buildingId,onAdopt}){
- const [state,setState]=useState(null),[docs,setDocs]=useState([]),[selected,setSelected]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [editing,setEditing]=useState(null),[state,setState]=useState(null),[docs,setDocs]=useState([]),[selected,setSelected]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const base=`/buildings/${buildingId}/plan-conversion`;
- useEffect(()=>{let active=true;setState(null);setSelected([]);setError('');const load=async()=>{try{const [s,d]=await Promise.all([request(base),request(`/buildings/${buildingId}/documents`)]);if(active){setState(s);setDocs(d.filter(f=>['image/jpeg','image/png','image/webp','application/pdf'].includes(f.mime_type)));}}catch(e){if(active&&e.status!==404)setError(e.message);}};load();const timer=setInterval(load,7000);return()=>{active=false;clearInterval(timer);};},[base,buildingId]);
+ useEffect(()=>{let active=true;setState(null);setSelected([]);setError('');const load=async()=>{try{const [s,d]=await Promise.all([request(base),request(`/buildings/${buildingId}/documents`)]);if(active){setState(s);setDocs(d.filter(f=>['image/jpeg','image/png','image/webp','application/pdf','application/dxf','application/acad'].includes(f.mime_type)));}}catch(e){if(active&&e.status!==404)setError(e.message);}};load();const timer=setInterval(load,7000);return()=>{active=false;clearInterval(timer);};},[base,buildingId]);
  async function action(path,body,method='POST'){
   setBusy(true);setError('');try{await request(base+path,{method,body});setState(await request(base));if(path.endsWith('/approve'))onAdopt?.();}catch(e){setError(e.message);}finally{setBusy(false);}
  }
  if(!state)return error?<p role="alert">{error}</p>:null;
  return <section className="space-y-4 rounded-2xl border bg-card p-5">
   <h2 className="text-lg font-semibold">Aus Plänen einen 3D-Entwurf erstellen</h2>
-  <p className="text-sm text-muted-foreground">Experimentell: bemaßte Grundrisse als PDF, JPG, PNG oder WebP analysieren. Der Entwurf ersetzt keine Fachplanung. Bestehende Modelle bleiben erhalten.</p>
+  <p className="text-sm text-muted-foreground">Experimentell: Grundrisse als PDF, DXF, DWG oder Foto/Scan (JPG, PNG, WebP) analysieren – auch schiefe Fotos und Skizzen. Vektorpläne werden vermessen, Fotos auf dem Server erkannt; Gemini liest nur Raumnamen und Maßangaben. Vor dem Übernehmen lässt sich der Grundriss korrigieren. Der Entwurf ersetzt keine Fachplanung. Bestehende Modelle bleiben erhalten.</p>
   {!state.available?<p>Auf diesem Server noch nicht verfügbar.</p>:<>
    <label className="flex items-start gap-3"><input type="checkbox" className="mt-1" checked={state.settings.enabled} disabled={busy||(!state.ai_enabled&&!state.settings.enabled)} onChange={e=>{
     if(e.target.checked&&!window.confirm('Plananalyse für dieses Gebäude aktivieren? Künftig hochgeladene Bilder und PDFs werden automatisch an Google Gemini übertragen. Nur Pläne hochladen, die du dafür freigeben darfst. Vorhandene Dateien werden erst nach eigener Auswahl analysiert.'))return;
@@ -34,7 +35,8 @@ export default function PlanConversionPanel({buildingId,onAdopt}){
    <h3 className="font-medium">{labels[job.status]||job.status}</h3><p className="text-sm text-muted-foreground">{new Date(job.created_at).toLocaleString('de-DE')} · {job.document_ids.length} Quelldatei(en)</p>
    {job.warnings.map((w,i)=><p key={i} className="text-sm">{w}</p>)}
    {job.can_rebuild&&<Button disabled={busy||!state.ai_enabled||!state.settings.enabled} variant="outline" onClick={()=>action(`/jobs/${job.id}/rebuild`,{request_key:crypto.randomUUID()})}>Gespeicherte Erkennung erneut prüfen (ohne Google)</Button>}
-   {job.status==='ready'&&<><Preview path={`${base}/jobs/${job.id}/preview`}/><p className="text-sm">Bitte Proportionen und Hinweise prüfen. „Übernehmen“ legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.</p><Button disabled={busy||!state.ai_enabled} onClick={()=>action(`/jobs/${job.id}/approve`,{})}>Entwurf in Gebäudemappe übernehmen</Button></>}
+   {job.status==='ready'&&editing===job.id&&<PlanEditor base={base} jobId={job.id} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);setState(await request(base));}}/>}
+   {job.status==='ready'&&editing!==job.id&&<><Preview path={`${base}/jobs/${job.id}/preview`}/>{job.can_edit&&<Button variant="outline" disabled={busy} onClick={()=>setEditing(job.id)}>Grundriss korrigieren</Button>}<p className="text-sm">Bitte Proportionen und Hinweise prüfen. „Übernehmen“ legt eine zusätzliche IFC-Datei an. Sieben Tage Zeit zur Prüfung.</p><Button disabled={busy||!state.ai_enabled} onClick={()=>action(`/jobs/${job.id}/approve`,{})}>Entwurf in Gebäudemappe übernehmen</Button></>}
    {['queued','running','ready'].includes(job.status)&&<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>action(`/jobs/${job.id}/reject`,{})}>{job.status==='ready'?'Verwerfen':'Abbrechen'}</Button>}
   </article>)}
  </section>;
