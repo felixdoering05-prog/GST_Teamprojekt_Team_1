@@ -222,3 +222,27 @@ class CommandLine(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FrameSelection(unittest.TestCase):
+    """A building whose rooms contain symbols must not be mistaken for a frame; an open (3-sided) frame is dropped."""
+
+    def wall(self, a, b, t=300.0):
+        import math
+        ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 180
+        u = (math.cos(math.radians(ang)), math.sin(math.radians(ang)))
+        n = (-u[1], u[0])
+        s0, s1 = sorted((a[0] * u[0] + a[1] * u[1], b[0] * u[0] + b[1] * u[1]))
+        return {'angle': ang, 'u': u, 'n': n, 'c': a[0] * n[0] + a[1] * n[1], 't': t, 's0': s0, 's1': s1, 'openings': []}
+
+    def test_open_frame_and_symbols_inside_rooms(self):
+        building = [self.wall((10000, 10000), (40000, 10000)), self.wall((40000, 10000), (40000, 20000)),
+                    self.wall((40000, 20000), (10000, 20000)), self.wall((10000, 20000), (10000, 10000)),
+                    self.wall((25000, 10000), (25000, 20000)), self.wall((10000, 15000), (25000, 15000))]
+        symbol = [self.wall((15000, 12000), (17000, 12000), t=100)]          # e.g. a room label box inside a room
+        frame = [self.wall((0, 0), (90000, 0), t=500), self.wall((0, 40000), (90000, 40000), t=500),
+                 self.wall((90000, 0), (90000, 40000), t=500)]               # open on the left side
+        det = Detector(Plan('pdf'), set())
+        kept = det._largest_component(building + symbol + frame)
+        self.assertEqual(len(kept), len(building))
+        self.assertTrue(all(w['t'] == 300.0 for w in kept))
