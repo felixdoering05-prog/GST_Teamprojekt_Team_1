@@ -231,6 +231,7 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.contains("/plan-conversion") {
             // Plan → 3D draft with the correction editor (real recognition result of a CC0 test photo).
             if path.hasSuffix("/editor") { bytes = Data(PlanEditorPreviewData.editorJSONTwoLevels.utf8) }
+            else if path.hasSuffix("/appearance") { result = ["status": "ok", "appearance": ["facade": "#d8c3a5", "roof": "#8b3a2b", "frame": "#ffffff", "door": "#5b3a29"], "roof": ["type": "gable", "pitch": 40, "ridge": "long"], "storeys": 2, "confidence": "medium", "notes": "Verputztes Haus mit rotem Satteldach und weißen Fenstern."] }
             else if path.hasSuffix("/levels") { PlanEditorPreviewData.edited = true; status = 202; result = ["id": PlanEditorPreviewData.jobID, "status": "queued"] }
             else if path.contains("/plan-image/") { bytes = PlanEditorPreviewData.planImage; mime = "image/jpeg" }
             else if path.hasSuffix("/edit") { PlanEditorPreviewData.edited = true; status = 202; result = ["id": PlanEditorPreviewData.jobID, "status": "queued"] }

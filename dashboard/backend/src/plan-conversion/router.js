@@ -1,7 +1,7 @@
 const {accountLimits}=require('../account-limits');
-const express=require('express');const {accessibleBuilding,notifyBuilding}=require('../collaboration');const Q=require('./queue');const {editorView,editedCandidates,stackedCandidates,roofOf}=require('./edit');const {IMAGE_NAME}=require('./vector');const {aiEnabled}=require('../ai-preferences');
+const express=require('express');const {accessibleBuilding,notifyBuilding}=require('../collaboration');const Q=require('./queue');const {editorView,editedCandidates,stackedCandidates,roofOf,appearanceOf}=require('./edit');const {analyzeAppearance}=require('./appearance');const {IMAGE_NAME}=require('./vector');const {aiEnabled}=require('../ai-preferences');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
-function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVERSION_ENABLED==='true'}={}){
+function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVERSION_ENABLED==='true',appearance=analyzeAppearance}={}){
  const r=express.Router();r.use('/buildings/:buildingId/plan-conversion',requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');next()});
  r.param('buildingId',(req,res,next,v)=>/^[1-9]\d{0,9}$/.test(v)&&Number(v)<=2147483647?next():res.status(400).json({error:'Ungültiges Gebäude.'}));
  r.param('jobId',(req,res,next,v)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v)?next():res.status(400).json({error:'Ungültiger Auftrag.'}));
@@ -34,7 +34,8 @@ function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVER
    if(!job)Q.fail('Auftrag nicht gefunden.',404);if(job.status!=='ready'||!editorView(job))Q.fail('Der Entwurf wird gerade erstellt oder ist abgeschlossen. Bitte neu laden.',409);
    if(job.attempts>=30)Q.fail('Für diesen Entwurf sind genug Korrekturen gespeichert. Bitte übernehmen oder neu starten.',429);
    if(!await Q.permitted(c,job))Q.fail('Die Plananalyse wurde deaktiviert.',403);await Q.validateSources(c,job);
-   const candidates={...editedCandidates(req.body||{},job.analysis.final),roof:roofOf(job.analysis.candidates)};
+   const appearance=appearanceOf(job.analysis.candidates);
+   const candidates={...editedCandidates(req.body||{},job.analysis.final),roof:roofOf(job.analysis.candidates),...(appearance?{appearance}:{})};
    const analysis={...job.analysis,candidates,review:null,notes:[...(job.analysis.notes||[]).filter(n=>n!=='Von Hand korrigiert.')].slice(0,6)};
    await c.query("UPDATE app_plan_jobs SET status='queued',phase='model_only',analysis=$2,output_ifc=NULL,preview_png=NULL,quality=NULL,warnings='[]',not_before=now(),lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify(analysis)]);
    return {id:job.id,status:'queued'};
@@ -53,6 +54,25 @@ function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVER
    await c.query("UPDATE app_plan_jobs SET status='queued',phase='model_only',analysis=$2,output_ifc=NULL,preview_png=NULL,quality=NULL,warnings='[]',not_before=now(),lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify(analysis)]);
    return {id:job.id,status:'queued'};
   }));
+ }));
+ // Appearance from exterior photos (owner only): Gemini suggests colours and roof form; applied later via /levels.
+ const PHOTO_MIME=['image/jpeg','image/png','image/webp'];
+ r.post('/buildings/:buildingId/plan-conversion/jobs/:jobId/appearance',wrap(async(req,res)=>{
+  if(!enabled)Q.fail('Plananalyse ist nicht verfügbar.',503);const body=req.body||{};
+  if(Object.keys(body).some(k=>!['document_ids','request_key'].includes(k))||!Array.isArray(body.document_ids)||body.document_ids.length<1||body.document_ids.length>4||!body.document_ids.every(v=>Number.isInteger(v)&&v>0&&v<=2147483647)||new Set(body.document_ids).size!==body.document_ids.length)Q.fail('Bitte 1 bis 4 Gebäudefotos wählen.');
+  const docs=await tx(req,async(c,b)=>{
+   const job=(await c.query('SELECT * FROM app_plan_jobs WHERE id=$1 AND building_id=$2 AND user_id=$3 FOR UPDATE',[req.params.jobId,b.id,req.account.id])).rows[0];
+   if(!job)Q.fail('Auftrag nicht gefunden.',404);if(job.status!=='ready'||!editorView(job))Q.fail('Der Entwurf wird gerade erstellt oder ist abgeschlossen. Bitte neu laden.',409);
+   if(!await Q.permitted(c,job))Q.fail('Die Plananalyse wurde deaktiviert.',403);
+   const runs=Number(job.analysis?.appearance_runs)||0;if(runs>=5)Q.fail('Für diesen Entwurf wurden die Fotos schon fünfmal ausgewertet. Farben bitte von Hand anpassen.',429);
+   const rows=(await c.query('SELECT id,mime_type,size,content FROM app_documents WHERE building_id=$1 AND id=ANY($2::int[])',[b.id,body.document_ids])).rows;
+   if(rows.length!==body.document_ids.length||rows.some(d=>!PHOTO_MIME.includes(d.mime_type)))Q.fail('Nur JPG-, PNG- oder WebP-Fotos dieses Gebäudes verwenden.');
+   if(rows.reduce((t,d)=>t+Number(d.size||Buffer.from(d.content).length),0)>10*1024*1024)Q.fail('Fotos zusammen höchstens 10 MB.',413);
+   await c.query("UPDATE app_plan_jobs SET analysis=jsonb_set(analysis,'{appearance_runs}',to_jsonb($2::int)),updated_at=now() WHERE id=$1",[job.id,runs+1]);
+   return rows;
+  });
+  try{res.json(await appearance(docs));}
+  catch(e){const msg={provider_limit:'Gemini-Nutzungslimit erreicht. Bitte später erneut versuchen.',provider_unreachable:'Gemini ist gerade überlastet oder nicht erreichbar. Bitte in ein paar Minuten erneut versuchen.'}[e.code]||'Die Fotos konnten nicht ausgewertet werden.';Q.fail(msg,e.code==='provider_limit'?429:502);}
  }));
  r.post('/buildings/:buildingId/plan-conversion/jobs/:jobId/approve',wrap(async(req,res)=>{res.json(await tx(req,async(c,b)=>{const job=(await c.query('SELECT * FROM app_plan_jobs WHERE id=$1 AND building_id=$2 AND user_id=$3 FOR UPDATE',[req.params.jobId,b.id,req.account.id])).rows[0];if(!job)Q.fail('Auftrag nicht gefunden.',404);if(job.status==='approved'&&job.output_document_id)return {document_id:job.output_document_id};if(job.status!=='ready'||!job.output_ifc)Q.fail('Entwurf ist noch nicht bereit.',409);if(!await Q.permitted(c,job))Q.fail('Die Plananalyse wurde deaktiviert.',403);await Q.validateSources(c,job);await c.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);const used=Number((await c.query('SELECT COALESCE(SUM(d.size),0) total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[req.account.id])).rows[0].total);const content=Buffer.from(job.output_ifc);if(used+content.length>250*1024*1024)Q.fail('Speicherlimit erreicht.',413);const d=(await c.query('INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[b.id,'Planentwurf-TEST-'+job.id.slice(0,8)+'.ifc','application/x-step',content.length,content,job.id])).rows[0];await c.query("UPDATE app_plan_jobs SET status='approved',output_document_id=$2,output_ifc=NULL,updated_at=now() WHERE id=$1",[job.id,d.id]);await notifyBuilding(c,b.id,req.account.id,'file','Ein vorläufiger IFC-Planentwurf wurde nach Prüfung übernommen.');return {document_id:d.id}}))}));
  r.post('/buildings/:buildingId/plan-conversion/jobs/:jobId/reject',wrap(async(req,res)=>{await tx(req,async(c,b)=>{const result=await c.query("UPDATE app_plan_jobs SET status='rejected',output_ifc=NULL,preview_png=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND building_id=$2 AND user_id=$3 AND status IN ('ready','queued','running') RETURNING id",[req.params.jobId,b.id,req.account.id]);if(!result.rows.length)Q.fail('Auftrag nicht gefunden oder bereits abgeschlossen.',409)});res.json({ok:true})}));

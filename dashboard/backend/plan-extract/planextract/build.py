@@ -265,6 +265,40 @@ def _apply_offset(level):
         ras['origin_px'] = [round(ras['origin_px'][0] - ox / ras['mm_per_px'], 2), round(ras['origin_px'][1] + oy / ras['mm_per_px'], 2)]
 
 
+FIRE_WALL = re.compile(r'^(?:F\s?(30|60|90|120)(?:\s?-?\s?(A\+M|AB|A|B))?|(BRANDWAND))$', re.I)
+FIRE_DOOR = re.compile(r'^T\s?(30|60|90)(?:\s?-?\s?(RS))?$', re.I)
+
+
+def annotate_fire(level):
+    """Fire ratings written in the plan (F 90, F90 A+M, BRANDWAND near a wall; T30, T30-RS near a door) -> wall/opening 'fire'."""
+    texts = level.get('texts') or []
+    if not texts:
+        return 0
+    found = 0
+    for t in texts:
+        raw = re.sub(r'\s+', ' ', str(t.get('text', '')).strip())
+        at = t.get('at')
+        if not raw or not isinstance(at, (list, tuple)) or len(at) != 2:
+            continue
+        m = FIRE_WALL.match(raw)
+        if m:
+            label = 'Brandwand' if m.group(3) else 'F' + m.group(1) + ('-' + m.group(2).upper() if m.group(2) else '')
+            best = min(level['walls'], key=lambda w: LineString([w['a'], w['b']]).distance(Point(at)), default=None)
+            if best is not None and LineString([best['a'], best['b']]).distance(Point(at)) <= 1500 and best.get('fire') != 'Brandwand':
+                best['fire'] = label
+                found += 1
+            continue
+        m = FIRE_DOOR.match(raw)
+        if m:
+            label = 'T' + m.group(1) + ('-RS' if m.group(2) else '')
+            doors = [o for o in level['openings'] if o.get('kind') == 'door']
+            best = min(doors, key=lambda o: math.dist(o['at'], at), default=None)
+            if best is not None and math.dist(best['at'], at) <= 2500:
+                best['fire'] = label
+                found += 1
+    return found
+
+
 def final_levels(levels):
     """Geometry after review/edits, for the correction editor (JSON-safe)."""
     keep = ('name', 'source', 'scale', 'width', 'depth', 'height', 'height_assumed', 'elevation', 'offset', 'walls', 'openings', 'raster')
@@ -287,10 +321,13 @@ def build(candidates, review, ifc_path, preview_path):
         else:
             r = reviews[i] if i < len(reviews) and isinstance(reviews[i], dict) else None
             lv = apply_review(level, r, warnings)
+        n_fire = annotate_fire(lv)
+        if n_fire:
+            warnings.append(f'{lv["name"]}: {n_fire} Brandschutzangabe(n) aus dem Plan übernommen (Wände F…, Türen T…).')
         lv['exterior_walls'] = _exterior_walls(lv)
         levels.append(lv)
     reports = [report(l) for l in levels]
-    write_ifc(levels, ifc_path, roof=candidates.get('roof'), warnings=warnings)
+    write_ifc(levels, ifc_path, roof=candidates.get('roof'), warnings=warnings, appearance=candidates.get('appearance'))
     render(levels, preview_path)
     for l in levels:
         warnings += [w for w in l.get('warnings', [])]
