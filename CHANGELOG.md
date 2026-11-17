@@ -1,11 +1,19 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Neue Sensoren automatisch in die Raum-Popups
+
+- Beim Öffnen eines eigenen Modells im Web-BIM-Viewer (und danach jede Minute) werden neu hinterlegte Sensoren automatisch dem passenden IFC-Raum zugeordnet, wenn ihr Raumname oder ihre Raumnummer eindeutig zu einem Raum im Modell passt (Groß-/Kleinschreibung, Leerzeichen, Umlaute egal). Ihre Werte erscheinen dann im Raum-Popup.
+- Ist das nicht eindeutig – Sensor ohne Gebäude, ohne Raum oder Raum nicht/mehrfach im Modell –, fragt eine Karte „Neue Sensoren zuordnen“ über dem Viewer nach: Raum im Modell wählen oder „Nicht in diesem Modell“. Sensoren ohne Gebäude sieht nur der Eigentümer; die Zuordnung setzt dann auch das Gebäude.
+- Neue Endpunkte `POST /documents/:id/sensor-placement/sync` und `PUT /documents/:id/sensor-placement/:sensor` (Eigentümer und angenommene Mitglieder). Verknüpft wird über `Room.ifc_global_id`; ein vorhandener Raum ohne IFC-Bezug wird verknüpft statt dupliziert. Die IFC-Datei bleibt unverändert. Demo- und inaktive Sensoren werden nicht abgefragt.
+- Prüfung: 231 Backend-Tests (229 bestanden, 2 übersprungen), Viewer-Tests, ESLint, Build; Browserprüfung mit lokaler Test-API und Test-IFC (automatische Zuordnung, Nachfrage, Zuordnen, Popup zeigt Wert).
+
 ## 17. November 2026 – Gebäude im Web geführt einrichten
 
 - Neue Einrichtung mit Gebäudedaten, optionalen Bildern, Plänen/IFC und Abschlussübersicht. Gespeicherte Gebäude lassen sich später weiter einrichten, ohne erneut angelegt zu werden.
 - Jedes Gebäude öffnet mit einer Übersicht und eigenen Bereichen für Galerie, Pläne/3D und Räume. Eigene und geteilte Gebäude bleiben unterscheidbar.
 - Mehrere Dateien auswählen oder ablegen, Übertragung je Datei verfolgen und nur fehlgeschlagene Uploads mit derselben Upload-Kennung erneut versuchen. Während unbestätigter Uploads schützt die Einrichtung vor versehentlichem Weiterschalten.
 - Bildergalerie mit Vorschau, Umbenennen, Herunterladen und bestätigtem Löschen. Gespeicherte Unterlagen verwenden dieselben bestehenden Zugriffsrechte wie die App. Die neue Einrichtung aktiviert keine KI- oder Kartendienste automatisch.
+
 
 ## 17. November 2026 – Raum-Popup für jeden Raum, erst nach Klick
 

@@ -1,4 +1,5 @@
 const {initSensorDevices,sensorDevicesRouter}=require('./sensor-devices');
+const {initSensorPlacement,sensorPlacementRouter}=require('./sensor-placement');
 const {initIFCAnalysis,ifcAnalysisRouter}=require('./ifc-analysis');
 const {serviceStatusRouter}=require('./service-status');
 const {buildingDeletionRouter}=require('./building-deletion');
@@ -69,7 +70,7 @@ async function initAccounts(db) {
  await initMapViews(db);
  await initIssues(db);
  await initBuildingWeather(db);
- await initTelemetry(db);await initSensorDevices(db);await initHAImport(db);
+ await initTelemetry(db);await initSensorDevices(db);await initSensorPlacement(db);await initHAImport(db);
  await initVoice(db);
  await initAIPreferences(db);
  await initUIPreferences(db);
@@ -162,6 +163,7 @@ function accountRouter(db,options={}) {
  router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use(sensorDevicesRouter(db,requireAccount));
+ router.use(sensorPlacementRouter(db,requireAccount));
  router.use(bridgeRouter(db));
  router.use(haImportRouter(db,requireAccount));
  router.use('/admin',adminRouter(db,requireAccount,options.admin));
