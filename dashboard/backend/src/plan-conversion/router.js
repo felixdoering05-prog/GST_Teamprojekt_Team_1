@@ -1,5 +1,5 @@
 const {accountLimits}=require('../account-limits');
-const express=require('express');const {accessibleBuilding,notifyBuilding}=require('../collaboration');const Q=require('./queue');const {editorView,editedCandidates,stackedCandidates}=require('./edit');const {IMAGE_NAME}=require('./vector');const {aiEnabled}=require('../ai-preferences');
+const express=require('express');const {accessibleBuilding,notifyBuilding}=require('../collaboration');const Q=require('./queue');const {editorView,editedCandidates,stackedCandidates,roofOf}=require('./edit');const {IMAGE_NAME}=require('./vector');const {aiEnabled}=require('../ai-preferences');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVERSION_ENABLED==='true'}={}){
  const r=express.Router();r.use('/buildings/:buildingId/plan-conversion',requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');next()});
@@ -34,7 +34,7 @@ function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVER
    if(!job)Q.fail('Auftrag nicht gefunden.',404);if(job.status!=='ready'||!editorView(job))Q.fail('Der Entwurf wird gerade erstellt oder ist abgeschlossen. Bitte neu laden.',409);
    if(job.attempts>=30)Q.fail('Für diesen Entwurf sind genug Korrekturen gespeichert. Bitte übernehmen oder neu starten.',429);
    if(!await Q.permitted(c,job))Q.fail('Die Plananalyse wurde deaktiviert.',403);await Q.validateSources(c,job);
-   const candidates=editedCandidates(req.body||{},job.analysis.final);
+   const candidates={...editedCandidates(req.body||{},job.analysis.final),roof:roofOf(job.analysis.candidates)};
    const analysis={...job.analysis,candidates,review:null,notes:[...(job.analysis.notes||[]).filter(n=>n!=='Von Hand korrigiert.')].slice(0,6)};
    await c.query("UPDATE app_plan_jobs SET status='queued',phase='model_only',analysis=$2,output_ifc=NULL,preview_png=NULL,quality=NULL,warnings='[]',not_before=now(),lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify(analysis)]);
    return {id:job.id,status:'queued'};
@@ -48,7 +48,7 @@ function planConversionRouter(db,requireAccount,{enabled=process.env.PLAN_CONVER
    if(!job)Q.fail('Auftrag nicht gefunden.',404);if(job.status!=='ready'||!editorView(job))Q.fail('Der Entwurf wird gerade erstellt oder ist abgeschlossen. Bitte neu laden.',409);
    if(job.attempts>=30)Q.fail('Für diesen Entwurf sind genug Korrekturen gespeichert. Bitte übernehmen oder neu starten.',429);
    if(!await Q.permitted(c,job))Q.fail('Die Plananalyse wurde deaktiviert.',403);await Q.validateSources(c,job);
-   const candidates=stackedCandidates(req.body||{},job.analysis.final);
+   const candidates=stackedCandidates(req.body||{},job.analysis.final,job.analysis.candidates);
    const analysis={...job.analysis,candidates,review:null,notes:[...(job.analysis.notes||[]).filter(n=>n!=='Von Hand korrigiert.')].slice(0,6)};
    await c.query("UPDATE app_plan_jobs SET status='queued',phase='model_only',analysis=$2,output_ifc=NULL,preview_png=NULL,quality=NULL,warnings='[]',not_before=now(),lease_until=NULL,updated_at=now() WHERE id=$1",[job.id,JSON.stringify(analysis)]);
    return {id:job.id,status:'queued'};

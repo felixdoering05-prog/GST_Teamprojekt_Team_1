@@ -1,9 +1,24 @@
-"""IFC4 from measured candidates with IfcOpenShell (LGPL): storeys, walls with real thickness, openings, doors, windows, spaces."""
+"""IFC4 from measured candidates with IfcOpenShell (LGPL): storeys, walls with real thickness and material layers, openings,
+doors and windows with frame/glass/leaf, floor slabs, a roof (flat with parapet, gable or shed) and spaces.
+Every visible part carries a surface colour so viewers show a realistic draft."""
 import math
 import numpy as np
 import ifcopenshell, ifcopenshell.api
 
 SLAB = 0.2
+ROOF_SLAB = 0.25
+PARAPET = 0.4
+OVERHANG = 0.4
+
+# Typical, deliberately calm colours of a draft model.
+COLOURS = {
+    'wall_ext': ((0.93, 0.91, 0.86), 0.0), 'wall_int': ((0.97, 0.97, 0.95), 0.0), 'slab': ((0.72, 0.72, 0.70), 0.0),
+    'roof': ((0.27, 0.29, 0.32), 0.0), 'roof_edge': ((0.58, 0.60, 0.62), 0.0), 'glass': ((0.62, 0.80, 0.92), 0.55),
+    'frame': ((0.96, 0.96, 0.96), 0.0), 'sill': ((0.80, 0.80, 0.78), 0.0), 'door': ((0.63, 0.46, 0.31), 0.0),
+    'metal': ((0.55, 0.56, 0.58), 0.0),
+}
+STYLE_NAMES = {'wall_ext': 'Außenputz', 'wall_int': 'Innenputz', 'slab': 'Beton', 'roof': 'Dach', 'roof_edge': 'Attikablech',
+               'glass': 'Glas', 'frame': 'Fensterrahmen', 'sill': 'Fensterbank', 'door': 'Holz', 'metal': 'Metall'}
 
 
 class Builder:
@@ -18,6 +33,7 @@ class Builder:
         self.building = self.entity('IfcBuilding', name)
         ifcopenshell.api.run('aggregate.assign_object', f, products=[self.site], relating_object=self.project)
         ifcopenshell.api.run('aggregate.assign_object', f, products=[self.building], relating_object=self.site)
+        self.styles, self.materials = {}, {}
 
     def entity(self, cls, name, predefined=None, placement=None):
         e = ifcopenshell.api.run('root.create_entity', self.f, ifc_class=cls, name=name, predefined_type=predefined)
@@ -28,30 +44,180 @@ class Builder:
         ifcopenshell.api.run('geometry.edit_object_placement', self.f, product=e, matrix=m)
         return e
 
-    def solid(self, e, profile, height):
+    # ---------------------------------------------------------------- appearance
+    def style(self, key):
+        """Named surface colour (RGB 0..1, transparency 0..1), created once."""
+        if key not in self.styles:
+            rgb, transparency = COLOURS[key]
+            st = ifcopenshell.api.run('style.add_style', self.f, name=STYLE_NAMES.get(key, key))
+            ifcopenshell.api.run('style.add_surface_style', self.f, style=st, ifc_class='IfcSurfaceStyleShading',
+                                 attributes={'SurfaceColour': {'Name': None, 'Red': rgb[0], 'Green': rgb[1], 'Blue': rgb[2]}, 'Transparency': transparency})
+            self.styles[key] = st
+        return self.styles[key]
+
+    def material(self, name, category=None):
+        if name not in self.materials:
+            self.materials[name] = ifcopenshell.api.run('material.add_material', self.f, name=name, category=category)
+        return self.materials[name]
+
+    def assign_material(self, products, name, category=None):
+        ifcopenshell.api.run('material.assign_material', self.f, products=products, type='IfcMaterial', material=self.material(name, category))
+
+    # ---------------------------------------------------------------- geometry
+    def extrusion(self, profile, height, origin=(0., 0., 0.), axis=None, ref=None):
         f = self.f
-        s = f.createIfcExtrudedAreaSolid(profile, f.createIfcAxis2Placement3D(f.createIfcCartesianPoint((0., 0., 0.))), f.createIfcDirection((0., 0., 1.)), float(height))
-        rep = f.createIfcShapeRepresentation(self.body, 'Body', 'SweptSolid', [s])
+        place = f.createIfcAxis2Placement3D(f.createIfcCartesianPoint(tuple(float(v) for v in origin)),
+                                            f.createIfcDirection(axis) if axis else None, f.createIfcDirection(ref) if ref else None)
+        return f.createIfcExtrudedAreaSolid(profile, place, f.createIfcDirection((0., 0., 1.)), float(max(height, 0.005)))
+
+    def rect_profile(self, w, d, cx=0., cy=0.):
+        f = self.f
+        return f.createIfcRectangleProfileDef('AREA', None, f.createIfcAxis2Placement2D(f.createIfcCartesianPoint((float(cx), float(cy)))), float(max(w, 0.005)), float(max(d, 0.005)))
+
+    def poly_profile(self, points, holes=()):
+        f = self.f
+        def curve(pts):
+            c = [f.createIfcCartesianPoint((float(x), float(y))) for x, y in pts]
+            return f.createIfcPolyline(c + [c[0]])
+        if holes:
+            return f.createIfcArbitraryProfileDefWithVoids('AREA', None, curve(points), [curve(h) for h in holes])
+        return f.createIfcArbitraryClosedProfileDef('AREA', None, curve(points))
+
+    def box(self, cx, cy, z, w, d, h):
+        """Box item in the element's local system: centred on (cx, cy), from z up by h."""
+        return self.extrusion(self.rect_profile(w, d, cx, cy), h, (0., 0., z))
+
+    def show(self, e, items):
+        """items: [(solid, style key)] -> one body representation with a colour per item."""
+        f = self.f
+        rep = f.createIfcShapeRepresentation(self.body, 'Body', 'SweptSolid', [i for i, _ in items])
+        for item, key in items:
+            ifcopenshell.api.run('style.assign_item_style', f, item=item, style=self.style(key))
         ifcopenshell.api.run('geometry.assign_representation', f, product=e, representation=rep)
 
-    def rect(self, e, w, d, h):
-        f = self.f
-        self.solid(e, f.createIfcRectangleProfileDef('AREA', None, f.createIfcAxis2Placement2D(f.createIfcCartesianPoint((0., 0.))), float(max(w, 0.01)), float(max(d, 0.01))), h)
+    def rect(self, e, w, d, h, style=None):
+        item = self.extrusion(self.rect_profile(w, d), h)
+        self.show(e, [(item, style)]) if style else self._plain(e, item)
 
-    def poly(self, e, points, h):
-        f = self.f
-        pts = [f.createIfcCartesianPoint((float(x), float(y))) for x, y in points]
-        self.solid(e, f.createIfcArbitraryClosedProfileDef('AREA', None, f.createIfcPolyline(pts + [pts[0]])), h)
+    def poly(self, e, points, h, style=None):
+        item = self.extrusion(self.poly_profile(points), h)
+        self.show(e, [(item, style)]) if style else self._plain(e, item)
+
+    def _plain(self, e, item):
+        rep = self.f.createIfcShapeRepresentation(self.body, 'Body', 'SweptSolid', [item])
+        ifcopenshell.api.run('geometry.assign_representation', self.f, product=e, representation=rep)
 
 
 def _m(v):
     return v / 1000.0
 
 
-def write_ifc(levels, path, name='Planentwurf (vermessen)'):
+def _wall_layers(t_mm, external):
+    """Plausible layer build-up that adds up to the measured thickness (assumption, named as such)."""
+    if external and t_mm >= 300:
+        ins = min(160.0, round(t_mm * 0.4 / 10) * 10)
+        return [('Innenputz', 15.0), ('Mauerwerk', t_mm - 35.0 - ins), ('Wärmedämmung', ins), ('Außenputz', 20.0)]
+    if t_mm >= 60:
+        return [('Putz', 10.0), ('Mauerwerk' if t_mm >= 100 else 'Trockenbau', t_mm - 20.0), ('Putz', 10.0)]
+    return [('Trockenbau', t_mm)]
+
+
+def _window(b, width, height, t):
+    """Frame, glazing (with mullion above 1.2 m) and a sill through the reveal; local x along the wall, y across."""
+    fw, fd = 0.06, 0.07
+    items = [(b.box(-width / 2 + fw / 2, 0, 0, fw, fd, height), 'frame'), (b.box(width / 2 - fw / 2, 0, 0, fw, fd, height), 'frame'),
+             (b.box(0, 0, 0, width, fd, fw), 'frame'), (b.box(0, 0, height - fw, width, fd, fw), 'frame')]
+    panes = [(-width / 2 + fw, width / 2 - fw)]
+    if width > 1.2:
+        items.append((b.box(0, 0, fw, fw, fd, height - 2 * fw), 'frame'))
+        panes = [(-width / 2 + fw, -fw / 2), (fw / 2, width / 2 - fw)]
+    for x0, x1 in panes:
+        items.append((b.box((x0 + x1) / 2, 0, fw, x1 - x0, 0.024, height - 2 * fw), 'glass'))
+    items.append((b.box(0, 0, -0.03, width + 0.06, t + 0.08, 0.03), 'sill'))
+    return items
+
+
+def _door(b, width, height, t):
+    """Frame (Zarge) through the reveal, door leaf and handle."""
+    zw = 0.05
+    leaf_w = max(width - 2 * zw, 0.3)
+    return [(b.box(-width / 2 + zw / 2, 0, 0, zw, t + 0.02, height), 'frame'), (b.box(width / 2 - zw / 2, 0, 0, zw, t + 0.02, height), 'frame'),
+            (b.box(0, 0, height - zw, width, t + 0.02, zw), 'frame'),
+            (b.box(0, 0, 0.01, leaf_w, 0.04, height - zw - 0.01), 'door'),
+            (b.box(leaf_w / 2 - 0.12, 0.04, 1.02, 0.12, 0.02, 0.025), 'metal'), (b.box(leaf_w / 2 - 0.12, -0.04, 1.02, 0.12, 0.02, 0.025), 'metal')]
+
+
+def _roof_spec(roof):
+    roof = roof if isinstance(roof, dict) else {}
+    kind = roof.get('type') if roof.get('type') in ('flat', 'gable', 'shed') else 'flat'
+    pitch = roof.get('pitch') if isinstance(roof.get('pitch'), (int, float)) and 5 <= roof.get('pitch') <= 60 else (35 if kind == 'gable' else 10)
+    ridge = roof.get('ridge') if roof.get('ridge') in ('long', 'short') else 'long'
+    return kind, float(pitch), ridge
+
+
+def _add_roof(b, storey, level, roof, warnings):
+    """Roof over the top storey: flat roof with parapet over the outline, or gable/shed roof over the bounding rectangle."""
+    from shapely.geometry import Polygon
+    pts = [(_m(x), _m(y)) for x, y in level.get('boundary') or []]
+    if len(pts) < 3:
+        return None
+    outline = Polygon(pts)
+    if not outline.is_valid:
+        outline = outline.buffer(0)
+        if outline.geom_type == 'MultiPolygon':
+            outline = max(outline.geoms, key=lambda g: g.area)
+    if outline.is_empty or outline.geom_type != 'Polygon' or outline.area < 1:
+        return None
+    pts = [(round(x, 4), round(y, 4)) for x, y in list(outline.simplify(0.02).exterior.coords)[:-1]]
+    kind, pitch, ridge = _roof_spec(roof)
+    z = _m(level['elevation']) + _m(level['height'])
+    e = b.entity('IfcRoof', {'flat': 'Flachdach', 'gable': 'Satteldach', 'shed': 'Pultdach'}[kind] + ' (Entwurf)',
+                 {'flat': 'FLAT_ROOF', 'gable': 'GABLE_ROOF', 'shed': 'SHED_ROOF'}[kind], ((0., 0., 0.), (1., 0.)))
+    if kind == 'flat':
+        inner = outline.buffer(-0.24, join_style=2)
+        items = [(b.extrusion(b.poly_profile(pts), ROOF_SLAB, (0., 0., z)), 'roof')]
+        if not inner.is_empty and inner.geom_type == 'Polygon':
+            ring = list(inner.exterior.coords)[:-1]
+            items.append((b.extrusion(b.poly_profile(pts, [ring]), PARAPET, (0., 0., z + ROOF_SLAB)), 'wall_ext'))
+            items.append((b.extrusion(b.poly_profile(pts, [ring]), 0.03, (0., 0., z + ROOF_SLAB + PARAPET)), 'roof_edge'))
+        b.show(e, items)
+    else:
+        x0, y0, x1, y1 = outline.bounds
+        along_x = (x1 - x0 >= y1 - y0) == (ridge == 'long')
+        L, W = (x1 - x0, y1 - y0) if along_x else (y1 - y0, x1 - x0)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        tp, o, th = math.tan(math.radians(pitch)), OVERHANG, ROOF_SLAB
+        # Profile plane: u across the ridge, v up; extruded along the ridge.
+        axis, ref = ((1., 0., 0.), (0., 1., 0.)) if along_x else ((0., 1., 0.), (-1., 0., 0.))
+        start = (x0 - o, cy, z) if along_x else (cx, y0 - o, z)
+        start_gable = (x0, cy, z) if along_x else (cx, y0, z)
+        b_ = W / 2 + o
+        if kind == 'gable':
+            hb = b_ * tp
+            drop = o * tp - th            # underside meets the wall top at the eaves line
+            skin = [(-b_, -drop), (0, hb - drop), (b_, -drop), (b_, -drop - th), (0, hb - drop - th), (-b_, -drop - th)]
+            gable = [(-W / 2, 0.), (W / 2, 0.), (0., W / 2 * tp)]
+        else:
+            v = lambda u: (u + W / 2) * tp
+            skin = [(-b_, v(-b_) - th), (b_, v(b_) - th), (b_, v(b_)), (-b_, v(-b_))]
+            skin = [(u, y + th - 0.0) for u, y in skin]
+            gable = [(-W / 2, 0.), (W / 2, 0.), (W / 2, W * tp)]
+        b.show(e, [(b.extrusion(b.poly_profile(skin), L + 2 * o, start, axis, ref), 'roof'),
+                   (b.extrusion(b.poly_profile(gable), L, start_gable, axis, ref), 'wall_ext')])
+        if outline.area < 0.9 * (x1 - x0) * (y1 - y0):
+            warnings.append(f'Dach als {"Satteldach" if kind == "gable" else "Pultdach"} über das umschließende Rechteck gelegt; Grundriss ist nicht rechteckig.')
+    ps = ifcopenshell.api.run('pset.add_pset', b.f, product=e, name='Pset_RoofCommon')
+    ifcopenshell.api.run('pset.edit_pset', b.f, pset=ps, properties={'Reference': f'{kind} {pitch:g}°' if kind != 'flat' else 'Flachdach mit Attika'})
+    b.assign_material([e], 'Dachabdichtung' if kind == 'flat' else 'Dachziegel', 'roofing')
+    return e
+
+
+def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=None):
+    warnings = warnings if warnings is not None else []
     b = Builder(name)
     f = b.f
     storeys = []
+    wall_types = {}
     for li, level in enumerate(levels):
         z0 = _m(level['elevation'])
         H = _m(level['height'])
@@ -59,7 +225,6 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)'):
         storey.Elevation = z0
         storeys.append(storey)
         contained = []
-        types = {}
         walls = {}
         exterior = level.get('exterior_walls', set())
         for w in level['walls']:
@@ -70,19 +235,28 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)'):
             d = (c - a) / L
             t = _m(w['thickness'])
             key = round(w['thickness'])
-            if key not in types:
-                types[key] = ifcopenshell.api.run('root.create_entity', f, ifc_class='IfcWallType', name=f'Wand {key / 10:g} cm', predefined_type='STANDARD')
+            ext = w['id'] in exterior
+            tkey = (key, ext)
+            if tkey not in wall_types:
+                wt = ifcopenshell.api.run('root.create_entity', f, ifc_class='IfcWallType', name=f'{"Außenwand" if ext else "Innenwand"} {key / 10:g} cm (Annahme)', predefined_type='STANDARD')
+                mset = ifcopenshell.api.run('material.add_material_set', f, name=wt.Name, set_type='IfcMaterialLayerSet')
+                for lname, lt in _wall_layers(float(key), ext):
+                    layer = ifcopenshell.api.run('material.add_layer', f, layer_set=mset, material=b.material(lname))
+                    ifcopenshell.api.run('material.edit_layer', f, layer=layer, attributes={'LayerThickness': _m(lt)})
+                ifcopenshell.api.run('material.assign_material', f, products=[wt], material=mset)
+                wall_types[tkey] = wt
             mid = (a + c) / 2
             e = b.entity('IfcWall', f'Wand {w["id"]}', 'STANDARD', ((mid[0], mid[1], z0), d))
-            b.rect(e, L, t, H)
-            ifcopenshell.api.run('type.assign_type', f, related_objects=[e], relating_type=types[key])
+            b.rect(e, L, t, H, 'wall_ext' if ext else 'wall_int')
+            ifcopenshell.api.run('type.assign_type', f, related_objects=[e], relating_type=wall_types[tkey])
             ps = ifcopenshell.api.run('pset.add_pset', f, product=e, name='Pset_WallCommon')
-            ifcopenshell.api.run('pset.edit_pset', f, pset=ps, properties={'IsExternal': w['id'] in exterior, 'Reference': f'{key / 10:g} cm'})
+            ifcopenshell.api.run('pset.edit_pset', f, pset=ps, properties={'IsExternal': ext, 'Reference': f'{key / 10:g} cm'})
             q = ifcopenshell.api.run('pset.add_qto', f, product=e, name='Qto_WallBaseQuantities')
             ifcopenshell.api.run('pset.edit_qto', f, qto=q, properties={'Length': L, 'Width': t, 'Height': H, 'GrossSideArea': L * H})
             walls[w['id']] = (e, w, d)
             contained.append(e)
         counters = {'door': 0, 'window': 0, 'opening': 0}
+        doors, windows = [], []
         for o in level['openings']:
             host = walls.get(o['wall'])
             if not host:
@@ -92,23 +266,31 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)'):
             label = {'door': 'Tür', 'window': 'Fenster', 'opening': 'Öffnung'}[o['kind']] + f' {counters[o["kind"]]}'
             at = np.array(o['at'], float) / 1000
             width, height, sill = _m(o['width']), _m(o['height']), _m(o['sill'])
+            t = _m(w['thickness'])
             op = b.entity('IfcOpeningElement', label, 'OPENING', ((at[0], at[1], z0 + sill), d))
-            b.rect(op, width, _m(w['thickness']) + 0.1, height)
+            b.rect(op, width, t + 0.1, height)
             ifcopenshell.api.run('feature.add_feature', f, feature=op, element=e)
             if o['kind'] == 'opening':
                 continue
-            cls = 'IfcDoor' if o['kind'] == 'door' else 'IfcWindow'
-            el = b.entity(cls, label, 'DOOR' if o['kind'] == 'door' else 'WINDOW', ((at[0], at[1], z0 + sill), d))
-            b.rect(el, width, min(0.06, _m(w['thickness'])), height)
+            is_door = o['kind'] == 'door'
+            cls = 'IfcDoor' if is_door else 'IfcWindow'
+            el = b.entity(cls, label, 'DOOR' if is_door else 'WINDOW', ((at[0], at[1], z0 + sill), d))
+            b.show(el, _door(b, width, height, t) if is_door else _window(b, width, height, t))
             ifcopenshell.api.run('feature.add_filling', f, opening=op, element=el)
             el.OverallWidth = width
             el.OverallHeight = height
-            pset = ifcopenshell.api.run('pset.add_pset', f, product=el, name='Pset_DoorCommon' if o['kind'] == 'door' else 'Pset_WindowCommon')
+            pset = ifcopenshell.api.run('pset.add_pset', f, product=el, name='Pset_DoorCommon' if is_door else 'Pset_WindowCommon')
             ifcopenshell.api.run('pset.edit_pset', f, pset=pset, properties={'Reference': f'{round(o["width"])} x {round(o["height"])} mm', 'IsExternal': o['wall'] in exterior})
+            (doors if is_door else windows).append(el)
             contained.append(el)
+        if doors:
+            b.assign_material(doors, 'Holz', 'wood')
+        if windows:
+            b.assign_material(windows, 'Kunststoff-Fenster mit Isolierglas', 'glass')
         if level.get('boundary') and len(level['boundary']) >= 3:
-            slab = b.entity('IfcSlab', f'Bodenplatte {level["name"]} (Annahme 20 cm)', 'FLOOR', ((0., 0., z0 - SLAB), (1., 0.)))
-            b.poly(slab, [(_m(x), _m(y)) for x, y in level['boundary']], SLAB)
+            slab = b.entity('IfcSlab', f'{"Bodenplatte" if li == 0 else "Decke unter"} {level["name"]} (Annahme 20 cm)', 'BASESLAB' if li == 0 else 'FLOOR', ((0., 0., z0 - SLAB), (1., 0.)))
+            b.poly(slab, [(_m(x), _m(y)) for x, y in level['boundary']], SLAB, 'slab')
+            b.assign_material([slab], 'Stahlbeton', 'concrete')
             contained.append(slab)
         spaces = []
         for r in level['rooms']:
@@ -127,7 +309,13 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)'):
             ifcopenshell.api.run('aggregate.assign_object', f, products=spaces, relating_object=storey)
         if contained:
             ifcopenshell.api.run('spatial.assign_container', f, products=contained, relating_structure=storey)
+    if levels:
+        top = max(range(len(levels)), key=lambda k: levels[k]['elevation'])
+        r = _add_roof(b, storeys[top], levels[top], roof, warnings)
+        if r is not None:
+            ifcopenshell.api.run('spatial.assign_container', f, products=[r], relating_structure=storeys[top])
     if storeys:
         ifcopenshell.api.run('aggregate.assign_object', f, products=storeys, relating_object=b.building)
-    f.header.file_description.description = ('ViewDefinition [ReferenceView_V1.2]', 'Aus Vektorplan vermessen, Entwurf')
+    f.header.file_description.description = ('ViewDefinition [ReferenceView_V1.2]', 'Aus Plan vermessen, Entwurf mit angenommenen Materialien')
     f.write(path)
+    return warnings

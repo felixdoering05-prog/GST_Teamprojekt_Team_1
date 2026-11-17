@@ -142,7 +142,7 @@ struct PlanConversionView: View {
                     if let quality = job.quality { PlanJobSummary(quality: quality) }
                     if job.can_edit == true {
                         NavigationLink { PlanLevelsView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
-                            Label { VStack(alignment: .leading, spacing: 2) { Text("Ebenen festlegen").font(.headline); Text("Wie viele Geschosse? UG, EG, OG zuordnen und übereinandersetzen").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "square.3.layers.3d").foregroundStyle(d21Accent) }
+                            Label { VStack(alignment: .leading, spacing: 2) { Text("Ebenen und Dach").font(.headline); Text("Geschosse zuordnen und stapeln, Flach-, Sattel- oder Pultdach wählen").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "square.3.layers.3d").foregroundStyle(d21Accent) }
                         }.disabled(busy).accessibilityIdentifier("plan-levels")
                         NavigationLink { PlanEditorView(building: building, jobID: job.id, account: account, onSaved: { Task { await load() } }) } label: {
                             Label { VStack(alignment: .leading, spacing: 2) { Text("Grundriss korrigieren").font(.headline); Text("Wände, Türen und Fenster anpassen, Räume benennen, Strecke angeben").font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "pencil.and.ruler.fill").foregroundStyle(d21Accent) }

@@ -194,15 +194,18 @@ test('storeys: owner picks which plans are used, names them and they are stacked
  await bad([]);await bad([{index:5,name:'EG',height:2500}]);await bad([{index:0,name:'Keller',height:2500}],/Unbekannte/);
  await bad([{index:0,name:'EG',height:1500}],/Geschosshöhe/);await bad([{index:0,name:'EG',height:2500},{index:0,name:'UG',height:2500}],/nur einer Ebene/);
  await bad([{index:0,name:'EG',height:2500},{index:1,name:'EG',height:2500}],/nur einmal/);await bad([{index:0,name:'EG',height:2500,offset:[60000,0]}],/Versatz/);
- const ok=await api('/jobs/'+j.id+'/levels',{levels:[{index:2,name:'1. OG',height:2800,offset:[1000,-500]},{index:0,name:'UG',height:2400},{index:1,name:'EG',height:3000}]});
+ assert.deepEqual(ed.roof,{type:'flat'});
+ for(const roof of [{type:'kuppel'},{type:'gable',pitch:80,ridge:'long'},{type:'gable',pitch:30,ridge:'diagonal'},{type:'gable',pitch:30}])assert.equal((await api('/jobs/'+j.id+'/levels',{levels:[{index:0,name:'EG',height:2500}],roof})).status,400,JSON.stringify(roof));
+ const ok=await api('/jobs/'+j.id+'/levels',{levels:[{index:2,name:'1. OG',height:2800,offset:[1000,-500]},{index:0,name:'UG',height:2400},{index:1,name:'EG',height:3000}],roof:{type:'gable',pitch:35,ridge:'long'}});
  assert.equal(ok.status,202,JSON.stringify(ok.body));j=(await api()).body.jobs[0];assert.equal(j.status,'queued');
  let sent;await processNext(db,{enabled:true,analyze:async()=>assert.fail('no AI'),extract:async()=>assert.fail('no extraction'),review:async()=>assert.fail('no AI'),build:async a=>{sent=a;return build(a);}});
  const L=sent.candidates.levels;assert.deepEqual(L.map(l=>l.name),['UG','EG','1. OG']);assert.deepEqual(L.map(l=>l.elevation),[-2600,0,3200]);
  assert.deepEqual(L.map(l=>l.height),[2400,3000,2800]);assert.deepEqual(L[2].offset,[1000,-500]);assert.ok(L.every(l=>l.edited&&l.walls.length===4&&l.openings.length===1));
  assert.deepEqual(L[0].room_names,[{point:[5000,4000],name:'Kellerraum'}]);
+ assert.deepEqual(sent.candidates.roof,{type:'gable',pitch:35,ridge:'long'});
  j=(await api()).body.jobs[0];assert.equal(j.status,'ready');const after=(await api('/jobs/'+j.id+'/editor')).body;assert.equal(after.levels.length,3);assert.equal(after.levels[0].name,'UG');assert.deepEqual(after.levels[2].offset,[1000,-500]);
  // A later correction keeps storey names, heights and offsets.
  const e=await api('/jobs/'+j.id+'/edit',{levels:after.levels.map(l=>({walls:l.walls,openings:[],rooms:[]}))});assert.equal(e.status,202,JSON.stringify(e.body));
- await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});assert.deepEqual(sent.candidates.levels.map(l=>[l.name,l.elevation,l.height]),[['UG',-2600,2400],['EG',0,3000],['1. OG',3200,2800]]);assert.deepEqual(sent.candidates.levels[2].offset,[1000,-500]);
+ await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});assert.deepEqual(sent.candidates.roof,{type:'gable',pitch:35,ridge:'long'},'roof survives a correction');assert.deepEqual(sent.candidates.levels.map(l=>[l.name,l.elevation,l.height]),[['UG',-2600,2400],['EG',0,3000],['1. OG',3200,2800]]);assert.deepEqual(sent.candidates.levels[2].offset,[1000,-500]);
  await clear();
 });
