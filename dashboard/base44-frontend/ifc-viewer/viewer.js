@@ -538,9 +538,11 @@ async function open() {
   document.querySelector('#close-selection').onclick = () => { appearance.select(undefined); updateSelection(); };
   document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); changed({action:'show',ids:[...appearance.elements.keys()]}); };
   document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); changed({action:'reset-colors',ids:[...appearance.elements.keys()]}); };
+  let webSmartHome = false, lastSelectedRoom = null;
   function mode(smart) {
     cancelCommand(); document.querySelector('#commands').hidden = true;
-    home.hidden = !smart;
+    home.hidden = !smart || webSmartHome;
+    if (webSmartHome) window.parent.postMessage({ type: 'd21-smart-home-mode', open: smart }, location.origin);
     document.querySelector('#tools').hidden = smart;
     document.querySelector('#model-mode').setAttribute('aria-pressed', String(!smart));
     document.querySelector('#home-mode').setAttribute('aria-pressed', String(smart));
@@ -610,7 +612,7 @@ async function open() {
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
     toggle.textContent = meshes.length ? 'Licht aus' : 'Ohne Raumgeometrie'; toggle.disabled = !meshes.length;
     toggle.dataset.noGeometry=String(!meshes.length);
-    roomLights.set(id,(on,color='#ffd35c',linked=false,available=true)=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=!meshes.length?'Ohne Raumgeometrie':linked?(!available?'Gerät nicht erreichbar':on?'Licht an · Geräte':'Licht aus · Geräte'):on?'Licht an':'Licht aus';toggle.dataset.linked=String(linked);toggle.disabled=linked||!meshes.length;meshes.forEach(mesh=>{mesh.visible=on;mesh.material.color.set(color);});});
+    roomLights.set(id,(on,color='#ffd35c',linked=false,available=true,brightness=255)=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=!meshes.length?'Ohne Raumgeometrie':linked?(!available?'Gerät nicht erreichbar':on?'Licht an · Geräte':'Licht aus · Geräte'):on?'Licht an':'Licht aus';toggle.dataset.linked=String(linked);toggle.disabled=linked||!meshes.length;meshes.forEach(mesh=>{mesh.visible=on;mesh.material.color.set(color);mesh.material.opacity=.06+.24*Math.max(0,Math.min(255,brightness))/255;});});
     toggle.onclick = () => {
       const on = toggle.getAttribute('aria-checked') !== 'true';
       toggle.setAttribute('aria-checked', String(on)); toggle.textContent = on ? 'Licht an' : 'Licht aus';
@@ -621,7 +623,7 @@ async function open() {
   // Raum-Popup für jeden IFC-Raum, sichtbar erst nach Klick in den Raum: Name (per Doppelklick änderbar) und, falls
   // vorhanden, Sensorwerte. Die Seite lädt Werte und Namen angemeldet und schickt sie; der Viewer fragt nur nach.
   if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly && sensorAnchors.size) {
-    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onChange: () => render(), onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
+    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onChange: () => { render(); const selected = roomSensors?.selected ?? null; if (webSmartHome && selected !== lastSelectedRoom) { lastSelectedRoom = selected; window.parent.postMessage({ type: 'd21-room-selected', space_id: selected }, location.origin); } }, onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
     function receiveSensors(event) {
       if (event.source !== window.parent || event.origin !== location.origin) return;
       if (event.data?.type === 'd21-room-rename-result' && Number.isInteger(event.data.space_id)) { roomSensors?.renamed(event.data); return; }
@@ -631,6 +633,18 @@ async function open() {
     window.addEventListener('message', receiveSensors);
     window.addEventListener('pagehide', () => { window.removeEventListener('message', receiveSensors); roomSensors?.dispose(); roomSensors = undefined; }, { once: true });
     window.parent.postMessage({ type: 'd21-room-sensors-request' }, location.origin);
+  }
+  if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly) {
+    const receiveSmartHome = event => {
+      if (event.source !== window.parent || event.origin !== location.origin) return;
+      if (event.data?.type === 'd21-smart-home-connected') { webSmartHome = true; home.hidden = true; }
+      if (event.data?.type === 'd21-smart-home-visible' && webSmartHome) mode(event.data.open === true);
+      if (event.data?.type === 'd21-room-select') { roomSensors?.select(Number.isInteger(event.data.space_id) ? event.data.space_id : null); render(); }
+      if (event.data?.type === 'd21-smart-home-refresh') synchronization?.refresh?.();
+    };
+    window.addEventListener('message', receiveSmartHome);
+    window.addEventListener('pagehide', () => window.removeEventListener('message', receiveSmartHome), { once: true });
+    window.parent.postMessage({ type: 'd21-smart-home-ready' }, location.origin);
   }
   if (!spaceIDs.size()) roomsPanel.textContent = 'Keine Räume im IFC erkannt. Bitte in Revit Räume anlegen und beim IFC-Export die Raumgeometrie (IFCSPACE) einschließen. Wände allein enthalten noch keine Raumzuordnung.';
   buttons.forEach(button => button.disabled = false);

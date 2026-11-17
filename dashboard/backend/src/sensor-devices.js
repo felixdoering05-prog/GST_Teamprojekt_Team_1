@@ -1,3 +1,4 @@
+const {mergeRoomReadings}=require('./room-readings');
 const express=require('express');
 const {randomBytes,randomUUID,createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
@@ -142,7 +143,7 @@ function sensorDevicesRouter(db,requireAccount){
     if(rooms.length>=50)break;
     const gid=room.data.ifc_global_id,at=content.indexOf("'"+gid+"'");if(at<0)continue;
     const m=/#(\d+)\s*=\s*IFCSPACE\s*\(\s*'([0-9A-Za-z_$]{22})'/i.exec(content.slice(Math.max(0,at-40),at+gid.length+2));
-    if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);if(covered.has(spaceID))continue;
+    if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);
     const sensors=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Sensor' AND data->>'room_id'=$2 AND coalesce(data->>'status','aktiv')='aktiv' AND coalesce(data->>'building_id',$3)=$3 ORDER BY created_at,id LIMIT 10",[building.user_id,room.id,String(building.id)])).rows;
     const latest=new Map();
     for(const sensor of sensors){
@@ -156,7 +157,7 @@ function sensorDevicesRouter(db,requireAccount){
     const values=['temperature','humidity','co2'].filter(k=>latest.has(k)).map(k=>latest.get(k));if(!values.length)continue;
     const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
     covered.add(spaceID);
-    rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values.map(({source,...v})=>v),updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
+    rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values,updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
    }
   }
   // Gespeicherte Namen aller Räume dieses Modells, damit auch Popups ohne Sensor den geänderten Namen zeigen.
@@ -168,7 +169,7 @@ function sensorDevicesRouter(db,requireAccount){
    const seen=new Set();
    for(const r of named){const space=spaces.get(r.gid);if(!space||seen.has(space))continue;seen.add(space);room_names.push({space_id:space,room:r.name.slice(0,100),room_id:r.id});}
   }
-  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms,room_names});
+  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms:mergeRoomReadings(rooms),room_names});
  }));
  r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND user_id=$2',[req.params.device,req.account.id]);res.json({ok:true});}));
  r.post('/sensor-input',wrap(async(req,res)=>{

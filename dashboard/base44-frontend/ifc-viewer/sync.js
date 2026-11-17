@@ -31,7 +31,7 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
       if(!Number.isInteger(result?.revision))throw Error('Ungültige Serverantwort.');
       if(Array.isArray(result.device_lights))latestDeviceLights=result.device_lights;const signature=JSON.stringify(latestDeviceLights);const different=!loaded||revision!==result.revision||signature!==deviceSignature;deviceSignature=signature; revision=result.revision;loaded=true;
       // While saves are queued, keep optimistic local changes; apply final authoritative state afterwards.
-      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights);for(const item of latestDeviceLights){if(!Array.isArray(item.rgb)||item.rgb.length!==3)continue;const color='#'+item.rgb.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');roomLights.get(item.space_id)?.(item.on,color,true,item.available);}update();}
+      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights);for(const item of latestDeviceLights){if(!Array.isArray(item.rgb)||item.rgb.length!==3)continue;const color='#'+item.rgb.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');roomLights.get(item.space_id)?.(item.on,color,true,item.available,item.brightness ?? 255);}update();}
       if(result.map_view!==undefined)environment(result.map_view);
       status(queue.length?'Änderungen werden gespeichert …':'Gemeinsamer Modellstand · auf dem Server gespeichert');lock(false);next();
     }catch(e){failed=true;lock(true);status(e.message);retry.hidden=false;}
@@ -43,7 +43,7 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
   status('Gemeinsamer Modellstand wird geladen …');lock(true);request();
   timer=setInterval(()=>{if(!busy&&!failed&&!queue.length&&!document.hidden)request();},5000);
   window.addEventListener('pagehide',()=>{clearTimeout(timeout);clearInterval(timer);window.removeEventListener('message',receive);delete window.d21SceneReply;},{once:true});
-  return {change(operation){
+  return {refresh(){if(!busy&&!queue.length&&!failed)request();},change(operation){
     if(!loaded||failed){status('Noch nicht gespeichert. Bitte zuerst den Serverstand laden.');return;}
     queue.push(operation);if(queue.length>20){queue=[];failed=true;lock(true);retry.hidden=false;status('Zu viele offene Änderungen. Bitte den Serverstand erneut laden.');return;}
     status('Änderungen werden gespeichert …');next();
