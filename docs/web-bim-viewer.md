@@ -34,6 +34,10 @@ Drehen, Verschieben, Zoomen, Draufsicht, Bauteilwahl, Farbwahl, Ausblenden, Wied
 
 Bei persönlichen Modellen werden bestätigte Farben, ausgeblendete Bauteile und Lichtzustände über den bestehenden Modellstand synchronisiert. Die aktuelle, im Team ergänzte Karten-/Geräteanbindung bleibt für persönliche Modelle erhalten. Kamera, Beschriftung, Geschossschnitt und vertikale Geschossabstände bleiben lokal. D21-Original, Stilvorschau und Heat map speichern sämtliche Ansichtsänderungen ausschließlich lokal. Die Heat map steuert keine Geräte und berechnet keine physikalischen Lichtzustände.
 
+### Live-Messwerte im Raum
+
+Bei persönlichen Modellen lädt die Seite angemeldet `GET /api/v1/documents/:id/sensor-overlay` beim Öffnen und danach alle 30 Sekunden und übergibt die Werte per ursprungsgeprüftem `postMessage` (`d21-room-sensors`). Der Viewer zeigt je IfcSpace ein schwebendes Popup über der Raummitte mit Temperatur, Luftfeuchte und Messzeit; nach drei Minuten ohne neuen Wert erscheint „alt“. Berücksichtigt werden ESP32-Geräte, die per `PUT /sensor-devices/:id` einem IfcSpace zugeordnet sind, sowie aktive Sensoren eines Raums, dessen IFC-GlobalId im Modell vorkommt. Campus-, Beispiel-, Heat-map- und Nur-lesen-Ansichten zeigen keine Popups.
+
 ## Quellcode und Build
 
 `dashboard/base44-frontend/ifc-viewer/` enthält den aus `ios/ifc-viewer/` abgeleiteten Viewer-Kern. Die Web-Variante lädt Dateien über den geprüften Nachrichtenkanal zum Elternfenster und besitzt die hier beschriebene eigenständige Architektur- und Geschossdarstellung. Änderungen an gemeinsamen Interaktionen, Befehlen und dem Modellzustandsvertrag weiterhin mit iOS abgleichen. `storeys.js`, `example.js` und `surroundings.js` ergänzen die Webdarstellung.

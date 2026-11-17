@@ -101,6 +101,33 @@ function sensorDevicesRouter(db,requireAccount){
    const latest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
    rooms.push({space_id:d.space_id,room:d.room_label,device_id:d.id,source:hw.source,hardware:d.hardware||'simulation',values,updated_at:latest||null,stale:!latest||Date.now()-Date.parse(latest)>180000});
   }
+  // Zusätzlich Sensoren, die einem Raum mit IFC-GlobalId dieses Modells zugeordnet sind (z. B. Schlafzimmer über „Sensor einem Raum zuordnen“).
+  const covered=new Set(rooms.map(r=>r.space_id));
+  const ifcRooms=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND coalesce(data->>'source','')<>'demo' AND coalesce(data->>'ifc_global_id','')~'^[0-9A-Za-z_$]{22}$' ORDER BY created_at,id LIMIT 200",[building.user_id,String(building.id)])).rows;
+  if(ifcRooms.length){
+   // Sensoren widerrufener Geräte nicht mehr anzeigen.
+   const revoked=new Set((await db.query('SELECT sensors FROM app_sensor_devices WHERE building_id=$1 AND revoked=true',[building.id])).rows.flatMap(d=>Object.values(d.sensors||{})));
+   const content=Buffer.from((await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content||[]).toString('latin1');
+   for(const room of ifcRooms){
+    if(rooms.length>=50)break;
+    const gid=room.data.ifc_global_id,at=content.indexOf("'"+gid+"'");if(at<0)continue;
+    const m=/#(\d+)\s*=\s*IFCSPACE\s*\(\s*'([0-9A-Za-z_$]{22})'/i.exec(content.slice(Math.max(0,at-40),at+gid.length+2));
+    if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);if(covered.has(spaceID))continue;
+    const sensors=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Sensor' AND data->>'room_id'=$2 AND coalesce(data->>'status','aktiv')='aktiv' ORDER BY created_at,id LIMIT 10",[building.user_id,room.id])).rows;
+    const latest=new Map();
+    for(const sensor of sensors){
+     const metric=sensor.data.metric;if(!METRIC_META[metric]||revoked.has(sensor.id))continue;
+     const v=(await db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 AND data->>'building_id'=$3 ORDER BY created_at DESC,id DESC LIMIT 1",[building.user_id,sensor.id,String(building.id)])).rows[0]?.data;
+     if(!v||typeof v.value!=='number'||!Number.isFinite(v.value)||!Date.parse(v.measured_at))continue;
+     const value={metric,label:METRIC_META[metric].label,value:v.value,unit:METRIC_META[metric].unit,measured_at:new Date(v.measured_at).toISOString(),source:v.source==='real'?'real':'demo'};
+     if(!latest.has(metric)||latest.get(metric).measured_at<value.measured_at)latest.set(metric,value);
+    }
+    const values=['temperature','humidity','co2'].filter(k=>latest.has(k)).map(k=>latest.get(k));if(!values.length)continue;
+    const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
+    covered.add(spaceID);
+    rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values.map(({source,...v})=>v),updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
+   }
+  }
   res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms});
  }));
  r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND user_id=$2',[req.params.device,req.account.id]);res.json({ok:true});}));

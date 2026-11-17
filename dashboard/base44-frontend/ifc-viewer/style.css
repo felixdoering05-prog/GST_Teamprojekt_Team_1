@@ -270,3 +270,25 @@ html[data-theme="dark"], [data-theme="dark"] .bim-presentation {
     -webkit-backdrop-filter: none;
   }
 }
+/* Messwert-Popups echter Raumsensoren, schwebend über der Raummitte */
+.sensor-layer { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+.sensor-popup { position: absolute; transform: translate(-50%, calc(-100% - 10px)); min-width: 132px; padding: 9px 12px 8px; border-radius: 14px;
+  background: #12345fef; color: #fff; border: 1px solid #8cbcff; box-shadow: 0 10px 26px #0c1f3a40; font-size: 11px; white-space: nowrap;
+  animation: sensor-float 3.2s ease-in-out infinite; }
+.sensor-popup::after { position: absolute; content: ""; bottom: -7px; left: calc(50% - 7px); border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid #12345fef; }
+.sensor-popup::before { position: absolute; content: ""; bottom: -16px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: #8cbcff; box-shadow: 0 0 0 3px #8cbcff55; }
+.sensor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sensor-head strong { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.sensor-badge { font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 6px; background: #3ddc97; color: #0b2d1f; }
+.sensor-values { display: flex; gap: 14px; margin-top: 5px; }
+.sensor-values span { display: flex; flex-direction: column; }
+.sensor-values b { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.sensor-values small, .sensor-time { font-size: 9px; color: #c9dcf5; }
+.sensor-time { display: block; margin-top: 4px; }
+.sensor-popup.stale { background: #5a6068ee; border-color: #c7cbd1; }
+.sensor-popup.stale::after { border-top-color: #5a6068ee; }
+.sensor-popup.stale .sensor-badge { background: #c7cbd1; color: #2f3338; }
+@keyframes sensor-float { 0%, 100% { margin-top: 0; } 50% { margin-top: -4px; } }
+@media (prefers-reduced-motion: reduce) { .sensor-popup { animation: none; } }
+.dashboard-presentation .sensor-popup { min-width: 0; padding: 6px 9px; }
+.dashboard-presentation .sensor-values b { font-size: 13px; }

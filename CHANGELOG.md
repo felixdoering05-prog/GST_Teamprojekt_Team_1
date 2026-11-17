@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Live-Messwerte als schwebende Popups im Web-BIM-Viewer
+
+- Der Web-BIM-Viewer (und das Dashboard-Widget „BIM-Modell“) fragt `GET /documents/:id/sensor-overlay` alle 30 Sekunden ab und zeigt die neuesten Werte als schwebendes Popup über der Mitte des zugehörigen IFC-Raums: Raumname, Temperatur, Luftfeuchte (ggf. CO₂), Messzeit und Kennzeichnung „live“, „alt“ (> 3 min) oder „Demo“. Dieser Web-Teil war nach dem Merge von PR #188 nur auf dem Feature-Branch geblieben.
+- Popups folgen Geschossschnitt und abgesetztem Geschoss; Räume anderer Geschosse werden ausgeblendet. Die Popups sind HTML-Elemente über dem Modell und werden vom Schnitt nicht abgeschnitten.
+- Der Overlay-Endpunkt liefert zusätzlich Sensoren, die über „Sensor einem Raum zuordnen“ einem Raum mit IFC-GlobalId dieses Modells zugeordnet sind (z. B. Schlafzimmer), auch ohne direkt platziertes ESP32-Gerät. Nur aktive Sensoren, keine Sensoren widerrufener Geräte, nur mit Gebäudezugang; Sitzungsschlüssel gelangen nicht in den Viewer.
+- Prüfung: 225 Backend-Tests (223 bestanden, 2 übersprungen), 35 Viewer-Tests, ESLint, Website-Build; Browserprüfung mit lokal erzeugter Test-IFC (Gesamtgebäude, Erdgeschossschnitt, abgesetztes Geschoss). Produktivdaten und das echte Modell „Zuhause · Grundriss_Hochparterre.ifc“ waren nicht Teil der Prüfung.
+
 ## 16. November 2026 – Nala Solutions (iPhone 1.0.141)
 
 - Der Produktname lautet jetzt **Nala Solutions**: App-Anzeigename, Startansicht, Widget, Web-Dashboard, Web-App-Metadaten, Datenschutztexte, Exporte und Passwort-E-Mails sind angepasst.
