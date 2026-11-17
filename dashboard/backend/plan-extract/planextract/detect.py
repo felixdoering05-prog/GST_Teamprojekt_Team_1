@@ -376,6 +376,12 @@ class Detector:
                 walls.append({'angle': cl['angle'], 'u': cl['u'], 'n': cl['n'], 'c': cl['c'], 't': cl['t'],
                               's0': r['s0'], 's1': r['s1'], 'openings': r['openings'], 'short': cl.get('short', False)})
         walls = [w for w in walls if w['s1'] - w['s0'] >= max(100.0, 0.5 * w['t']) or w['openings']]
+        if 'large_plan_filtered' in getattr(self.plan, 'notes', []):
+            # Technical plans: short double-line stubs without openings are installation details, not walls.
+            before = len(walls)
+            walls = [w for w in walls if w['s1'] - w['s0'] >= 1000.0 or w['openings']]
+            if before - len(walls):
+                self.notes.append(f'{before - len(walls)} kurze Linienpaare ohne Öffnung (unter 1 m) als Technikdetail ignoriert.')
         self._close_corners(walls)
         walls = self._largest_component(walls)
         self._host_symbols(walls, used_arcs, used_ins)

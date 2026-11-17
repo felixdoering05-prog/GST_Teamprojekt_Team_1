@@ -302,7 +302,8 @@ class RealisticModel(unittest.TestCase):
                 self.assertTrue({'Außenputz', 'Glas', 'Fensterrahmen', 'Holz', 'Dach', 'Beton'} <= names, names)
                 self.assertTrue(any(m.Name == 'Wärmedämmung' for m in f.by_type('IfcMaterial')))
                 window = f.by_type('IfcWindow') + f.by_type('IfcDoor')
-                self.assertTrue(window and all(len(e.Representation.Representations[0].Items) >= 4 for e in window))
+                parts = lambda e: e.Representation.Representations[0].Items[0].MappingSource.MappedRepresentation.Items
+                self.assertTrue(window and all(len(parts(e)) >= 4 for e in window), 'frame/glass/leaf parts via shared geometry')
                 logger = ifcopenshell.validate.json_logger()
                 ifcopenshell.validate.validate(f, logger)
                 self.assertEqual(logger.statements, [])
