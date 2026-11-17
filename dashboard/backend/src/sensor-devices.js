@@ -5,6 +5,8 @@ const {accessibleBuilding}=require('./collaboration');
 const {service}=require('./twin');
 const {METRIC_META}=require('./twin/thresholdRules');
 const {validateRoom}=require('./equipment');
+const {haRoomClimate}=require('./ha-import');
+const {spaceFinder}=require('./room-lighting');
 const hash=v=>createHash('sha256').update(v).digest('hex');
 async function initSensorDevices(db){await db.query(`CREATE TABLE IF NOT EXISTS app_sensor_devices(id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,token_hash TEXT UNIQUE NOT NULL,sensors JSONB NOT NULL,last_key TEXT,last_hash TEXT,last_at TIMESTAMPTZ,revoked BOOLEAN NOT NULL DEFAULT false,created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  // Echte Hardware und Zuordnung zu einem IFC-Raum (Dokument + IfcSpace-Express-ID).
@@ -158,6 +160,20 @@ function sensorDevicesRouter(db,requireAccount){
     const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
     covered.add(spaceID);
     rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values,updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
+   }
+  }
+  // Home-Assistant-Sensoren über die Raumzuordnung (IFC-GlobalId oder gleicher Raumname).
+  const haRooms=await haRoomClimate(db,building.id);
+  if(haRooms.length&&rooms.length<50){
+   const find=spaceFinder((await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content);
+   for(const r of haRooms){
+    if(rooms.length>=50)break;const spaceID=find(r);if(!spaceID)continue;
+    const existing=rooms.find(x=>x.space_id===spaceID);
+    const values=r.values.filter(v=>METRIC_META[v.metric]&&Number.isFinite(v.value)).map(v=>({metric:v.metric,label:METRIC_META[v.metric].label,value:v.value,unit:METRIC_META[v.metric].unit,measured_at:v.measured_at}));
+    if(existing){for(const v of values)if(!existing.values.some(x=>x.metric===v.metric))existing.values.push(v);continue;}
+    if(!values.length)continue;
+    const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
+    rooms.push({space_id:spaceID,room:r.room.slice(0,100),room_id:r.room_id,source:'real',hardware:'home-assistant',values,updated_at:newest,stale:Date.now()-Date.parse(newest)>3600000});
    }
   }
   // Gespeicherte Namen aller Räume dieses Modells, damit auch Popups ohne Sensor den geänderten Namen zeigen.

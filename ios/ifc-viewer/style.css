@@ -23,3 +23,5 @@
 #sync-status:not(:has(button:not([hidden]))){display:none}
 #map-attribution{left:8px;right:auto;bottom:6px;max-width:70%;font-size:9px;padding:2px 8px;text-align:left;opacity:.8}
 #selection{bottom:16px}
+#climate-legend{position:absolute;left:16px;right:72px;bottom:16px;max-width:320px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 4px 18px rgba(16,39,49,.14);font-size:12px;color:#102731;pointer-events:none}#climate-legend strong{display:block;font-size:13px;margin-bottom:6px}#climate-legend .bar{height:8px;border-radius:4px}#climate-legend .ticks{display:flex;justify-content:space-between;margin-top:4px;color:#4f636d}
+@media (prefers-color-scheme: dark){#climate-legend{background:rgba(28,36,44,.8);color:#e6eef1}#climate-legend .ticks{color:#9fb3bb}}
