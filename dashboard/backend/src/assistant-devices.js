@@ -3,6 +3,7 @@ const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {deviceControlEnabled}=require('./ai-preferences');
 const {homeAssistantService,executeLampCommand}=require('./home-assistant');
+const {haLamps}=require('./ha-import');
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 async function deviceContext(db,user,building,options={}){
  if(!await deviceControlEnabled(db,user)||!await accessibleBuilding(db,building,user))return [];
@@ -25,7 +26,24 @@ async function executeDeviceActions(db,user,building,actions,requestID,options={
  }
  return {results,answer:results.map(r=>r.name+': '+(r.confirmed?'Zustand durch Home Assistant bestätigt.':r.message)).join('\n')};
 }
+// Aus Home Assistant importierte Lampen: nur für den Besitzer mit App-Verbindung und freigegebener Gerätesteuerung.
+// Der Server schaltet sie nicht selbst; das iPhone führt die geprüften Aufträge im Heimnetz aus.
+async function haChatLamps(db,user,building){
+ if(!building||building.user_id!==user||!await deviceControlEnabled(db,user))return [];
+ return (await haLamps(db,building.id)).filter(l=>l.owner===user&&l.app_mode).slice(0,20).map(l=>({key:l.entity_id,name:l.name,room:l.room||'',color:l.supports_color,caps:l.caps}));
+}
+function validHAActions(actions,list){
+ const out=[],seen=new Set();
+ for(const a of actions){
+  const l=list.find(x=>x.key===a?.key);if(!l||seen.has(l.key)||typeof a.on!=='boolean')return [];seen.add(l.key);
+  const action={entity_id:l.key,name:l.name,on:a.on};
+  if(a.on&&a.brightness!==undefined){if(!Number.isInteger(a.brightness)||a.brightness<1||a.brightness>255||l.caps?.brightness===false)return [];action.brightness=a.brightness;}
+  if(a.on&&a.rgb!==undefined){if(!l.color||!Array.isArray(a.rgb)||a.rgb.length!==3||a.rgb.some(v=>!Number.isInteger(v)||v<0||v>255))return [];action.rgb=a.rgb;}
+  out.push(action);
+ }
+ return out.slice(0,5);
+}
 function assistantDevicesRouter(db,requireAccount,options={}){
  const r=express.Router();r.post('/buildings/:id/assistant/device-actions',requireAccount,async(req,res,next)=>{try{res.set('Cache-Control','private, no-store');if(Object.keys(req.body||{}).some(k=>k!=='actions'))fail('Ungültiger Auftrag.');res.json(await executeDeviceActions(db,req.account.id,req.params.id,req.body?.actions,req.get('X-Request-ID'),options));}catch(e){e.status?res.status(e.status).json({error:e.message}):next(e);}});return r;
 }
-module.exports={deviceContext,validateActions,executeDeviceActions,assistantDevicesRouter};
+module.exports={haChatLamps,validHAActions,deviceContext,validateActions,executeDeviceActions,assistantDevicesRouter};

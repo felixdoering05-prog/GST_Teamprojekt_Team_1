@@ -9,6 +9,7 @@ import { IfcAPI, IFCRELAGGREGATES, IFCBUILDINGSTOREY, IFCSPACE, IFCWALL, IFCWALL
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 import { createIssueMarkers } from './issue-markers.js';
+import { createRoomClimate } from './room-climate.js';
 import { createSensorLabels } from './sensor-labels.js';
 
 const placementMode=new URLSearchParams(location.search).get('placement')==='true';
@@ -243,6 +244,7 @@ async function open() {
   roomEffects = new THREE.Group(); scene.add(roomEffects);
   const spaceIDs = api.GetLineIDsWithType(modelID, IFCSPACE);
   let roomVertices = 0, roomMeshes = 0;
+  const roomGeoms = new Map(); // IfcSpace-ID → Raumkörper für die Raumklima-Einfärbung
   const roomAnchors = new Map(); // IfcSpace-ID → Oberkante Raummitte (Szenenkoordinaten) für Messwert-Popups
   for (let n = 0; n < spaceIDs.size(); n++) {
     const id = spaceIDs.get(n), line = api.GetLine(modelID, id, false);
@@ -271,7 +273,7 @@ async function open() {
         effect.renderOrder=3;roomEffects.add(effect); meshes.push(effect);
       } finally { data.delete(); }
     }
-    if (meshes.length) { const box = new THREE.Box3(); meshes.forEach(m => box.expandByObject(m)); const c = box.getCenter(new THREE.Vector3()); roomAnchors.set(id, new THREE.Vector3(c.x, box.max.y, c.z)); }
+    if (meshes.length) { const box = new THREE.Box3(); meshes.forEach(m => box.expandByObject(m)); const c = box.getCenter(new THREE.Vector3()); roomAnchors.set(id, new THREE.Vector3(c.x, box.max.y, c.z)); roomGeoms.set(id, meshes); }
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
@@ -302,12 +304,16 @@ async function open() {
   // Messwerte echter Raumsensoren (z. B. ESP32 + BME280) als Popup über dem zugeordneten IFC-Raum.
   if (!heatMode && !previewMode && window.webkit?.messageHandlers?.ifcSensorRequest && roomAnchors.size) {
     const sensorLabels = createSensorLabels(scene, roomAnchors);
-    window.d21SetRoomSensors = list => { sensorLabels.set(list); render(); };
+    const legend = document.createElement('div'); legend.id = 'climate-legend'; legend.hidden = true; legend.setAttribute('role', 'status'); document.body.append(legend);
+    const climate = createRoomClimate(scene, roomGeoms, legend);
+    window.d21SetRoomSensors = list => { sensorLabels.set(list); climate.setSensors(list); render(); };
+    // Vom nativen Werkzeugmenü: 'temperature' | 'humidity' | 'co2' | null.
+    window.d21SetClimate = metric => { const n = climate.setMetric(metric); render(); return n; };
     const requestSensors = () => { if (!destroyed && !document.hidden) window.webkit?.messageHandlers?.ifcSensorRequest?.postMessage('load'); };
     requestSensors();
     const sensorTimer = setInterval(requestSensors, 30000);
     document.addEventListener('visibilitychange', requestSensors);
-    window.addEventListener('pagehide', () => { clearInterval(sensorTimer); sensorLabels.dispose(); }, { once: true });
+    window.addEventListener('pagehide', () => { clearInterval(sensorTimer); sensorLabels.dispose(); climate.dispose(); delete window.d21SetClimate; }, { once: true });
   }
   // The smart-home overlay is retired from the viewer; device control lives under Geräte.
   document.querySelector('#modes')?.remove(); document.querySelector('#home')?.remove();

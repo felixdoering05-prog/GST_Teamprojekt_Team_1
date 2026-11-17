@@ -11,7 +11,9 @@ struct AssistantStatus: Decodable { let enabled: Bool; let model: String; let no
 struct ModelCommand: Codable { let action: String; let target: String; let color: String?; let summary: String
     var json: [String:Any] { ["action":action,"target":target,"color":color.map { $0 as Any } ?? NSNull(),"summary":summary] }
 }
-struct AssistantAnswer: Decodable { let answer: String; let model: String; let notice: String; let cached: Bool }
+struct AssistantAnswer: Decodable { let answer: String; let model: String; let notice: String; let cached: Bool; var ha_actions: [HAChatAction]? = nil }
+/// Von Nala vorgeschlagener und vom Server geprüfter Lichtauftrag für eine importierte Home-Assistant-Lampe.
+struct HAChatAction: Decodable { let entity_id: String; let name: String; let on: Bool; let brightness: Int?; let rgb: [Int]? }
 struct AssistantTurn: Decodable, Identifiable { let id: Int; let document_id: Int?; let question: String; let answer: String; let command: ModelCommand? }
 private struct CommandPreview: Decodable { let count: Int; let description: String }
 private struct SceneVersion: Decodable { let revision: Int }
@@ -116,6 +118,7 @@ struct BuildingAssistantView: View {
             VStack(spacing: 10) {
                 suggestion("Unterlagen im Überblick", detail: "Welche Unterlagen sind hinterlegt?", symbol: "folder.fill", command: false)
                 suggestion("Mein Modell verstehen", detail: "Wie viele Wände enthält das ausgewählte IFC-Modell?", symbol: "cube.transparent.fill", command: false)
+                suggestion("Licht steuern", detail: "Schalte das Licht im Wohnzimmer an", symbol: "lightbulb.max.fill", command: false)
                 if selectedID != nil { suggestion("Darstellung anpassen", detail: "Färbe alle Wände blau", symbol: "paintpalette.fill", command: true) }
             }
         }.frame(maxWidth: .infinity)
@@ -265,9 +268,20 @@ struct BuildingAssistantView: View {
             var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true]
             if commandMode { body["mode"] = "ifc-command" }
             if let selectedID { body["document_id"] = selectedID }
-            let _: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers:["X-Request-ID":requestID.uuidString], timeout:45)
+            let reply: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers:["X-Request-ID":requestID.uuidString], timeout:45)
             guard !Task.isCancelled else { return }; question = ""; lastFingerprint = ""; await load()
+            if let actions = reply.ha_actions, !actions.isEmpty, !reply.cached { await runLights(actions) }
         } catch { guard !Task.isCancelled else { return }; problem = error.localizedDescription; if let api = error as? APIError { retryNew = api.status != 0 && (api.status != 409 || !api.message.contains("noch bearbeitet")) } }
+    }
+    /// Nalas Lichtaufträge im Heimnetz ausführen: gleiche Prüfung und Grenzen wie beim Antippen der Lampe.
+    private func runLights(_ actions: [HAChatAction]) async {
+        var done: [String] = [], failed: [String] = []
+        for action in actions.prefix(5) {
+            do { try await HASync.switchLight(account: account, building: building.id, entity: action.entity_id, on: action.on, brightness: action.on ? action.brightness : nil, rgb: action.on ? action.rgb : nil); done.append(action.name) }
+            catch { failed.append("\(action.name): \(error.localizedDescription)") }
+        }
+        if !done.isEmpty { notice = "Home Assistant hat geschaltet: " + done.joined(separator: ", ") + "." }
+        if !failed.isEmpty { problem = "Nicht geschaltet – " + failed.joined(separator: " · ") }
     }
     private func prepare(_ command: ModelCommand, document: Int) async {
         guard !sending else { return }; sending = true; defer { sending = false }
