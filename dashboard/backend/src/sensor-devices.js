@@ -84,6 +84,27 @@ function sensorDevicesRouter(db,requireAccount){
    await c.query('COMMIT');res.json(publicDevice(row));
   }catch(e){await c.query('ROLLBACK');if(e.status)return res.status(e.status).json({error:e.message});throw e;}finally{c.release();}
  }));
+ // Raumnamen aus dem 3D-Popup ändern (Doppelklick). Gespeichert am Raum-Datensatz mit der IFC-GlobalId des IfcSpace;
+ // die IFC-Datei bleibt unverändert. Eigentümer und angenommene Mitglieder, wie bei der Sensor-Raumzuordnung.
+ r.put('/documents/:sensorDoc/rooms/:space/name',requireAccount,wrap(async(req,res)=>{
+  const b=req.body||{},valid=n=>/^[1-9]\d{0,9}$/.test(n)&&Number(n)<=2147483647;
+  if(!valid(req.params.sensorDoc)||!valid(req.params.space))return res.status(400).json({error:'Ungültiger Raum.'});
+  const name=typeof b.name==='string'?b.name.trim().replace(/\s+/g,' '):'';
+  if(Object.keys(b).some(k=>k!=='name')||!name||name.length>60||/[\u0000-\u001f\u007f]/.test(name))return res.status(400).json({error:'Bitte einen Raumnamen mit 1 bis 60 Zeichen eingeben.'});
+  const c=await db.connect();try{await c.query('BEGIN');
+   const doc=(await c.query("SELECT id,building_id FROM app_documents WHERE id=$1 AND mime_type='application/x-step'",[req.params.sensorDoc])).rows[0];
+   const building=doc&&await accessibleBuilding(c,doc.building_id,req.account.id,true);
+   if(!building){await c.query('ROLLBACK');return res.status(404).json({error:'Modell nicht gefunden.'});}
+   const raw=(await c.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content;
+   const gid=raw&&spaceGlobalId(raw,Number(req.params.space));
+   if(!gid){await c.query('ROLLBACK');return res.status(404).json({error:'Raum nicht im Modell gefunden.'});}
+   const api=service(c,building.user_id).entities;
+   let room=(await api.Room.filter({building_id:String(building.id),ifc_global_id:gid},{limit:5})).items.find(r=>r.source!=='demo');
+   if(room)room=await api.Room.update(room.id,{name});
+   else room=await api.Room.create({name,room_code:`IFC-${req.params.space}`,building_id:String(building.id),ifc_global_id:gid,source:'real',notes:`Aus IFC-Dokument ${doc.id}, IfcSpace #${req.params.space}`});
+   await c.query('COMMIT');res.json({room_id:room.id,name:room.name,space_id:Number(req.params.space)});
+  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+ }));
  // 3D-Ansicht: neueste Werte je IFC-Raum eines Modells. Nur lesend, nur für Gebäudezugang.
  r.get('/documents/:sensorDoc/sensor-overlay',requireAccount,wrap(async(req,res)=>{
   res.set('Cache-Control','private, no-store');
@@ -100,6 +121,15 @@ function sensorDevicesRouter(db,requireAccount){
    }
    const latest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
    rooms.push({space_id:d.space_id,room:d.room_label,device_id:d.id,source:hw.source,hardware:d.hardware||'simulation',values,updated_at:latest||null,stale:!latest||Date.now()-Date.parse(latest)>180000});
+  }
+  // Geänderte Raumnamen (Doppelklick im 3D-Popup) liegen am Raum-Datensatz mit derselben IFC-GlobalId.
+  if(rooms.length){
+   const raw=(await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content;
+   for(const entry of rooms){
+    const gid=raw&&entry.space_id&&spaceGlobalId(raw,entry.space_id);if(!gid)continue;
+    const record=(await db.query("SELECT id,data->>'name' AS name FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND data->>'ifc_global_id'=$3 AND coalesce(data->>'source','')<>'demo' ORDER BY created_at,id LIMIT 1",[building.user_id,String(building.id),gid])).rows[0];
+    if(record){entry.room_id=record.id;if(record.name)entry.room=record.name.slice(0,100);}
+   }
   }
   // Zusätzlich Sensoren, die einem Raum mit IFC-GlobalId dieses Modells zugeordnet sind (z. B. Schlafzimmer über „Sensor einem Raum zuordnen“).
   const covered=new Set(rooms.map(r=>r.space_id));

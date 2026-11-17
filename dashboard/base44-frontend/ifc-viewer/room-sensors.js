@@ -34,11 +34,21 @@ export function roomTitle(room) {
   return parts.length > 1 ? parts.slice(1).join(' · ') : parts[0] || 'Raum';
 }
 
-function popup(entry) {
+/** Trimmed room name as the server accepts it, or '' if invalid. */
+export function cleanRoomName(value) {
+  const name = String(value ?? '').trim().replace(/\s+/g, ' ');
+  return name.length <= 60 && !/[\u0000-\u001f\u007f]/.test(name) ? name : '';
+}
+
+function popup(entry, rename) {
   const box = document.createElement('div');
   box.className = 'sensor-popup' + (entry.stale ? ' stale' : '');
   const head = document.createElement('div'); head.className = 'sensor-head';
   const title = document.createElement('strong'); title.textContent = roomTitle(entry.room);
+  if (rename) {
+    title.className = 'sensor-name'; title.title = 'Doppelklick: Raumnamen ändern';
+    title.addEventListener('dblclick', event => { event.preventDefault(); event.stopPropagation(); rename(entry, title); });
+  }
   const badge = document.createElement('span'); badge.className = 'sensor-badge';
   badge.textContent = entry.stale ? 'alt' : entry.real ? 'live' : 'Demo';
   head.append(title, badge);
@@ -64,21 +74,74 @@ function popup(entry) {
  * separated storeys because the current offset and visibility of the room volume are read on every frame.
  * planes: returns the active clipping planes (world space).
  */
-export function createRoomSensors(host, parent, rooms, camera, { planes = () => [] } = {}) {
+export function createRoomSensors(host, parent, rooms, camera, { planes = () => [], onRename } = {}) {
   const layer = document.createElement('div'); layer.className = 'sensor-layer'; layer.setAttribute('aria-live', 'polite');
   host.append(layer);
-  let items = [];
+  let items = [], editing = null, pending = null;
+  const names = new Map(); // space_id → gespeicherter Name, bis der Server ihn im Overlay bestätigt
+  const errors = new Map(); // space_id → { text, until } für einen kurzen Hinweis nach fehlgeschlagenem Speichern
+  function showError(element, space) {
+    const error = errors.get(space);
+    if (!error || error.until < Date.now()) { errors.delete(space); return; }
+    const note = document.createElement('small'); note.className = 'sensor-error'; note.textContent = error.text;
+    element.querySelector('.sensor-error')?.remove(); element.append(note);
+    setTimeout(() => { note.remove(); if (errors.get(space)?.until <= Date.now()) errors.delete(space); }, error.until - Date.now());
+  }
   const point = new THREE.Vector3();
-  return {
+  function rename(entry, title) {
+    if (editing) return;
+    const input = document.createElement('input');
+    input.className = 'sensor-name-input'; input.maxLength = 60; input.value = title.textContent;
+    input.setAttribute('aria-label', 'Raumname');
+    const previous = title.textContent;
+    editing = { space_id: entry.space_id, input };
+    let done = false;
+    const finish = save => {
+      if (done) return; done = true;
+      const name = cleanRoomName(input.value);
+      input.replaceWith(title);
+      editing = null;
+      if (save && name && name !== previous) {
+        title.textContent = name; names.set(entry.space_id, name);
+        title.closest('.sensor-popup')?.classList.add('saving');
+        onRename(entry.space_id, name);
+      }
+      if (pending) { const list = pending; pending = null; api.set(list); }
+    };
+    input.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+    title.replaceWith(input); input.focus(); input.select();
+  }
+  const api = {
     set(list) {
+      if (editing) { pending = list; return items.length; }
       layer.replaceChildren();
       items = [];
       for (const entry of sanitizeRoomSensors(list)) {
         const room = rooms.get(entry.space_id); if (!room) continue;
-        const element = popup(entry); element.hidden = true; layer.append(element);
+        if (names.has(entry.space_id)) {
+          if (roomTitle(entry.room) === names.get(entry.space_id)) names.delete(entry.space_id);
+          else entry.room = names.get(entry.space_id);
+        }
+        const element = popup(entry, onRename && rename); element.hidden = true; layer.append(element);
+        element.dataset.space = String(entry.space_id);
+        showError(element, entry.space_id);
         items.push({ room, element });
       }
       return items.length;
+    },
+    /** Server answer to a rename: on error the old name returns and a short note is shown. */
+    renamed({ space_id, error }) {
+      const element = items.find(item => item.element.dataset.space === String(space_id))?.element;
+      element?.classList.remove('saving');
+      if (!error) return;
+      names.delete(space_id);
+      errors.set(space_id, { text: String(error).slice(0, 80), until: Date.now() + 5000 });
+      if (element) showError(element, space_id);
     },
     update() {
       for (const { room, element } of items) {
@@ -99,4 +162,5 @@ export function createRoomSensors(host, parent, rooms, camera, { planes = () => 
     setVisible(on) { layer.hidden = !on; },
     dispose() { layer.remove(); items = []; },
   };
+  return api;
 }

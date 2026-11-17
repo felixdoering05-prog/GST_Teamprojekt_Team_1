@@ -279,6 +279,11 @@ html[data-theme="dark"], [data-theme="dark"] .bim-presentation {
 .sensor-popup::before { position: absolute; content: ""; bottom: -16px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: #8cbcff; box-shadow: 0 0 0 3px #8cbcff55; }
 .sensor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sensor-head strong { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.sensor-name { pointer-events: auto; cursor: text; border-radius: 5px; padding: 1px 3px; margin: -1px -3px; user-select: none; -webkit-user-select: none; }
+.sensor-name:hover { background: #ffffff26; }
+.sensor-name-input { pointer-events: auto; width: 150px; font: 600 11px -apple-system, system-ui, sans-serif; color: #fff; background: #ffffff22; border: 1px solid #8cbcff; border-radius: 6px; padding: 2px 5px; outline: none; }
+.sensor-popup.saving .sensor-name { opacity: .7; }
+.sensor-error { display: block; margin-top: 4px; font-size: 9px; color: #ffd0d0; white-space: normal; max-width: 180px; }
 .sensor-badge { font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 6px; background: #3ddc97; color: #0b2d1f; }
 .sensor-values { display: flex; gap: 14px; margin-top: 5px; }
 .sensor-values span { display: flex; flex-direction: column; }
