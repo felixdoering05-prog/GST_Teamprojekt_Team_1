@@ -14,7 +14,6 @@
 - Mehrere Dateien auswählen oder ablegen, Übertragung je Datei verfolgen und nur fehlgeschlagene Uploads mit derselben Upload-Kennung erneut versuchen. Während unbestätigter Uploads schützt die Einrichtung vor versehentlichem Weiterschalten.
 - Bildergalerie mit Vorschau, Umbenennen, Herunterladen und bestätigtem Löschen. Gespeicherte Unterlagen verwenden dieselben bestehenden Zugriffsrechte wie die App. Die neue Einrichtung aktiviert keine KI- oder Kartendienste automatisch.
 
-
 ## 17. November 2026 – Raum-Popup für jeden Raum, erst nach Klick
 
 - Web-BIM-Viewer: Jeder IFC-Raum hat ein Popup; es erscheint nur, wenn man in den Raum klickt (Raumvolumen oder Boden innerhalb des Raums, z. B. im Geschossschnitt). Klick daneben, erneut in denselben Raum oder auf × schließt es. Wände, Fenster usw. werden wie bisher als Bauteil ausgewählt.
