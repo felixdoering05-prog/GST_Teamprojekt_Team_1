@@ -67,12 +67,22 @@ struct BuildingDevicesView: View {
     @State private var problem: String?
     @State private var adding = false
     @State private var lamps: [ConnectedLamp] = []
+    @State private var ha: HAOverview?
+    @State private var haLocal = false
     @State private var selectedLamp: ConnectedLamp?
     @State private var selectedDevice: BuildingDevice?
     @State private var connecting = false
     @State private var room = "Alle Räume"
     @Environment(\.scenePhase) private var scenePhase
-    private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"})).sorted() }
+    /// Lampen aus dem Home-Assistant-Import (App-Verbindung) mit ihrem Raum: eigener Raum > Gerät > Bereich.
+    private var haLamps: [HAEntity] { ha?.entities.filter { $0.isLight && $0.selected } ?? [] }
+    private func haRoom(_ lamp: HAEntity) -> String {
+        guard let ha else { return "Ohne Raum" }
+        let area = ha.areas.first { $0.area_id == lamp.area_id }
+        return (lamp.effective_room_id ?? area?.room_id).flatMap { id in ha.rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum"
+    }
+    private var shownHALamps: [HAEntity] { haLamps.filter { room == "Alle Räume" || haRoom($0) == room } }
+    private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"} + haLamps.map(haRoom))).sorted() }
     private var visible: [BuildingDevice] { devices.filter { room == "Alle Räume" || $0.roomLabel == room } }
     private var shownLamps: [ConnectedLamp] { lamps.filter { room == "Alle Räume" || ($0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum") == room } }
     var body: some View {
@@ -112,15 +122,25 @@ struct BuildingDevicesView: View {
                     }
                 }
                 if loading && !loaded { HStack(spacing: 12) { ProgressView(); Text("Geräte werden geladen …").foregroundStyle(.secondary) }.padding(18).frame(maxWidth: .infinity, alignment: .leading).d21Card(cornerRadius: 20) }
-                if !shownLamps.isEmpty {
+                if !shownLamps.isEmpty || !shownHALamps.isEmpty {
                     Text("Licht").font(.title3.bold())
-                    VStack(spacing: 12) { ForEach(shownLamps) { lamp in ConnectedLampCard(lamp: lamp, account: account, assign: { selectedLamp = lamp }, changed: { await reload() }) } }
+                    VStack(spacing: 12) {
+                        ForEach(shownLamps) { lamp in ConnectedLampCard(lamp: lamp, account: account, assign: { selectedLamp = lamp }, changed: { await reload() }) }
+                        if let ha {
+                            ForEach(shownHALamps) { lamp in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HALampControl(account: account, building: building, lamp: lamp, area: ha.areas.first { $0.area_id == lamp.area_id }, rooms: ha.rooms, canSwitch: ha.isOwner && haLocal, changed: { await reload() })
+                                    Label("Aus Home Assistant", systemImage: "house.and.flag").font(.caption2).foregroundStyle(.secondary)
+                                }.padding(16).d21Card(cornerRadius: 20)
+                            }
+                        }
+                    }
                 }
                 if !visible.isEmpty {
                     Text("Vorgemerkte Geräte").font(.title3.bold())
                     VStack(spacing: 10) { ForEach(visible) { device in deviceRow(device) } }
                 }
-                if loaded && devices.isEmpty && lamps.isEmpty {
+                if loaded && devices.isEmpty && lamps.isEmpty && haLamps.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "lightbulb.2.fill").font(.system(size: 40)).foregroundStyle(d21Accent.gradient)
                         Text("Dein erstes Gerät").font(.title3.bold())
@@ -168,12 +188,13 @@ struct BuildingDevicesView: View {
         }.padding(16).d21Card(cornerRadius: 20)
     }
     private var header: some View {
-        let on = lamps.filter { $0.available && $0.is_on == true }.count
+        let on = lamps.filter { $0.available && $0.is_on == true }.count + haLamps.filter { $0.light?.is_on == true }.count
+        let total = lamps.count + haLamps.count
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(building.name).font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
-                    Text(lamps.count == 1 ? "1 Lampe" : "\(lamps.count) Lampen").font(.system(.title, design: .rounded, weight: .bold))
+                    Text(total == 1 ? "1 Lampe" : "\(total) Lampen").font(.system(.title, design: .rounded, weight: .bold))
                 }
                 Spacer()
                 Image(systemName: on > 0 ? "lightbulb.2.fill" : "lightbulb.2").font(.system(size: 34)).foregroundStyle(on > 0 ? Color.yellow : .white.opacity(0.6)).accessibilityHidden(true)
@@ -196,7 +217,7 @@ struct BuildingDevicesView: View {
     }
     private func reload() async {
         guard !loading else { return }; loading = true; defer { loading = false }
-        do { let items: [BuildingDevice] = try await account.request("buildings/\(building.id)/devices"); let real:[ConnectedLamp]=try await account.request("buildings/\(building.id)/lamps"); lamps=real; guard !Task.isCancelled else { return }; devices = items.filter { !$0.simulated }; loaded = true; problem = nil; if room != "Alle Räume" && !rooms.contains(room) { room = "Alle Räume" } }
+        do { let items: [BuildingDevice] = try await account.request("buildings/\(building.id)/devices"); let real:[ConnectedLamp]=try await account.request("buildings/\(building.id)/lamps"); lamps=real; ha = try? await account.request("buildings/\(building.id)/home-assistant") as HAOverview; haLocal = HACredentials.load(building.id, account: account) != nil; guard !Task.isCancelled else { return }; devices = items.filter { !$0.simulated }; loaded = true; problem = nil; if room != "Alle Räume" && !rooms.contains(room) { room = "Alle Räume" } }
         catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
     private func toggle(_ device: BuildingDevice, on: Bool) async {
