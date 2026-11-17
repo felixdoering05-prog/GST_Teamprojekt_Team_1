@@ -94,6 +94,15 @@ struct PlanJobSummary: View {
 // MARK: - Ebenen festlegen und stapeln
 
 let planLevelNames = ["2. UG", "UG", "EG", "1. OG", "2. OG", "3. OG", "DG"]
+
+/// Dach über der obersten Ebene (Server: flat | gable | shed).
+struct PlanRoof: Decodable, Equatable { var type: String; var pitch: Int?; var ridge: String? }
+private enum RoofKind: String, CaseIterable, Identifiable {
+    case flat, gable, shed
+    var id: String { rawValue }
+    var title: String { switch self { case .flat: "Flachdach"; case .gable: "Satteldach"; case .shed: "Pultdach" } }
+    var symbol: String { switch self { case .flat: "rectangle"; case .gable: "house"; case .shed: "triangle" } }
+}
 private let levelColors: [Color] = [.blue, .orange, .green, .purple]
 
 private struct LevelChoice: Identifiable {
@@ -113,6 +122,9 @@ struct PlanLevelsView: View {
     var onSaved: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @State private var choices: [LevelChoice] = []
+    @State private var roofKind: RoofKind = .flat
+    @State private var roofPitch = 35
+    @State private var ridgeLong = true
     @State private var error: String?
     @State private var saving = false
     private var base: String { "buildings/\(building.id)/plan-conversion/jobs/\(jobID)" }
@@ -132,6 +144,20 @@ struct PlanLevelsView: View {
                     LevelOverlay(choices: used).frame(height: 220)
                 } header: { Text("So wird gestapelt") } footer: {
                     Text(used.count == 1 ? "1 Ebene im Modell." : "\(used.count) Ebenen im Modell, von unten nach oben. EG liegt auf ±0,00 m.")
+                }
+                Section {
+                    Picker("Dachform", selection: $roofKind) {
+                        ForEach(RoofKind.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                    }.pickerStyle(.segmented)
+                    if roofKind != .flat {
+                        Stepper(value: $roofPitch, in: 5...60) { LabeledContent("Neigung", value: "\(roofPitch)°") }
+                        Picker("First", selection: $ridgeLong) {
+                            Text("längs").tag(true)
+                            Text("quer").tag(false)
+                        }.pickerStyle(.segmented)
+                    }
+                } header: { Text("Dach") } footer: {
+                    Text(roofKind == .flat ? "Flachdach mit umlaufender Attika über der obersten Ebene." : "Wird über die oberste Ebene gelegt. „Längs“ = First entlang der langen Gebäudeseite.")
                 }
                 ForEach($choices) { $choice in
                     Section {
@@ -156,13 +182,13 @@ struct PlanLevelsView: View {
                 Section {
                     if let duplicate { Label("„\(duplicate)“ ist mehrfach vergeben.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
                     Button { Task { await save() } } label: {
-                        HStack { Spacer(); if saving { ProgressView() } else { Text("Ebenen übernehmen und Modell neu bauen").bold() }; Spacer() }
+                        HStack { Spacer(); if saving { ProgressView() } else { Text("Übernehmen und Modell neu bauen").bold() }; Spacer() }
                     }.disabled(saving || used.isEmpty || duplicate != nil)
                 } footer: { Text("Ohne KI und ohne neues Kontingent. Das Modell wird in wenigen Sekunden neu gebaut.") }
             }
             if let error { Section { Text(error).foregroundStyle(.red) } }
         }
-        .navigationTitle("Ebenen festlegen")
+        .navigationTitle("Ebenen und Dach")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
     }
@@ -182,6 +208,11 @@ struct PlanLevelsView: View {
     @MainActor private func load() async {
         do {
             let reply: PlanEditorReply = try await account.request(base + "/editor")
+            if let roof = reply.roof {
+                roofKind = RoofKind(rawValue: roof.type) ?? .flat
+                if let pitch = roof.pitch { roofPitch = pitch } else { roofPitch = roofKind == .shed ? 10 : 35 }
+                ridgeLong = roof.ridge != "short"
+            }
             choices = reply.levels.map { l in
                 let known = planLevelNames.contains(l.name) ? l.name : nil
                 return LevelChoice(level: l, name: known, heightM: ((l.height ?? 2500) / 1000), offsetX: (l.offset?.first ?? 0) / 1000, offsetY: (l.offset?.last ?? 0) / 1000)
@@ -196,7 +227,8 @@ struct PlanLevelsView: View {
         }
         do {
             struct Receipt: Decodable { let status: String }
-            let _: Receipt = try await account.request(base + "/levels", method: "POST", body: ["levels": levels, "request_key": UUID().uuidString.lowercased()])
+            let roof: [String: Any] = roofKind == .flat ? ["type": "flat"] : ["type": roofKind.rawValue, "pitch": roofPitch, "ridge": ridgeLong ? "long" : "short"]
+            let _: Receipt = try await account.request(base + "/levels", method: "POST", body: ["levels": levels, "roof": roof, "request_key": UUID().uuidString.lowercased()])
             onSaved(); dismiss()
         } catch { self.error = error.localizedDescription }
     }

@@ -4,7 +4,7 @@ import Combine
 
 // MARK: - Model (mm, y up, same as the server's plan geometry)
 
-struct PlanEditorReply: Decodable { let levels: [PlanEditorLevel] }
+struct PlanEditorReply: Decodable { let levels: [PlanEditorLevel]; let roof: PlanRoof? }
 struct PlanEditorScale: Decodable { let method: String?; let estimated: Bool }
 struct PlanEditorImage: Decodable { let name: String; let size_px: [Double]; let mm_per_px: Double; let origin_px: [Double]; let image_scale: Double }
 struct PlanEditorWall: Decodable, Identifiable, Equatable { var id: String; var a: CGPoint; var b: CGPoint; var thickness: Double

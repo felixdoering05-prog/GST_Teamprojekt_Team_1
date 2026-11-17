@@ -14,7 +14,7 @@ const list=(v,min,max)=>Array.isArray(v)&&v.length>=min&&v.length<=max?v:bad();
 function editorView(job){
  const final=job.analysis?.final;
  if(job.analysis?.source!=='vector'||!Array.isArray(final)||!final.length)return null;
- return {levels:final.map((l,i)=>({index:i,name:l.name,source:l.source?.kind==='raster'?'raster':'vector',width:l.width,depth:l.depth,
+ return {roof:roofOf(job.analysis?.candidates),levels:final.map((l,i)=>({index:i,name:l.name,source:l.source?.kind==='raster'?'raster':'vector',width:l.width,depth:l.depth,
   elevation:l.elevation??0,height:l.height??2500,offset:Array.isArray(l.offset)?l.offset:[0,0],
   scale:{method:l.scale?.method??null,estimated:l.scale?.estimated===true},
   walls:(l.walls||[]).map(w=>({id:w.id,a:w.a,b:w.b,thickness:w.thickness})),
@@ -52,13 +52,21 @@ function editedCandidates(body,final){
  })};
 }
 
+// Roof of the top storey: flat (with parapet), gable or shed; pitch in degrees, ridge along the long or short side.
+const ROOF_TYPES=['flat','gable','shed'];
+function validRoof(r){keys(r,['type','pitch','ridge']);if(!ROOF_TYPES.includes(r.type))bad('Unbekannte Dachform.');
+ if(r.type==='flat')return {type:'flat'};
+ if(!Number.isInteger(r.pitch)||r.pitch<5||r.pitch>60)bad('Dachneigung zwischen 5 und 60 Grad angeben.');
+ if(!['long','short'].includes(r.ridge))bad('Firstrichtung längs oder quer angeben.');return {type:r.type,pitch:r.pitch,ridge:r.ridge};}
+function roofOf(candidates){const r=candidates?.roof;try{return r?validRoof(r):{type:'flat'};}catch{return {type:'flat'};}}
 // Storeys in building order (bottom to top). EG sits at height 0; storeys below it get negative elevations.
 const LEVEL_NAMES=['2. UG','UG','EG','1. OG','2. OG','3. OG','DG'];
 const SLAB=200;
 /** body.levels = [{index, name, height, offset}] -> which recognised plans become which storey, stacked by name order.
  *  Plans that are not listed are left out. Geometry is taken from the current draft (no AI, no new quota). */
-function stackedCandidates(body,final){
- keys(body,['levels','request_key']);
+function stackedCandidates(body,final,previous){
+ keys(body,['levels','request_key','roof']);
+ const roof=body.roof===undefined?roofOf(previous):validRoof(body.roof);
  const chosen=list(body.levels,1,4).map(l=>{
   keys(l,['index','name','height','offset']);
   if(!Number.isInteger(l.index)||l.index<0||l.index>=final.length)bad();
@@ -76,7 +84,7 @@ function stackedCandidates(body,final){
  const elev=new Array(chosen.length).fill(0);
  for(let i=ground+1;i<chosen.length;i++)elev[i]=elev[i-1]+chosen[i-1].height+SLAB;
  for(let i=ground-1;i>=0;i--)elev[i]=(i+1<chosen.length?elev[i+1]:0)-chosen[i].height-SLAB;
- return {version:1,skipped:[],levels:chosen.map((l,i)=>{
+ return {version:1,skipped:[],roof,levels:chosen.map((l,i)=>{
   const base=final[l.index];
   const walls=(base.walls||[]).map(w=>({id:w.id,a:w.a,b:w.b,thickness:w.thickness}));
   if(walls.length<3)bad('Für diese Ebene wurden zu wenige Wände erkannt. Bitte zuerst im Editor korrigieren.');
@@ -87,4 +95,4 @@ function stackedCandidates(body,final){
    ...(base.raster?{raster:base.raster}:{}),offset:l.offset,walls,openings,rooms:[],texts:[],room_names,edited:true,warnings:[]};
  })};
 }
-module.exports={editorView,editedCandidates,stackedCandidates,LEVEL_NAMES};
+module.exports={editorView,editedCandidates,stackedCandidates,roofOf,LEVEL_NAMES};

@@ -290,7 +290,7 @@ def build(candidates, review, ifc_path, preview_path):
         lv['exterior_walls'] = _exterior_walls(lv)
         levels.append(lv)
     reports = [report(l) for l in levels]
-    write_ifc(levels, ifc_path)
+    write_ifc(levels, ifc_path, roof=candidates.get('roof'), warnings=warnings)
     render(levels, preview_path)
     for l in levels:
         warnings += [w for w in l.get('warnings', [])]

@@ -270,3 +270,39 @@ class StoreyStacking(unittest.TestCase):
         self.assertEqual(rep['levels'][0]['walls'][0]['a'], [150.0, 150.0])
         self.assertEqual(len(eg['rooms']), 1)
         self.assertEqual(eg['rooms'][0]['name'], 'Flur')
+
+
+class RealisticModel(unittest.TestCase):
+    """Colours, material layers, framed windows/doors and the chosen roof end up in a valid IFC."""
+
+    def model(self, roof):
+        walls = [{'id': 'W1', 'a': [150, 150], 'b': [9850, 150], 'thickness': 365}, {'id': 'W2', 'a': [9850, 150], 'b': [9850, 7850], 'thickness': 365},
+                 {'id': 'W3', 'a': [9850, 7850], 'b': [150, 7850], 'thickness': 365}, {'id': 'W4', 'a': [150, 7850], 'b': [150, 150], 'thickness': 365},
+                 {'id': 'W5', 'a': [5000, 150], 'b': [5000, 7850], 'thickness': 115}]
+        openings = [{'kind': 'door', 'wall': 'W1', 'at': [2500, 150], 'width': 1010, 'height': 2010, 'sill': 0, 'height_assumed': True, 'evidence': 'user'},
+                    {'kind': 'window', 'wall': 'W3', 'at': [7500, 7850], 'width': 1510, 'height': 1350, 'sill': 900, 'height_assumed': True, 'evidence': 'user'},
+                    {'kind': 'door', 'wall': 'W5', 'at': [5000, 4000], 'width': 885, 'height': 2010, 'sill': 0, 'height_assumed': True, 'evidence': 'user'}]
+        level = {'name': 'EG', 'source': {'kind': 'pdf'}, 'scale': {'method': 'dimensions', 'ratio': 100, 'evidence': [], 'support': 1, 'mm_per_unit': 35.28},
+                 'height': 2500, 'height_assumed': False, 'elevation': 0.0, 'width': 10000, 'depth': 8000, 'walls': walls, 'openings': openings,
+                 'rooms': [], 'texts': [], 'room_names': [{'point': [2500, 4000], 'name': 'Wohnen'}], 'edited': True, 'warnings': []}
+        cand = {'version': 1, 'skipped': [], 'levels': [level], 'roof': roof}
+        d = tempfile.mkdtemp()
+        rep = build(cand, None, os.path.join(d, 'm.ifc'), os.path.join(d, 'p.png'))
+        f = ifcopenshell.open(os.path.join(d, 'm.ifc'))
+        shutil.rmtree(d)
+        return f, rep
+
+    def test_roofs_colours_materials(self):
+        for roof, predefined in [({'type': 'flat'}, 'FLAT_ROOF'), ({'type': 'gable', 'pitch': 35, 'ridge': 'long'}, 'GABLE_ROOF'), ({'type': 'shed', 'pitch': 12, 'ridge': 'short'}, 'SHED_ROOF')]:
+            with self.subTest(roof=roof['type']):
+                f, rep = self.model(roof)
+                roofs = f.by_type('IfcRoof')
+                self.assertEqual([r.PredefinedType for r in roofs], [predefined])
+                names = {s.Name for s in f.by_type('IfcSurfaceStyle')}
+                self.assertTrue({'Außenputz', 'Glas', 'Fensterrahmen', 'Holz', 'Dach', 'Beton'} <= names, names)
+                self.assertTrue(any(m.Name == 'Wärmedämmung' for m in f.by_type('IfcMaterial')))
+                window = f.by_type('IfcWindow') + f.by_type('IfcDoor')
+                self.assertTrue(window and all(len(e.Representation.Representations[0].Items) >= 4 for e in window))
+                logger = ifcopenshell.validate.json_logger()
+                ifcopenshell.validate.validate(f, logger)
+                self.assertEqual(logger.statements, [])
