@@ -393,4 +393,16 @@ async function haRoomTemperatures(db,building){
   JOIN app_ha_samples s ON s.link_id=l.id AND s.entity_id=e.entity_id WHERE l.building_id=$1 AND x.room_id IS NOT NULL ORDER BY x.room_id,s.measured_at DESC`,[building.id])).rows.map(r=>({room_id:r.room_id,value:Number(r.value),measured_at:new Date(r.measured_at).toISOString()}));
 }
 
-module.exports={initHAImport,haImportRouter,bridgeRouter,haTelemetry,haRoomTemperatures,METRICS};
+
+// Importierte Lampen eines Gebäudes mit wirksamem Raum (Lampe > Gerät > Bereich) für Nala und das 3D-Raumlicht.
+async function haLamps(db,buildingID){
+ const rows=(await db.query(`SELECT l.user_id AS owner,l.mode,l.status,e.entity_id,e.name,e.supports_color,e.light_caps,e.light_state,x.room_id,r.data->>'name' AS room_name,r.data->>'ifc_global_id' AS room_gid
+  FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric='light'
+  LEFT JOIN app_ha_devices d ON d.link_id=l.id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=d.link_id AND da.area_id=d.area_id
+  CROSS JOIN LATERAL (SELECT COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id) x
+  LEFT JOIN app_twin_records r ON r.id=x.room_id AND r.entity='Room'
+  WHERE l.building_id=$1 ORDER BY e.name,e.entity_id LIMIT 50`,[buildingID])).rows;
+ return rows.map(r=>({owner:r.owner,app_mode:r.mode==='app'&&r.status==='active',entity_id:r.entity_id,name:r.name,supports_color:r.supports_color===true,caps:r.light_caps||{},state:r.light_state||null,room_id:r.room_id||null,room:r.room_name||'',room_gid:r.room_gid||null}));
+}
+
+module.exports={haLamps,initHAImport,haImportRouter,bridgeRouter,haTelemetry,haRoomTemperatures,METRICS};
