@@ -8,7 +8,7 @@ const {deviceContext}=require('./assistant-devices');
 const {homeAssistantService}=require('./home-assistant');
 const {METRIC_META}=require('./twin/thresholdRules');
 const MAX_RESULT=24000;
-const CURRENT_REPORT_VERSION=3; // keep in sync with ifc-analysis/worker.py CURRENT_VERSION
+const CURRENT_REPORT_VERSION=4; // keep in sync with ifc-analysis/worker.py CURRENT_VERSION
 
 const MAX_ROUNDS=3;
 const MAX_CALLS_PER_ROUND=4;
@@ -95,7 +95,7 @@ async function ifcRoomsTool(db,building,args){
   storeys:[...storeys.values()].slice(0,50).map(s=>({...s,area_m2:s.rooms_with_area?round(s.area_m2):null})),
   total_area_m2:withArea.length?round(withArea.reduce((a,r)=>a+r.area_m2,0)):null,rooms_with_area:withArea.length,
   rooms:rooms.slice(0,150),rooms_listed:Math.min(rooms.length,150),rooms_matching:rooms.length,
-  meaning:'IfcSpace-Einträge (auch Flure/Technikflächen). Fläche bevorzugt aus hinterlegten IFC-Mengen, sonst aus der Raumgeometrie (Grundriss-Projektion); Höhe = lichte Höhe des Raumkörpers. Keine Vermessung und keine Wohnflächenberechnung nach WoFlV/DIN 277 (Dachschrägen nicht reduziert). null = unbekannt.'+((m.report.version||1)<CURRENT_REPORT_VERSION?' Dieser Bericht ist älter und wird automatisch im Hintergrund neu analysiert; Flächen fehlen bis dahin. Bitte in einigen Minuten erneut fragen.':'')};
+  meaning:'IfcSpace-Einträge (auch Flure/Technikflächen). Fläche bevorzugt aus hinterlegten IFC-Mengen, sonst aus der Raumgeometrie (Grundriss-Projektion); Höhe = lichte Höhe des Raumkörpers. Keine Vermessung und keine Wohnflächenberechnung nach WoFlV/DIN 277 (Dachschrägen nicht reduziert). null = unbekannt.'+((m.report.version||1)<CURRENT_REPORT_VERSION?' Dieser Bericht ist älter und wird automatisch im Hintergrund neu analysiert; Raumflächen oder Geschosszuordnungen können noch unvollständig sein. Bitte in einigen Minuten erneut fragen.':'')};
 }
 async function ifcElementsTool(db,building,args){
  const m=await model(db,building,args);if(m.error)return m;

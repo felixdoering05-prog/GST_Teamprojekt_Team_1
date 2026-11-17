@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Robustere Raumerkennung
+
+- Grundrisse: nummerierte Raumnamen und kombinierte Namens-/Flächenbeschriftungen werden übernommen; ganzzahlige Flächenangaben sind zulässig, technische Höhen-/Maßtexte bleiben ausgeschlossen.
+- Kleine Lücken in Wandanschlüssen bis maximal 30 mm können für die Raumgrenzen geschlossen werden. Dies wird im Qualitätsbericht markiert; Originalwände und echte Durchgänge bleiben unverändert.
+- IFC-Analyse: Geschosse werden auch über verschachtelte Raumstrukturen ermittelt. Mehrdeutige oder fehlende Geschossbezüge bleiben unbekannt. Bestehende Analyseberichte werden im Hintergrund auf Version 4 aktualisiert; IFC-Dateien werden nicht geändert.
+- Bestehende Planentwürfe werden nicht automatisch neu erzeugt oder überschrieben. Modelle ohne IfcSpace benötigen weiterhin ergänzte Raumdaten bzw. eine gesonderte geometrische Ermittlung.
+
 ## 17. November 2026 – Gebäude im Web löschen
 
 - Eigentümer können ein geöffnetes Gebäude über „Gebäude löschen“ entfernen. Eine Warnung und die Eingabe des Gebäudenamens bestätigen die endgültige Löschung für alle Mitglieder.

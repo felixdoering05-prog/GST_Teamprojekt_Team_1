@@ -20,6 +20,26 @@ def floor_area(room,scale):
             if isinstance(value,(int,float)) and 0<value*scale<1000000:return round(value*scale,2)
     return None
 GEOMETRY_BUDGET_SECONDS=60
+def room_storey(room):
+    """Follow spatial ancestry: nested spaces and containment as well as aggregation.
+
+    Do not guess a storey from its name or elevation. A cycle/ambiguous export
+    stays unknown instead of assigning the room to an arbitrary floor.
+    """
+    pending=[room];seen=set();found={}
+    while pending and len(seen)<1000:
+        item=pending.pop()
+        if item.id() in seen:continue
+        seen.add(item.id())
+        if item.is_a('IfcBuildingStorey'):
+            found[item.id()]=item
+            continue
+        for rel in getattr(item,'Decomposes',[]) or []:
+            if getattr(rel,'RelatingObject',None):pending.append(rel.RelatingObject)
+        for rel in getattr(item,'ContainedInStructure',[]) or []:
+            if getattr(rel,'RelatingStructure',None):pending.append(rel.RelatingStructure)
+    return next(iter(found.values())) if len(found)==1 and not pending else None
+
 def room_geometry(room,settings):
     # Triangulated IfcSpace body in metres: footprint (projected floor) area, volume and clear height.
     try:
@@ -57,8 +77,7 @@ def analyze(path):
     except Exception:area_scale=None
     settings=ifcopenshell.geom.settings();started=time.monotonic();geometry_skipped=0
     for room in model.by_type('IfcSpace')[:500]:
-        parents=getattr(room,'Decomposes',[]) or []
-        storey=next((x.RelatingObject for x in parents if x.RelatingObject.is_a('IfcBuildingStorey')),None)
+        storey=room_storey(room)
         rooms.append({'global_id':room.GlobalId,'name':str(room.Name or '')[:160], 'storey':str(storey.Name or '')[:160] if storey else None,'long_name':str(getattr(room,'LongName',None) or '')[:160],'area_m2':None,'area_source':None})
         declared=floor_area(room,area_scale)
         geometry=room_geometry(room,settings) if time.monotonic()-started<GEOMETRY_BUDGET_SECONDS else {}
@@ -72,7 +91,7 @@ def analyze(path):
     if any(not r['storey'] for r in rooms):issues.append('Mindestens ein Raum ist keinem Geschoss zugeordnet.')
     if log.statements:issues.append('IFC-Struktur enthält Prüfhinweise. Modell vor Verwendung prüfen.')
     unit=ifcopenshell.util.unit.calculate_unit_scale(model)
-    return {'version':3,'geometry_skipped':geometry_skipped,'schema':model.schema,'entity_count':entity_count,'counts':dict(counts),'length_unit_to_metre':unit,
+    return {'version':4,'geometry_skipped':geometry_skipped,'schema':model.schema,'entity_count':entity_count,'counts':dict(counts),'length_unit_to_metre':unit,
             'rooms':rooms,'rooms_truncated':counts.get('IfcSpace',0)>500,'schema_issue_count':len(log.statements),
             'information_rules':[{'name':s.name,'passed':bool(s.status)} for s in rules.specifications],
             'warnings':issues,'limitations':['Keine Vermessung oder fachliche Freigabe.','Raumflächen aus hinterlegten IFC-Mengen oder aus der Raumgeometrie (Grundriss-Projektion), keine Wohnflächenberechnung nach WoFlV/DIN 277.','Keine automatische Reparatur, keine Kollisionsprüfung in diesem Basisbericht.']}
