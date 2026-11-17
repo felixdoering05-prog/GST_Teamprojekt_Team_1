@@ -33,7 +33,7 @@ async function extractVector(docs,{runner=exec,...opts}={}){
   const out=path.join(dir,'candidates.json'),labels=path.join(dir,'labels.png'),plans=path.join(dir,'plans');
   await fs.mkdir(plans,{mode:0o700});
   await run(runner,python,script,['extract','--out',out,'--labels',labels,'--plan-dir',plans,...inputs],dir);
-  const candidates=JSON.parse((await readLimited(out,4*1024*1024)).toString('utf8'));
+  const candidates=JSON.parse((await readLimited(out,16*1024*1024)).toString('utf8'));
   if(!Array.isArray(candidates.levels))throw new PlanError('model_generation_failed');
   const png=candidates.levels.length?await readLimited(labels,3*1024*1024).catch(()=>null):null;
   const raster=candidates.levels.some(l=>l.source?.kind==='raster');
@@ -56,7 +56,8 @@ async function buildVector(analysis,{runner=exec,...opts}={}){
   const args=['build','--candidates',cand,'--ifc',ifc,'--preview',preview,'--report',report];
   if(analysis.review){await fs.writeFile(review,JSON.stringify(analysis.review),{mode:0o600});args.push('--review',review);}
   await run(runner,python,script,args,dir);
-  const output=await readLimited(ifc,4*1024*1024),png=await readLimited(preview,2*1024*1024),rep=JSON.parse((await readLimited(report,1024*1024)).toString('utf8'));
+  // Large buildings (hundreds of walls, shared window geometry) stay below the app's 20 MB IFC preview limit.
+  const output=await readLimited(ifc,18*1024*1024),png=await readLimited(preview,4*1024*1024),rep=JSON.parse((await readLimited(report,6*1024*1024)).toString('utf8'));
   if(!output.subarray(0,64).toString().includes('ISO-10303-21')||png.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')throw new PlanError('model_generation_failed');
   const levels=rep.quality?.levels;if(!Array.isArray(levels)||!levels.length||levels.every(l=>!l.walls))throw new PlanError('model_generation_failed');
   return {ifc:output,preview:png,quality:rep.quality,levels:Array.isArray(rep.levels)?rep.levels:null,warnings:[...(rep.summary||[]),...(rep.warnings||[])].filter(s=>typeof s==='string').map(s=>s.slice(0,300)).slice(0,24)};

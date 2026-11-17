@@ -3,7 +3,7 @@ doors and windows with frame/glass/leaf, floor slabs, a roof (flat with parapet,
 Every visible part carries a surface colour so viewers show a realistic draft."""
 import math, re
 import numpy as np
-import ifcopenshell, ifcopenshell.api
+import ifcopenshell, ifcopenshell.api, ifcopenshell.guid
 
 SLAB = 0.2
 ROOF_SLAB = 0.25
@@ -28,6 +28,7 @@ STYLE_NAMES = {'wall_ext': 'Außenputz', 'wall_int': 'Innenputz', 'slab': 'Beton
 class Builder:
     def __init__(self, name):
         f = self.f = ifcopenshell.api.run('project.create_file', version='IFC4')
+        self._pts, self._dirs, self._a2d, self._maps = {}, {}, {}, {}
         self.project = ifcopenshell.api.run('root.create_entity', f, ifc_class='IfcProject', name=name)
         ifcopenshell.api.run('unit.assign_unit', f, length={'is_metric': True, 'raw': 'METERS'}, area={'is_metric': True, 'raw': 'SQUARE_METERS'},
                              volume={'is_metric': True, 'raw': 'CUBIC_METERS'})
@@ -35,19 +36,43 @@ class Builder:
         self.body = ifcopenshell.api.run('context.add_context', f, context_type='Model', context_identifier='Body', target_view='MODEL_VIEW', parent=model)
         self.site = self.entity('IfcSite', 'Grundstück')
         self.building = self.entity('IfcBuilding', name)
-        ifcopenshell.api.run('aggregate.assign_object', f, products=[self.site], relating_object=self.project)
-        ifcopenshell.api.run('aggregate.assign_object', f, products=[self.building], relating_object=self.site)
+        self.aggregate([self.site], self.project)
+        self.aggregate([self.building], self.site)
         self.styles, self.materials = {}, {}
         self.colours = dict(COLOURS)
 
     def entity(self, cls, name, predefined=None, placement=None):
         e = ifcopenshell.api.run('root.create_entity', self.f, ifc_class=cls, name=name, predefined_type=predefined)
-        m = np.eye(4)
-        if placement is not None:
-            (x, y, z), d = placement
-            m[:3, 0] = [d[0], d[1], 0]; m[:3, 1] = [-d[1], d[0], 0]; m[:3, 3] = [x, y, z]
-        ifcopenshell.api.run('geometry.edit_object_placement', self.f, product=e, matrix=m)
+        (x, y, z), d = placement if placement is not None else ((0., 0., 0.), (1., 0.))
+        # Shared points/directions keep large models small (thousands of walls, windows and doors).
+        e.ObjectPlacement = self.f.createIfcLocalPlacement(None, self.f.createIfcAxis2Placement3D(
+            self.pt((x, y, z)), self.dir((0., 0., 1.)), self.dir((d[0], d[1], 0.))))
         return e
+
+    def pt(self, v):
+        key = tuple(round(float(c), 6) for c in v)
+        if key not in self._pts:
+            self._pts[key] = self.f.createIfcCartesianPoint(key)
+        return self._pts[key]
+
+    # Relationships written directly: the API versions re-anchor placements and delete the old (shared) points.
+    def contain(self, products, structure):
+        self.f.createIfcRelContainedInSpatialStructure(ifcopenshell.guid.new(), None, None, None, list(products), structure)
+
+    def aggregate(self, products, parent):
+        self.f.createIfcRelAggregates(ifcopenshell.guid.new(), None, None, None, parent, list(products))
+
+    def void(self, opening, element):
+        self.f.createIfcRelVoidsElement(ifcopenshell.guid.new(), None, None, None, element, opening)
+
+    def fill(self, opening, element):
+        self.f.createIfcRelFillsElement(ifcopenshell.guid.new(), None, None, None, opening, element)
+
+    def dir(self, v):
+        key = tuple(round(float(c), 9) for c in v)
+        if key not in self._dirs:
+            self._dirs[key] = self.f.createIfcDirection(key)
+        return self._dirs[key]
 
     # ---------------------------------------------------------------- appearance
     def style(self, key):
@@ -71,13 +96,15 @@ class Builder:
     # ---------------------------------------------------------------- geometry
     def extrusion(self, profile, height, origin=(0., 0., 0.), axis=None, ref=None):
         f = self.f
-        place = f.createIfcAxis2Placement3D(f.createIfcCartesianPoint(tuple(float(v) for v in origin)),
-                                            f.createIfcDirection(axis) if axis else None, f.createIfcDirection(ref) if ref else None)
-        return f.createIfcExtrudedAreaSolid(profile, place, f.createIfcDirection((0., 0., 1.)), float(max(height, 0.005)))
+        place = f.createIfcAxis2Placement3D(self.pt(origin), self.dir(axis) if axis else None, self.dir(ref) if ref else None)
+        return f.createIfcExtrudedAreaSolid(profile, place, self.dir((0., 0., 1.)), float(max(height, 0.005)))
 
     def rect_profile(self, w, d, cx=0., cy=0.):
         f = self.f
-        return f.createIfcRectangleProfileDef('AREA', None, f.createIfcAxis2Placement2D(f.createIfcCartesianPoint((float(cx), float(cy)))), float(max(w, 0.005)), float(max(d, 0.005)))
+        key = (round(float(cx), 6), round(float(cy), 6))
+        if key not in self._a2d:
+            self._a2d[key] = f.createIfcAxis2Placement2D(self.pt(key))
+        return f.createIfcRectangleProfileDef('AREA', None, self._a2d[key], float(max(w, 0.005)), float(max(d, 0.005)))
 
     def poly_profile(self, points, holes=()):
         f = self.f
@@ -99,6 +126,20 @@ class Builder:
         for item, key in items:
             ifcopenshell.api.run('style.assign_item_style', f, item=item, style=self.style(key))
         ifcopenshell.api.run('geometry.assign_representation', f, product=e, representation=rep)
+
+    def show_shared(self, e, key, make_items):
+        """Same geometry for many elements (windows/doors of one size): one IfcRepresentationMap, mapped per element."""
+        f = self.f
+        if key not in self._maps:
+            items = make_items()
+            rep = f.createIfcShapeRepresentation(self.body, 'Body', 'SweptSolid', [i for i, _ in items])
+            for item, style in items:
+                ifcopenshell.api.run('style.assign_item_style', f, item=item, style=self.style(style))
+            origin = f.createIfcAxis2Placement3D(self.pt((0., 0., 0.)), None, None)
+            self._maps[key] = f.createIfcRepresentationMap(origin, rep)
+        mapped = f.createIfcMappedItem(self._maps[key], f.createIfcCartesianTransformationOperator3D(None, None, self.pt((0., 0., 0.)), None, None))
+        ifcopenshell.api.run('geometry.assign_representation', f, product=e,
+                             representation=f.createIfcShapeRepresentation(self.body, 'Body', 'MappedRepresentation', [mapped]))
 
     def rect(self, e, w, d, h, style=None):
         item = self.extrusion(self.rect_profile(w, d), h)
@@ -406,14 +447,15 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
             t = _m(w['thickness'])
             op = b.entity('IfcOpeningElement', label, 'OPENING', ((at[0], at[1], z0 + sill), d))
             b.rect(op, width, t + 0.1, height)
-            ifcopenshell.api.run('feature.add_feature', f, feature=op, element=e)
+            b.void(op, e)
             if o['kind'] == 'opening':
                 continue
             is_door = o['kind'] == 'door'
             cls = 'IfcDoor' if is_door else 'IfcWindow'
             el = b.entity(cls, label, 'DOOR' if is_door else 'WINDOW', ((at[0], at[1], z0 + sill), d))
-            b.show(el, _door(b, width, height, t) if is_door else _window(b, width, height, t))
-            ifcopenshell.api.run('feature.add_filling', f, opening=op, element=el)
+            b.show_shared(el, (o['kind'], round(width, 3), round(height, 3), round(t, 3)),
+                          (lambda: _door(b, width, height, t)) if is_door else (lambda: _window(b, width, height, t)))
+            b.fill(op, el)
             el.OverallWidth = width
             el.OverallHeight = height
             pset = ifcopenshell.api.run('pset.add_pset', f, product=el, name='Pset_DoorCommon' if is_door else 'Pset_WindowCommon')
@@ -453,21 +495,21 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
                 n_furniture += len(items)
                 contained += items
         if spaces:
-            ifcopenshell.api.run('aggregate.assign_object', f, products=spaces, relating_object=storey)
+            b.aggregate(spaces, storey)
         if contained:
-            ifcopenshell.api.run('spatial.assign_container', f, products=contained, relating_structure=storey)
+            b.contain(contained, storey)
     if levels:
         top = max(range(len(levels)), key=lambda k: levels[k]['elevation'])
         r = _add_roof(b, storeys[top], levels[top], roof, warnings)
         if r is not None:
-            ifcopenshell.api.run('spatial.assign_container', f, products=[r], relating_structure=storeys[top])
+            b.contain([r], storeys[top])
     # No generated ground: the model is placed on the real map (OpenStreetMap surroundings) in the app.
     if n_stairs:
         warnings.append(f'{n_stairs} Treppe(n) in Treppenräumen angenommen (gerade Läufe, Steigung ≈ 18 cm).')
     if n_furniture:
         warnings.append(f'{n_furniture} Möbel/Sanitärobjekt(e) als Platzhalter nach Raumnamen gesetzt.')
     if storeys:
-        ifcopenshell.api.run('aggregate.assign_object', f, products=storeys, relating_object=b.building)
+        b.aggregate(storeys, b.building)
     f.header.file_description.description = ('ViewDefinition [ReferenceView_V1.2]', 'Aus Plan vermessen, Entwurf mit angenommenen Materialien')
     f.write(path)
     return warnings
