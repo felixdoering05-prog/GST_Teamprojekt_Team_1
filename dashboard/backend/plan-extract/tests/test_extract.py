@@ -306,3 +306,44 @@ class RealisticModel(unittest.TestCase):
                 logger = ifcopenshell.validate.json_logger()
                 ifcopenshell.validate.validate(f, logger)
                 self.assertEqual(logger.statements, [])
+
+
+class Package2(unittest.TestCase):
+    """Fire ratings from plan text, stairs in stair rooms between storeys, terrain, furniture by room name, photo colours."""
+
+    def level(self, name, elevation, names, texts=()):
+        walls = [{'id': i, 'a': a, 'b': b, 'thickness': t} for i, a, b, t in [
+            ('W1', [150, 150], [9850, 150], 365), ('W2', [9850, 150], [9850, 7850], 365), ('W3', [9850, 7850], [150, 7850], 365),
+            ('W4', [150, 7850], [150, 150], 365), ('W5', [5000, 150], [5000, 7850], 115), ('W6', [150, 4000], [9850, 4000], 115)]]
+        door = lambda wall, at: {'kind': 'door', 'wall': wall, 'at': at, 'width': 885, 'height': 2010, 'sill': 0, 'height_assumed': True, 'evidence': 'user'}
+        return {'name': name, 'source': {'kind': 'pdf'}, 'scale': {'method': 'dimensions', 'ratio': 100, 'evidence': [], 'support': 1, 'mm_per_unit': 35.28},
+                'height': 2600, 'height_assumed': False, 'elevation': elevation, 'width': 10000, 'depth': 8000, 'walls': walls,
+                'openings': [door('W1', [2500, 150]), door('W5', [5000, 2000]), door('W6', [2500, 4000])], 'rooms': [], 'texts': list(texts),
+                'room_names': [{'point': p, 'name': n} for p, n in zip([[2500, 2000], [7500, 2000], [2500, 6000], [7500, 6000]], names)],
+                'edited': True, 'warnings': []}
+
+    def test_package2(self):
+        from planextract.build import annotate_fire
+        lv = self.level('EG', 0.0, ['Küche', 'Bad', 'Wohnen', 'Treppe'], [{'id': 'T1', 'text': 'F 90', 'at': [5100, 6000]}, {'id': 'T2', 'text': 'T30-RS', 'at': [2600, 4300]},
+                                                                       {'id': 'T3', 'text': 'BRANDWAND', 'at': [9700, 5000]}, {'id': 'T4', 'text': 'F90', 'at': [40000, 40000]}])
+        self.assertEqual(annotate_fire(lv), 3)
+        self.assertEqual({w['id']: w.get('fire') for w in lv['walls']}['W5'], 'F90')
+        self.assertEqual({w['id']: w.get('fire') for w in lv['walls']}['W2'], 'Brandwand')
+        self.assertEqual([o.get('fire') for o in lv['openings']], [None, None, 'T30-RS'])
+        cand = {'version': 1, 'skipped': [], 'levels': [self.level('EG', 0.0, ['Küche', 'Bad', 'Wohnen', 'Treppe']), self.level('OG', 2800.0, ['Schlafen', 'Bad', 'Kind', 'Treppe'])],
+                'roof': {'type': 'gable', 'pitch': 35, 'ridge': 'long'}, 'appearance': {'facade': '#d8c3a5', 'roof': '#8b3a2b'}}
+        d = tempfile.mkdtemp()
+        rep = build(cand, None, os.path.join(d, 'm.ifc'), os.path.join(d, 'p.png'))
+        f = ifcopenshell.open(os.path.join(d, 'm.ifc'))
+        shutil.rmtree(d)
+        self.assertEqual(len(f.by_type('IfcStair')), 1, 'only between EG and OG')
+        self.assertEqual(len(f.by_type('IfcRailing')), 1)
+        self.assertEqual(len(f.by_type('IfcGeographicElement')), 1)
+        names = sorted(e.Name for e in f.by_type('IfcFurniture') + f.by_type('IfcSanitaryTerminal'))
+        self.assertTrue({'Küchenzeile (Platzhalter)', 'WC (Platzhalter)', 'Sofa (Platzhalter)', 'Bett (Platzhalter)'} <= set(names), names)
+        facade = next(s for s in f.by_type('IfcSurfaceStyle') if s.Name == 'Außenputz').Styles[0].SurfaceColour
+        self.assertAlmostEqual(facade.Red, 0xd8 / 255, places=3)
+        self.assertTrue(any('Treppe' in w for w in rep['warnings']))
+        logger = ifcopenshell.validate.json_logger()
+        ifcopenshell.validate.validate(f, logger)
+        self.assertEqual(logger.statements, [])

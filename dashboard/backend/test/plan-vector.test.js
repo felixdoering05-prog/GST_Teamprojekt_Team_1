@@ -22,7 +22,7 @@ const quality={grade:'gut',levels:[{level:'EG',walls:7,doors:4,windows:5,rooms:4
 const PY=process.env.PLAN_PYTHON||'/opt/plan-venv/bin/python';
 let python=false;try{execFileSync(PY,['-c','import ezdxf,pdfplumber,shapely,ifcopenshell,PIL'],{stdio:'ignore',timeout:60000});python=true;}catch{}
 
-let db,pg,server,url,owner,building,pdf,dxf,photo;
+let db,pg,server,url,owner,building,pdf,dxf,photo;let appearanceStub=async()=>{throw Object.assign(Error(),{code:'provider_unreachable'});};
 before(async()=>{
  pg=new PGlite();await pg.waitReady;db={query:(s,p)=>pg.query(s,p),connect:async()=>({query:(s,p)=>pg.query(s,p),release(){}})};await initAccounts(db);
  owner=(await db.query("INSERT INTO app_users(name,email,password_hash) VALUES('VecOwner','vec@example.test','unused') RETURNING id")).rows[0];owner.token=randomBytes(32).toString('hex');
@@ -33,7 +33,7 @@ before(async()=>{
  dxf=await doc('Grundriss.dxf','application/dxf',fs.readFileSync(path.join(FIX,'haus-rechteck-bloecke.dxf')));
  photo=await doc('Foto.png','image/png',Buffer.from([137,80,78,71,13,10,26,10,1]));
  await db.query('INSERT INTO app_ai_preferences(user_id,enabled,policy_version,revision) VALUES($1,true,1,1)',[owner.id]);
- const app=express();app.use(express.json());app.use('/api/v1',accountRouter(db,{planConversion:{enabled:true}}));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+ const app=express();app.use(express.json());app.use('/api/v1',accountRouter(db,{planConversion:{enabled:true,appearance:(...a)=>appearanceStub(...a)}}));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  url=`http://127.0.0.1:${server.address().port}/api/v1/buildings/${building.id}/plan-conversion`;
  const current=await api();await api('',{enabled:true,revision:current.body.settings.revision,policy_version:1},'PATCH');
 });
@@ -207,5 +207,31 @@ test('storeys: owner picks which plans are used, names them and they are stacked
  // A later correction keeps storey names, heights and offsets.
  const e=await api('/jobs/'+j.id+'/edit',{levels:after.levels.map(l=>({walls:l.walls,openings:[],rooms:[]}))});assert.equal(e.status,202,JSON.stringify(e.body));
  await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});assert.deepEqual(sent.candidates.roof,{type:'gable',pitch:35,ridge:'long'},'roof survives a correction');assert.deepEqual(sent.candidates.levels.map(l=>[l.name,l.elevation,l.height]),[['UG',-2600,2400],['EG',0,3000],['1. OG',3200,2800]]);assert.deepEqual(sent.candidates.levels[2].offset,[1000,-500]);
+ await clear();
+});
+
+test('appearance: building photos give colour and roof suggestions; applied colours and fire ratings survive stacking and corrections',async()=>{
+ await clear();await enqueue([photo]);
+ const box=[{id:'W1',a:[150,150],b:[9850,150],thickness:365,fire:'F90'},{id:'W2',a:[9850,150],b:[9850,7850],thickness:365},{id:'W3',a:[9850,7850],b:[150,7850],thickness:365},{id:'W4',a:[150,7850],b:[150,150],thickness:365,fire:'not-a-rating'}];
+ const final=[{name:'EG',source:{kind:'pdf',input:0},scale:{method:'dimensions'},width:10000,depth:8000,height:2500,elevation:0,walls:box,openings:[{id:'O1',kind:'door',wall:'W1',at:[5000,150],width:900,fire:'T30-RS'}],rooms:[]}];
+ const build=async a=>({ifc:IFC,preview:Buffer.from('png'),quality,levels:a.candidates.levels[0].edited?a.candidates.levels.map(l=>({...l,rooms:[]})):final,warnings:[]});
+ await processNext(db,{enabled:true,extract:async()=>({candidates:candidates(),labels:null,images:[],documents:[photo],notes:[],cadOnly:false,raster:false}),review:async()=>null,build});
+ let j=(await api()).body.jobs[0];
+ const front=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'Haus vorne.jpg','image/jpeg',4,$2) RETURNING id",[building.id,Buffer.from([0xff,0xd8,0xff,0xe0])])).rows[0].id;
+ let seen;appearanceStub=async docs=>{seen=docs.map(d=>d.id);return {status:'ok',appearance:{facade:'#d8c3a5',roof:'#8b3a2b'},roof:{type:'gable',pitch:40,ridge:'long'},storeys:2,confidence:'medium',notes:'Satteldach mit roten Ziegeln.',model:'test'};};
+ assert.equal((await api('/jobs/'+j.id+'/appearance',{document_ids:[pdf]})).status,400,'plans are not photos');
+ assert.equal((await api('/jobs/'+j.id+'/appearance',{document_ids:[]})).status,400);
+ const r=await api('/jobs/'+j.id+'/appearance',{document_ids:[front]});assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(seen,[front]);assert.equal(r.body.appearance.facade,'#d8c3a5');
+ for(let k=0;k<4;k++)assert.equal((await api('/jobs/'+j.id+'/appearance',{document_ids:[front]})).status,200);
+ assert.equal((await api('/jobs/'+j.id+'/appearance',{document_ids:[front]})).status,429,'five analyses per draft');
+ assert.equal((await api('/jobs/'+j.id+'/levels',{levels:[{index:0,name:'EG',height:2500}],appearance:{facade:'red'}})).status,400);
+ assert.equal((await api('/jobs/'+j.id+'/levels',{levels:[{index:0,name:'EG',height:2500}],appearance:{facade:'#d8c3a5',walls:'#ffffff'}})).status,400);
+ assert.equal((await api('/jobs/'+j.id+'/levels',{levels:[{index:0,name:'EG',height:2500}],roof:r.body.roof,appearance:r.body.appearance})).status,202);
+ let sent;await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});
+ assert.deepEqual(sent.candidates.appearance,{facade:'#d8c3a5',roof:'#8b3a2b'});assert.equal(sent.candidates.levels[0].walls[0].fire,'F90');assert.equal(sent.candidates.levels[0].walls[3].fire,undefined);assert.equal(sent.candidates.levels[0].openings[0].fire,'T30-RS');
+ j=(await api()).body.jobs[0];const ed=(await api('/jobs/'+j.id+'/editor')).body;assert.deepEqual(ed.appearance,{facade:'#d8c3a5',roof:'#8b3a2b'});
+ assert.equal((await api('/jobs/'+j.id+'/edit',{levels:[{walls:ed.levels[0].walls,openings:ed.levels[0].openings,rooms:[]}]})).status,202);
+ await processNext(db,{enabled:true,build:async a=>{sent=a;return build(a);}});
+ assert.deepEqual(sent.candidates.appearance,{facade:'#d8c3a5',roof:'#8b3a2b'},'colours survive a correction');assert.equal(sent.candidates.levels[0].walls[0].fire,'F90','fire rating survives a correction');
  await clear();
 });

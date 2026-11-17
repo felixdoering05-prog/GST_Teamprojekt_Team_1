@@ -1,7 +1,7 @@
 """IFC4 from measured candidates with IfcOpenShell (LGPL): storeys, walls with real thickness and material layers, openings,
 doors and windows with frame/glass/leaf, floor slabs, a roof (flat with parapet, gable or shed) and spaces.
 Every visible part carries a surface colour so viewers show a realistic draft."""
-import math
+import math, re
 import numpy as np
 import ifcopenshell, ifcopenshell.api
 
@@ -15,10 +15,14 @@ COLOURS = {
     'wall_ext': ((0.93, 0.91, 0.86), 0.0), 'wall_int': ((0.97, 0.97, 0.95), 0.0), 'slab': ((0.72, 0.72, 0.70), 0.0),
     'roof': ((0.27, 0.29, 0.32), 0.0), 'roof_edge': ((0.58, 0.60, 0.62), 0.0), 'glass': ((0.62, 0.80, 0.92), 0.55),
     'frame': ((0.96, 0.96, 0.96), 0.0), 'sill': ((0.80, 0.80, 0.78), 0.0), 'door': ((0.63, 0.46, 0.31), 0.0),
-    'metal': ((0.55, 0.56, 0.58), 0.0),
+    'metal': ((0.55, 0.56, 0.58), 0.0), 'terrain': ((0.55, 0.68, 0.42), 0.0), 'stair': ((0.78, 0.76, 0.72), 0.0),
+    'railing': ((0.35, 0.36, 0.38), 0.0), 'wood_light': ((0.80, 0.68, 0.52), 0.0), 'fabric': ((0.52, 0.56, 0.62), 0.0),
+    'white': ((0.96, 0.96, 0.95), 0.0), 'ceramic': ((0.98, 0.98, 0.98), 0.0),
 }
 STYLE_NAMES = {'wall_ext': 'Außenputz', 'wall_int': 'Innenputz', 'slab': 'Beton', 'roof': 'Dach', 'roof_edge': 'Attikablech',
-               'glass': 'Glas', 'frame': 'Fensterrahmen', 'sill': 'Fensterbank', 'door': 'Holz', 'metal': 'Metall'}
+               'glass': 'Glas', 'frame': 'Fensterrahmen', 'sill': 'Fensterbank', 'door': 'Holz', 'metal': 'Metall',
+               'terrain': 'Rasen', 'stair': 'Treppe', 'railing': 'Geländer', 'wood_light': 'Holz hell', 'fabric': 'Stoff', 'white': 'Weiß',
+               'ceramic': 'Keramik'}
 
 
 class Builder:
@@ -34,6 +38,7 @@ class Builder:
         ifcopenshell.api.run('aggregate.assign_object', f, products=[self.site], relating_object=self.project)
         ifcopenshell.api.run('aggregate.assign_object', f, products=[self.building], relating_object=self.site)
         self.styles, self.materials = {}, {}
+        self.colours = dict(COLOURS)
 
     def entity(self, cls, name, predefined=None, placement=None):
         e = ifcopenshell.api.run('root.create_entity', self.f, ifc_class=cls, name=name, predefined_type=predefined)
@@ -48,7 +53,7 @@ class Builder:
     def style(self, key):
         """Named surface colour (RGB 0..1, transparency 0..1), created once."""
         if key not in self.styles:
-            rgb, transparency = COLOURS[key]
+            rgb, transparency = self.colours[key]
             st = ifcopenshell.api.run('style.add_style', self.f, name=STYLE_NAMES.get(key, key))
             ifcopenshell.api.run('style.add_surface_style', self.f, style=st, ifc_class='IfcSurfaceStyleShading',
                                  attributes={'SurfaceColour': {'Name': None, 'Red': rgb[0], 'Green': rgb[1], 'Blue': rgb[2]}, 'Transparency': transparency})
@@ -212,9 +217,155 @@ def _add_roof(b, storey, level, roof, warnings):
     return e
 
 
-def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=None):
+APPEARANCE_KEYS = {'facade': 'wall_ext', 'roof': 'roof', 'frame': 'frame', 'door': 'door'}
+
+
+def _hex(v):
+    if isinstance(v, str) and len(v) == 7 and v[0] == '#':
+        try:
+            return tuple(int(v[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        except ValueError:
+            return None
+    return None
+
+
+def _apply_appearance(b, appearance):
+    """Colours chosen in the app or read from building photos: {'facade': '#rrggbb', 'roof': …, 'frame': …, 'door': …}."""
+    if not isinstance(appearance, dict):
+        return
+    for k, style in APPEARANCE_KEYS.items():
+        rgb = _hex(appearance.get(k))
+        if rgb:
+            b.colours[style] = (rgb, b.colours[style][1])
+            if k == 'facade':
+                b.colours['roof_edge'] = b.colours['roof_edge']
+
+
+STAIR_ROOM = re.compile(r'trepp|\btrh\b|stair|stiege', re.I)
+
+
+def _room_frame(polygon_m):
+    """Oriented rectangle of a room: centre, unit vector along the long side, long and short length."""
+    from shapely.geometry import Polygon
+    poly = Polygon(polygon_m)
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+    if poly.is_empty or poly.geom_type != 'Polygon':
+        return None
+    rect = list(poly.minimum_rotated_rectangle.exterior.coords)[:4]
+    e1 = np.subtract(rect[1], rect[0]); e2 = np.subtract(rect[2], rect[1])
+    l1, l2 = float(np.linalg.norm(e1)), float(np.linalg.norm(e2))
+    if l1 < 1e-6 or l2 < 1e-6:
+        return None
+    u = e1 / l1 if l1 >= l2 else e2 / l2
+    c = np.mean(rect, axis=0)
+    return poly, c, u, max(l1, l2), min(l1, l2)
+
+
+def _fits(poly, c, u, along, across, w, d):
+    """Footprint w (along u) x d (across) centred at local (along, across) lies inside the room."""
+    from shapely.geometry import Polygon
+    n = np.array([-u[1], u[0]])
+    p0 = c + u * along + n * across
+    corners = [p0 + u * sx * w / 2 + n * sy * d / 2 for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    return poly.buffer(0.02).contains(Polygon(corners)), p0
+
+
+def _add_stair(b, storey, room, z0, rise, label):
+    fr = _room_frame([(_m(x), _m(y)) for x, y in room['polygon']])
+    if not fr:
+        return []
+    poly, c, u, long_, short = fr
+    width = min(1.2, short - 0.3)
+    n_risers = max(2, math.ceil(rise / 0.185))
+    going = 0.27
+    run = (n_risers - 1) * going
+    if width < 0.8 or run > long_ - 0.3:
+        return []
+    ok, p0 = _fits(poly, c, u, 0.0, -(short / 2 - width / 2 - 0.05), run, width)
+    if not ok:
+        return []
+    stair = b.entity('IfcStair', f'Treppe {label} (Annahme)', 'STRAIGHT_RUN_STAIR', ((p0[0], p0[1], z0), (u[0], u[1])))
+    h = rise / n_risers
+    steps = [(b.box(-run / 2 + going * (k + 0.5), 0, 0, going, width, h * (k + 1)), 'stair') for k in range(n_risers - 1)]
+    b.show(stair, steps)
+    ps = ifcopenshell.api.run('pset.add_pset', b.f, product=stair, name='Pset_StairCommon')
+    ifcopenshell.api.run('pset.edit_pset', b.f, pset=ps, properties={'NumberOfRiser': n_risers, 'NumberOfTreads': n_risers - 1,
+                                                                    'RiserHeight': round(h, 3), 'TreadLength': going})
+    b.assign_material([stair], 'Stahlbeton', 'concrete')
+    rail = b.entity('IfcRailing', f'Geländer {label}', 'HANDRAIL', ((p0[0], p0[1], z0), (u[0], u[1])))
+    posts = [(b.box(-run / 2 + going * (k + 0.5), width / 2 - 0.03, h * (k + 1), 0.03, 0.03, 0.9), 'railing') for k in range(0, n_risers - 1, 3)]
+    slope = math.atan2(rise - h, run - going)
+    hand = b.f.createIfcExtrudedAreaSolid(b.rect_profile(0.05, 0.04), b.f.createIfcAxis2Placement3D(
+        b.f.createIfcCartesianPoint((float(-run / 2 + going / 2), float(width / 2 - 0.03), float(h + 0.9))),
+        b.f.createIfcDirection((math.cos(slope), 0., math.sin(slope))), b.f.createIfcDirection((0., 1., 0.))),
+        b.f.createIfcDirection((0., 0., 1.)), float(math.hypot(run - going, rise - h)))
+    b.show(rail, posts + [(hand, 'railing')])
+    return [stair, rail]
+
+
+FURNITURE = [  # (pattern, [(class, name, w, d, h, style, z)], against wall)
+    (re.compile(r'küche|kueche|kitchen|koch', re.I), [('IfcFurniture', 'Küchenzeile', 2.4, 0.6, 0.9, 'white', 0.0)]),
+    (re.compile(r'\bbad\b|badezimmer|dusche|\bwc\b|toilette|sanitär', re.I), [('IfcSanitaryTerminal', 'WC', 0.4, 0.6, 0.42, 'ceramic', 0.0),
+                                                                             ('IfcSanitaryTerminal', 'Waschtisch', 0.6, 0.45, 0.12, 'ceramic', 0.78)]),
+    (re.compile(r'schlaf|eltern|gäste|gaeste|kind', re.I), [('IfcFurniture', 'Bett', 1.6, 2.0, 0.45, 'fabric', 0.0)]),
+    (re.compile(r'wohn|living|aufenthalt', re.I), [('IfcFurniture', 'Sofa', 2.2, 0.9, 0.8, 'fabric', 0.0)]),
+    (re.compile(r'ess|dining', re.I), [('IfcFurniture', 'Esstisch', 1.6, 0.9, 0.75, 'wood_light', 0.0)]),
+    (re.compile(r'arbeit|büro|buero|office|studio', re.I), [('IfcFurniture', 'Schreibtisch', 1.6, 0.8, 0.75, 'wood_light', 0.0)]),
+]
+
+
+def _add_furniture(b, room, z0):
+    name = room.get('name') or ''
+    rule = next((items for pat, items in FURNITURE if pat.search(name)), None)
+    if not rule:
+        return []
+    fr = _room_frame([(_m(x), _m(y)) for x, y in room['polygon']])
+    if not fr:
+        return []
+    poly, c, u, long_, short = fr
+    placed, offset = [], -long_ / 2 + 0.1
+    for cls, label, w, d, h, style, zb in rule:
+        if label == 'Bett' and short < 2.8:
+            w = 0.9
+        if label == 'Küchenzeile':
+            w = max(1.2, min(w, long_ - 0.4))
+        along = offset + w / 2
+        across = -(short / 2 - d / 2 - 0.05)
+        ok, p0 = _fits(poly, c, u, along, across, w, d)
+        if not ok:
+            ok, p0 = _fits(poly, c, u, 0.0, across, w, d)
+        if not ok:
+            continue
+        e = b.entity(cls, f'{label} (Platzhalter)', 'NOTDEFINED' if cls == 'IfcFurniture' else ('TOILETPAN' if label == 'WC' else 'WASHHANDBASIN'),
+                     ((p0[0], p0[1], z0 + zb), (u[0], u[1])))
+        b.show(e, [(b.box(0, 0, 0, w, d, h), style)])
+        placed.append(e)
+        offset = along + w / 2 + 0.3
+    return placed
+
+
+def _add_terrain(b, levels):
+    from shapely.geometry import Polygon, MultiPolygon
+    from shapely.ops import unary_union
+    shapes = [Polygon([(_m(x), _m(y)) for x, y in l['boundary']]).buffer(0) for l in levels if l.get('boundary') and len(l['boundary']) >= 3]
+    if not shapes:
+        return None
+    x0, y0, x1, y1 = unary_union(shapes).bounds
+    m = max(8.0, 0.4 * max(x1 - x0, y1 - y0))
+    ground = min([_m(l['elevation']) for l in levels if l['elevation'] >= 0] or [0.0])
+    terrain = b.entity('IfcGeographicElement', 'Gelände (Annahme)', 'TERRAIN', (((x0 + x1) / 2, (y0 + y1) / 2, ground - 0.32), (1., 0.)))
+    b.show(terrain, [(b.box(0, 0, 0, x1 - x0 + 2 * m, y1 - y0 + 2 * m, 0.3), 'terrain')])
+    return terrain
+
+
+def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=None, appearance=None):
     warnings = warnings if warnings is not None else []
     b = Builder(name)
+    _apply_appearance(b, appearance)
+    order = sorted(range(len(levels)), key=lambda k: levels[k]['elevation'])
+    above = {order[i]: order[i + 1] for i in range(len(order) - 1)}
+    n_stairs = n_furniture = 0
     f = b.f
     storeys = []
     wall_types = {}
@@ -250,7 +401,7 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
             b.rect(e, L, t, H, 'wall_ext' if ext else 'wall_int')
             ifcopenshell.api.run('type.assign_type', f, related_objects=[e], relating_type=wall_types[tkey])
             ps = ifcopenshell.api.run('pset.add_pset', f, product=e, name='Pset_WallCommon')
-            ifcopenshell.api.run('pset.edit_pset', f, pset=ps, properties={'IsExternal': ext, 'Reference': f'{key / 10:g} cm'})
+            ifcopenshell.api.run('pset.edit_pset', f, pset=ps, properties={'IsExternal': ext, 'Reference': f'{key / 10:g} cm', **({'FireRating': w['fire']} if w.get('fire') else {})})
             q = ifcopenshell.api.run('pset.add_qto', f, product=e, name='Qto_WallBaseQuantities')
             ifcopenshell.api.run('pset.edit_qto', f, qto=q, properties={'Length': L, 'Width': t, 'Height': H, 'GrossSideArea': L * H})
             walls[w['id']] = (e, w, d)
@@ -280,7 +431,7 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
             el.OverallWidth = width
             el.OverallHeight = height
             pset = ifcopenshell.api.run('pset.add_pset', f, product=el, name='Pset_DoorCommon' if is_door else 'Pset_WindowCommon')
-            ifcopenshell.api.run('pset.edit_pset', f, pset=pset, properties={'Reference': f'{round(o["width"])} x {round(o["height"])} mm', 'IsExternal': o['wall'] in exterior})
+            ifcopenshell.api.run('pset.edit_pset', f, pset=pset, properties={'Reference': f'{round(o["width"])} x {round(o["height"])} mm', 'IsExternal': o['wall'] in exterior, **({'FireRating': o['fire']} if o.get('fire') else {})})
             (doors if is_door else windows).append(el)
             contained.append(el)
         if doors:
@@ -305,6 +456,16 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
             ps = ifcopenshell.api.run('pset.add_pset', f, product=sp, name='Pset_SpaceCommon')
             ifcopenshell.api.run('pset.edit_pset', f, pset=ps, properties={'IsExternal': False, 'Reference': r['id']})
             spaces.append(sp)
+        for r in level['rooms']:
+            if li in above and STAIR_ROOM.search(r.get('name') or ''):
+                upper = levels[above[li]]
+                parts = _add_stair(b, storey, r, z0, _m(upper['elevation']) - _m(level['elevation']), f'{level["name"]} → {upper["name"]}')
+                n_stairs += 1 if parts else 0
+                contained += parts
+            else:
+                items = _add_furniture(b, r, z0)
+                n_furniture += len(items)
+                contained += items
         if spaces:
             ifcopenshell.api.run('aggregate.assign_object', f, products=spaces, relating_object=storey)
         if contained:
@@ -314,6 +475,13 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
         r = _add_roof(b, storeys[top], levels[top], roof, warnings)
         if r is not None:
             ifcopenshell.api.run('spatial.assign_container', f, products=[r], relating_structure=storeys[top])
+    terrain = _add_terrain(b, levels)
+    if terrain is not None:
+        ifcopenshell.api.run('spatial.assign_container', f, products=[terrain], relating_structure=b.site)
+    if n_stairs:
+        warnings.append(f'{n_stairs} Treppe(n) in Treppenräumen angenommen (gerade Läufe, Steigung ≈ 18 cm).')
+    if n_furniture:
+        warnings.append(f'{n_furniture} Möbel/Sanitärobjekt(e) als Platzhalter nach Raumnamen gesetzt.')
     if storeys:
         ifcopenshell.api.run('aggregate.assign_object', f, products=storeys, relating_object=b.building)
     f.header.file_description.description = ('ViewDefinition [ReferenceView_V1.2]', 'Aus Plan vermessen, Entwurf mit angenommenen Materialien')

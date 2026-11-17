@@ -1,6 +1,7 @@
 // Correction editor: the owner moves, deletes and adds walls, doors and windows, names rooms and can mark a known
 // distance. The edited geometry is validated strictly here and rebuilt by plan-extract (no AI, no new quota).
 const {fail}=require('./queue');
+const {validAppearance,appearanceOf}=require('./appearance');
 const MAX_COORD=200000;
 const bad=msg=>fail(msg||'Die Korrektur ist ungültig. Bitte Editor neu laden.');
 const num=(v,lo,hi)=>typeof v==='number'&&Number.isFinite(v)&&v>=lo&&v<=hi;
@@ -8,13 +9,14 @@ const point=v=>Array.isArray(v)&&v.length===2&&v.every(c=>num(c,-MAX_COORD,MAX_C
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,16}$/.test(v)?v:bad();
 const plain=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!/[\x00-\x1f\x7f]/.test(v)?v.trim():bad('Raumnamen: 1 bis 60 Zeichen, keine Steuerzeichen.');
 const keys=(o,allowed)=>{if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).some(k=>!allowed.includes(k)))bad();};
+const fireOk=v=>typeof v==='string'&&/^(F(30|60|90|120)(-(A\+M|AB|A|B))?|Brandwand|T(30|60|90)(-RS)?)$/.test(v);
 const list=(v,min,max)=>Array.isArray(v)&&v.length>=min&&v.length<=max?v:bad();
 
 /** Editor view of a finished job: geometry after review/edits in mm (y up) plus the photo overlay mapping. */
 function editorView(job){
  const final=job.analysis?.final;
  if(job.analysis?.source!=='vector'||!Array.isArray(final)||!final.length)return null;
- return {roof:roofOf(job.analysis?.candidates),levels:final.map((l,i)=>({index:i,name:l.name,source:l.source?.kind==='raster'?'raster':'vector',width:l.width,depth:l.depth,
+ return {roof:roofOf(job.analysis?.candidates),appearance:appearanceOf(job.analysis?.candidates),levels:final.map((l,i)=>({index:i,name:l.name,source:l.source?.kind==='raster'?'raster':'vector',width:l.width,depth:l.depth,
   elevation:l.elevation??0,height:l.height??2500,offset:Array.isArray(l.offset)?l.offset:[0,0],
   scale:{method:l.scale?.method??null,estimated:l.scale?.estimated===true},
   walls:(l.walls||[]).map(w=>({id:w.id,a:w.a,b:w.b,thickness:w.thickness})),
@@ -35,13 +37,15 @@ function editedCandidates(body,final){
    if(Math.hypot(b[0]-a[0],b[1]-a[1])<100)bad('Eine Wand ist kürzer als 10 cm.');
    if(!num(w.thickness,50,1000))bad('Wandstärke zwischen 5 und 100 cm angeben.');
    const nid=`W${k+1}`;if(ids.has(id(w.id)))bad();ids.set(w.id,nid);
-   return {id:nid,a,b,thickness:Math.round(w.thickness*10)/10};
+   const before=(base.walls||[]).find(x=>x.id===w.id);
+   return {id:nid,a,b,thickness:Math.round(w.thickness*10)/10,...(fireOk(before?.fire)?{fire:before.fire}:{})};
   });
   const openings=list(l.openings,0,400).map(o=>{
    keys(o,['id','kind','wall','at','width']);if(!['door','window','opening'].includes(o.kind))bad();
    const wall=ids.get(id(o.wall));if(!wall)bad();if(!num(o.width,300,6000))bad('Öffnungen zwischen 30 cm und 6 m breit.');
    const door=o.kind!=='window';
-   return {kind:o.kind,wall,at:point(o.at),width:Math.round(o.width),height:door?2010:1350,sill:door?0:900,height_assumed:true,evidence:'user'};
+   const before=(base.openings||[]).find(x=>x.id===o.id);
+   return {kind:o.kind,wall,at:point(o.at),width:Math.round(o.width),height:door?2010:1350,sill:door?0:900,height_assumed:true,evidence:'user',...(fireOk(before?.fire)?{fire:before.fire}:{})};
   });
   const room_names=list(l.rooms,0,200).map(r=>{keys(r,['point','name']);return {point:point(r.point),name:plain(r.name,60)};});
   let reference;
@@ -65,8 +69,9 @@ const SLAB=200;
 /** body.levels = [{index, name, height, offset}] -> which recognised plans become which storey, stacked by name order.
  *  Plans that are not listed are left out. Geometry is taken from the current draft (no AI, no new quota). */
 function stackedCandidates(body,final,previous){
- keys(body,['levels','request_key','roof']);
+ keys(body,['levels','request_key','roof','appearance']);
  const roof=body.roof===undefined?roofOf(previous):validRoof(body.roof);
+ const appearance=body.appearance===undefined?appearanceOf(previous):validAppearance(body.appearance,bad);
  const chosen=list(body.levels,1,4).map(l=>{
   keys(l,['index','name','height','offset']);
   if(!Number.isInteger(l.index)||l.index<0||l.index>=final.length)bad();
@@ -84,15 +89,15 @@ function stackedCandidates(body,final,previous){
  const elev=new Array(chosen.length).fill(0);
  for(let i=ground+1;i<chosen.length;i++)elev[i]=elev[i-1]+chosen[i-1].height+SLAB;
  for(let i=ground-1;i>=0;i--)elev[i]=(i+1<chosen.length?elev[i+1]:0)-chosen[i].height-SLAB;
- return {version:1,skipped:[],roof,levels:chosen.map((l,i)=>{
+ return {version:1,skipped:[],roof,...(appearance?{appearance}:{}),levels:chosen.map((l,i)=>{
   const base=final[l.index];
-  const walls=(base.walls||[]).map(w=>({id:w.id,a:w.a,b:w.b,thickness:w.thickness}));
+  const walls=(base.walls||[]).map(w=>({id:w.id,a:w.a,b:w.b,thickness:w.thickness,...(fireOk(w.fire)?{fire:w.fire}:{})}));
   if(walls.length<3)bad('Für diese Ebene wurden zu wenige Wände erkannt. Bitte zuerst im Editor korrigieren.');
   const ids=new Set(walls.map(w=>w.id));
-  const openings=(base.openings||[]).filter(o=>ids.has(o.wall)).map(o=>{const door=o.kind!=='window';return {kind:o.kind,wall:o.wall,at:o.at,width:o.width,height:door?2010:1350,sill:door?0:900,height_assumed:true,evidence:'user'};});
+  const openings=(base.openings||[]).filter(o=>ids.has(o.wall)).map(o=>{const door=o.kind!=='window';return {kind:o.kind,wall:o.wall,at:o.at,width:o.width,height:door?2010:1350,sill:door?0:900,height_assumed:true,evidence:'user',...(fireOk(o.fire)?{fire:o.fire}:{})};});
   const room_names=(base.rooms||[]).filter(r=>Array.isArray(r.point)&&typeof r.name==='string'&&r.name.trim()).map(r=>({point:r.point,name:r.name.slice(0,60)}));
   return {name:l.name,source:base.source,scale:base.scale,height:l.height,height_assumed:false,elevation:elev[i],width:base.width,depth:base.depth,
    ...(base.raster?{raster:base.raster}:{}),offset:l.offset,walls,openings,rooms:[],texts:[],room_names,edited:true,warnings:[]};
  })};
 }
-module.exports={editorView,editedCandidates,stackedCandidates,roofOf,LEVEL_NAMES};
+module.exports={editorView,editedCandidates,stackedCandidates,roofOf,appearanceOf,LEVEL_NAMES};
