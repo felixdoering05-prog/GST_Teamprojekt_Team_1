@@ -277,8 +277,19 @@ struct IFCFloatingControls: View {
             Menu {
                 Button("Alles anzeigen", systemImage: "eye") { viewer.click("show-all") }
                 Button("Farben zurücksetzen", systemImage: "paintbrush") { viewer.click("reset-colors") }
+                Section("Raumklima") {
+                    climateButton("Temperatur", "thermometer.medium", "temperature")
+                    climateButton("Luftfeuchte", "humidity", "humidity")
+                    climateButton("CO₂", "aqi.medium", "co2")
+                    if viewer.climate != nil { Button("Raumklima aus", systemImage: "xmark.circle") { viewer.setClimate(nil) } }
+                }
                 if commands { Button("KI-Modellbefehle", systemImage: "sparkles") { viewer.click("command-open") } }
             } label: { icon("ellipsis") }.accessibilityLabel("Weitere Werkzeuge")
+        }
+    }
+    private func climateButton(_ title: String, _ symbol: String, _ metric: String) -> some View {
+        Button { viewer.setClimate(viewer.climate == metric ? nil : metric) } label: {
+            Label(title, systemImage: viewer.climate == metric ? "checkmark" : symbol)
         }
     }
     private func icon(_ symbol: String) -> some View {
@@ -371,6 +382,13 @@ private enum IFCError: LocalizedError {
     }
     /// Reloads the defect markers (after a new report or a status change).
     func refreshIssues() { web?.evaluateJavaScript("window.d21RequestIssues?.()") }
+    /// Raumklima-Einfärbung: Temperatur, Luftfeuchte, CO₂ oder aus (nil).
+    @Published private(set) var climate: String?
+    func setClimate(_ metric: String?) {
+        guard metric == nil || ["temperature", "humidity", "co2"].contains(metric!) else { return }
+        climate = metric
+        web?.evaluateJavaScript("window.d21SetClimate?.(\(metric.map { "'\($0)'" } ?? "null"))")
+    }
 }
 
 struct IFCWebView: UIViewRepresentable {

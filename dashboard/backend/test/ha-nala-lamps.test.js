@@ -18,10 +18,11 @@ before(async()=>{
  room=await service(db,owner.user.id).entities.Room.create({name:'Wohnzimmer',room_code:'W-1',building_id:String(building.id),source:'real'});
  const b='/buildings/'+building.id+'/home-assistant';
  await request(b+'/app-connect','POST',{instance_name:'Zuhause'},owner.token);
- await request(b+'/inventory','PUT',{areas:[{area_id:'wz',name:'Wohnzimmer'}],devices:[],entities:[{entity_id:'light.decke',name:'Deckenlicht',supports_color:true,area_id:'wz'},{entity_id:'light.flur',name:'Flur',supports_color:false}]},owner.token);
- await request(b+'/entities','PUT',{selected:['light.decke','light.flur']},owner.token);
+ await request(b+'/inventory','PUT',{areas:[{area_id:'wz',name:'Wohnzimmer'}],devices:[],entities:[{entity_id:'sensor.wz_temp',name:'Temperatur',device_class:'temperature',unit:'°C',area_id:'wz'},{entity_id:'light.decke',name:'Deckenlicht',supports_color:true,area_id:'wz'},{entity_id:'light.flur',name:'Flur',supports_color:false}]},owner.token);
+ await request(b+'/entities','PUT',{selected:['light.decke','light.flur','sensor.wz_temp']},owner.token);
  await request(b+'/areas','PUT',{mapping:{wz:room.id}},owner.token);
  await request(b+'/samples','POST',{lights:[{entity_id:'light.decke',available:true,is_on:true,brightness:200,rgb:[255,120,40]},{entity_id:'light.flur',available:true,is_on:false}]},owner.token);
+ await request(b+'/samples','POST',{points:[{entity_id:'sensor.wz_temp',value:24.5,measured_at:new Date().toISOString()}]},owner.token);
 });
 after(async()=>{await new Promise(r=>server.close(r));await db.close();});
 async function request(path,method='GET',body,session,headers={}){
@@ -54,6 +55,10 @@ test('imported lamps light up their IFC room in the 3D model',async()=>{
  const doc=(await db.query("INSERT INTO app_documents(building_id,name,mime_type,size,content) VALUES($1,'m.ifc','application/x-step',$2,$3) RETURNING id",[building.id,ifc.length,Buffer.from(ifc)])).rows[0].id;
  const lights=await roomDeviceLights(db,owner.user.id,doc,{});
  assert.deepEqual(lights,[{space_id:40,available:true,on:true,rgb:[255,120,40],brightness:200}]);
+ const overlay=await request('/documents/'+doc+'/sensor-overlay','GET',undefined,member.token);
+ assert.equal(overlay.status,200,JSON.stringify(overlay.data));
+ const wz=overlay.data.rooms.find(r=>r.space_id===40);
+ assert.equal(wz.hardware,'home-assistant');assert.equal(wz.values[0].metric,'temperature');assert.equal(wz.values[0].value,24.5);
 });
 
 test('chat: Nala returns validated HA actions for the iPhone and never for ambiguous questions',async()=>{
