@@ -404,7 +404,7 @@ private struct SimulatedRoomValues: View {
 
 /// Top-down floor plan of one storey (model x/z) with walls, doors, live position and calibration taps.
 /// Pinch to zoom and drag to pan; taps are mapped back through the current zoom.
-private struct FloorPlanView: View {
+struct FloorPlanView: View {
     let rooms: [LocatorRoom]
     let walls: [LocatorWall]
     let doors: [LocatorDoor]
