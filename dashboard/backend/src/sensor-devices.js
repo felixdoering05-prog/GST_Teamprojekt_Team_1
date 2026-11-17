@@ -158,7 +158,16 @@ function sensorDevicesRouter(db,requireAccount){
     rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values.map(({source,...v})=>v),updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
    }
   }
-  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms});
+  // Gespeicherte Namen aller Räume dieses Modells, damit auch Popups ohne Sensor den geänderten Namen zeigen.
+  const room_names=[];
+  const named=(await db.query("SELECT id,data->>'name' AS name,data->>'ifc_global_id' AS gid FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND coalesce(data->>'source','')<>'demo' AND coalesce(data->>'ifc_global_id','')~'^[0-9A-Za-z_$]{22}$' AND coalesce(data->>'name','')<>'' ORDER BY created_at,id LIMIT 500",[building.user_id,String(building.id)])).rows;
+  if(named.length){
+   const spaces=new Map(),text=Buffer.from((await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content||[]).toString('latin1');
+   for(const m of text.matchAll(/#(\d+)\s*=\s*IFCSPACE\s*\(\s*'([0-9A-Za-z_$]{22})'/gi))if(!spaces.has(m[2]))spaces.set(m[2],Number(m[1]));
+   const seen=new Set();
+   for(const r of named){const space=spaces.get(r.gid);if(!space||seen.has(space))continue;seen.add(space);room_names.push({space_id:space,room:r.name.slice(0,100),room_id:r.id});}
+  }
+  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms,room_names});
  }));
  r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND user_id=$2',[req.params.device,req.account.id]);res.json({ok:true});}));
  r.post('/sensor-input',wrap(async(req,res)=>{

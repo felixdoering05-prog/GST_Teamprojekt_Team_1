@@ -496,8 +496,12 @@ async function open() {
       heatLayer?.select(hits.find(hit => hit.object.userData.heatGlobalId) || hits[0]);
       return;
     }
-    appearance.select(ray.intersectObjects(appearance.visibleMeshes, false).find(hit =>
-      bimFloors ? bimFloors.canPick(hit) : cut === null || hit.point.y <= cut)?.object.userData.expressID);
+    const element = ray.intersectObjects(appearance.visibleMeshes, false).find(hit =>
+      bimFloors ? bimFloors.canPick(hit) : cut === null || hit.point.y <= cut);
+    // Klick in einen Raum öffnet dessen Popup; Klick daneben oder erneut in denselben Raum schließt es.
+    const allowed = hit => renderer.clippingPlanes.every(plane => plane.distanceToPoint(hit.point) >= 0) && (cut === null || bimFloors || hit.point.y <= cut);
+    if (roomSensors?.pick(ray, { element, allowed })) { appearance.select(undefined); updateSelection(); render(); return; }
+    appearance.select(element?.object.userData.expressID);
     updateSelection();
   }
   // Cancel long presses during rotation, multi-touch, pointer cancellation or page exit.
@@ -594,7 +598,7 @@ async function open() {
         }
       } finally { data.delete(); }
     }
-    if (meshes.length) { const box = new THREE.Box3(); for (const mesh of meshes) { mesh.updateMatrix(); mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix)); } sensorAnchors.set(id, { anchor: box.getCenter(new THREE.Vector3()), meshes }); }
+    if (meshes.length) { const box = new THREE.Box3(); for (const mesh of meshes) { mesh.updateMatrix(); mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix)); } sensorAnchors.set(id, { anchor: box.getCenter(new THREE.Vector3()), meshes, label: label.textContent }); }
     if (readOnly) {
       const code = names.join(' · ');
       const roomName = /^\d+(?:[.-]\d+)*$/.test(code) ? `Raum ${code}` : code || `IFC-Raum #${id}`;
@@ -614,15 +618,15 @@ async function open() {
     };
     row.append(toggle); roomsPanel.append(row);
   }
-  // Messwerte echter Raumsensoren (z. B. ESP32 + BME280) als Popup über dem zugeordneten IFC-Raum.
-  // Die Seite lädt die Werte angemeldet und schickt sie; der Viewer fragt nur nach.
+  // Raum-Popup für jeden IFC-Raum, sichtbar erst nach Klick in den Raum: Name (per Doppelklick änderbar) und, falls
+  // vorhanden, Sensorwerte. Die Seite lädt Werte und Namen angemeldet und schickt sie; der Viewer fragt nur nach.
   if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly && sensorAnchors.size) {
-    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
+    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onChange: () => render(), onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
     function receiveSensors(event) {
       if (event.source !== window.parent || event.origin !== location.origin) return;
       if (event.data?.type === 'd21-room-rename-result' && Number.isInteger(event.data.space_id)) { roomSensors?.renamed(event.data); return; }
       if (event.data?.type !== 'd21-room-sensors') return;
-      roomSensors?.set(event.data.rooms); render();
+      roomSensors?.set(event.data.rooms, event.data.names); render();
     }
     window.addEventListener('message', receiveSensors);
     window.addEventListener('pagehide', () => { window.removeEventListener('message', receiveSensors); roomSensors?.dispose(); roomSensors = undefined; }, { once: true });
