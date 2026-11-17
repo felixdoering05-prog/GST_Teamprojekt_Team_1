@@ -20,3 +20,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [14.11.2026 · Datensicherung beim Hochschulserverumzug](berichte/2026-11-14-0904.md): im Projektplan bereits berücksichtigt.
 
 [17.11.2026 · Doppelte Sprachanfragen](berichte/2026-11-17-0915.md): Die serverseitige Prüfung ist bereits vorhanden.
+
+[17.11.2026 abends · Lampenstatus](berichte/2026-11-17-1704.md): vorhandenen Adapter abgeglichen, kein neuer Eintrag.
