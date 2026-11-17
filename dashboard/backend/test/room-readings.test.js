@@ -20,3 +20,8 @@ test('prefers actual readings, preserves old individual timestamps and exposes m
 test('invalid IDs and readings never enter room summaries',()=>{
  assert.deepEqual(mergeRoomReadings([{space_id:0,values:[{metric:'co2',value:500}]},{space_id:2,values:[{metric:'pressure',value:900},{metric:'temperature',value:Infinity}]}],now),[]);
 });
+test('one physical sensor found through both device and room registry appears only once',()=>{
+ const room={space_id:1,source:'real',updated_at:time,values:[{metric:'temperature',value:21,sensor_id:'one'}]};
+ const out=mergeRoomReadings([room,{...room,values:[{...room.values[0],sensor_name:'BME280'}]}],now);
+ assert.equal(out[0].readings.length,1);assert.equal(out[0].readings[0].sensor_name,'BME280');
+});

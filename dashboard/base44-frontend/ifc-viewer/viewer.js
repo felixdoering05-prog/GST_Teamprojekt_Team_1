@@ -539,10 +539,10 @@ async function open() {
   document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); changed({action:'show',ids:[...appearance.elements.keys()]}); };
   document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); changed({action:'reset-colors',ids:[...appearance.elements.keys()]}); };
   let webSmartHome = false, lastSelectedRoom = null;
-  function mode(smart) {
+  function mode(smart, notify = true) {
     cancelCommand(); document.querySelector('#commands').hidden = true;
     home.hidden = !smart || webSmartHome;
-    if (webSmartHome) window.parent.postMessage({ type: 'd21-smart-home-mode', open: smart }, location.origin);
+    if (notify && window.parent !== window) window.parent.postMessage({ type: 'd21-smart-home-mode', open: smart }, location.origin);
     document.querySelector('#tools').hidden = smart;
     document.querySelector('#model-mode').setAttribute('aria-pressed', String(!smart));
     document.querySelector('#home-mode').setAttribute('aria-pressed', String(smart));
@@ -638,7 +638,7 @@ async function open() {
     const receiveSmartHome = event => {
       if (event.source !== window.parent || event.origin !== location.origin) return;
       if (event.data?.type === 'd21-smart-home-connected') { webSmartHome = true; home.hidden = true; }
-      if (event.data?.type === 'd21-smart-home-visible' && webSmartHome) mode(event.data.open === true);
+      if (event.data?.type === 'd21-smart-home-visible' && webSmartHome) mode(event.data.open === true, false);
       if (event.data?.type === 'd21-room-select') { roomSensors?.select(Number.isInteger(event.data.space_id) ? event.data.space_id : null); render(); }
       if (event.data?.type === 'd21-smart-home-refresh') synchronization?.refresh?.();
     };
