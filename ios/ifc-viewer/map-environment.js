@@ -26,7 +26,9 @@ export function mountMapEnvironment(scene,groundY,render){
    }else{
     // Omit the footprint containing the model's anchor; the IFC supplies that building.
     let contains=false;for(let i=0,j=coords.length-1;i<coords.length;j=i++){const a=coords[i],b=coords[j];if((a[1]>0)!==(b[1]>0)&&0<(b[0]-a[0])*(-a[1])/(b[1]-a[1])+a[0])contains=!contains;}
-    if(feature.kind==='building'&&contains)continue;
+    // Also omit it when the anchor sits just outside (L-shaped buildings): footprint centre within 8 m.
+    const cx=coords.reduce((t,p)=>t+p[0],0)/coords.length,cz=coords.reduce((t,p)=>t+p[1],0)/coords.length;
+    if(feature.kind==='building'&&(contains||Math.hypot(cx,cz)*view.meters_per_unit<=8))continue;
     const shape=new THREE.Shape(coords.map(p=>new THREE.Vector2(p[0],-p[1])));
     const geometry=feature.kind==='building'?new THREE.ExtrudeGeometry(shape,{depth:feature.height/unit,bevelEnabled:false}):new THREE.ShapeGeometry(shape);
     geometry.rotateX(-Math.PI/2);const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:feature.kind==='building'?'#c3c9d1':'#cfdccf',roughness:1,side:THREE.DoubleSide}));mesh.position.y=feature.kind==='building'?.0:.04/unit;mesh.castShadow=feature.kind==='building';mesh.receiveShadow=true;group.add(mesh);

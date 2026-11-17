@@ -309,7 +309,7 @@ class RealisticModel(unittest.TestCase):
 
 
 class Package2(unittest.TestCase):
-    """Fire ratings from plan text, stairs in stair rooms between storeys, terrain, furniture by room name, photo colours."""
+    """Fire ratings from plan text, stairs in stair rooms between storeys, furniture by room name, photo colours; no generated ground."""
 
     def level(self, name, elevation, names, texts=()):
         walls = [{'id': i, 'a': a, 'b': b, 'thickness': t} for i, a, b, t in [
@@ -338,7 +338,7 @@ class Package2(unittest.TestCase):
         shutil.rmtree(d)
         self.assertEqual(len(f.by_type('IfcStair')), 1, 'only between EG and OG')
         self.assertEqual(len(f.by_type('IfcRailing')), 1)
-        self.assertEqual(len(f.by_type('IfcGeographicElement')), 1)
+        self.assertEqual(len(f.by_type('IfcGeographicElement')), 0, 'no generated ground; the app places the model on the map')
         names = sorted(e.Name for e in f.by_type('IfcFurniture') + f.by_type('IfcSanitaryTerminal'))
         self.assertTrue({'Küchenzeile (Platzhalter)', 'WC (Platzhalter)', 'Sofa (Platzhalter)', 'Bett (Platzhalter)'} <= set(names), names)
         facade = next(s for s in f.by_type('IfcSurfaceStyle') if s.Name == 'Außenputz').Styles[0].SurfaceColour

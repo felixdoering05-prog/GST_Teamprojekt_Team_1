@@ -15,13 +15,13 @@ COLOURS = {
     'wall_ext': ((0.93, 0.91, 0.86), 0.0), 'wall_int': ((0.97, 0.97, 0.95), 0.0), 'slab': ((0.72, 0.72, 0.70), 0.0),
     'roof': ((0.27, 0.29, 0.32), 0.0), 'roof_edge': ((0.58, 0.60, 0.62), 0.0), 'glass': ((0.62, 0.80, 0.92), 0.55),
     'frame': ((0.96, 0.96, 0.96), 0.0), 'sill': ((0.80, 0.80, 0.78), 0.0), 'door': ((0.63, 0.46, 0.31), 0.0),
-    'metal': ((0.55, 0.56, 0.58), 0.0), 'terrain': ((0.55, 0.68, 0.42), 0.0), 'stair': ((0.78, 0.76, 0.72), 0.0),
+    'metal': ((0.55, 0.56, 0.58), 0.0), 'stair': ((0.78, 0.76, 0.72), 0.0),
     'railing': ((0.35, 0.36, 0.38), 0.0), 'wood_light': ((0.80, 0.68, 0.52), 0.0), 'fabric': ((0.52, 0.56, 0.62), 0.0),
     'white': ((0.96, 0.96, 0.95), 0.0), 'ceramic': ((0.98, 0.98, 0.98), 0.0),
 }
 STYLE_NAMES = {'wall_ext': 'Außenputz', 'wall_int': 'Innenputz', 'slab': 'Beton', 'roof': 'Dach', 'roof_edge': 'Attikablech',
                'glass': 'Glas', 'frame': 'Fensterrahmen', 'sill': 'Fensterbank', 'door': 'Holz', 'metal': 'Metall',
-               'terrain': 'Rasen', 'stair': 'Treppe', 'railing': 'Geländer', 'wood_light': 'Holz hell', 'fabric': 'Stoff', 'white': 'Weiß',
+               'stair': 'Treppe', 'railing': 'Geländer', 'wood_light': 'Holz hell', 'fabric': 'Stoff', 'white': 'Weiß',
                'ceramic': 'Keramik'}
 
 
@@ -345,20 +345,6 @@ def _add_furniture(b, room, z0):
     return placed
 
 
-def _add_terrain(b, levels):
-    from shapely.geometry import Polygon, MultiPolygon
-    from shapely.ops import unary_union
-    shapes = [Polygon([(_m(x), _m(y)) for x, y in l['boundary']]).buffer(0) for l in levels if l.get('boundary') and len(l['boundary']) >= 3]
-    if not shapes:
-        return None
-    x0, y0, x1, y1 = unary_union(shapes).bounds
-    m = max(8.0, 0.4 * max(x1 - x0, y1 - y0))
-    ground = min([_m(l['elevation']) for l in levels if l['elevation'] >= 0] or [0.0])
-    terrain = b.entity('IfcGeographicElement', 'Gelände (Annahme)', 'TERRAIN', (((x0 + x1) / 2, (y0 + y1) / 2, ground - 0.32), (1., 0.)))
-    b.show(terrain, [(b.box(0, 0, 0, x1 - x0 + 2 * m, y1 - y0 + 2 * m, 0.3), 'terrain')])
-    return terrain
-
-
 def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=None, appearance=None):
     warnings = warnings if warnings is not None else []
     b = Builder(name)
@@ -475,9 +461,7 @@ def write_ifc(levels, path, name='Planentwurf (vermessen)', roof=None, warnings=
         r = _add_roof(b, storeys[top], levels[top], roof, warnings)
         if r is not None:
             ifcopenshell.api.run('spatial.assign_container', f, products=[r], relating_structure=storeys[top])
-    terrain = _add_terrain(b, levels)
-    if terrain is not None:
-        ifcopenshell.api.run('spatial.assign_container', f, products=[terrain], relating_structure=b.site)
+    # No generated ground: the model is placed on the real map (OpenStreetMap surroundings) in the app.
     if n_stairs:
         warnings.append(f'{n_stairs} Treppe(n) in Treppenräumen angenommen (gerade Läufe, Steigung ≈ 18 cm).')
     if n_furniture:
