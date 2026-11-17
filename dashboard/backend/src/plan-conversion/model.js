@@ -10,7 +10,7 @@ const keys=(v,list)=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(
 const num=(v,min,max)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)bad();return v;};
 const narrative=v=>{if(typeof v!=='string'||v.length>2000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(v))bad();return v;};
 const text=v=>{if(typeof v!=='string'||v.length>160||/[\x00-\x1f]/.test(v))bad();return v;};
-const point=p=>{if(!Array.isArray(p)||p.length!==2)bad();return p.map(n=>num(n,-100000,100000));};
+const point=p=>{if(!Array.isArray(p)||p.length!==2)bad();return p.map(n=>num(n,-300000,300000));};
 const array=(v,max,min=0)=>{if(!Array.isArray(v)||v.length<min||v.length>max)bad();return v;};
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 function validateGeometry(g,{omitUnhosted=false,notes=[]}={}){
@@ -19,8 +19,8 @@ function validateGeometry(g,{omitUnhosted=false,notes=[]}={}){
  const names=new Set();let count=0;
  array(g.levels,4,1).forEach(l=>{
   keys(l,['name','elevation','height','height_assumed','width','depth','dimension_evidence','boundary','walls','openings','rooms']);text(l.name);if(!l.name||names.has(l.name))bad();names.add(l.name);
-  num(l.elevation,-10000,30000);num(l.height,1800,6000);if(typeof l.height_assumed!=='boolean'||l.height_assumed&&l.height!==2500)bad();num(l.width,1000,100000);num(l.depth,1000,100000);
-  array(l.dimension_evidence,6,2).forEach(v=>{keys(v,['axis','mm','label']);if(!['x','y'].includes(v.axis)||!text(v.label))bad();num(v.mm,1000,100000);});
+  num(l.elevation,-10000,30000);num(l.height,1800,6000);if(typeof l.height_assumed!=='boolean'||l.height_assumed&&l.height!==2500)bad();num(l.width,1000,300000);num(l.depth,1000,300000);
+  array(l.dimension_evidence,6,2).forEach(v=>{keys(v,['axis','mm','label']);if(!['x','y'].includes(v.axis)||!text(v.label))bad();num(v.mm,1000,300000);});
   for(const axis of ['x','y'])if(!l.dimension_evidence.some(d=>d.axis===axis&&Math.abs(d.mm-l[axis==='x'?'width':'depth'])<=Math.max(30,d.mm*.02)))bad();
   array(l.boundary,32,3).forEach(point);
   const xs=l.boundary.map(p=>p[0]),ys=l.boundary.map(p=>p[1]);

@@ -68,8 +68,8 @@ services:
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
     tmpfs: ['/tmp:rw,nosuid,noexec,size=128m,mode=1777']
-    mem_limit: 768m
-    cpus: 0.5
+    mem_limit: 1536m
+    cpus: 1.0
     pids_limit: 64
     stop_grace_period: 240s
   ifc-worker:
