@@ -20,6 +20,8 @@ import BuildingSetupDialog from '@/components/rooms/BuildingSetupDialog';
 import BuildingStartSteps from '@/components/rooms/BuildingStartSteps';
 import BuildingTeam from '@/components/rooms/BuildingTeam';
 import SharedBuildingStructure from '@/components/rooms/SharedBuildingStructure';
+import DeleteBuildingButton from '@/components/rooms/DeleteBuildingButton';
+import { documentKey } from '@/components/rooms/buildingFilesModel';
 
 const buildingsKey = ['account-buildings'];
 
@@ -28,6 +30,7 @@ export default function Rooms() {
   const [params, setParams] = useSearchParams();
   const [setupOpen, setSetupOpen] = useState(false);
   const [teamBuildingId, setTeamBuildingId] = useState(null);
+  const { toast } = useToast();
   const buildings = useQuery({
     queryKey: buildingsKey,
     queryFn: () => request('/buildings'),
@@ -65,11 +68,24 @@ export default function Rooms() {
     refreshBuildings();
   }
 
+  async function deletedBuilding(building) {
+    await cache.cancelQueries({ queryKey: buildingsKey });
+    cache.setQueryData(buildingsKey, rows => (rows ?? []).filter(row => row.id !== building.id));
+    if (localStorage.getItem('d21-selected-building') === String(building.id)) localStorage.removeItem('d21-selected-building');
+    setTeamBuildingId(null);
+    setSetupOpen(false);
+    setParams({}, { replace: true });
+    cache.removeQueries({ queryKey: documentKey(building.id) });
+    cache.invalidateQueries();
+    toast({ title: 'Gebäude gelöscht', description: `„${building.name}“ wurde entfernt.` });
+  }
+
   return (
     <div className="space-y-5">
       {selected ? (
         <>
           <PageHeader title={selected.name} description={selected.address || (selected.is_owner ? 'Gebäudemappe' : 'Geteiltes Gebäude')}>
+            <DeleteBuildingButton key={selected.id} building={selected} onDeleted={deletedBuilding} />
             <Button variant="ghost" size="sm" onClick={() => setParams({})}>
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Zur Gebäudeliste
             </Button>
