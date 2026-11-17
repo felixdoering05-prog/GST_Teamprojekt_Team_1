@@ -13,7 +13,7 @@ struct BuildingMember: Decodable, Identifiable {
 struct ProjectNotice: Decodable, Identifiable {
     let id: Int; let kind: String; let title: String; let building_id: Int?
     let created_at: String; let read_at: String?
-    var tint: Color { switch kind { case "chat": .blue; case "file": .orange; case "plan_ready": .indigo; case "invitation": .pink; default: d21Accent } }
+    var tint: Color { switch kind { case "chat": .blue; case "file": .orange; case "plan_ready": .indigo; case "invitation": .pink; case "automation": .teal; case "maintenance_done": .green; default: d21Accent } }
     var icon: String { switch kind { case "chat": "bubble.left.and.bubble.right"; case "file": "doc.badge.plus"; case "plan_ready": "cube.fill"; case "invitation": "person.badge.plus"; default: "person.2" } }
 }
 struct BuildingMessage: Decodable, Identifiable {
@@ -42,6 +42,7 @@ func projectDate(_ value: String) -> String {
             async let n: [ProjectNotice] = account.request("notifications")
             let result = try await (c, i, n)
             contacts = result.0; invitations = result.1; notices = result.2; problem = nil
+            AutomationAlerts.deliver(result.2)
         } catch { problem = error.localizedDescription }
     }
     func act(_ account: AccountModel, path: String, method: String = "POST", body: [String: String]? = nil) async -> Bool {
@@ -324,6 +325,8 @@ struct BuildingDetailView: View {
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
                     Button("Dateien", systemImage: "folder") { open("Dateien") }
                     Button("Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
+                    Button("Wartung", systemImage: "wrench.and.screwdriver") { open("Wartung") }
+                    Button("Automationen", systemImage: "bell.and.waves.left.and.right") { open("Automationen") }
                     if isOwner {
                         Divider()
                         Button("Gebäude löschen", systemImage: "trash", role: .destructive) { confirmDeletion = true }
@@ -343,6 +346,8 @@ struct BuildingDetailView: View {
         switch section {
         case "Dateien": BuildingFilesView(building: building, model: model)
         case "Mängel": BuildingIssuesView(building: building, account: model, open: open)
+        case "Wartung": BuildingMaintenanceView(building: building, account: model)
+        case "Automationen": BuildingAutomationsView(building: building, account: model)
         case "3D": BuildingModelView(building: building, account: model)
         case "Geräte": BuildingDevicesView(building: building, account: model)
         case "Heatmap": BuildingHeatmapView(account: model, building: building)

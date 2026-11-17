@@ -123,6 +123,8 @@ struct BuildingCockpit: View {
                     tool("Heatmap", symbol: "thermometer.sun", area: "Heatmap", color: .pink)
                     tool("Energie", symbol: "bolt", area: "Energie", color: .yellow)
                     tool("Sensoren", symbol: "sensor", area: "Sensorik", color: .indigo)
+                    tool("Wartung", symbol: "wrench.and.screwdriver", area: "Wartung", color: .teal)
+                    tool("Automationen", symbol: "bell.and.waves.left.and.right", area: "Automationen", color: .mint)
                 }
             }.padding(20)
         }

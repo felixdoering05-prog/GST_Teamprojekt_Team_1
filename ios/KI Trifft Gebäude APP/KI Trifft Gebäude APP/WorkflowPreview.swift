@@ -198,6 +198,13 @@ final class WorkflowPreviewProtocol: URLProtocol {
                 WorkflowPreview.devices[index]["revision"] = (WorkflowPreview.devices[index]["revision"] as? Int ?? 0) + 1; result = WorkflowPreview.devices[index]
             } else { let id = Int(path.split(separator: "/").dropLast(1).last ?? "901") ?? 901; result = WorkflowPreview.devices.filter { $0["building_id"] as? Int == id } }
         }
+        else if path.hasSuffix("/maintenance/templates") { result = ["templates":[["title":"Heizungswartung","category":"heizung","interval_months":12,"notes":"Fachbetrieb"],["title":"Rauchmelder prüfen","category":"brandschutz","interval_months":12,"notes":""]],"categories":[]] }
+        else if path.hasSuffix("/maintenance") && method == "GET" {
+            let item: (Int, String, String, Int?, String?, String?, String?, String) -> [String:Any] = { ["id":$0,"title":$1,"category":$2,"interval_months":$3 as Any? ?? NSNull(),"last_done":$4 as Any? ?? NSNull(),"next_due":$5 as Any? ?? NSNull(),"warranty_until":$6 as Any? ?? NSNull(),"notes":"","revision":0,"status":$7,"can_edit":true] }
+            result = ["items":[item(1,"Heizungswartung","heizung",12,"2025-10-02","2026-10-02",nil,"ueberfaellig"),item(2,"Rauchmelder prüfen","brandschutz",12,"2025-12-01","2026-12-01",nil,"bald"),item(3,"Dachrinnen reinigen","dach",12,"2026-04-12","2027-04-12",nil,"ok"),item(4,"Wärmepumpe","heizung",nil,nil,nil,"2029-06-30","ohne_termin")],"summary":["overdue":1,"soon":1,"total":4],"limit":200]
+        }
+        else if path.hasSuffix("/automations") && method == "GET" { result = ["rules":[["id":1,"text":"Wenn die Luftfeuchte im Bad über 60 % steigt","description":"Luftfeuchte im Raum Bad über 60 %","enabled":true,"triggered":true,"last_fired_at":"2026-11-17T08:00:00.000Z"],["id":2,"text":"Wenn es im Wohnzimmer unter 18 Grad hat","description":"Temperatur im Raum Wohnzimmer unter 18 °C","enabled":true,"triggered":false,"last_fired_at":NSNull()]],"limit":30,"examples":["Wenn die Luftfeuchte im Bad über 60 % steigt","Wenn es im Wohnzimmer unter 18 Grad hat"]] }
+        else if path.hasSuffix("/automations/parse") { result = ["description":"CO₂ im Raum Büro über 1200 ppm"] }
         else if path.hasSuffix("/contacts") && method == "GET" { result = [["id":1,"user_id":2,"name":"Benjamin","status":"accepted"],["id":2,"user_id":3,"name":"Emir","status":"pending"]] }
         else if path.hasSuffix("/building-invitations") { result = [] }
         else if path.contains("/notifications/") && path.hasSuffix("/read") { result = ["ok":true] }

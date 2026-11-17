@@ -1,9 +1,17 @@
 import SwiftUI
+import UserNotifications
+
+/// Zeigt Nala-Mitteilungen (Automationen, Wartung) auch, während die App offen ist.
+final class NalaNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = NalaNotificationDelegate()
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [.banner, .sound, .list] }
+}
 
 @main struct MyApp: App {
     // App-scoped state: shown once per process, never on a normal foreground return.
     @State private var showingIntro = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    init() { UNUserNotificationCenter.current().delegate = NalaNotificationDelegate.shared }
 
     var body: some Scene {
         WindowGroup {

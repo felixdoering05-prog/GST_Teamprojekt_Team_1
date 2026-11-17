@@ -693,13 +693,15 @@ struct AccountHomeView: View {
                 #if DEBUG
                 .fullScreenCover(item: $planPreviewBuilding) { building in
                     NavigationStack {
-                        if ProcessInfo.processInfo.arguments.contains("-D21PlanEditorPreview") { PlanEditorView(building: building, jobID: PlanEditorPreviewData.jobID, account: model, onSaved: {}) }
+                        if ProcessInfo.processInfo.arguments.contains("-D21MaintenancePreview") { BuildingMaintenanceView(building: building, account: model) }
+                        else if ProcessInfo.processInfo.arguments.contains("-D21AutomationsPreview") { BuildingAutomationsView(building: building, account: model) }
+                        else if ProcessInfo.processInfo.arguments.contains("-D21PlanEditorPreview") { PlanEditorView(building: building, jobID: PlanEditorPreviewData.jobID, account: model, onSaved: {}) }
                         else { PlanConversionView(building: building, account: model, onAdopt: {}) }
                     }
                 }
                 .task(id: model.buildings.count) {
                     let args = ProcessInfo.processInfo.arguments
-                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
+                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
                 }
                 #endif
                 .task { refreshDraft(); await HASync.syncAll(account: model) }

@@ -138,6 +138,8 @@ async function bridgeLink(c,req){
 }
 async function selectedIDs(c,linkID){return (await c.query('SELECT entity_id FROM app_ha_entities WHERE link_id=$1 AND selected ORDER BY entity_id',[linkID])).rows.map(r=>r.entity_id);}
 async function eventCount(c,user,kind,interval){return Number((await c.query(`SELECT COALESCE(SUM(count),0) n FROM app_ha_events WHERE user_id=$1 AND kind=$2 AND created_at>now()-interval '${interval}'`,[user,kind])).rows[0].n);}
+// Automationen nach dem Speichern prüfen (nach COMMIT, Fehler stören den Import nie).
+const evaluateLater=(db,building)=>{const t=setTimeout(()=>require('./automations').evaluateAutomations(db,building).catch(()=>{}),1500);t.unref?.();};
 async function storePoints(c,link,points){
  const entities=new Map((await c.query('SELECT entity_id,metric,source_unit FROM app_ha_entities WHERE link_id=$1 AND selected',[link.id])).rows.map(e=>[e.entity_id,e]));
  let stored=0,ignored=0;
@@ -187,7 +189,7 @@ function bridgeRouter(db){
   if(link.last_push_at&&Date.now()-Date.parse(link.last_push_at)<PUSH_SECONDS*1000){res.set('Retry-After','60');fail('Maximal ein Paket pro Minute.',429);}
   const limits=await accountLimits(c,link.user_id);
   if(reached(limits,'ha_values_hour',await eventCount(c,link.user_id,'states','1 hour')+points.length-1))fail('Stundenlimit für Home-Assistant-Messwerte erreicht.',429);
-  const result=await storePoints(c,link,points);
+  const result=await storePoints(c,link,points);evaluateLater(db,link.building_id);
   await c.query("INSERT INTO app_ha_events(user_id,kind,count) VALUES($1,'states',$2)",[link.user_id,points.length]);
   await c.query('UPDATE app_ha_links SET last_push_at=now() WHERE id=$1',[link.id]);
   res.status(201).json({...result,selected:await selectedIDs(c,link.id)});
@@ -197,7 +199,7 @@ function bridgeRouter(db){
   if(!onlyKeys(b,['points']))fail('Ungültiger Verlauf.');
   const points=parsePoints(b.points,2000);
   if(reached(await accountLimits(c,link.user_id),'ha_history_day',await eventCount(c,link.user_id,'history_request','24 hours')))fail('Tageslimit für Verlaufsimporte erreicht.',429);
-  const result=await storePoints(c,link,points);
+  const result=await storePoints(c,link,points);evaluateLater(db,link.building_id);
   await c.query("INSERT INTO app_ha_events(user_id,kind,count) VALUES($1,'history_request',1)",[link.user_id]);
   res.status(201).json(result);
  }));
@@ -344,7 +346,7 @@ function haImportRouter(db,requireAccount){
   if(!onlyKeys(body,['points','lights'])||body.points===undefined&&body.lights===undefined)fail('Ungültige Messwerte.');
   const points=body.points===undefined?[]:parsePoints(body.points,2000),lights=body.lights===undefined?[]:parseLights(body.lights);
   if(reached(await accountLimits(c,b.user_id),'ha_sync_hour',await eventCount(c,b.user_id,'app_sync','1 hour')))fail('Stundenlimit für Abgleiche erreicht. Bitte später erneut versuchen.',429);
-  const result=points.length?await storePoints(c,link,points):{stored:0,ignored:0};
+  const result=points.length?await storePoints(c,link,points):{stored:0,ignored:0};if(points.length)evaluateLater(db,link.building_id);
   result.lights=await storeLights(c,link,lights);
   await c.query("INSERT INTO app_ha_events(user_id,kind,count) VALUES($1,'app_sync',1)",[b.user_id]);
   await c.query('UPDATE app_ha_links SET last_push_at=now() WHERE id=$1',[link.id]);
