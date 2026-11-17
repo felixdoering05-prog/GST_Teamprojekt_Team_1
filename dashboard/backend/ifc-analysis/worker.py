@@ -3,7 +3,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 # One serial worker; automatic discovery includes existing uploads, scans and accepted plan outputs.
 # Failed jobs remain visible and are not retried endlessly.
-CURRENT_VERSION=3
+CURRENT_VERSION=4
 def run_analysis(content):
     state='failed';report={'error':'IFC-Analyse fehlgeschlagen oder Zeitlimit erreicht.'}
     try:

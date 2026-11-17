@@ -146,11 +146,12 @@ def report(level):
         'width_mm': level['width'], 'depth_mm': level['depth'],
         'walls': len(level['walls']), 'doors': kinds.count('door'), 'windows': kinds.count('window'), 'openings_unclear': kinds.count('opening'),
         'rooms': len(level['rooms']), 'rooms_without_door': no_door,
+        'room_boundaries_repaired': any(r.get('boundary_repaired') for r in level['rooms']),
         'dimensions': ev[:40], 'dimension_max_error_pct': max(errors) if errors else None,
         'dimension_mean_error_pct': round(sum(errors) / len(errors), 2) if errors else None,
         'room_areas': areas, 'heights_assumed': level['height_assumed'] or any(o['height_assumed'] for o in level['openings']),
     }
-    good = rep['source'] != 'raster' and rep['dimension_max_error_pct'] is not None and rep['dimension_max_error_pct'] <= 2 and len(ev) >= 3 and not no_door and rep['rooms'] > 0
+    good = rep['source'] != 'raster' and rep['dimension_max_error_pct'] is not None and rep['dimension_max_error_pct'] <= 2 and len(ev) >= 3 and not no_door and rep['rooms'] > 0 and not rep['room_boundaries_repaired']
     rep['grade'] = 'gut' if good else 'prüfen'
     return rep
 
@@ -162,6 +163,8 @@ def summary_lines(reports):
         scale = f"1:{sc['ratio']:g}" if sc['ratio'] else {'units': 'DXF-Einheit', 'units+dimensions': 'DXF-Einheit, durch Maße bestätigt'}.get(sc['method'], 'aus Maßketten')
         size = f"{r['width_mm'] / 1000:.2f} × {r['depth_mm'] / 1000:.2f} m".replace('.', ',')
         counts = f"{r['walls']} Wände, {r['doors']} Türen, {r['windows']} Fenster, {r['rooms']} Räume."
+        if r.get('room_boundaries_repaired'):
+            out.append(f"{r['level']}: Kleine Wandlücken bis 30 mm wurden nur für die Raumgrenzen geschlossen. Raumaufteilung bitte prüfen; Originalwände unverändert.")
         if r.get('source') == 'raster':
             out.append(f"{r['level']}: aus Foto/Scan erkannt, {size}, {counts}")
             out.append(f"{r['level']}: Maßstab {sc['method']}." + (' Maße sind ungefähr – bitte prüfen oder eine bekannte Strecke angeben.' if sc.get('estimated') else ''))
