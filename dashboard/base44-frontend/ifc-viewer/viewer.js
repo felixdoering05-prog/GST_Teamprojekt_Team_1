@@ -617,10 +617,12 @@ async function open() {
   // Messwerte echter Raumsensoren (z. B. ESP32 + BME280) als Popup über dem zugeordneten IFC-Raum.
   // Die Seite lädt die Werte angemeldet und schickt sie; der Viewer fragt nur nach.
   if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly && sensorAnchors.size) {
-    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes });
+    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
     function receiveSensors(event) {
-      if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'd21-room-sensors') return;
-      roomSensors.set(event.data.rooms); render();
+      if (event.source !== window.parent || event.origin !== location.origin) return;
+      if (event.data?.type === 'd21-room-rename-result' && Number.isInteger(event.data.space_id)) { roomSensors?.renamed(event.data); return; }
+      if (event.data?.type !== 'd21-room-sensors') return;
+      roomSensors?.set(event.data.rooms); render();
     }
     window.addEventListener('message', receiveSensors);
     window.addEventListener('pagehide', () => { window.removeEventListener('message', receiveSensors); roomSensors?.dispose(); roomSensors = undefined; }, { once: true });

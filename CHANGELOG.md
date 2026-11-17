@@ -1,5 +1,11 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Raumnamen per Doppelklick im 3D-Popup ändern
+
+- Doppelklick auf den Raumnamen im Messwert-Popup des Web-BIM-Viewers öffnet ein Eingabefeld; Enter oder Wegklicken speichert, Esc bricht ab. Der Name gilt sofort im Popup und wird nach Bestätigung durch den Server übernommen; bei einem Fehler kehrt der alte Name zurück und ein kurzer Hinweis erscheint.
+- Neuer Endpunkt `PUT /documents/:id/rooms/:space/name` (Eigentümer und angenommene Mitglieder, wie die Sensor-Raumzuordnung): speichert den Namen am Raum-Datensatz mit der IFC-GlobalId des IfcSpace, legt ihn bei Bedarf an und ändert die IFC-Datei nicht. 1–60 Zeichen, keine Steuerzeichen. Das Overlay zeigt diesen Namen auch für direkt platzierte ESP32-Geräte.
+- Prüfung: 227 Backend-Tests (225 bestanden, 2 übersprungen), 36 Viewer-Tests, ESLint, Website-Build; Browserprüfung mit lokaler Test-IFC und simuliertem Server (Speichern, Fehlerfall, Esc).
+
 ## 17. November 2026 – Live-Messwerte als schwebende Popups im Web-BIM-Viewer
 
 - Der Web-BIM-Viewer (und das Dashboard-Widget „BIM-Modell“) fragt `GET /documents/:id/sensor-overlay` alle 30 Sekunden ab und zeigt die neuesten Werte als schwebendes Popup über der Mitte des zugehörigen IFC-Raums: Raumname, Temperatur, Luftfeuchte (ggf. CO₂), Messzeit und Kennzeichnung „live“, „alt“ (> 3 min) oder „Demo“. Dieser Web-Teil war nach dem Merge von PR #188 nur auf dem Feature-Branch geblieben.

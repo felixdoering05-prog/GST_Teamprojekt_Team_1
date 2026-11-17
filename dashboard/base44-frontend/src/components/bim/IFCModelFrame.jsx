@@ -65,7 +65,16 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     const send = () => { if (rooms) frame.current?.contentWindow?.postMessage({ type: 'd21-room-sensors', rooms }, window.location.origin); };
     const load = () => request(`/documents/${sensorModel}/sensor-overlay`).then(data => { if (active && Array.isArray(data?.rooms)) { rooms = data.rooms; send(); } }).catch(() => {});
     function receive(event) {
-      if (event.origin === window.location.origin && event.source === frame.current?.contentWindow && event.data?.type === 'd21-room-sensors-request') { if (rooms) send(); else load(); }
+      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
+      if (event.data?.type === 'd21-room-sensors-request') { if (rooms) send(); else load(); }
+      // Doppelklick im Popup: Raumnamen angemeldet speichern, Ergebnis zurückmelden und Werte neu laden.
+      const { space_id: space, name } = event.data || {};
+      if (event.data?.type === 'd21-room-rename' && Number.isInteger(space) && space > 0 && typeof name === 'string' && name.length <= 60) {
+        const reply = result => frame.current?.contentWindow?.postMessage({ type: 'd21-room-rename-result', space_id: space, ...result }, window.location.origin);
+        request(`/documents/${sensorModel}/rooms/${space}/name`, { method: 'PUT', body: { name } })
+          .then(() => { if (active) { reply({ ok: true }); load(); } })
+          .catch(error => { if (active) { reply({ error: error.message || 'Speichern fehlgeschlagen.' }); load(); } });
+      }
     }
     window.addEventListener('message', receive);
     load();

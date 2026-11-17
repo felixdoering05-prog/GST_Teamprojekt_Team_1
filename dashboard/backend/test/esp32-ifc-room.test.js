@@ -72,3 +72,23 @@ test('3D overlay also shows sensors assigned to a room linked to an IfcSpace of 
  assert.deepEqual(bed.values.map(v=>[v.metric,v.value,v.unit]),[['temperature',19.75,'°C']]);
  assert.deepEqual((await req(outsider,`/documents/${foreignDoc}/sensor-overlay`)).data.rooms,[]);
 });
+
+test('room names can be changed from the 3D popup by owner and members and appear in the overlay',async()=>{
+ const path=`/documents/${doc}/rooms/1464/name`;
+ assert.equal((await req(null,path,'PUT',{name:'Schlafzimmer'})).status,401);
+ assert.equal((await req(outsider,path,'PUT',{name:'Fremd'})).status,404);
+ assert.equal((await req(owner,path,'PUT',{name:'  '})).status,400);
+ assert.equal((await req(owner,path,'PUT',{name:'x'.repeat(61)})).status,400);
+ assert.equal((await req(owner,path,'PUT',{name:'Bad\u0007Zimmer'})).status,400);
+ assert.equal((await req(owner,path,'PUT',{name:'Ok',extra:1})).status,400);
+ assert.equal((await req(owner,`/documents/${doc}/rooms/9999/name`,'PUT',{name:'Nirgends'})).status,404);
+ assert.equal((await req(outsider,`/documents/${foreignDoc}/rooms/1464/name`,'PUT',{name:'Mein Raum'})).status,200);
+ const r=await req(member,path,'PUT',{name:'  Schlafzimmer   Benjamin '});assert.equal(r.status,200);assert.equal(r.data.name,'Schlafzimmer Benjamin');
+ const rooms=(await service(db,owner.id).entities.Room.filter({building_id:String(building),ifc_global_id:'1BUX0TXmbBVvh9kVlMbxKR'})).items;
+ assert.equal(rooms.length,1);assert.equal(rooms[0].name,'Schlafzimmer Benjamin');
+ const overlay=await req(owner,`/documents/${doc}/sensor-overlay`);
+ assert.equal(overlay.data.rooms.find(x=>x.space_id===1464).room,'Schlafzimmer Benjamin');
+ // Ein Raum ohne Datensatz (HP-03 nach Gerätelöschung weiterhin vorhanden) wird umbenannt, kein Duplikat.
+ assert.equal((await req(owner,`/documents/${doc}/rooms/1500/name`,'PUT',{name:'Arbeitszimmer'})).status,200);
+ assert.equal((await service(db,owner.id).entities.Room.filter({building_id:String(building),ifc_global_id:'0xJTxmotLAXekNhP8q7Df8'})).items.length,1);
+});
