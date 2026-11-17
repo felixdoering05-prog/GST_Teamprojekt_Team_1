@@ -1,5 +1,10 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Gebäude im Web löschen
+
+- Eigentümer können ein geöffnetes Gebäude über „Gebäude löschen“ entfernen. Eine Warnung und die Eingabe des Gebäudenamens bestätigen die endgültige Löschung für alle Mitglieder.
+- Der bestehende, serverseitig geschützte Löschweg wird verwendet. Fehler bleiben im Dialog sichtbar; erst nach erfolgreicher Antwort wird das Gebäude aus der Liste und der gespeicherten Auswahl entfernt.
+
 ## 17. November 2026 – Neue Sensoren automatisch in die Raum-Popups
 
 - Beim Öffnen eines eigenen Modells im Web-BIM-Viewer (und danach jede Minute) werden neu hinterlegte Sensoren automatisch dem passenden IFC-Raum zugeordnet, wenn ihr Raumname oder ihre Raumnummer eindeutig zu einem Raum im Modell passt (Groß-/Kleinschreibung, Leerzeichen, Umlaute egal). Ihre Werte erscheinen dann im Raum-Popup.
