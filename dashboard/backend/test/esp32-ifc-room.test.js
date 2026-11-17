@@ -53,6 +53,14 @@ test('3D overlay returns latest values per IFC space and is access scoped',async
  const r=await req(member,`/documents/${doc}/sensor-overlay`);assert.equal(r.status,200);assert.equal(r.data.rooms.length,1);
  const room=r.data.rooms[0];assert.equal(room.space_id,1500);assert.equal(room.room,'HP-03 · Zimmer III');assert.equal(room.source,'real');assert.equal(room.stale,false);
  assert.deepEqual(room.values.map(v=>[v.metric,v.value,v.unit]),[['temperature',22.25,'°C'],['humidity',51,'%']]);
+ const api=service(db,owner.id).entities;
+ const target=(await api.Room.filter({building_id:String(building),ifc_global_id:'0xJTxmotLAXekNhP8q7Df8'})).items[0];
+ const co2=await api.Sensor.create({sensor_code:'CO2-EXTRA',name:'Separater CO2-Sensor',building_id:String(building),room_id:target.id,metric:'co2',unit:'ppm',status:'aktiv',source:'real'});
+ await api.Measurement.create({sensor_id:co2.id,room_id:target.id,building_id:String(building),metric:'co2',value:750,unit:'ppm',measured_at:new Date().toISOString(),source:'real',quality:'ok'});
+ const combined=(await req(member,`/documents/${doc}/sensor-overlay`)).data.rooms;
+ assert.equal(combined.length,1);assert.deepEqual(combined[0].values.map(v=>v.metric),['temperature','humidity','co2']);
+ assert.equal(combined[0].readings.length,3); // The ESP32 sensors also occur in the room registry, without duplicates.
+ await api.Sensor.update(co2.id,{status:'inaktiv'});
  assert.equal(JSON.stringify(r.data).includes(device.token),false);
  assert.deepEqual((await req(outsider,`/documents/${foreignDoc}/sensor-overlay`)).data.rooms,[]);
  await req(owner,`/sensor-devices/${device.id}`,'DELETE');assert.deepEqual((await req(member,`/documents/${doc}/sensor-overlay`)).data.rooms,[]);

@@ -20,6 +20,16 @@ Die Mappe trennt **Übersicht**, **Galerie**, **Pläne & 3D** und **Räume**. Fo
 
 Bilder bleiben im geschützten Dokumentenspeicher. Vorschaubilder verwenden kurzlebige lokale Blob-URLs, keine öffentlichen Datei-Links. Die Einrichtung aktiviert keine KI-Verarbeitung; eine bereits freigegebene automatische Plananalyse verarbeitet neue Bilder/PDFs wie bisher. Die Modellgenerierung bleibt beim Eigentümer und erfordert die vorhandene Freigabe.
 
+## Smart Home im Webmodell
+
+Ein eigenes bzw. geteiltes IFC-Modell im **BIM-Viewer** öffnen und **Räume & Geräte** oder **Smart Home** wählen. Ein Raumklick oder die Raumliste öffnet Messwerte und zugeordnete Lampen/Steckdosen. Die Raumliste funktioniert auch bei fehlender Raumgeometrie; ein IFC ohne Raumobjekte benötigt weiterhin ergänzte Raumdaten.
+
+Die Webansicht nutzt die bestehenden kontogeschützten APIs und deren Berechtigungen. Serverseitig verbundene Home-Assistant-Lampen unterstützen bestätigtes Schalten und – je nach vorhandenen Fähigkeiten – Helligkeit/RGB. Simulationen sind gekennzeichnet. Eigentümer ordnen Geräte über **Geräte zuordnen → Diesem Raum zuordnen** zu. Ein Gruppenbefehl schaltet ausschließlich erreichbare, steuerbare Geräte; nicht steuerbare Heimnetz-Lampen bleiben ausdrücklich ausgenommen.
+
+Home-Assistant-Importzugänge übertragen Zustände und Messwerte, aber keinen Steuerzugang zum Heimnetz. Solche Lampen werden im Web angezeigt; ihre Bedienung bleibt vorerst in der iPhone-App. Keine Home-Assistant-Zugangsdaten werden an den Modell-Viewer weitergegeben.
+
+Sensorwerte werden je Raum/Messgröße zusammengeführt (echte Messwerte bevorzugt, dann neuester Zeitpunkt). Einzelmesswerte zeigen Quelle und Zeitpunkt; Werte älter als drei Minuten gelten als veraltet. Das bestehende Overlay bleibt auf maximal 50 Räume begrenzt. Fehlgeschlagene Quellen werden als Fehler angezeigt; Schaltaufträge werden nie automatisch wiederholt. Raum- und Gerätedaten werden bei geöffneter Karte alle 15 Sekunden aktualisiert, der Modell-Lichtzustand weiterhin alle fünf Sekunden.
+
 ## Produktivbetrieb
 
 GitHub ist die einzige Codequelle: **eigener Branch → Pull Request → Review → main**. Keine Anwendungscode-Änderungen auf dem Server und keine direkten Pushes auf main.

@@ -19,7 +19,7 @@ export function sanitizeRoomSensors(list) {
     if (!values.length) continue;
     const room = typeof item.room === 'string' ? item.room.slice(0, 60) : '';
     const time = typeof item.updated_at === 'string' && Number.isFinite(Date.parse(item.updated_at)) ? item.updated_at : null;
-    result.push({ space_id: item.space_id, room, values, stale: item.stale === true, real: item.source === 'real', updated_at: time });
+    result.push({ space_id: item.space_id, room, values, stale: item.stale === true, real: item.source === 'real', updated_at: time, ...(item.source === 'mixed' ? { mixed: true } : {}) });
   }
   return result;
 }
@@ -64,7 +64,7 @@ function popup({ title: name, sensor }, { rename, close }) {
   head.append(title);
   if (sensor) {
     const badge = document.createElement('span'); badge.className = 'sensor-badge';
-    badge.textContent = sensor.stale ? 'alt' : sensor.real ? 'live' : 'Demo';
+    badge.textContent = sensor.stale ? 'alt' : sensor.real ? 'live' : sensor.mixed ? 'Gemischt' : 'Simulation';
     head.append(badge);
   }
   const closer = document.createElement('button'); closer.type = 'button'; closer.className = 'sensor-close';

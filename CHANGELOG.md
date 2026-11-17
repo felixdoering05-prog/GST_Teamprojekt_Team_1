@@ -1,5 +1,13 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Smart Home direkt im Webmodell
+
+- „Smart Home“ bzw. „Räume & Geräte“ öffnet eine gemeinsame Raumkarte mit Temperatur, Luftfeuchte, CO₂, Einzelmesswerten und Lampen. Auswahl per Klick auf die Raumgeometrie oder über die Raumliste, auch ohne Raumkörper.
+- Bestehende serverseitig freigegebene Home-Assistant-Lampen lassen sich schalten, dimmen und einfärben; Simulationslampen/Steckdosen verwenden ihre bisherigen geschützten Befehlswege. „Raumlicht aus“ meldet bestätigte und unbestätigte Ergebnisse getrennt. Keine automatischen Wiederholungen von Schaltbefehlen.
+- Eigentümer können Geräte dem ausgewählten IFC-Raum zuordnen bzw. aus einem anderen Raum umordnen. Importierte Home-Assistant-Lampen ohne Server-Schaltzugang bleiben als Zustandsanzeige sichtbar und verweisen auf die iPhone-App im Heimnetz.
+- Sensorwerte verschiedener Geräte im selben Raum werden pro Messgröße zusammengeführt. Ein ESP32 verdeckt keinen zusätzlichen CO₂-Sensor mehr; derselbe Sensor wird nicht doppelt gezählt. Quelle, Zeitstempel und veraltete Einzelwerte bleiben erkennbar, echte Messwerte haben Vorrang vor Simulationen.
+- Lampenstatus wird parallel abgefragt; veraltete importierte Zustände gelten nicht als live. Das Raumlicht berücksichtigt die Helligkeit. Modellknöpfe sind bis zur Initialisierung gesperrt.
+
 ## 17. November 2026 – Robustere Raumerkennung
 
 - Grundrisse: nummerierte Raumnamen und kombinierte Namens-/Flächenbeschriftungen werden übernommen; ganzzahlige Flächenangaben sind zulässig, technische Höhen-/Maßtexte bleiben ausgeschlossen.

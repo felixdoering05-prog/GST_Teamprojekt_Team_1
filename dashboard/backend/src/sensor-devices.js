@@ -1,3 +1,4 @@
+const {mergeRoomReadings}=require('./room-readings');
 const express=require('express');
 const {randomBytes,randomUUID,createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
@@ -119,7 +120,7 @@ function sensorDevicesRouter(db,requireAccount){
    const hw=hardwareOf(d),values=[];
    for(const metric of hw.metrics){
     const m=(await db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 AND data->>'building_id'=$3 AND data->>'source'=$4 ORDER BY created_at DESC,id DESC LIMIT 1",[building.user_id,d.sensors?.[metric]||'',String(building.id),hw.source])).rows[0]?.data;
-    if(m&&typeof m.value==='number'&&Number.isFinite(m.value))values.push({metric,label:METRIC_META[metric].label,value:m.value,unit:METRIC_META[metric].unit,measured_at:new Date(m.measured_at).toISOString()});
+    if(m&&typeof m.value==='number'&&Number.isFinite(m.value))values.push({metric,label:METRIC_META[metric].label,value:m.value,unit:METRIC_META[metric].unit,sensor_id:d.sensors[metric],measured_at:new Date(m.measured_at).toISOString()});
    }
    const latest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
    rooms.push({space_id:d.space_id,room:d.room_label,device_id:d.id,source:hw.source,hardware:d.hardware||'simulation',values,updated_at:latest||null,stale:!latest||Date.now()-Date.parse(latest)>180000});
@@ -134,44 +135,43 @@ function sensorDevicesRouter(db,requireAccount){
    }
   }
   // Zusätzlich Sensoren, die einem Raum mit IFC-GlobalId dieses Modells zugeordnet sind (z. B. Schlafzimmer über „Sensor einem Raum zuordnen“).
-  const covered=new Set(rooms.map(r=>r.space_id));
+  const coveredSpaces=new Set(rooms.map(r=>r.space_id));
   const ifcRooms=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND coalesce(data->>'source','')<>'demo' AND coalesce(data->>'ifc_global_id','')~'^[0-9A-Za-z_$]{22}$' ORDER BY created_at,id LIMIT 200",[building.user_id,String(building.id)])).rows;
   if(ifcRooms.length){
    // Sensoren widerrufener Geräte nicht mehr anzeigen.
    const revoked=new Set((await db.query('SELECT sensors FROM app_sensor_devices WHERE building_id=$1 AND revoked=true',[building.id])).rows.flatMap(d=>Object.values(d.sensors||{})));
    const content=Buffer.from((await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content||[]).toString('latin1');
    for(const room of ifcRooms){
-    if(rooms.length>=50)break;
     const gid=room.data.ifc_global_id,at=content.indexOf("'"+gid+"'");if(at<0)continue;
     const m=/#(\d+)\s*=\s*IFCSPACE\s*\(\s*'([0-9A-Za-z_$]{22})'/i.exec(content.slice(Math.max(0,at-40),at+gid.length+2));
-    if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);if(covered.has(spaceID))continue;
+    if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);
+    if(!coveredSpaces.has(spaceID)&&coveredSpaces.size>=50)continue;
     const sensors=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Sensor' AND data->>'room_id'=$2 AND coalesce(data->>'status','aktiv')='aktiv' AND coalesce(data->>'building_id',$3)=$3 ORDER BY created_at,id LIMIT 10",[building.user_id,room.id,String(building.id)])).rows;
-    const latest=new Map();
+    const sensorValues=[];
     for(const sensor of sensors){
      const metric=sensor.data.metric;if(!METRIC_META[metric]||revoked.has(sensor.id))continue;
      // Ohne Gebäudefilter: Sensoren, die erst nachträglich einem Gebäude zugeordnet wurden, haben ältere Werte ohne building_id.
      const v=(await db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 ORDER BY created_at DESC,id DESC LIMIT 1",[building.user_id,sensor.id])).rows[0]?.data;
      if(!v||typeof v.value!=='number'||!Number.isFinite(v.value)||!Date.parse(v.measured_at))continue;
-     const value={metric,label:METRIC_META[metric].label,value:v.value,unit:METRIC_META[metric].unit,measured_at:new Date(v.measured_at).toISOString(),source:v.source==='real'?'real':'demo'};
-     if(!latest.has(metric)||latest.get(metric).measured_at<value.measured_at)latest.set(metric,value);
+     const value={metric,label:METRIC_META[metric].label,value:v.value,unit:METRIC_META[metric].unit,measured_at:new Date(v.measured_at).toISOString(),source:v.source==='real'?'real':'demo',sensor_id:sensor.id,sensor_name:String(sensor.data.name||sensor.data.sensor_code||METRIC_META[metric].label).slice(0,100)};
+     sensorValues.push(value);
     }
-    const values=['temperature','humidity','co2'].filter(k=>latest.has(k)).map(k=>latest.get(k));if(!values.length)continue;
+    const values=sensorValues;if(!values.length)continue;
     const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
-    covered.add(spaceID);
-    rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values.map(({source,...v})=>v),updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
+    coveredSpaces.add(spaceID);
+    rooms.push({space_id:spaceID,room:String(room.data.name||room.data.room_code||'Raum').slice(0,100),room_id:room.id,source:values.every(v=>v.source==='real')?'real':'demo',hardware:null,values:values,updated_at:newest,stale:Date.now()-Date.parse(newest)>180000});
    }
   }
   // Home-Assistant-Sensoren über die Raumzuordnung (IFC-GlobalId oder gleicher Raumname).
   const haRooms=await haRoomClimate(db,building.id);
-  if(haRooms.length&&rooms.length<50){
+  if(haRooms.length){
    const find=spaceFinder((await db.query('SELECT content FROM app_documents WHERE id=$1',[doc.id])).rows[0]?.content);
    for(const r of haRooms){
-    if(rooms.length>=50)break;const spaceID=find(r);if(!spaceID)continue;
-    const existing=rooms.find(x=>x.space_id===spaceID);
+    const spaceID=find(r);if(!spaceID||!coveredSpaces.has(spaceID)&&coveredSpaces.size>=50)continue;
     const values=r.values.filter(v=>METRIC_META[v.metric]&&Number.isFinite(v.value)).map(v=>({metric:v.metric,label:METRIC_META[v.metric].label,value:v.value,unit:METRIC_META[v.metric].unit,measured_at:v.measured_at}));
-    if(existing){for(const v of values)if(!existing.values.some(x=>x.metric===v.metric))existing.values.push(v);continue;}
     if(!values.length)continue;
     const newest=values.reduce((t,v)=>v.measured_at>t?v.measured_at:t,'');
+    coveredSpaces.add(spaceID);
     rooms.push({space_id:spaceID,room:r.room.slice(0,100),room_id:r.room_id,source:'real',hardware:'home-assistant',values,updated_at:newest,stale:Date.now()-Date.parse(newest)>3600000});
    }
   }
@@ -184,7 +184,7 @@ function sensorDevicesRouter(db,requireAccount){
    const seen=new Set();
    for(const r of named){const space=spaces.get(r.gid);if(!space||seen.has(space))continue;seen.add(space);room_names.push({space_id:space,room:r.name.slice(0,100),room_id:r.id});}
   }
-  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms,room_names});
+  res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms:mergeRoomReadings(rooms),room_names});
  }));
  r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND user_id=$2',[req.params.device,req.account.id]);res.json({ok:true});}));
  r.post('/sensor-input',wrap(async(req,res)=>{
