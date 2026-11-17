@@ -66,16 +66,24 @@ def dimension_items(plan):
     segs = plan.segs
     if not segs:
         return items
-    lengths = sorted(s.length for s in segs)
+    from shapely.geometry import LineString, Point
+    from shapely.strtree import STRtree
+    lengths_all = [sg.length for sg in segs]
+    angles = [sg.angle for sg in segs]
+    lengths = sorted(lengths_all)
     ref = lengths[len(lengths) // 2] or 1.0
+    # Spatial index: every dimension text only looks at nearby lines (large plans have >100k segments).
+    tree = STRtree([LineString([sg.a, sg.b]) for sg in segs])
     for text in plan.texts:
         cands = parse_dimension(text.text)
         if not cands:
             continue
         h = text.height or ref * 0.05
         best = None
-        for i, s in enumerate(segs):
-            if s.block or s.length < 2 * h or _angle_diff(s.angle, text.angle) > 3:
+        for i in tree.query(Point(text.at).buffer(2.5 * h)):
+            i = int(i)
+            s = segs[i]
+            if s.block or lengths_all[i] < 2 * h or _angle_diff(angles[i], text.angle) > 3:
                 continue
             t, dist = _project(text.at, s.a, s.b)
             if not (0.0 < t < 1.0) or dist > 2.5 * h:
@@ -87,8 +95,10 @@ def dimension_items(plan):
         i, dist, t = best
         line = segs[i]
         cuts, cross = [0.0, 1.0], set()
-        for j, s in enumerate(segs):
-            if j == i or _angle_diff(s.angle, line.angle) < 20:
+        for j in tree.query(LineString([line.a, line.b]).buffer(3 * h)):
+            j = int(j)
+            s = segs[j]
+            if j == i or _angle_diff(angles[j], angles[i]) < 20:
                 continue
             res = _intersection_param(line.a, line.b, s.a, s.b)
             if not res:

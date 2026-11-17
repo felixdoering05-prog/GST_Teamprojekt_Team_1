@@ -81,43 +81,144 @@ def _group_chars(chars, H):
     return out
 
 
+COMPLEX = 60000          # above this many path pieces a plan is treated as large (technical plan, hatching)
+HARD_LIMIT = 3000000     # safety stop for pathological files
+
+
+def _colour(c):
+    """Stroke colour -> (r, g, b) in 0..1 or None (unknown / pattern)."""
+    if c is None:
+        return None
+    if isinstance(c, (int, float)):
+        return (float(c),) * 3
+    if isinstance(c, (list, tuple)):
+        v = [float(x) for x in c if isinstance(x, (int, float))]
+        if len(v) == 1:
+            return (v[0],) * 3
+        if len(v) == 3:
+            return tuple(v)
+        if len(v) == 4:  # CMYK
+            cc, m, y, k = v
+            return ((1 - cc) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
+    return None
+
+
+def _saturation(rgb):
+    if rgb is None:
+        return 0.0
+    mx, mn = max(rgb), min(rgb)
+    return 0.0 if mx < 1e-6 else (mx - mn) / mx
+
+
 def read_pdf(path):
+    """Streams vector paths and characters with pdfminer instead of materialising every object (pdfplumber): large
+    technical plans (hundreds of thousands of pieces) fit into a few hundred MB. Large plans keep only neutral
+    (grey/black/white) building lines; coloured installation layers and tiny hatch strokes are dropped."""
+    from pdfminer.converter import PDFLayoutAnalyzer
+    from pdfminer.layout import LTChar, LTImage, LTFigure
+    from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+    from pdfminer.pdfpage import PDFPage
+    from pdfminer.utils import apply_matrix_pt
+
+    class Device(PDFLayoutAnalyzer):
+        def __init__(self, rsrc):
+            super().__init__(rsrc, pageno=1, laparams=None)
+            self.raw, self.curves, self.count = [], [], 0
+            self.result = None
+
+        def receive_layout(self, ltpage):
+            self.result = ltpage
+
+        def paint_path(self, gstate, stroke, fill, evenodd, path):
+            shape = ''.join(x[0] for x in path)
+            if shape[:1] != 'm':
+                return
+            if shape.count('m') > 1:
+                import re as _re
+                for m in _re.finditer(r'm[^m]+', shape):
+                    self.paint_path(gstate, stroke, fill, evenodd, path[m.start(0):m.end(0)])
+                return
+            self.count += 1
+            if self.count > HARD_LIMIT:
+                return
+            rect = shape in ('mlllh', 'mllll')
+            if not stroke and not rect:
+                return
+            width = float(gstate.linewidth or 0)
+            col = _colour(gstate.scolor if stroke else gstate.ncolor)
+            ctm = self.ctm
+            cur = start = None
+            pts_curve = None
+            for op in path:
+                o = op[0]
+                if o == 'm':
+                    cur = start = apply_matrix_pt(ctm, (float(op[1]), float(op[2])))
+                elif o == 'l' and cur is not None:
+                    nxt = apply_matrix_pt(ctm, (float(op[1]), float(op[2])))
+                    self.raw.append((cur[0], cur[1], nxt[0], nxt[1], width, col))
+                    cur = nxt
+                elif o in ('c', 'v', 'y') and cur is not None:
+                    q = [apply_matrix_pt(ctm, (float(op[i]), float(op[i + 1]))) for i in range(1, len(op), 2)]
+                    if o == 'v':
+                        q = [cur] + q
+                    elif o == 'y':
+                        q = q + [q[-1]]
+                    self.curves.append((bezier_points(cur, q[0], q[1], q[2]), width, col))
+                    cur = q[2]
+                elif o == 'h' and cur is not None and start is not None:
+                    if math.dist(cur, start) > 1e-6:
+                        self.raw.append((cur[0], cur[1], start[0], start[1], width, col))
+                    cur = start
+
     plans = []
-    with pdfplumber.open(path) as pdf:
-        for index, page in enumerate(pdf.pages[:MAX_PAGES]):
-            H = float(page.height)
+    rsrc = PDFResourceManager()
+    with open(path, 'rb') as fh:
+        for index, page in enumerate(PDFPage.get_pages(fh)):
+            if index >= MAX_PAGES:
+                break
+            device = Device(rsrc)
+            interp = PDFPageInterpreter(rsrc, device)
+            interp.process_page(page)
+            layout = device.result
+            x0, y0, x1, y1 = page.mediabox
+            W, H = float(x1 - x0), float(y1 - y0)
             plan = Plan('pdf', page=index, unit_mm=None)
-            objs = page.objects
-            if sum(len(v) for v in objs.values()) > MAX_OBJECTS:
+            if device.count > HARD_LIMIT:
                 plan.notes.append('too_many_objects')
                 plans.append(plan)
                 continue
-            for kind in ('line', 'curve', 'rect'):
-                for o in objs.get(kind, []):
-                    if not o.get('stroke', True) and kind != 'rect':
-                        continue
-                    width = float(o.get('linewidth') or 0)
-                    if o.get('path'):
-                        segs, curves = _segments_from_path(o['path'], H, width)
-                    elif kind == 'rect':
-                        x0, x1, y0, y1 = o['x0'], o['x1'], H - o['bottom'], H - o['top']
-                        segs = [Seg((x0, y0), (x1, y0), width=width), Seg((x1, y0), (x1, y1), width=width),
-                                Seg((x1, y1), (x0, y1), width=width), Seg((x0, y1), (x0, y0), width=width)]
-                        curves = []
-                    else:
-                        pts = [(p[0], H - p[1]) for p in o.get('pts', [])]
-                        segs = [Seg(p, q, width=width) for p, q in zip(pts, pts[1:])]
-                        curves = []
-                    plan.segs.extend(s for s in segs if s.length > 1e-6)
-                    for pts in curves:
-                        arc = fit_arc(pts)
-                        if arc:
-                            plan.arcs.append(arc)
-                        else:
-                            plan.segs.extend(Seg(p, q, width=width) for p, q in zip(pts, pts[1:]))
-            plan.texts = _group_chars(page.chars, H)
-            covered = sum(max(0.0, min(i['x1'], page.width) - max(i['x0'], 0)) * max(0.0, min(i['bottom'], H) - max(i['top'], 0)) for i in page.images)
-            if covered > 0.25 * float(page.width) * H:
+            raw, curves = device.raw, device.curves
+            large = len(raw) + len(curves) > COMPLEX
+            if large:
+                # Technical (TGA) and very detailed plans: walls are drawn neutral; installations are coloured.
+                diag = math.hypot(W, H)
+                tiny = diag * 0.0012
+                raw = [r for r in raw if _saturation(r[5]) < 0.35 and math.hypot(r[2] - r[0], r[3] - r[1]) >= tiny]
+                curves = [c for c in curves if _saturation(c[2]) < 0.35]
+                plan.notes.append('large_plan_filtered')
+            # pdfminer has y up already (user space); keep the reader's convention (PDF points, y up).
+            plan.segs = [Seg((r[0], r[1]), (r[2], r[3]), width=r[4]) for r in raw if (r[2] - r[0]) ** 2 + (r[3] - r[1]) ** 2 > 1e-12]
+            for pts, width, _ in curves:
+                arc = fit_arc(pts)
+                if arc:
+                    plan.arcs.append(arc)
+                else:
+                    plan.segs.extend(Seg(p, q, width=width) for p, q in zip(pts, pts[1:]))
+            chars, covered = [], 0.0
+            def walk(items):
+                nonlocal covered
+                for it in items:
+                    if isinstance(it, LTChar):
+                        chars.append({'text': it.get_text(), 'matrix': it.matrix, 'x0': it.x0, 'x1': it.x1, 'top': H - it.y1, 'bottom': H - it.y0})
+                    elif isinstance(it, LTImage):
+                        covered += max(0.0, min(it.x1, W) - max(it.x0, 0)) * max(0.0, min(it.y1, H) - max(it.y0, 0))
+                    elif isinstance(it, LTFigure):
+                        walk(it)
+            walk(layout)
+            # Same fields as pdfplumber's char dicts (matrix in PDF user space, y up).
+            plan.texts = _group_chars(chars, H)
+            if covered > 0.25 * W * H:
                 plan.notes.append('raster')
+            del device, raw, curves
             plans.append(plan)
     return plans

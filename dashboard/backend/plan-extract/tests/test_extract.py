@@ -347,3 +347,38 @@ class Package2(unittest.TestCase):
         logger = ifcopenshell.validate.json_logger()
         ifcopenshell.validate.validate(f, logger)
         self.assertEqual(logger.statements, [])
+
+
+class LargeTechnicalPdf(unittest.TestCase):
+    """Large plans are streamed; coloured installation lines and tiny hatch strokes are dropped, neutral lines stay."""
+
+    def pdf(self, path):
+        ops = ['0.5 G 1 w']  # neutral grey building lines
+        for x0, y0, x1, y1 in [(100, 100, 700, 100), (100, 110, 700, 110), (100, 500, 700, 500), (100, 490, 700, 490)]:
+            ops.append(f'{x0} {y0} m {x1} {y1} l S')
+        ops.append('1 0 0 RG 0.5 w')  # red installation lines: 70,000 of them
+        for k in range(70000):
+            x = 120 + (k % 500); y = 150 + (k // 500) % 300
+            ops.append(f'{x} {y} m {x + 40} {y} l S')
+        content = '\n'.join(ops).encode()
+        objs = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+                b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Contents 4 0 R >>',
+                b'<< /Length %d >>\nstream\n' % len(content) + content + b'\nendstream']
+        out, offs = bytearray(b'%PDF-1.4\n'), []
+        for i, o in enumerate(objs, 1):
+            offs.append(len(out)); out += b'%d 0 obj\n' % i + o + b'\nendobj\n'
+        xref = len(out)
+        out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objs) + 1) + b''.join(b'%010d 00000 n \n' % o for o in offs)
+        out += b'trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (len(objs) + 1, xref)
+        with open(path, 'wb') as f:
+            f.write(out)
+
+    def test_filters_coloured_lines(self):
+        from planextract.read_pdf import read_pdf
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'tga.pdf')
+            self.pdf(path)
+            plans = read_pdf(path)
+        self.assertIn('large_plan_filtered', plans[0].notes)
+        self.assertNotIn('too_many_objects', plans[0].notes)
+        self.assertEqual(len(plans[0].segs), 4, 'only the neutral building lines remain')

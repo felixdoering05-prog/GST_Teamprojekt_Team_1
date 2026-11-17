@@ -16,7 +16,7 @@ const SKIP_REASONS={unreadable_image:'Bild nicht lesbar',too_large:'Bild zu groÃ
 const config=()=>({root:process.env.PLAN_WORK_DIR||'/tmp/d21-plans',python:process.env.PLAN_PYTHON||'/opt/plan-venv/bin/python',script:process.env.PLAN_EXTRACT_SCRIPT||path.join(__dirname,'..','..','plan-extract','run.py')});
 async function run(runner,python,script,args,cwd){
  let stdout;
- try{({stdout}=await runner(python,['-E','-s',script,...args],{cwd,timeout:180000,killSignal:'SIGKILL',maxBuffer:256*1024,env:{PATH:'/usr/bin:/bin',HOME:cwd,PYTHONDONTWRITEBYTECODE:'1',OPENBLAS_NUM_THREADS:'1',OMP_NUM_THREADS:'1'}}));}
+ try{({stdout}=await runner(python,['-E','-s',script,...args],{cwd,timeout:360000,killSignal:'SIGKILL',maxBuffer:256*1024,env:{PATH:'/usr/bin:/bin',HOME:cwd,PYTHONDONTWRITEBYTECODE:'1',OPENBLAS_NUM_THREADS:'1',OMP_NUM_THREADS:'1'}}));}
  catch(e){stdout=e.stdout||'';}
  const last=String(stdout).trim().split('\n').pop()||'';let out;try{out=JSON.parse(last);}catch{throw new PlanError('model_generation_failed');}
  if(out.error)throw new PlanError('model_generation_failed');return out;

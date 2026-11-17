@@ -133,3 +133,15 @@ test('Gemini overload (5xx) is retried and then reported as temporary, not as a 
  calls=0;await assert.rejects(callGemini(async()=>{calls++;return new Response('bad',{status:400});},'https://example.invalid',{},{wait:async()=>{}}),{code:'provider_rejected'});assert.equal(calls,1);
  await assert.rejects(analyzePlans([],{getKey:()=>'test',retry:{wait:async()=>{}},fetchProvider:async()=>new Response('busy',{status:503})}),{code:'provider_unreachable'});
 });
+
+test('plan geometry uses Gemini Pro first and falls back to the fast model when Pro is unavailable',async()=>{
+ const {analyzePlans}=require('../src/plan-conversion/provider');const seen=[];
+ const ok={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({status:'needs_input',reason:'Bitte Gesamtmaß angeben.',warnings:[],levels:[]})}]}}]};
+ const old={pro:process.env.PLAN_GEMINI_MODEL,fast:process.env.GEMINI_MODEL};process.env.PLAN_GEMINI_MODEL='pro-model';process.env.GEMINI_MODEL='fast-model';
+ try{
+  await assert.rejects(analyzePlans([],{getKey:()=>'k',retry:{wait:async()=>{}},fetchProvider:async u=>{seen.push(u.match(/models\/([^:]+)/)[1]);return u.includes('pro-model')?new Response('nope',{status:404}):new Response(JSON.stringify(ok));}}),e=>e.code==='needs_input');
+  assert.deepEqual(seen,['pro-model','fast-model']);seen.length=0;
+  await assert.rejects(analyzePlans([],{getKey:()=>'k',retry:{wait:async()=>{}},fetchProvider:async u=>{seen.push(u.match(/models\/([^:]+)/)[1]);return new Response(JSON.stringify(ok));}}),e=>e.code==='needs_input');
+  assert.deepEqual(seen,['pro-model'],'no second call when Pro answers');
+ }finally{process.env.PLAN_GEMINI_MODEL=old.pro??'';process.env.GEMINI_MODEL=old.fast??'';if(old.pro===undefined)delete process.env.PLAN_GEMINI_MODEL;if(old.fast===undefined)delete process.env.GEMINI_MODEL;}
+});

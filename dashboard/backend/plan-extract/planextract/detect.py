@@ -108,7 +108,7 @@ def wall_segments(segs, excluded):
     return [(i, s) for i, s in usable if not (s.layer and SKIP_LAYER.search(s.layer))], 'geometry'
 
 
-def pair_faces(lines):
+def pair_faces(lines, t_min=T_MIN):
     """Greedy nearest pairing of parallel faces into wall pieces (centre line + thickness)."""
     by_angle = defaultdict(list)
     for l in lines:
@@ -119,7 +119,7 @@ def pair_faces(lines):
         cs = [l.c for l in group]
         cands = []
         for i, a in enumerate(group):
-            j = bisect.bisect_left(cs, a.c + T_MIN)
+            j = bisect.bisect_left(cs, a.c + t_min)
             while j < len(group) and group[j].c - a.c <= T_MAX:
                 b = group[j]
                 lo, hi = max(a.s0, b.s0), min(a.s1, b.s1)
@@ -186,7 +186,11 @@ class Detector:
         self.dominant = dom
         lines = merge_collinear([Line(snapped(s.angle, dom), s, i) for i, s in chosen])
         self.lines = lines
-        pieces = pair_faces(lines)
+        # Technical plans (filtered large plans): thin double lines are pipes and ducts, not walls.
+        large = 'large_plan_filtered' in getattr(self.plan, 'notes', [])
+        pieces = pair_faces(lines, t_min=115.0 if large else T_MIN)
+        if large:
+            self.notes.append('Technikplan erkannt: farbige Leitungen, Schraffuren und Doppellinien unter 11,5 cm ignoriert.')
         clusters = cluster(pieces)
         clusters.sort(key=lambda k: -k['t'])
         main, symbols = [], []
@@ -215,10 +219,37 @@ class Detector:
         return main
 
     # ------------------------------------------------------------- evidence
+    # Spatial indexes: large plans have tens of thousands of arcs and segments; every wall gap only looks nearby.
+    def _box(self, cl, g0, g1, pad_s, pad_o):
+        from shapely.geometry import Polygon
+        t = cl['t']
+        return Polygon([world(cl, g0 - pad_s, -t / 2 - pad_o), world(cl, g1 + pad_s, -t / 2 - pad_o),
+                        world(cl, g1 + pad_s, t / 2 + pad_o), world(cl, g0 - pad_s, t / 2 + pad_o)])
+
+    def _arc_index(self):
+        if not hasattr(self, '_arc_tree'):
+            from shapely.geometry import Point
+            from shapely.strtree import STRtree
+            self._arc_list = [a for a in self.plan.arcs if 45 <= a.sweep <= 135]
+            self._arc_tree = STRtree([Point(a.c) for a in self._arc_list]) if self._arc_list else None
+        return self._arc_tree
+
+    def _seg_index(self):
+        if not hasattr(self, '_seg_tree'):
+            from shapely.geometry import LineString
+            from shapely.strtree import STRtree
+            self._seg_ids = [i for i, sg in enumerate(self.plan.segs) if i not in self.excluded]
+            self._seg_tree = STRtree([LineString([self.plan.segs[i].a, self.plan.segs[i].b]) for i in self._seg_ids]) if self._seg_ids else None
+        return self._seg_tree
+
     def _arcs_near(self, cl, g0, g1):
         t, g = cl['t'], g1 - g0
         found = []
-        for a in self.plan.arcs:
+        tree = self._arc_index()
+        if tree is None:
+            return found
+        for k in tree.query(self._box(cl, g0, g1, 110, 90)):
+            a = self._arc_list[k]
             if not 45 <= a.sweep <= 135:
                 continue
             s, o = local(cl, a.c)
@@ -252,8 +283,11 @@ class Detector:
         for lo, hi in self.symbol_pieces.get(id(cl), []):
             if hi > g0 and lo < g1:
                 cover.append((max(lo, g0), min(hi, g1)))
-        for i, s in enumerate(self.plan.segs):
-            if i in self.excluded or angdiff(s.angle, cl['angle']) > ANGLE_SNAP:
+        tree = self._seg_index()
+        for k in (tree.query(self._box(cl, g0, g1, 0, 0)) if tree is not None else []):
+            i = self._seg_ids[k]
+            s = self.plan.segs[i]
+            if angdiff(s.angle, cl['angle']) > ANGLE_SNAP:
                 continue
             sa, oa = local(cl, s.a)
             sb, ob = local(cl, s.b)
@@ -268,11 +302,20 @@ class Detector:
         return best >= 0.6 * g
 
     def _junction(self, cl, g0, g1, walls):
-        for w in walls:
+        if getattr(self, '_junction_for', None) is not walls:
+            from shapely.geometry import Point
+            from shapely.strtree import STRtree
+            self._junction_for = walls
+            self._ends = [(w, s_end) for w in walls for p in w['pieces'] for s_end in (p['s0'], p['s1'])]
+            self._end_tree = STRtree([Point(world(w, s_end)) for w, s_end in self._ends]) if self._ends else None
+        if self._end_tree is None:
+            return False
+        for k in self._end_tree.query(self._box(cl, g0, g1, 400, 45)):
+            w, s_end = self._ends[k]
             if w is cl or angdiff(w['angle'], cl['angle']) < 20:
                 continue
-            for p in w['pieces']:
-                for s_end in (p['s0'], p['s1']):
+            if True:
+                if True:
                     e = world(w, s_end)
                     s, o = local(cl, e)
                     if abs(o) <= cl['t'] / 2 + 40:
@@ -340,12 +383,17 @@ class Detector:
 
     def _close_corners(self, walls):
         """Extends wall ends to the centre line of the wall they run into (L-, T- and X-junctions)."""
+        from shapely.geometry import LineString, Point
+        from shapely.strtree import STRtree
+        reach = max([w['t'] for w in walls] or [0]) + 200.0
+        tree = STRtree([LineString([world(v, v['s0']), world(v, v['s1'])]) for v in walls]) if walls else None
         for w in walls:
             for end in ('s0', 's1'):
                 sign = -1 if end == 's0' else 1
                 p = world(w, w[end])
                 best = None
-                for v in walls:
+                near = [walls[i] for i in tree.query(Point(p).buffer(reach + w['t']))] if tree is not None else []
+                for v in near:
                     if v is w or angdiff(v['angle'], w['angle']) < 20:
                         continue
                     # Intersection of w's centre line with v's centre line, as parameter along w.
@@ -378,10 +426,12 @@ class Detector:
                 parent[i] = parent[parent[i]]
                 i = parent[i]
             return i
-        for i in range(len(walls)):
-            for j in range(i + 1, len(walls)):
-                if geoms[i].intersects(geoms[j]):
-                    parent[find(i)] = find(j)
+        from shapely.strtree import STRtree
+        tree = STRtree(geoms)
+        for i, g in enumerate(geoms):
+            for j in tree.query(g, predicate='intersects'):
+                if j > i:
+                    parent[find(i)] = find(int(j))
         comps = defaultdict(list)
         for i in range(len(walls)):
             comps[find(i)].append(i)

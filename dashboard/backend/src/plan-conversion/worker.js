@@ -27,7 +27,7 @@ async function processNext(c,{analyze=analyzePlans,generate=generateIFC,extract=
   await c.query("UPDATE app_plan_jobs SET status='failed',failure_code='worker_interrupted',lease_until=NULL,updated_at=now() WHERE status='running' AND lease_until<now()");
   await c.query("UPDATE app_plan_jobs SET status=CASE WHEN status='ready' THEN 'rejected' ELSE status END,output_ifc=NULL,preview_png=NULL,analysis=NULL,updated_at=now() WHERE (output_ifc IS NOT NULL OR preview_png IS NOT NULL OR analysis IS NOT NULL) AND updated_at<now()-interval '7 days'");
   await c.query("DELETE FROM app_plan_images i USING app_plan_jobs j WHERE j.id=i.job_id AND (j.analysis IS NULL OR j.status IN ('approved','rejected','cancelled','failed'))");
-  job=(await c.query("UPDATE app_plan_jobs SET status='running',attempts=attempts+1,phase=CASE WHEN phase='model_only' THEN 'model_only' ELSE 'analysis' END,lease_until=now()+interval '5 minutes',updated_at=now() WHERE id=(SELECT id FROM app_plan_jobs WHERE status='queued' AND not_before<=now() ORDER BY created_at LIMIT 1) RETURNING *")).rows[0];if(!job)return false;
+  job=(await c.query("UPDATE app_plan_jobs SET status='running',attempts=attempts+1,phase=CASE WHEN phase='model_only' THEN 'model_only' ELSE 'analysis' END,lease_until=now()+interval '15 minutes',updated_at=now() WHERE id=(SELECT id FROM app_plan_jobs WHERE status='queued' AND not_before<=now() ORDER BY created_at LIMIT 1) RETURNING *")).rows[0];if(!job)return false;
   if(!await Q.permitted(c,job))throw Object.assign(Error(),{code:'consent_changed'});
   let docs;try{docs=await Q.validateSources(c,job);}catch{throw Object.assign(Error(),{code:'source_changed'});}
   let analysis,result,quality=null;
