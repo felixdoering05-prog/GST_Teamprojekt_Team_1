@@ -28,10 +28,44 @@ function definition(epsg){if(epsg===25832||epsg===25833)return `+proj=utm +zone=
 const normalize=a=>(a%360+360)%360;
 function distance(a,b){return Math.hypot((a.latitude-b.latitude)*111320,(a.longitude-b.longitude)*111320*Math.cos(a.latitude*Math.PI/180));}
 function rectangle(points){if(points.length<3)return null;let best;for(let i=0;i<points.length;i++){const next=points[(i+1)%points.length],a=Math.atan2(next[1]-points[i][1],next[0]-points[i][0]);if(!Number.isFinite(a))continue;const x=points.map(p=>p[0]*Math.cos(a)+p[1]*Math.sin(a)),y=points.map(p=>-p[0]*Math.sin(a)+p[1]*Math.cos(a));const w=Math.max(...x)-Math.min(...x),h=Math.max(...y)-Math.min(...y);if(w<.01||h<.01)continue;const v={long:Math.max(w,h),short:Math.min(w,h),angle:a+(h>w?Math.PI/2:0),area:w*h};if(!best||v.area<best.area)best=v;}return best;}
+// Footprint matching against OpenStreetMap buildings near the address: the model is moved onto the real building
+// (centroid), turned to the best of four orientations (overlap measured by sampling) and checked for size.
+const polyArea=pts=>{let a=0;for(let i=0,j=pts.length-1;i<pts.length;j=i++)a+=(pts[j][0]+pts[i][0])*(pts[j][1]-pts[i][1]);return Math.abs(a/2);};
+function polyCentroid(pts){let a=0,cx=0,cy=0;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const f=pts[j][0]*pts[i][1]-pts[i][0]*pts[j][1];a+=f;cx+=(pts[j][0]+pts[i][0])*f;cy+=(pts[j][1]+pts[i][1])*f;}if(Math.abs(a)<1e-9){const n=pts.length;return [pts.reduce((t,p)=>t+p[0],0)/n,pts.reduce((t,p)=>t+p[1],0)/n];}return [cx/(3*a),cy/(3*a)];}
+function inside(pts,x,y){let r=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])r=!r;}return r;}
+function overlap(a,b){
+ const xs=[...a,...b].map(p=>p[0]),ys=[...a,...b].map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ const step=Math.max(.2,Math.sqrt((x1-x0)*(y1-y0))/70);let both=0,either=0;
+ for(let x=x0+step/2;x<x1;x+=step)for(let y=y0+step/2;y<y1;y+=step){const ia=inside(a,x,y),ib=inside(b,x,y);if(ia&&ib)both++;if(ia||ib)either++;}
+ return either?both/either:0;
+}
+const turn=(pts,h,c,t)=>{const r=h*Math.PI/180,cs=Math.cos(r),sn=Math.sin(r);return pts.map(([x,y])=>{const dx=x-c[0],dy=y-c[1];return [t[0]+dx*cs-dy*sn,t[1]+dx*sn+dy*cs];});};
 function footprintProposal(geometry,location,features,heading=0){
- if(!location||!geometry?.outline)return null;const model=rectangle(geometry.outline);if(!model||model.long/model.short<1.1)return null;
- const candidates=[];for(const f of features||[]){if(f.kind!=='building'||!Array.isArray(f.geometry)||f.geometry.length>400)continue;const points=f.geometry.map(p=>[(p[0]-location.longitude)*111320*Math.cos(location.latitude*Math.PI/180),-(p[1]-location.latitude)*111320]);let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>0)!==(b[1]>0)&&0<(b[0]-a[0])*(-a[1])/(b[1]-a[1])+a[0])inside=!inside;}if(!inside)continue;const map=rectangle(points);if(!map||Math.abs(map.long/model.long-1)>.35||Math.abs(map.short/model.short-1)>.35)continue;const raw=(map.angle-model.angle)*180/Math.PI;const choices=[normalize(raw),normalize(raw+180)];const delta=a=>Math.abs((a-heading+540)%360-180);candidates.push({latitude:location.latitude,longitude:location.longitude,heading:choices.sort((a,b)=>delta(a)-delta(b))[0],meters_per_unit:1,source:'OpenStreetMap-Grundriss',confidence:'approximate',warnings:['Grundrissbasierter Vorschlag: Vorder-/Rückseite kann um 180° mehrdeutig sein. Einmal in der Vorschau bestätigen.'],can_apply:true});}
- return candidates.length===1?candidates[0]:null;
+ if(!location||!geometry?.outline)return null;const model=rectangle(geometry.outline);if(!model)return null;
+ const outline=geometry.outline,modelCentre=polyCentroid(outline),modelArea=polyArea(outline);if(modelArea<4)return null;
+ const k=111320*Math.cos(location.latitude*Math.PI/180);
+ const candidates=[];
+ for(const f of features||[]){
+  if(f.kind!=='building'||!Array.isArray(f.geometry)||f.geometry.length<3||f.geometry.length>400)continue;
+  const points=f.geometry.map(p=>[(p[0]-location.longitude)*k,-(p[1]-location.latitude)*111320]);
+  const centre=polyCentroid(points),dist=Math.hypot(centre[0],centre[1]),area=polyArea(points),hit=inside(points,0,0);
+  if(!hit&&dist>60)continue;if(area<4)continue;const ratio=area/modelArea;if(ratio<.4||ratio>2.5)continue;
+  const map=rectangle(points);if(!map)continue;const raw=(map.angle-model.angle)*180/Math.PI;
+  const tries=[0,90,180,270].map(d=>normalize(raw+d)).map(h=>({h,iou:overlap(turn(outline,h,modelCentre,centre),points)}));
+  tries.sort((a,b)=>b.iou-a.iou);
+  candidates.push({points,centre,dist,hit,ratio,tries,score:tries[0].iou-(hit?0:.15)-dist/400});
+ }
+ candidates.sort((a,b)=>b.score-a.score);const best=candidates[0];if(!best||best.tries[0].iou<.45)return null;
+ const delta=a=>Math.abs((a-heading+540)%360-180);
+ const close=best.tries.filter(t=>t.iou>=best.tries[0].iou-.04).sort((a,b)=>delta(a.h)-delta(b.h));const chosen=close[0];
+ const warnings=[`Auf den OpenStreetMap-Grundriss gesetzt (Deckung ${Math.round(chosen.iou*100)} %).`];
+ if(close.length>1)warnings.push('Der Grundriss ist symmetrisch: Ausrichtung um '+(Math.round(Math.abs(((close[1].h-chosen.h+540)%360)-180)))+'° mehrdeutig. Einmal in der Vorschau prüfen.');
+ if(Math.abs(best.ratio-1)>.15)warnings.push(`Das Modell ist ${Math.round(Math.abs(1/best.ratio-1)*100)} % ${best.ratio<1?'größer':'kleiner'} als der Kartengrundriss. Maßstab bzw. Planmaße prüfen.`);
+ if(candidates.length>1&&candidates[1].score>best.score-.1)warnings.push('Mehrere ähnliche Gebäude in der Nähe. Bitte prüfen, ob das richtige gewählt wurde.');
+ // The map point is the model's geometry.center (x, z), so carry its offset from the outline centroid along.
+ const anchor=turn([[geometry.center?.[0]??modelCentre[0],geometry.center?.[2]??modelCentre[1]]],chosen.h,modelCentre,best.centre)[0];
+ return {latitude:location.latitude-anchor[1]/111320,longitude:location.longitude+anchor[0]/k,heading:chosen.h,meters_per_unit:1,source:'OpenStreetMap-Grundriss',
+  confidence:'approximate',match:Math.round(chosen.iou*100)/100,warnings,can_apply:true};
 }
 function proposeGeoreference(content,geometry,location,view){
  if(!geometry||!Array.isArray(geometry.center)||geometry.center.length!==3||!geometry.center.every(x=>Number.isFinite(x)&&Math.abs(x)<1e9)||!Array.isArray(geometry.outline)||geometry.outline.length<3||geometry.outline.length>128||geometry.outline.some(p=>!Array.isArray(p)||p.length!==2||p.some(x=>!Number.isFinite(x)||Math.abs(x)>100000)))throw Object.assign(Error('Ungültige Modellgeometrie für die Platzierung.'),{status:400});
