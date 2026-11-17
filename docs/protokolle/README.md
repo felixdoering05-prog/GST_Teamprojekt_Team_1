@@ -27,6 +27,8 @@ Status: Entwurf → im Review → freigegeben. Die Vorlage wird nicht als Sitzun
 
 Diese Einträge dokumentieren Entwicklungsarbeit und zählen nicht als Teamtermine. Für den aktuellen Gesamtstand und die Reihenfolge der jüngsten Änderungen siehe [CHANGELOG](../../CHANGELOG.md). Ältere Berichte bleiben als damalige Arbeitsnachweise erhalten.
 
+- [17.11.2026 · Raum-Popups und Sensoren im Web-BIM-Viewer](2026-11-17-raum-popups-sensoren.md) – Sensorwerte als Klick-Popups je Raum, Umbenennen per Doppelklick, automatische Sensorzuordnung mit Nachfrage, Cache-Korrektur (#205, #207, #208, #209, #212). Kein Teamtermin.
+
 - [16.11.2026 · Technischer Arbeitsabschluss](2026-11-16-technischer-arbeitsabschluss.md) – Dashboard-Domain, Account-Anmeldung, App-Quellstand, Sensor-/Planprozess und verbleibende Prüfungen. Kein Teamtermin.
 
 - [10.11.2026 · Farbpalette für Building Sentinel](2026-11-10-vincent-building-sentinel-farbpalette.md) – Landingpage auf Dunkelblau und Pink abgestimmt.
