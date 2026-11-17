@@ -40,12 +40,12 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 16. November 2026, Arbeitsabschluss.** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 17. November 2026, Repository-Abgleich (Quellcode; kein Gerätetest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
-| **iPhone-App** | Aktueller Quellstand **1.0.141**: neuer Produktname **Nala Solutions**, zusätzlich Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
-| **Web & IFC** | **[nala-solutions.de](https://nala-solutions.de)** ist der neue Dashboard-Zugang mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. |
+| **iPhone-App** | Aktueller Quellstand **1.0.143**: iPhone-App heißt **Nala**, die Gebäudeassistentin hat einen eigenen Reiter mit überarbeitetem Chat ([#198](../../pull/198), [#200](../../pull/200), [#201](../../pull/201)); zuvor Produktname **Nala Solutions**, zusätzlich Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
+| **Web & IFC** | **[nala-solutions.de](https://nala-solutions.de)** ist laut Repository-Konfiguration der Dashboard-Zugang mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. |
 | **Sensorik** | ESP32-Testübertragung, gemeinsame Raumzuordnung und BME280-/IFC-Raum-Schnittstelle implementiert ([#180](../../pull/180), [#187](../../pull/187), [#188](../../pull/188)). Simulation und echte Messungen bleiben getrennt. Implementierung ersetzt keinen Hardware-Dauertest und keinen Nachweis für echte D21-Werte. |
 | **Plan → IFC** | Vektorvermessung, Erkennung von Fotos/Scans, Korrektur-Editor und Ebenenwahl sind gemergt. Vorübergehende Gemini-Überlastung wird wiederholt und als vorübergehend gemeldet ([#190](../../pull/190)); Planrahmen-Erkennung korrigiert ([#191](../../pull/191)). Ergebnisse bleiben prüfpflichtige Entwürfe. |
 | **KI** | Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
@@ -63,11 +63,14 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 4. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
 5. **P2 · [#73](../../issues/73)** – Revit-/IFC-Übergabe zum Server reproduzierbar dokumentieren.
 6. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
-7. **P2 · Review** – [#186](../../pull/186) (Emirs Meldungsraum im 3D-Modell) und [#192](../../pull/192) (Ideenradar KW 47) sind noch offen. Review und Integration separat durchführen; keine automatische Freigabe fremder Änderungen.
+7. **P2 · Review** – [#192](../../pull/192) (Ideenradar KW 47) und [#197](../../pull/197) (Marktforschung) sind offen. Den Status weiterer früherer PRs vor einem Merge erneut prüfen. Review und Integration separat durchführen; keine automatische Freigabe fremder Änderungen.
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
+
+**Abgleich 17.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
+
 
 Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** bleibt **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Technische Arbeitsberichte sind keine freigegebenen Teamprotokolle.
 
