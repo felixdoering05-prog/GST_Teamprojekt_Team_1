@@ -450,7 +450,7 @@ struct HALampControl: View {
     let changed: () async -> Void
     @State private var busy = false
     @State private var problem: String?
-    private var room: String { area?.room_id.flatMap { id in rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum" }
+    private var room: String { (lamp.effective_room_id ?? area?.room_id).flatMap { id in rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum" }
     private var on: Bool { lamp.light?.is_on == true }
     private var available: Bool { lamp.light?.available ?? true }
     var body: some View {
