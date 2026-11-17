@@ -24,7 +24,7 @@ const NAV = [
   { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
   { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
   { path: '/heat-map', label: 'Heat Map', icon: Flame, hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
-  { path: '/gebaeude', label: 'Gebäude & Räume', icon: Building2, hint: 'Geschosse und Räume anlegen, bearbeiten und verwalten' },
+  { path: '/gebaeude', label: 'Gebäude', icon: Building2, hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
   { path: '/sensorik', label: 'Sensorik', icon: Radio, hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
   { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },
   { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },

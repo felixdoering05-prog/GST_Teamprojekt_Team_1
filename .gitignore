@@ -62,3 +62,7 @@ private-ai/
 
 # Home Assistant server credentials
 **/private-homeassistant/
+
+# Local browser QA artifacts
+/.playwright-cli/
+/output/playwright/

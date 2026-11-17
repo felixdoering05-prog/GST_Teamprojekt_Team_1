@@ -14,8 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { base44, request } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
-import PlanConversionPanel from '@/components/rooms/PlanConversionPanel';
-import BuildingFiles from '@/components/rooms/BuildingFiles';
+import BuildingWorkspace from '@/components/rooms/BuildingWorkspace';
 import BuildingInvitations from '@/components/rooms/BuildingInvitations';
 import BuildingSetupDialog from '@/components/rooms/BuildingSetupDialog';
 import BuildingStartSteps from '@/components/rooms/BuildingStartSteps';
@@ -37,19 +36,21 @@ export default function Rooms() {
   const requestedId = params.get('building');
   const selected = buildings.data?.find(building => String(building.id) === requestedId);
   const start = params.get('start') === '1';
+  const requestedSection = params.get('section');
+  const section = ['overview', 'gallery', 'models', 'rooms'].includes(requestedSection) ? requestedSection : 'overview';
   const refreshBuildings = () => cache.invalidateQueries({ queryKey: buildingsKey });
 
-  function openBuilding(building, guided = false) {
+  function openBuilding(building, guided = false, nextSection = 'overview') {
     localStorage.setItem('d21-selected-building', building.id);
-    setParams({ building: String(building.id), ...(guided ? { start: '1' } : {}) });
+    setParams({ building: String(building.id), ...(guided ? { start: '1' } : {}), ...(nextSection !== 'overview' ? { section: nextSection } : {}) });
   }
 
-  function created(building) {
+  function created(building, options = {}) {
     cache.setQueryData(buildingsKey, rows => [
-      ...(rows ?? []).filter(row => row.id !== building.id), { ...building, is_owner: true },
+      ...(rows ?? []).filter(row => row.id !== building.id), { ...building, ...(rows ?? []).find(row => row.id === building.id), is_owner: true },
     ]);
     setSetupOpen(false);
-    openBuilding(building, true);
+    openBuilding(building, false, options.section ?? 'overview');
     refreshBuildings();
   }
 
@@ -88,18 +89,19 @@ export default function Rooms() {
               </select>
             </label>
           )}
-          <BuildingDocuments key={selected.id} building={selected} guided={start}
-            onFinish={() => setParams({ building: String(selected.id) }, { replace: true })} />
-          {selected.is_owner
-            ? <OwnedBuilding key={selected.id} buildingId={String(selected.id)} onSaved={refreshBuildings} />
-            : <SharedBuildingStructure key={selected.id} buildingId={selected.id} />}
+          <BuildingWorkspace key={selected.id} building={selected} section={section}
+            onSection={nextSection => setParams({ building: String(selected.id), ...(nextSection !== 'overview' ? { section: nextSection } : {}) }, { replace: true })}
+            onSetup={() => setSetupOpen(true)} onTeam={() => setTeamBuildingId(selected.id)}
+            structure={selected.is_owner
+              ? <OwnedBuilding key={selected.id} buildingId={String(selected.id)} onSaved={refreshBuildings} />
+              : <SharedBuildingStructure key={selected.id} buildingId={selected.id} />} />
           {teamBuildingId === selected.id && (
             <BuildingTeam key={selected.id} building={selected} onClose={() => setTeamBuildingId(null)} onLeave={leaveBuilding} />
           )}
         </>
       ) : (
         <>
-          <PageHeader title="Deine Gebäude" description="Öffne deine eigenen und geteilten Gebäudemappen.">
+          <PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
             <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>
           </PageHeader>
           <details className="surface space-y-4 p-5" open={start || undefined}>
@@ -119,14 +121,15 @@ export default function Rooms() {
             <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {[...buildings.data].reverse().map(building => (
                 <button key={building.id} type="button" onClick={() => openBuilding(building)}
-                  className="surface group flex w-full flex-col items-start gap-5 p-5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="surface group flex w-full flex-col items-start gap-5 overflow-hidden p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none"
                   aria-label={`Gebäude ${building.name} öffnen`}>
+                  <span className="mb-1 flex h-28 w-full items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-transparent text-primary"><Building2 className="h-14 w-14 stroke-[1.2]" aria-hidden="true" /></span>
                   <span className="flex min-w-0 items-start gap-3">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><Building2 className="h-5 w-5" aria-hidden="true" /></span>
                     <span className="min-w-0">
                       <span className="block break-words font-heading text-lg font-semibold text-foreground">{building.name}</span>
                       {building.address && <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{building.address}</span>}
-                      {!building.is_owner && <span className="mt-1 block text-xs font-medium text-primary">Mit dir geteilt</span>}
+                      <span className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">{building.model_document_id && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">3D-Modell</span>}{!building.is_owner && <span className="rounded-full bg-muted px-2 py-1">Mit dir geteilt</span>}</span>
                     </span>
                   </span>
                   <span className="flex w-full items-center justify-between border-t border-border pt-4 text-xs font-medium text-primary">Gebäude öffnen<ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" /></span>
@@ -136,26 +139,8 @@ export default function Rooms() {
           )}
         </>
       )}
-      {setupOpen && <BuildingSetupDialog onClose={() => setSetupOpen(false)} onCreated={created} />}
+      {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} />}
     </div>
-  );
-}
-
-function BuildingDocuments({ building, guided, onFinish }) {
-  const [fileRevision, setFileRevision] = useState(0);
-  const [fileAdded, setFileAdded] = useState(false);
-  return (
-    <>
-      {guided && (
-        <section className="surface space-y-4 p-5" aria-labelledby="finish-setup">
-          <h2 id="finish-setup" className="font-heading font-semibold">Erste Schritte</h2>
-          <BuildingStartSteps active={fileAdded ? 3 : 2} />
-          <Button size="sm" variant="outline" onClick={onFinish}>{fileAdded ? 'Einrichtung abschließen' : 'Dateien später hochladen'}</Button>
-        </section>
-      )}
-      <BuildingFiles key={fileRevision} building={building} onFilesAvailable={setFileAdded} />
-      {building.is_owner && <PlanConversionPanel buildingId={building.id} onAdopt={() => setFileRevision(n => n + 1)} />}
-    </>
   );
 }
 

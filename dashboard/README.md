@@ -12,6 +12,14 @@
 - Gemini und ElevenLabs werden mit serverseitigen Schlüsseln und kontobezogenen Freigaben angebunden. Private Lampensteuerung bleibt auf ausdrücklich freigegebene Home-Assistant-Geräte begrenzt.
 - Vincents Projektseite unter `/projekt/`, geschützte Administration unter `/verwaltung` und private n8n-Ausführungsprotokolle.
 
+## Gebäude einrichten
+
+Unter **Gebäude → Gebäude anlegen** führt das Dashboard durch **Gebäudedaten → Bilder → Pläne & 3D → Übersicht**. Nur der Name ist erforderlich; Bilder und Unterlagen sind optional. Nach dem ersten Speichern existiert das Gebäude bereits. **Später fortsetzen** behält es und öffnet seine Mappe; **Einrichtung fortsetzen** setzt dort wieder an.
+
+Die Mappe trennt **Übersicht**, **Galerie**, **Pläne & 3D** und **Räume**. Fotos/Scans und Dokumente werden weiterhin über die geschützte Gebäude-API gespeichert und sind auch in der App verfügbar. Mehrfachauswahl und Ablegen unterstützen bis zu 20 Dateien pro Auswahl; 25 MB pro Datei, IFC 20 MB. Fehlgeschlagene Uploads behalten ihre Kennung für einen erneuten Versuch. Nicht bestätigte Dateien werden nicht als gespeichert angezeigt.
+
+Bilder bleiben im geschützten Dokumentenspeicher. Vorschaubilder verwenden kurzlebige lokale Blob-URLs, keine öffentlichen Datei-Links. Die Einrichtung aktiviert keine KI-Verarbeitung; eine bereits freigegebene automatische Plananalyse verarbeitet neue Bilder/PDFs wie bisher. Die Modellgenerierung bleibt beim Eigentümer und erfordert die vorhandene Freigabe.
+
 ## Produktivbetrieb
 
 GitHub ist die einzige Codequelle: **eigener Branch → Pull Request → Review → main**. Keine Anwendungscode-Änderungen auf dem Server und keine direkten Pushes auf main.
