@@ -57,6 +57,21 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     window.addEventListener('message', receive);
     return () => window.removeEventListener('message', receive);
   }, [onRoomHeatMessage]);
+  // Messwert-Popups: neueste Werte der diesem Modell zugeordneten Raumsensoren (ESP32) alle 30 s an den Viewer.
+  const sensorModel = Number.isInteger(document.id) && !document.campus && !document.example && !document.mapOnly && !heatmap && !onRoomHeatMessage && !readOnly ? document.id : null;
+  useEffect(() => {
+    if (!sensorModel) return;
+    let active = true, rooms = null;
+    const send = () => { if (rooms) frame.current?.contentWindow?.postMessage({ type: 'd21-room-sensors', rooms }, window.location.origin); };
+    const load = () => request(`/documents/${sensorModel}/sensor-overlay`).then(data => { if (active && Array.isArray(data?.rooms)) { rooms = data.rooms; send(); } }).catch(() => {});
+    function receive(event) {
+      if (event.origin === window.location.origin && event.source === frame.current?.contentWindow && event.data?.type === 'd21-room-sensors-request') { if (rooms) send(); else load(); }
+    }
+    window.addEventListener('message', receive);
+    load();
+    const timer = setInterval(() => { if (!window.document.hidden) load(); }, 30000);
+    return () => { active = false; clearInterval(timer); window.removeEventListener('message', receive); };
+  }, [sensorModel]);
   useEffect(() => {
     if (roomHeat) frame.current?.contentWindow?.postMessage({ type: 'd21-room-heat-state', ...roomHeat }, window.location.origin);
   }, [roomHeat]);

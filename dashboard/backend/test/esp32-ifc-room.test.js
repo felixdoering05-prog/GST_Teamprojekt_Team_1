@@ -57,3 +57,18 @@ test('3D overlay returns latest values per IFC space and is access scoped',async
  assert.deepEqual((await req(outsider,`/documents/${foreignDoc}/sensor-overlay`)).data.rooms,[]);
  await req(owner,`/sensor-devices/${device.id}`,'DELETE');assert.deepEqual((await req(member,`/documents/${doc}/sensor-overlay`)).data.rooms,[]);
 });
+
+test('3D overlay also shows sensors assigned to a room linked to an IfcSpace of the model',async()=>{
+ const api=service(db,owner.id).entities;
+ const room=await api.Room.create({name:'Schlafzimmer',room_code:'HP-02',building_id:String(building),ifc_global_id:'1BUX0TXmbBVvh9kVlMbxKR',source:'real'});
+ const temp=await api.Sensor.create({sensor_code:'BED-T',name:'Schlafzimmer Temperatur',building_id:String(building),room_id:room.id,metric:'temperature',unit:'°C',status:'aktiv',source:'real'});
+ const off=await api.Sensor.create({sensor_code:'BED-H',name:'Schlafzimmer Feuchte',building_id:String(building),room_id:room.id,metric:'humidity',unit:'%',status:'inaktiv',source:'real'});
+ const now=new Date().toISOString();
+ await api.Measurement.create({sensor_id:temp.id,room_id:room.id,building_id:String(building),metric:'temperature',value:19.75,unit:'°C',measured_at:now,source:'real',quality:'ok'});
+ await api.Measurement.create({sensor_id:off.id,room_id:room.id,building_id:String(building),metric:'humidity',value:60,unit:'%',measured_at:now,source:'real',quality:'ok'});
+ const r=await req(member,`/documents/${doc}/sensor-overlay`);assert.equal(r.status,200);
+ assert.equal(r.data.rooms.length,1);const bed=r.data.rooms[0];
+ assert.deepEqual({space_id:bed.space_id,room:bed.room,source:bed.source,stale:bed.stale},{space_id:1464,room:'Schlafzimmer',source:'real',stale:false});
+ assert.deepEqual(bed.values.map(v=>[v.metric,v.value,v.unit]),[['temperature',19.75,'°C']]);
+ assert.deepEqual((await req(outsider,`/documents/${foreignDoc}/sensor-overlay`)).data.rooms,[]);
+});
