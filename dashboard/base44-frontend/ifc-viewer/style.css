@@ -283,6 +283,9 @@ html[data-theme="dark"], [data-theme="dark"] .bim-presentation {
 .sensor-name:hover { background: #ffffff26; }
 .sensor-name-input { pointer-events: auto; width: 150px; font: 600 11px -apple-system, system-ui, sans-serif; color: #fff; background: #ffffff22; border: 1px solid #8cbcff; border-radius: 6px; padding: 2px 5px; outline: none; }
 .sensor-popup.saving .sensor-name { opacity: .7; }
+.sensor-close { pointer-events: auto; margin: -4px -6px -4px 0; width: 22px; height: 22px; min-width: 0; min-height: 0; box-shadow: none; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #c9dcf5; font-size: 16px; line-height: 1; cursor: pointer; }
+.sensor-close:hover { background: #ffffff26; color: #fff; }
+.sensor-popup.empty .sensor-time { margin-top: 5px; }
 .sensor-error { display: block; margin-top: 4px; font-size: 9px; color: #ffd0d0; white-space: normal; max-width: 180px; }
 .sensor-badge { font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 6px; background: #3ddc97; color: #0b2d1f; }
 .sensor-values { display: flex; gap: 14px; margin-top: 5px; }

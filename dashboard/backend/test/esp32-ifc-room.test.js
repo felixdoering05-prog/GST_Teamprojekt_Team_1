@@ -88,7 +88,12 @@ test('room names can be changed from the 3D popup by owner and members and appea
  assert.equal(rooms.length,1);assert.equal(rooms[0].name,'Schlafzimmer Benjamin');
  const overlay=await req(owner,`/documents/${doc}/sensor-overlay`);
  assert.equal(overlay.data.rooms.find(x=>x.space_id===1464).room,'Schlafzimmer Benjamin');
+ assert.deepEqual(overlay.data.room_names.find(x=>x.space_id===1464)?.room,'Schlafzimmer Benjamin');
  // Ein Raum ohne Datensatz (HP-03 nach Gerätelöschung weiterhin vorhanden) wird umbenannt, kein Duplikat.
  assert.equal((await req(owner,`/documents/${doc}/rooms/1500/name`,'PUT',{name:'Arbeitszimmer'})).status,200);
  assert.equal((await service(db,owner.id).entities.Room.filter({building_id:String(building),ifc_global_id:'0xJTxmotLAXekNhP8q7Df8'})).items.length,1);
+ // Raumnamen gelten auch ohne Sensor: alle umbenannten Räume des Modells kommen im Overlay mit.
+ const names=(await req(member,`/documents/${doc}/sensor-overlay`)).data.room_names.map(x=>[x.space_id,x.room]).sort((a,b)=>a[0]-b[0]);
+ assert.deepEqual(names,[[1464,'Schlafzimmer Benjamin'],[1500,'Arbeitszimmer']]);
+ assert.deepEqual((await req(outsider,`/documents/${foreignDoc}/sensor-overlay`)).data.room_names.map(x=>[x.space_id,x.room]),[[1464,'Mein Raum']]);
 });

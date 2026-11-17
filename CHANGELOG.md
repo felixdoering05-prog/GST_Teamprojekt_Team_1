@@ -1,5 +1,12 @@
 # Änderungsverlauf
 
+## 17. November 2026 – Raum-Popup für jeden Raum, erst nach Klick
+
+- Web-BIM-Viewer: Jeder IFC-Raum hat ein Popup; es erscheint nur, wenn man in den Raum klickt (Raumvolumen oder Boden innerhalb des Raums, z. B. im Geschossschnitt). Klick daneben, erneut in denselben Raum oder auf × schließt es. Wände, Fenster usw. werden wie bisher als Bauteil ausgewählt.
+- Räume mit Sensor zeigen Messwerte, Räume ohne Sensor „Keine Sensordaten für diesen Raum“. Der Name lässt sich in jedem Popup per Doppelklick ändern.
+- `GET /documents/:id/sensor-overlay` liefert zusätzlich `room_names` (gespeicherte Namen aller Räume des Modells), damit umbenannte Räume ohne Sensor ihren Namen behalten.
+- Prüfung: 228 Backend-Tests (226 bestanden, 2 übersprungen), 37 Viewer-Tests, ESLint, Build; Browserprüfung mit lokaler Test-IFC (kein Popup ohne Klick, Raum mit/ohne Sensor, Wand bleibt Bauteilauswahl, Umbenennen, ×).
+
 ## 17. November 2026 – Raumnamen per Doppelklick im 3D-Popup ändern
 
 - Doppelklick auf den Raumnamen im Messwert-Popup des Web-BIM-Viewers öffnet ein Eingabefeld; Enter oder Wegklicken speichert, Esc bricht ab. Der Name gilt sofort im Popup und wird nach Bestätigung durch den Server übernommen; bei einem Fehler kehrt der alte Name zurück und ein kurzer Hinweis erscheint.

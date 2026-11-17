@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeRoomSensors, formatValue, roomTitle, cleanRoomName } from './room-sensors.js';
+import { sanitizeRoomSensors, formatValue, roomTitle, cleanRoomName, sanitizeRoomNames } from './room-sensors.js';
 
 test('room sensor entries from the parent page are validated', () => {
   const list = sanitizeRoomSensors([
@@ -31,4 +31,10 @@ test('renamed room names are trimmed and validated like on the server', () => {
   assert.equal(cleanRoomName('Bad\u0007'), '');
   assert.equal(cleanRoomName('x'.repeat(61)), '');
   assert.equal(cleanRoomName('   '), '');
+});
+
+test('saved room names for all rooms are validated', () => {
+  const names = sanitizeRoomNames([{ space_id: 245, room: '  Schlafzimmer ' }, { space_id: 245, room: 'Doppelt' }, { space_id: 0, room: 'x' }, { space_id: 7, room: '' }, { space_id: 8, room: 5 }, null]);
+  assert.deepEqual([...names], [[245, 'Schlafzimmer']]);
+  assert.equal(sanitizeRoomNames('nonsense').size, 0);
 });

@@ -40,73 +40,128 @@ export function cleanRoomName(value) {
   return name.length <= 60 && !/[\u0000-\u001f\u007f]/.test(name) ? name : '';
 }
 
-function popup(entry, rename) {
+/** Saved room names from the parent page (renamed rooms, also without sensors). */
+export function sanitizeRoomNames(list) {
+  const result = new Map();
+  if (!Array.isArray(list)) return result;
+  for (const item of list.slice(0, 500)) {
+    if (!Number.isInteger(item?.space_id) || item.space_id <= 0 || typeof item.room !== 'string') continue;
+    const name = item.room.trim().slice(0, 60);
+    if (name && !result.has(item.space_id)) result.set(item.space_id, name);
+  }
+  return result;
+}
+
+function popup({ title: name, sensor }, { rename, close }) {
   const box = document.createElement('div');
-  box.className = 'sensor-popup' + (entry.stale ? ' stale' : '');
+  box.className = 'sensor-popup' + (sensor?.stale ? ' stale' : '') + (sensor ? '' : ' empty');
   const head = document.createElement('div'); head.className = 'sensor-head';
-  const title = document.createElement('strong'); title.textContent = roomTitle(entry.room);
+  const title = document.createElement('strong'); title.textContent = name;
   if (rename) {
     title.className = 'sensor-name'; title.title = 'Doppelklick: Raumnamen ändern';
-    title.addEventListener('dblclick', event => { event.preventDefault(); event.stopPropagation(); rename(entry, title); });
+    title.addEventListener('dblclick', event => { event.preventDefault(); event.stopPropagation(); rename(title); });
   }
-  const badge = document.createElement('span'); badge.className = 'sensor-badge';
-  badge.textContent = entry.stale ? 'alt' : entry.real ? 'live' : 'Demo';
-  head.append(title, badge);
+  head.append(title);
+  if (sensor) {
+    const badge = document.createElement('span'); badge.className = 'sensor-badge';
+    badge.textContent = sensor.stale ? 'alt' : sensor.real ? 'live' : 'Demo';
+    head.append(badge);
+  }
+  const closer = document.createElement('button'); closer.type = 'button'; closer.className = 'sensor-close';
+  closer.textContent = '×'; closer.setAttribute('aria-label', 'Raum-Popup schließen');
+  closer.addEventListener('click', event => { event.stopPropagation(); close(); });
+  head.append(closer);
+  box.append(head);
+  if (!sensor) {
+    const note = document.createElement('small'); note.className = 'sensor-time'; note.textContent = 'Keine Sensordaten für diesen Raum';
+    box.append(note);
+    return box;
+  }
   const values = document.createElement('div'); values.className = 'sensor-values';
-  for (const v of entry.values) {
+  for (const v of sensor.values) {
     const cell = document.createElement('span');
     const number = document.createElement('b'); number.textContent = formatValue(v);
     const label = document.createElement('small'); label.textContent = LABELS[v.metric];
     cell.append(number, label); values.append(cell);
   }
-  box.append(head, values);
-  if (entry.updated_at) {
+  box.append(values);
+  if (sensor.updated_at) {
     const time = document.createElement('small'); time.className = 'sensor-time';
-    time.textContent = 'Stand ' + new Date(entry.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    time.textContent = 'Stand ' + new Date(sensor.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     box.append(time);
   }
   return box;
 }
 
 /**
- * host: HTML layer above the canvas. rooms: Map<space_id, { anchor: THREE.Vector3, meshes: THREE.Mesh[] }>, where
- * anchor is the room centre in the local coordinates of the room volumes' parent. The popups follow storey cuts and
+ * One popup per IFC room, shown only for the room the user clicked.
+ * host: HTML layer above the canvas. rooms: Map<space_id, { anchor: THREE.Vector3, meshes: THREE.Mesh[], label: string }>,
+ * where anchor is the room centre in the local coordinates of the room volumes' parent. The popup follows storey cuts and
  * separated storeys because the current offset and visibility of the room volume are read on every frame.
  * planes: returns the active clipping planes (world space).
  */
-export function createRoomSensors(host, parent, rooms, camera, { planes = () => [], onRename } = {}) {
+export function createRoomSensors(host, parent, rooms, camera, { planes = () => [], onRename, onChange = () => {} } = {}) {
   const layer = document.createElement('div'); layer.className = 'sensor-layer'; layer.setAttribute('aria-live', 'polite');
   host.append(layer);
-  let items = [], editing = null, pending = null;
-  const names = new Map(); // space_id → gespeicherter Name, bis der Server ihn im Overlay bestätigt
+  let sensors = new Map(), saved = new Map(), selected = null, element = null, editing = false, pending = null;
+  const names = new Map(); // space_id → gespeicherter Name, bis der Server ihn bestätigt
   const errors = new Map(); // space_id → { text, until } für einen kurzen Hinweis nach fehlgeschlagenem Speichern
-  function showError(element, space) {
+  const meshes = [...rooms.values()].flatMap(room => room.meshes);
+  const point = new THREE.Vector3();
+  const box = new THREE.Box3(), part = new THREE.Box3(), size = new THREE.Vector3();
+  function roomAt(at) {
+    let best, volume = Infinity;
+    for (const [space, room] of rooms) {
+      if (!room.meshes.some(m => m.layers.isEnabled(0))) continue;
+      box.makeEmpty(); for (const m of room.meshes) box.union(part.setFromObject(m));
+      box.min.y -= .3; // Boden unter dem Raumvolumen gehört noch zum Raum
+      if (!box.containsPoint(at)) continue;
+      const v = box.getSize(size).x * size.y * size.z;
+      if (v < volume) { volume = v; best = space; }
+    }
+    return best;
+  }
+  function titleFor(space) {
+    if (names.has(space)) return names.get(space);
+    if (saved.has(space)) return saved.get(space);
+    return roomTitle(sensors.get(space)?.room || rooms.get(space)?.label || '');
+  }
+  function showError(space) {
     const error = errors.get(space);
-    if (!error || error.until < Date.now()) { errors.delete(space); return; }
+    if (!element || !error || error.until < Date.now()) { if (error?.until < Date.now()) errors.delete(space); return; }
     const note = document.createElement('small'); note.className = 'sensor-error'; note.textContent = error.text;
     element.querySelector('.sensor-error')?.remove(); element.append(note);
     setTimeout(() => { note.remove(); if (errors.get(space)?.until <= Date.now()) errors.delete(space); }, error.until - Date.now());
   }
-  const point = new THREE.Vector3();
-  function rename(entry, title) {
+  function draw() {
+    if (editing) return;
+    layer.replaceChildren(); element = null;
+    if (selected === null || !rooms.has(selected)) return;
+    const space = selected;
+    element = popup({ title: titleFor(space), sensor: sensors.get(space) }, { rename: onRename && (title => rename(space, title)), close: () => api.select(null) });
+    element.dataset.space = String(space); element.hidden = true;
+    layer.append(element); showError(space);
+    onChange();
+  }
+  function rename(space, title) {
     if (editing) return;
     const input = document.createElement('input');
     input.className = 'sensor-name-input'; input.maxLength = 60; input.value = title.textContent;
     input.setAttribute('aria-label', 'Raumname');
     const previous = title.textContent;
-    editing = { space_id: entry.space_id, input };
+    editing = true;
     let done = false;
     const finish = save => {
       if (done) return; done = true;
       const name = cleanRoomName(input.value);
       input.replaceWith(title);
-      editing = null;
+      editing = false;
       if (save && name && name !== previous) {
-        title.textContent = name; names.set(entry.space_id, name);
+        title.textContent = name; names.set(space, name);
         title.closest('.sensor-popup')?.classList.add('saving');
-        onRename(entry.space_id, name);
+        onRename(space, name);
       }
-      if (pending) { const list = pending; pending = null; api.set(list); }
+      if (pending) { const [list, nameList] = pending; pending = null; api.set(list, nameList); }
     };
     input.addEventListener('keydown', event => {
       event.stopPropagation();
@@ -117,50 +172,57 @@ export function createRoomSensors(host, parent, rooms, camera, { planes = () => 
     title.replaceWith(input); input.focus(); input.select();
   }
   const api = {
-    set(list) {
-      if (editing) { pending = list; return items.length; }
-      layer.replaceChildren();
-      items = [];
-      for (const entry of sanitizeRoomSensors(list)) {
-        const room = rooms.get(entry.space_id); if (!room) continue;
-        if (names.has(entry.space_id)) {
-          if (roomTitle(entry.room) === names.get(entry.space_id)) names.delete(entry.space_id);
-          else entry.room = names.get(entry.space_id);
-        }
-        const element = popup(entry, onRename && rename); element.hidden = true; layer.append(element);
-        element.dataset.space = String(entry.space_id);
-        showError(element, entry.space_id);
-        items.push({ room, element });
+    set(list, nameList) {
+      if (editing) { pending = [list, nameList]; return; }
+      sensors = new Map(sanitizeRoomSensors(list).map(entry => [entry.space_id, entry]));
+      saved = sanitizeRoomNames(nameList);
+      for (const [space, name] of names) {
+        const confirmed = saved.get(space) ?? roomTitle(sensors.get(space)?.room || '');
+        if (confirmed === name) names.delete(space);
       }
-      return items.length;
+      draw();
     },
+    /**
+     * Selects the room under the pointer: a visible room volume in front of the clicked geometry, or the room whose
+     * bounds contain the clicked point (e.g. its floor in a storey cut). Clicking the open room again or elsewhere closes.
+     */
+    pick(ray, { element, allowed = () => true } = {}) {
+      const limit = element ? element.distance + .05 : Infinity;
+      let space = ray.intersectObjects(meshes, false).find(hit => hit.object.layers.isEnabled(0) && allowed(hit) && hit.distance <= limit)?.object.userData.expressID;
+      if (space === undefined && element) space = roomAt(element.point);
+      const found = space !== undefined && rooms.has(space);
+      api.select(found && space !== selected ? space : null);
+      return found;
+    },
+    select(space) {
+      if (editing || space === selected) return;
+      selected = space; draw();
+    },
+    get selected() { return selected; },
     /** Server answer to a rename: on error the old name returns and a short note is shown. */
     renamed({ space_id, error }) {
-      const element = items.find(item => item.element.dataset.space === String(space_id))?.element;
       element?.classList.remove('saving');
       if (!error) return;
       names.delete(space_id);
       errors.set(space_id, { text: String(error).slice(0, 80), until: Date.now() + 5000 });
-      if (element) showError(element, space_id);
+      if (selected === space_id) { draw(); }
     },
     update() {
-      for (const { room, element } of items) {
-        const mesh = room.meshes[0];
-        const shown = room.meshes.some(m => m.layers.isEnabled(0));
-        point.copy(room.anchor);
-        if (mesh?.userData.basePosition) point.y += mesh.position.y - mesh.userData.basePosition.y;
-        parent.localToWorld(point);
-        // Liegt die Raummitte über dem Geschossschnitt, sitzt das Popup auf der Schnittfläche.
-        for (const plane of planes()) { const d = plane.distanceToPoint(point); if (d < 0) point.addScaledVector(plane.normal, -d); }
-        if (!shown || planes().some(plane => plane.distanceToPoint(point) < -1e-4)) { element.hidden = true; continue; }
-        point.project(camera);
-        element.hidden = point.z < -1 || point.z > 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1;
-        element.style.left = `${(point.x + 1) * innerWidth / 2}px`;
-        element.style.top = `${(1 - point.y) * innerHeight / 2}px`;
-      }
+      if (!element || selected === null) return;
+      const room = rooms.get(selected), mesh = room.meshes[0];
+      const shown = room.meshes.some(m => m.layers.isEnabled(0));
+      point.copy(room.anchor);
+      if (mesh?.userData.basePosition) point.y += mesh.position.y - mesh.userData.basePosition.y;
+      parent.localToWorld(point);
+      // Liegt die Raummitte über dem Geschossschnitt, sitzt das Popup auf der Schnittfläche.
+      for (const plane of planes()) { const d = plane.distanceToPoint(point); if (d < 0) point.addScaledVector(plane.normal, -d); }
+      if (!shown || planes().some(plane => plane.distanceToPoint(point) < -1e-4)) { element.hidden = true; return; }
+      point.project(camera);
+      element.hidden = point.z < -1 || point.z > 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1;
+      element.style.left = `${(point.x + 1) * innerWidth / 2}px`;
+      element.style.top = `${(1 - point.y) * innerHeight / 2}px`;
     },
-    setVisible(on) { layer.hidden = !on; },
-    dispose() { layer.remove(); items = []; },
+    dispose() { layer.remove(); element = null; },
   };
   return api;
 }
