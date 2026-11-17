@@ -143,11 +143,12 @@ function sensorDevicesRouter(db,requireAccount){
     const gid=room.data.ifc_global_id,at=content.indexOf("'"+gid+"'");if(at<0)continue;
     const m=/#(\d+)\s*=\s*IFCSPACE\s*\(\s*'([0-9A-Za-z_$]{22})'/i.exec(content.slice(Math.max(0,at-40),at+gid.length+2));
     if(!m||m[2]!==gid)continue;const spaceID=Number(m[1]);if(covered.has(spaceID))continue;
-    const sensors=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Sensor' AND data->>'room_id'=$2 AND coalesce(data->>'status','aktiv')='aktiv' ORDER BY created_at,id LIMIT 10",[building.user_id,room.id])).rows;
+    const sensors=(await db.query("SELECT id,data FROM app_twin_records WHERE user_id=$1 AND entity='Sensor' AND data->>'room_id'=$2 AND coalesce(data->>'status','aktiv')='aktiv' AND coalesce(data->>'building_id',$3)=$3 ORDER BY created_at,id LIMIT 10",[building.user_id,room.id,String(building.id)])).rows;
     const latest=new Map();
     for(const sensor of sensors){
      const metric=sensor.data.metric;if(!METRIC_META[metric]||revoked.has(sensor.id))continue;
-     const v=(await db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 AND data->>'building_id'=$3 ORDER BY created_at DESC,id DESC LIMIT 1",[building.user_id,sensor.id,String(building.id)])).rows[0]?.data;
+     // Ohne Gebäudefilter: Sensoren, die erst nachträglich einem Gebäude zugeordnet wurden, haben ältere Werte ohne building_id.
+     const v=(await db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='Measurement' AND data->>'sensor_id'=$2 ORDER BY created_at DESC,id DESC LIMIT 1",[building.user_id,sensor.id])).rows[0]?.data;
      if(!v||typeof v.value!=='number'||!Number.isFinite(v.value)||!Date.parse(v.measured_at))continue;
      const value={metric,label:METRIC_META[metric].label,value:v.value,unit:METRIC_META[metric].unit,measured_at:new Date(v.measured_at).toISOString(),source:v.source==='real'?'real':'demo'};
      if(!latest.has(metric)||latest.get(metric).measured_at<value.measured_at)latest.set(metric,value);

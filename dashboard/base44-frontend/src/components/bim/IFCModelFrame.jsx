@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppearance } from '@/lib/Appearance';
 import { request } from '@/api/base44Client';
 import { ifcViewerUrl } from '@/lib/ifcViewerUrl';
 import ModelTerrainPanel from './ModelTerrainPanel';
+import SensorPlacementPanel from './SensorPlacementPanel';
 
 function applyViewerAppearance(root, theme, scale) {
   root.dataset.theme = theme;
@@ -59,6 +60,8 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
   }, [onRoomHeatMessage]);
   // Raum-Popups: neueste Sensorwerte und gespeicherte Raumnamen dieses Modells alle 30 s an den Viewer (Popup erscheint beim Klick in einen Raum).
   const sensorModel = Number.isInteger(document.id) && !document.campus && !document.example && !document.mapOnly && !heatmap && !onRoomHeatMessage && !readOnly ? document.id : null;
+  const [overlayRevision, setOverlayRevision] = useState(0);
+  const reloadOverlay = useCallback(() => setOverlayRevision(n => n + 1), []);
   useEffect(() => {
     if (!sensorModel) return;
     let active = true, rooms = null, names = [];
@@ -80,7 +83,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
     load();
     const timer = setInterval(() => { if (!window.document.hidden) load(); }, 30000);
     return () => { active = false; clearInterval(timer); window.removeEventListener('message', receive); };
-  }, [sensorModel]);
+  }, [sensorModel, overlayRevision]);
   useEffect(() => {
     if (roomHeat) frame.current?.contentWindow?.postMessage({ type: 'd21-room-heat-state', ...roomHeat }, window.location.origin);
   }, [roomHeat]);
@@ -162,6 +165,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
   const hideFrame = viewerError || (error && (!document.campus || roomHeatMode || readOnly));
   return <div>
     {canEditTerrain && <ModelTerrainPanel documentID={document.id} site={site} onTerrain={openTerrain} />}
+    {sensorModel && presentation === 'bim' && <SensorPlacementPanel documentID={sensorModel} onPlaced={reloadOverlay} />}
     {loading && <p role="status" className="px-4 py-3 text-xs text-muted-foreground">{document.campus ? 'Originales D21-Modell wird geschützt geladen …' : 'Modell wird aus deiner Gebäudemappe geladen …'}</p>}
     {message && <div role="alert" className="p-5 text-sm text-destructive"><p>{message}</p>{!roomHeatMode && <button className="mt-2 underline" onClick={retry}>Erneut versuchen</button>}</div>}
     <iframe onLoad={onFrameLoad} ref={frame} key={`${document.id}-${attempt}-${Boolean(mapOnly)}`} src={source} title={roomHeatMode ? `3D-Geschossschnitt · ${document.name}` : heatmap ? 'Heat map: D21 und h_da-Campus' : mapOnly ? 'h_da-Campuskarte' : `3D-Modell: ${document.name}`} className={`block ${roomHeatMode ? 'h-[360px] sm:h-[460px]' : presentation === 'dashboard' ? 'h-[450px]' : readOnly ? 'h-[23rem] xl:h-[28rem]' : presentation === 'bim' ? 'h-[clamp(420px,62dvh,750px)] sm:h-[clamp(490px,66dvh,860px)]' : heatmap ? 'h-[560px] min-h-[420px] max-sm:h-[470px]' : 'h-[calc(100dvh-240px)] min-h-[480px]'} w-full border-0 ${hideFrame ? 'hidden' : ''}`} />
