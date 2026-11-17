@@ -4,6 +4,7 @@ import UIKit
 struct LampLocation: Codable { let building_id: Int; let room: String; let document_id: Int?; let space_id: Int?; let revision: Int }
 struct ConnectedLamp: Decodable, Identifiable {
     let key: String; let name: String; let room: String; let available: Bool; let is_on: Bool?
+    var entity_id: String? = nil
     let supports_rgb: Bool?; let rgb: [Int]?; let brightness: Int?; let location: LampLocation?
     var id: String { key }
 }
@@ -172,5 +173,71 @@ struct SimulatedLampColor: View {
             Button("Farbe in der Simulation anwenden") {Task{busy=true;defer{busy=false};do{let _:BuildingDevice=try await account.request("buildings/\(device.building_id)/devices/\(device.id)",method:"PATCH",body:["is_on":true,"revision":device.revision,"rgb":lightRGB(color)]);problem=nil;await changed()}catch{problem=error.localizedDescription;await changed()}}}.disabled(busy)
             if let problem {Text(problem).font(.caption).foregroundStyle(.red)}
         }.task(id:device.revision){color=lightColor(device.rgb)}
+    }
+}
+
+/// Lampe aus dem Home-Assistant-Import im gleichen Kartenlayout wie die übrigen Lampen:
+/// runder Schalter, Name, Raum, Zustand, Menü und Herkunft in der Fußzeile.
+struct HAImportedLampCard: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    let lamp: HAEntity
+    let room: String?
+    let canSwitch: Bool
+    let assign: (() -> Void)?
+    let changed: () async -> Void
+    @State private var busy = false
+    @State private var problem: String?
+    @State private var showDetail = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var available: Bool { lamp.light?.available ?? false }
+    private var isOn: Bool { available && lamp.light?.is_on == true }
+    private var glow: Color { HALampLook.tint(lamp.light) }
+    private var status: String { lamp.light.map(HALightText.status) ?? "Zustand folgt beim nächsten Abgleich" }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Button { Task { await send(on: !isOn) } } label: {
+                    ZStack {
+                        Circle().fill(isOn ? glow.opacity(0.95) : Color(uiColor: .tertiarySystemFill))
+                        if busy { ProgressView() }
+                        else { Image(systemName: isOn ? "lightbulb.max.fill" : "lightbulb").font(.title2.weight(.semibold)).foregroundStyle(isOn ? Color.black.opacity(0.75) : .secondary) }
+                    }
+                    .frame(width: 58, height: 58)
+                    .shadow(color: isOn ? glow.opacity(0.7) : .clear, radius: isOn ? 16 : 0)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: isOn)
+                }.buttonStyle(BuildingTileButtonStyle()).disabled(!canSwitch || !available || busy)
+                    .accessibilityLabel(isOn ? "\(lamp.name) ausschalten" : "\(lamp.name) einschalten")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(lamp.name).font(.headline)
+                    Text(room ?? "Noch keinem Raum zugeordnet").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    HStack(spacing: 6) {
+                        Circle().fill(lamp.light == nil ? Color.gray : !available ? Color.orange : isOn ? Color.green : Color.gray).frame(width: 7, height: 7)
+                        Text(status).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+                Menu {
+                    if let assign { Button("Raum", systemImage: "building.2.crop.circle") { assign() } }
+                    if canSwitch && available { Button("Farbe & Helligkeit", systemImage: "paintpalette") { showDetail = true } }
+                } label: { Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(.secondary).frame(width: 36, height: 36).contentShape(Rectangle()) }
+                    .disabled(busy).accessibilityLabel("Optionen für \(lamp.name)")
+            }
+            if let problem { Label(problem, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange) }
+            Label(canSwitch ? "Echtes Gerät · über Home Assistant auf diesem iPhone" : "Echtes Gerät · aus Home Assistant, schalten am iPhone des Besitzers", systemImage: "checkmark.seal").font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground))
+            if isOn { RoundedRectangle(cornerRadius: 22, style: .continuous).fill(RadialGradient(colors: [glow.opacity(0.22), .clear], center: .topLeading, startRadius: 10, endRadius: 220)) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+        .navigationDestination(isPresented: $showDetail) { HALampDetailView(account: account, building: building, lamp: lamp, room: room ?? "Ohne Raum", changed: changed) }
+    }
+    private func send(on: Bool) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { try await HASync.switchLight(account: account, building: building.id, entity: lamp.entity_id, on: on); problem = nil; await changed() }
+        catch { problem = error.localizedDescription }
     }
 }

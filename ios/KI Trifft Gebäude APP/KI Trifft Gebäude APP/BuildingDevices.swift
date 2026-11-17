@@ -69,20 +69,39 @@ struct BuildingDevicesView: View {
     @State private var lamps: [ConnectedLamp] = []
     @State private var ha: HAOverview?
     @State private var haLocal = false
+    @State private var haTarget: HARoomTarget?
     @State private var selectedLamp: ConnectedLamp?
     @State private var selectedDevice: BuildingDevice?
     @State private var connecting = false
     @State private var room = "Alle Räume"
     @Environment(\.scenePhase) private var scenePhase
     /// Lampen aus dem Home-Assistant-Import (App-Verbindung) mit ihrem Raum: eigener Raum > Gerät > Bereich.
-    private var haLamps: [HAEntity] { ha?.entities.filter { $0.isLight && $0.selected } ?? [] }
+    /// Lampen, die schon über die Projektserver-Verbindung laufen, nicht doppelt zeigen (gleiche Home-Assistant-Entität).
+    private var haLamps: [HAEntity] { let known = Set(lamps.compactMap(\.entity_id)); return ha?.entities.filter { $0.isLight && $0.selected && !known.contains($0.entity_id) } ?? [] }
     private func haRoom(_ lamp: HAEntity) -> String {
         guard let ha else { return "Ohne Raum" }
         let area = ha.areas.first { $0.area_id == lamp.area_id }
         return (lamp.effective_room_id ?? area?.room_id).flatMap { id in ha.rooms.first { $0.id == id }?.name } ?? area?.name ?? "Ohne Raum"
     }
-    private var shownHALamps: [HAEntity] { haLamps.filter { room == "Alle Räume" || haRoom($0) == room } }
-    private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"} + haLamps.map(haRoom))).sorted() }
+    /// Raum wie bei den übrigen Lampen: „Raumnummer · Name“; Filter-Chips nutzen denselben Text.
+    private func haRoomLabel(_ lamp: HAEntity) -> String? {
+        guard let ha else { return nil }
+        let area = ha.areas.first { $0.area_id == lamp.area_id }
+        guard let id = lamp.effective_room_id ?? area?.room_id, let r = ha.rooms.first(where: { $0.id == id }) else { return area.map { "Bereich \($0.name)" } }
+        return r.room_code.isEmpty || r.room_code == r.name ? r.name : "\(r.room_code) · \(r.name)"
+    }
+    private func haLampTarget(_ lamp: HAEntity) -> HARoomTarget {
+        let device = ha?.devices.first { $0.device_id == lamp.device_id }
+        let inherited = device?.effective_room_id ?? ha?.areas.first { $0.area_id == lamp.area_id }?.room_id
+        return HARoomTarget(kind: .entity, key: lamp.entity_id, title: lamp.name, current: lamp.room_id, inherited: inherited, inheritedFrom: device.map { "Gerät \($0.name)" } ?? "Bereich", suggestion: ha?.suggestions?.entities[lamp.entity_id])
+    }
+    private func assignHA(_ t: HARoomTarget, _ room: String?) async {
+        guard let rev = ha?.link?.revision else { return }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/assignments", method: "PUT", body: ["entities": [t.key: room as Any? ?? NSNull()], "revision": rev]); ha = value; problem = nil }
+        catch { problem = error.localizedDescription }
+    }
+    private var shownHALamps: [HAEntity] { haLamps.filter { room == "Alle Räume" || (haRoomLabel($0) ?? "Ohne Raum") == room } }
+    private var rooms: [String] { Array(Set(devices.map(\.roomLabel) + lamps.map {$0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum"} + haLamps.map { haRoomLabel($0) ?? "Ohne Raum" })).sorted() }
     private var visible: [BuildingDevice] { devices.filter { room == "Alle Räume" || $0.roomLabel == room } }
     private var shownLamps: [ConnectedLamp] { lamps.filter { room == "Alle Räume" || ($0.location?.room.isEmpty == false ? $0.location!.room : "Ohne Raum") == room } }
     var body: some View {
@@ -128,10 +147,8 @@ struct BuildingDevicesView: View {
                         ForEach(shownLamps) { lamp in ConnectedLampCard(lamp: lamp, account: account, assign: { selectedLamp = lamp }, changed: { await reload() }) }
                         if let ha {
                             ForEach(shownHALamps) { lamp in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HALampControl(account: account, building: building, lamp: lamp, area: ha.areas.first { $0.area_id == lamp.area_id }, rooms: ha.rooms, canSwitch: ha.isOwner && haLocal, changed: { await reload() })
-                                    Label("Aus Home Assistant", systemImage: "house.and.flag").font(.caption2).foregroundStyle(.secondary)
-                                }.padding(16).d21Card(cornerRadius: 20)
+                                HAImportedLampCard(account: account, building: building, lamp: lamp, room: haRoomLabel(lamp), canSwitch: ha.isOwner && haLocal,
+                                                   assign: ha.isOwner ? { haTarget = haLampTarget(lamp) } : nil, changed: { await reload() })
                             }
                         }
                     }
@@ -156,6 +173,7 @@ struct BuildingDevicesView: View {
         .refreshable { if !busy { await reload() } }
         .sheet(isPresented: $adding, onDismiss: { Task { await reload() } }) { AddDeviceView(building: building, account: account) }
         .sheet(isPresented:$connecting,onDismiss:{Task{await reload()}}) { AvailableLampPicker(account:account,building:building,saved:{connecting=false}) }
+        .sheet(item: $haTarget) { t in HARoomChooser(building: building, account: account, target: t, rooms: ha?.rooms ?? []) { id in await assignHA(t, id) } }
         .sheet(item:$selectedLamp,onDismiss:{Task{await reload()}}) { lamp in NavigationStack { EquipmentAssignmentView(account:account,building:building,lamp:lamp,saved:{selectedLamp=nil}) } }
         .sheet(item:$selectedDevice,onDismiss:{Task{await reload()}}) { device in NavigationStack { EquipmentAssignmentView(account:account,building:building,device:device,saved:{selectedDevice=nil}) } }
         .task {

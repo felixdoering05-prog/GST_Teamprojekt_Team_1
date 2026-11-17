@@ -40,7 +40,7 @@ function equipmentRouter(db,requireAccount,options={}){
   if(!idOK(req.params.equipmentBuilding)||!await accessibleBuilding(db,req.params.equipmentBuilding,req.account.id))fail('Gebäude nicht gefunden.',404);
   const config=ha.configuration(req.account.id);if(!config)return res.json([]);
   const rows=(await db.query('SELECT light_key,building_id,room,document_id,space_id,revision FROM app_lamp_locations WHERE user_id=$1 AND building_id=$2',[req.account.id,req.params.equipmentBuilding])).rows;
-  const lamps=await Promise.all(rows.map(async location=>{const light=config.lights.find(x=>x.key===location.light_key);if(!light)return null;try{return {...await ha.state(config,light),location,room:location.room};}catch{return {key:light.key,name:light.name,room:location.room,available:false,is_on:null,supports_rgb:false,rgb:null,brightness:null,location};}}));res.json(lamps.filter(Boolean));
+  const lamps=await Promise.all(rows.map(async location=>{const light=config.lights.find(x=>x.key===location.light_key);if(!light)return null;try{return {...await ha.state(config,light),entity_id:light.entity_id,location,room:location.room};}catch{return {key:light.key,entity_id:light.entity_id,name:light.name,room:location.room,available:false,is_on:null,supports_rgb:false,rgb:null,brightness:null,location};}}));res.json(lamps.filter(Boolean));
  }));
  r.put('/integrations/home-assistant/lights/:equipmentKey/location',wrap(async(req,res)=>{
   if(!ha.configuration(req.account.id)?.lights.some(x=>x.key===req.params.equipmentKey))fail('Gerät nicht freigegeben.',404);
