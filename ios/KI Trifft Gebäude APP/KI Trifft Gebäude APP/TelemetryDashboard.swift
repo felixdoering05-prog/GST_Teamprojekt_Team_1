@@ -121,6 +121,7 @@ struct TelemetryDashboardView: View {
         }
     }
     @ViewBuilder private func energy(_ data: TelemetrySnapshot) -> some View {
+        if !localDemo, let account, let building { HAEnergySection(account: account, building: building) }
         Section("Verbrauchszeiträume") {
             if data.energy.isEmpty { ContentUnavailableView("Noch keine Energiedaten", systemImage: "bolt", description: Text("Die im Web-Dashboard importierten Energiezeiträume dieses Gebäudes erscheinen auch hier. Der CSV-Import auf dem iPhone unterstützt zunächst Sensormessungen.")) }
             ForEach(data.energy) { row in VStack(alignment: .leading, spacing: 5) { Label(row.title, systemImage: "bolt.fill").font(.headline); Text(row.value.formatted() + " " + row.unit).font(.title3); Text(dateText(row.period_start) + " – " + dateText(row.period_end)).font(.caption).foregroundStyle(.secondary) } }
