@@ -158,6 +158,34 @@ test('areas map only to rooms of this building and feed the telemetry snapshot',
  assert.equal(rt.rooms.find(x=>x.id===room.id).reading.value,22);
 });
 
+test('rooms per device and sensor, name suggestions, rooms created from the plan; assignments survive a new inventory',async()=>{
+ await request(base()+'/areas','PUT',{mapping:{wohnzimmer:null}},owner.token);
+ let v=(await request(base(),'GET',undefined,owner.token)).data;
+ assert.equal(v.suggestions.areas.wohnzimmer,room.id,'area "Wohnzimmer" -> room "Wohnzimmer"');
+ assert.equal((await request(base()+'/rooms','POST',{name:'Küche'},member.token)).status,403);
+ assert.equal((await request(base()+'/rooms','POST',{name:''},owner.token)).status,400);
+ const k=await request(base()+'/rooms','POST',{name:'Küche',room_code:'EG.02'},owner.token);assert.equal(k.status,201,JSON.stringify(k.data));assert.equal(k.data.created,true);
+ const again=await request(base()+'/rooms','POST',{name:'küche',room_code:'EG.02'},owner.token);assert.equal(again.data.id,k.data.id);assert.equal(again.data.created,false);
+ assert.equal((await request(base()+'/assignments','PUT',{devices:{abc123:otherRoom.id}},owner.token)).status,400,'foreign room');
+ assert.equal((await request(base()+'/assignments','PUT',{devices:{nope:k.data.id}},owner.token)).status,409);
+ assert.equal((await request(base()+'/assignments','PUT',{devices:{abc123:k.data.id}},member.token)).status,403);
+ v=(await request(base()+'/assignments','PUT',{areas:{wohnzimmer:room.id},devices:{abc123:k.data.id}},owner.token)).data;
+ assert.equal(v.devices.find(d=>d.device_id==='abc123').effective_room_id,k.data.id,'device overrides its area');
+ let t=(await request('/buildings/'+building.id+'/telemetry','GET',undefined,owner.token)).data;
+ assert.equal(t.sensors.find(x=>x.sensor_code==='HA-wohnzimmer_temperatur').room_id,k.data.id);
+ v=(await request(base()+'/assignments','PUT',{entities:{'sensor.wohnzimmer_temperatur':room.id}},owner.token)).data;
+ assert.equal(v.entities.find(e=>e.entity_id==='sensor.wohnzimmer_temperatur').effective_room_id,room.id,'sensor overrides its device');
+ const rt=(await request('/buildings/'+building.id+'/telemetry/room-temperatures','GET',undefined,owner.token)).data;
+ assert.equal(rt.rooms.find(x=>x.id===room.id).reading.value,22);
+ await request('/ha-bridge/inventory','POST',inventory,null,token);
+ v=(await request(base(),'GET',undefined,owner.token)).data;
+ assert.equal(v.devices.find(d=>d.device_id==='abc123').room_id,k.data.id,'device room kept on a new inventory');
+ assert.equal(v.entities.find(e=>e.entity_id==='sensor.wohnzimmer_temperatur').room_id,room.id,'sensor room kept on a new inventory');
+ await request(base()+'/assignments','PUT',{entities:{'sensor.wohnzimmer_temperatur':null},devices:{abc123:null}},owner.token);
+ t=(await request('/buildings/'+building.id+'/telemetry','GET',undefined,owner.token)).data;
+ assert.equal(t.sensors.find(x=>x.sensor_code==='HA-wohnzimmer_temperatur').room_id,room.id,'back to the area room');
+});
+
 test('re-sent inventory keeps selection; disconnect removes token and all imported data',async()=>{
  const again=await request('/ha-bridge/inventory','POST',{...inventory,entities:inventory.entities.filter(e=>e.entity_id!=='sensor.wallbox_leistung')},null,token);
  assert.deepEqual(again.data.selected,['sensor.wohnzimmer_temperatur']);

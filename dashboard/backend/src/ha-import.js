@@ -2,6 +2,8 @@
 // Sensorwerte an den Projektserver. Auf dem Server liegt nie ein Home-Assistant-Zugang, nur der
 // SHA-256-Hash eines eigenen, widerrufbaren Brückenschlüssels pro Gebäude.
 const express=require('express');
+const {suggestRoom}=require('./ha-rooms');
+const {service}=require('./twin');
 const {randomBytes,randomUUID,randomInt,createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
 const {accountLimits,reached}=require('./account-limits');
@@ -36,6 +38,9 @@ async function initHAImport(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_areas(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,area_id TEXT NOT NULL,name TEXT NOT NULL,room_id TEXT,PRIMARY KEY(link_id,area_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_devices(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,device_id TEXT NOT NULL,name TEXT NOT NULL,manufacturer TEXT NOT NULL DEFAULT '',model TEXT NOT NULL DEFAULT '',area_id TEXT,PRIMARY KEY(link_id,device_id))`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_ha_entities(link_id TEXT NOT NULL REFERENCES app_ha_links(id) ON DELETE CASCADE,entity_id TEXT NOT NULL,name TEXT NOT NULL,metric TEXT NOT NULL,source_unit TEXT NOT NULL,device_id TEXT,area_id TEXT,selected BOOLEAN NOT NULL DEFAULT false,PRIMARY KEY(link_id,entity_id))`);
+ // Room per device/sensor/lamp overrides the area's room (devices without area, areas spanning rooms).
+ await db.query('ALTER TABLE app_ha_devices ADD COLUMN IF NOT EXISTS room_id TEXT');
+ await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS room_id TEXT');
  await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS supports_color BOOLEAN NOT NULL DEFAULT false');
  await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS light_state JSONB');
  await db.query('ALTER TABLE app_ha_entities ADD COLUMN IF NOT EXISTS light_caps JSONB');
@@ -98,8 +103,8 @@ async function applyInventory(c,link,b){
   const usedAreas=new Set([...entities.values()].map(e=>e.area_id).concat([...devices].filter(([id])=>usedDevices.has(id)).map(([,d])=>d.area_id)).filter(Boolean));
   await c.query('DELETE FROM app_ha_areas WHERE link_id=$1 AND NOT (area_id = ANY($2::text[]))',[link.id,[...usedAreas]]);
   for(const id of usedAreas)await c.query('INSERT INTO app_ha_areas(link_id,area_id,name) VALUES($1,$2,$3) ON CONFLICT(link_id,area_id) DO UPDATE SET name=EXCLUDED.name',[link.id,id,areas.get(id)]);
-  await c.query('DELETE FROM app_ha_devices WHERE link_id=$1',[link.id]);
-  for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6)',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
+  await c.query('DELETE FROM app_ha_devices WHERE link_id=$1 AND NOT (device_id = ANY($2::text[]))',[link.id,[...usedDevices]]);
+  for(const id of usedDevices){const d=devices.get(id);await c.query('INSERT INTO app_ha_devices(link_id,device_id,name,manufacturer,model,area_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(link_id,device_id) DO UPDATE SET name=EXCLUDED.name,manufacturer=EXCLUDED.manufacturer,model=EXCLUDED.model,area_id=EXCLUDED.area_id',[link.id,id,d.name,d.manufacturer,d.model,d.area_id]);}
   await c.query('DELETE FROM app_ha_entities WHERE link_id=$1 AND NOT (entity_id = ANY($2::text[]))',[link.id,[...entities.keys()]]);
   for(const [id,e] of entities)await c.query(`INSERT INTO app_ha_entities(link_id,entity_id,name,metric,source_unit,device_id,area_id,supports_color,light_caps) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
    ON CONFLICT(link_id,entity_id) DO UPDATE SET name=EXCLUDED.name,metric=EXCLUDED.metric,source_unit=EXCLUDED.source_unit,device_id=EXCLUDED.device_id,area_id=EXCLUDED.area_id,supports_color=EXCLUDED.supports_color,light_caps=EXCLUDED.light_caps,selected=app_ha_entities.selected AND app_ha_entities.metric=EXCLUDED.metric`,[link.id,id,e.name,e.metric,e.unit,e.device_id,e.area_id,e.supports_color,e.caps?JSON.stringify(e.caps):null]);
@@ -209,15 +214,24 @@ async function overview(db,building,user){
  if(!link)return {...base,link:null,areas:[],devices:[],entities:[]};
  const [areas,devices,entities]=await Promise.all([
   db.query('SELECT area_id,name,room_id FROM app_ha_areas WHERE link_id=$1 ORDER BY name,area_id',[link.id]),
-  db.query('SELECT device_id,name,manufacturer,model,area_id FROM app_ha_devices WHERE link_id=$1 ORDER BY name,device_id',[link.id]),
-  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.selected,e.supports_color,e.light_state,e.light_caps,s.value,s.measured_at FROM app_ha_entities e
+  db.query('SELECT device_id,name,manufacturer,model,area_id,room_id FROM app_ha_devices WHERE link_id=$1 ORDER BY name,device_id',[link.id]),
+  db.query(`SELECT e.entity_id,e.name,e.metric,e.device_id,e.area_id,e.room_id,e.selected,e.supports_color,e.light_state,e.light_caps,s.value,s.measured_at FROM app_ha_entities e
    LEFT JOIN LATERAL (SELECT value,measured_at FROM app_ha_samples WHERE link_id=e.link_id AND entity_id=e.entity_id ORDER BY measured_at DESC LIMIT 1) s ON true
    WHERE e.link_id=$1 ORDER BY e.metric,e.name,e.entity_id`,[link.id])
  ]);
- return {...base,
+ // Effective room: sensor/lamp > device > area. Suggestions only where nothing is assigned yet.
+ const areaRoom=new Map(areas.rows.map(a=>[a.area_id,a.room_id])),deviceRoom=new Map(devices.rows.map(d=>[d.device_id,d.room_id||areaRoom.get(d.area_id)||null]));
+ const effective=e=>e.room_id||(e.device_id&&deviceRoom.get(e.device_id))||(e.area_id&&areaRoom.get(e.area_id))||null;
+ const suggestions={areas:{},devices:{},entities:{}};
+ if(rooms.length){
+  for(const a of areas.rows)if(!a.room_id){const r=suggestRoom(a.name,rooms);if(r)suggestions.areas[a.area_id]=r;}
+  for(const d of devices.rows)if(!deviceRoom.get(d.device_id)){const r=suggestRoom(d.name,rooms);if(r)suggestions.devices[d.device_id]=r;}
+  for(const e of entities.rows)if(e.selected&&!effective(e)){const r=suggestRoom(e.name,rooms);if(r)suggestions.entities[e.entity_id]=r;}
+ }
+ return {...base,suggestions,
   link:{id:link.id,status:link.status,mode:link.mode,instance_name:link.instance_name,ha_version:link.ha_version,revision:link.revision,paired_at:link.paired_at,last_inventory_at:link.last_inventory_at,last_push_at:link.last_push_at,pairing_expires_at:owner&&link.status==='pending'?link.pairing_expires_at:null},
-  areas:areas.rows,devices:devices.rows,
-  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric]?.unit||'',supports_color:e.supports_color,capabilities:e.light_caps||null,light:e.metric==='light'&&e.selected&&e.light_state?e.light_state:null,device_id:e.device_id,area_id:e.area_id,selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
+  areas:areas.rows,devices:devices.rows.map(d=>({...d,room_id:d.room_id||null,effective_room_id:deviceRoom.get(d.device_id)})),
+  entities:entities.rows.map(e=>({entity_id:e.entity_id,name:e.name,metric:e.metric,unit:METRICS[e.metric]?.unit||'',supports_color:e.supports_color,capabilities:e.light_caps||null,light:e.metric==='light'&&e.selected&&e.light_state?e.light_state:null,device_id:e.device_id,area_id:e.area_id,room_id:e.room_id||null,effective_room_id:effective(e),selected:e.selected,latest:e.measured_at?{value:Number(e.value),measured_at:new Date(e.measured_at).toISOString()}:null}))};
 }
 
 function haImportRouter(db,requireAccount){
@@ -280,6 +294,33 @@ function haImportRouter(db,requireAccount){
   await c.query('UPDATE app_ha_links SET revision=revision+1 WHERE id=$1',[link.id]);
   res.json(await overview(c,b,req.account.id));
  }));
+ // Raum je Gerät, Sensor oder Lampe (überschreibt den Bereich). null = wieder dem Bereich folgen.
+ r.put(base+'/assignments',ownerTx(async(c,req,res,b,link)=>{
+  const body=req.body||{};if(!link)fail('Home Assistant ist nicht verbunden.',404);
+  const map=v=>v===undefined?{}:(v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length<=500?v:fail('Ungültige Raumzuordnung.'));
+  if(!onlyKeys(body,['devices','entities','areas','revision']))fail('Ungültige Raumzuordnung.');
+  const devices=map(body.devices),entities=map(body.entities),areas=map(body.areas);
+  checkRevision(link,body);
+  const rooms=new Set((await c.query(`SELECT id FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND data->>'source' IS DISTINCT FROM 'demo'`,[b.user_id,String(b.id)])).rows.map(r=>r.id));
+  const ok=room=>room===null||(typeof room==='string'&&rooms.has(room));
+  const known=async(sql)=>new Set((await c.query(sql,[link.id])).rows.map(r=>Object.values(r)[0]));
+  const kd=await known('SELECT device_id FROM app_ha_devices WHERE link_id=$1'),ke=await known('SELECT entity_id FROM app_ha_entities WHERE link_id=$1'),ka=await known('SELECT area_id FROM app_ha_areas WHERE link_id=$1');
+  for(const [id,room] of Object.entries(devices)){if(!kd.has(id))fail('Unbekanntes Gerät. Bitte neu laden.',409);if(!ok(room))fail('Raum gehört nicht zu diesem Gebäude.');await c.query('UPDATE app_ha_devices SET room_id=$3 WHERE link_id=$1 AND device_id=$2',[link.id,id,room]);}
+  for(const [id,room] of Object.entries(entities)){if(!ke.has(id))fail('Unbekannter Sensor. Bitte neu laden.',409);if(!ok(room))fail('Raum gehört nicht zu diesem Gebäude.');await c.query('UPDATE app_ha_entities SET room_id=$3 WHERE link_id=$1 AND entity_id=$2',[link.id,id,room]);}
+  for(const [id,room] of Object.entries(areas)){if(!ka.has(id))fail('Unbekannter Home-Assistant-Bereich.',409);if(!ok(room))fail('Raum gehört nicht zu diesem Gebäude.');await c.query('UPDATE app_ha_areas SET room_id=$3 WHERE link_id=$1 AND area_id=$2',[link.id,id,room]);}
+  await c.query('UPDATE app_ha_links SET revision=revision+1 WHERE id=$1',[link.id]);
+  res.json(await overview(c,b,req.account.id));
+ }));
+ // Raum anlegen, z. B. beim Antippen im Gebäudeplan, wenn er noch nicht in der Raumliste steht. Gleicher Name = vorhandener Raum.
+ r.post(base+'/rooms',ownerTx(async(c,req,res,b)=>{
+  const body=req.body||{};const name=typeof body.name==='string'?body.name.replace(/[\x00-\x1f\x7f]/g,' ').trim():'';const code=typeof body.room_code==='string'?body.room_code.replace(/[\x00-\x1f\x7f]/g,' ').trim():'';
+  if(!onlyKeys(body,['name','room_code'])||!name||name.length>100||code.length>60)fail('Raumname mit 1 bis 100 Zeichen angeben.');
+  const existing=(await c.query(`SELECT id,data->>'name' AS name,data->>'room_code' AS room_code FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND data->>'source' IS DISTINCT FROM 'demo' AND lower(data->>'name')=lower($3) AND COALESCE(data->>'room_code','')=$4 LIMIT 1`,[b.user_id,String(b.id),name,code])).rows[0];
+  if(existing){res.json({id:existing.id,name:existing.name,room_code:existing.room_code||'',created:false});return;}
+  const count=Number((await c.query(`SELECT COUNT(*) n FROM app_twin_records WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2`,[b.user_id,String(b.id)])).rows[0].n);if(count>=500)fail('Höchstens 500 Räume pro Gebäude.',429);
+  const room=await service(c,b.user_id).entities.Room.create({name,room_code:code||name.slice(0,60),building_id:String(b.id),source:'real',notes:'Aus dem Gebäudeplan für die Home-Assistant-Zuordnung angelegt'});
+  res.status(201).json({id:room.id,name,room_code:code||name.slice(0,60),created:true});
+ }));
  // App-Weg: Das iPhone holt die Werte im Heimnetz aus Home Assistant und lädt sie hier hoch.
  // Der Home-Assistant-Zugang bleibt im Schlüsselbund des iPhones; der Server kennt ihn nicht.
  const appLink=link=>{if(!link||link.status!=='active'||link.mode!=='app')fail('Home Assistant ist nicht über die App verbunden.',409);return link;};
@@ -338,7 +379,7 @@ function haImportRouter(db,requireAccount){
 async function haTelemetry(db,building,limit=500){
  const link=(await db.query("SELECT id FROM app_ha_links WHERE building_id=$1",[building.id])).rows[0];
  if(!link)return {sensors:[],measurements:[],truncated:false};
- const entities=(await db.query(`SELECT e.entity_id,e.name,e.metric,a.room_id FROM app_ha_entities e LEFT JOIN app_ha_areas a ON a.link_id=e.link_id AND a.area_id=e.area_id WHERE e.link_id=$1 AND e.selected AND e.metric = ANY($2::text[]) ORDER BY e.entity_id LIMIT 100`,[link.id,[...TELEMETRY_METRICS]])).rows;
+ const entities=(await db.query(`SELECT e.entity_id,e.name,e.metric,COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id FROM app_ha_entities e LEFT JOIN app_ha_devices d ON d.link_id=e.link_id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=e.link_id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=d.link_id AND da.area_id=d.area_id WHERE e.link_id=$1 AND e.selected AND e.metric = ANY($2::text[]) ORDER BY e.entity_id LIMIT 100`,[link.id,[...TELEMETRY_METRICS]])).rows;
  const id=e=>'ha:'+link.id.slice(0,8)+':'+e,code=e=>('HA-'+e.replace(/^sensor\./,'')).slice(0,100);
  const rows=entities.length?(await db.query('SELECT entity_id,metric,value,measured_at FROM app_ha_samples WHERE link_id=$1 AND entity_id = ANY($2::text[]) ORDER BY measured_at DESC LIMIT $3',[link.id,entities.map(e=>e.entity_id),limit+1])).rows:[];
  return {truncated:rows.length>limit,
@@ -346,9 +387,10 @@ async function haTelemetry(db,building,limit=500){
   measurements:rows.slice(0,limit).map(p=>{const t=new Date(p.measured_at).toISOString();return {id:id(p.entity_id)+':'+t,sensor_id:id(p.entity_id),sensor_code:code(p.entity_id),metric:p.metric,value:Number(p.value),unit:METRICS[p.metric].unit,measured_at:t,source:'real',quality:'ok'};})};
 }
 async function haRoomTemperatures(db,building){
- return (await db.query(`SELECT DISTINCT ON (a.room_id) a.room_id,s.value,s.measured_at FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric='temperature'
-  JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id AND a.room_id IS NOT NULL
-  JOIN app_ha_samples s ON s.link_id=l.id AND s.entity_id=e.entity_id WHERE l.building_id=$1 ORDER BY a.room_id,s.measured_at DESC`,[building.id])).rows.map(r=>({room_id:r.room_id,value:Number(r.value),measured_at:new Date(r.measured_at).toISOString()}));
+ return (await db.query(`SELECT DISTINCT ON (x.room_id) x.room_id,s.value,s.measured_at FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric='temperature'
+  LEFT JOIN app_ha_devices d ON d.link_id=l.id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=l.id AND da.area_id=d.area_id
+  CROSS JOIN LATERAL (SELECT COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id) x
+  JOIN app_ha_samples s ON s.link_id=l.id AND s.entity_id=e.entity_id WHERE l.building_id=$1 AND x.room_id IS NOT NULL ORDER BY x.room_id,s.measured_at DESC`,[building.id])).rows.map(r=>({room_id:r.room_id,value:Number(r.value),measured_at:new Date(r.measured_at).toISOString()}));
 }
 
 module.exports={initHAImport,haImportRouter,bridgeRouter,haTelemetry,haRoomTemperatures,METRICS};

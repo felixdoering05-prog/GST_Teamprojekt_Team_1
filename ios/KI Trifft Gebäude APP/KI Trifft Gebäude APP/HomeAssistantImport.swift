@@ -9,11 +9,12 @@ struct HALink: Decodable {
     let paired_at: String?; let last_inventory_at: String?; let last_push_at: String?; let pairing_expires_at: String?
 }
 struct HAArea: Decodable, Identifiable { let area_id: String; let name: String; let room_id: String?; var id: String { area_id } }
-struct HADevice: Decodable, Identifiable { let device_id: String; let name: String; let manufacturer: String; let model: String; let area_id: String?; var id: String { device_id } }
+struct HADevice: Decodable, Identifiable { let device_id: String; let name: String; let manufacturer: String; let model: String; let area_id: String?; var room_id: String? = nil; var effective_room_id: String? = nil; var id: String { device_id } }
 struct HAEntity: Decodable, Identifiable {
     let entity_id: String; let name: String; let metric: String; let unit: String
     let device_id: String?; let area_id: String?; let selected: Bool; let latest: HALatest?
     var supports_color: Bool? = nil; var capabilities: HALightCaps? = nil; var light: HALightState? = nil
+    var room_id: String? = nil; var effective_room_id: String? = nil
     var id: String { entity_id }
     var isLight: Bool { metric == "light" }
 }
@@ -23,7 +24,12 @@ struct HARoom: Decodable, Identifiable, Hashable { let id: String; let name: Str
 struct HALimits: Decodable { let entities: Int? }
 struct HAOverview: Decodable {
     let role: String; let link: HALink?; let areas: [HAArea]; let devices: [HADevice]; let entities: [HAEntity]; let rooms: [HARoom]; let limits: HALimits
+    var suggestions: HASuggestions? = nil
     var isOwner: Bool { role == "owner" }
+}
+struct HASuggestions: Decodable {
+    let areas: [String: String]; let devices: [String: String]; let entities: [String: String]
+    var count: Int { areas.count + devices.count + entities.count }
 }
 struct HAPairing: Decodable { let link_id: String; let code: String; let expires_at: String }
 struct HAHistoryPoint: Decodable, Identifiable { let value: Double; let measured_at: String; var id: String { measured_at } }
@@ -52,6 +58,7 @@ struct HomeAssistantImportView: View {
     @State private var busy = false
     @State private var problem: String?
     @State private var notice: String?
+    @State private var chooser: HARoomTarget?
     @State private var confirmDisconnect = false
     @State private var connecting = false
     @State private var syncing = false
@@ -76,8 +83,7 @@ struct HomeAssistantImportView: View {
                 let lamps = overview.entities.filter { $0.isLight && $0.selected }
                 if !lamps.isEmpty && appMode { Section { ForEach(lamps) { lamp in HALampControl(account: account, building: building, lamp: lamp, area: overview.areas.first { $0.area_id == lamp.area_id }, rooms: overview.rooms, canSwitch: owner && hasLocalAccess, changed: { await reload(keepEdits: true) }) } } header: { Text("Lampen steuern") } footer: { Text(owner && hasLocalAccess ? "Geschaltet wird direkt in deinem Home Assistant (im WLAN oder über Home Assistant Cloud). Es gilt dein Limit für Lichtaufträge pro Minute." : "Schalten kann der Besitzer auf dem iPhone, das mit Home Assistant angemeldet ist.") } }
                 sensorsSection(overview)
-                if !overview.areas.isEmpty { areasSection(overview) }
-                if !overview.devices.isEmpty { devicesSection(overview) }
+                if !overview.areas.isEmpty || !overview.devices.isEmpty || overview.entities.contains(where: \.selected) { roomsSection(overview) }
                 if owner { Section { Button("Verbindung trennen", role: .destructive) { confirmDisconnect = true }.disabled(busy || syncing) } footer: { Text(appMode ? "Löscht die Geräteübersicht und alle übernommenen Werte auf dem Projektserver und meldet dieses iPhone bei Home Assistant ab." : "Löscht den Brückenschlüssel, die Geräteübersicht und alle übernommenen Werte auf dem Projektserver.") } }
             }
             Section {
@@ -85,6 +91,7 @@ struct HomeAssistantImportView: View {
             }
         }
         .navigationTitle("Home Assistant").navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $chooser) { t in HARoomChooser(building: building, account: account, target: t, rooms: overview?.rooms ?? []) { id in await assign(t, id) } }
         .refreshable { await reload(); if appMode && hasLocalAccess { await syncNow(quiet: true) } }
         .sheet(isPresented: $connecting, onDismiss: { Task { await reload(); if hasLocalAccess { await syncNow(quiet: true) } } }) { HAConnectSheet(account: account, building: building) }
         .confirmationDialog("Verbindung zu Home Assistant trennen?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
@@ -226,6 +233,79 @@ struct HomeAssistantImportView: View {
                 }
             }
         }
+    }
+
+    // Räume zuordnen: Bereiche, Geräte und Sensoren/Lampen ohne Gerät. Eigener Raum schlägt Gerät, Gerät schlägt Bereich.
+    private func roomName(_ id: String?, _ overview: HAOverview) -> String? {
+        guard let id, let r = overview.rooms.first(where: { $0.id == id }) else { return nil }
+        return r.room_code.isEmpty || r.room_code == r.name ? r.name : "\(r.name) · \(r.room_code)"
+    }
+    private func roomsSection(_ overview: HAOverview) -> some View {
+        let s = overview.suggestions
+        let looseEntities = overview.entities.filter { $0.selected && ($0.device_id == nil || $0.room_id != nil) }
+        return Section {
+            if owner, let s, s.count > 0 {
+                Button { Task { await applySuggestions(s) } } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(s.count == 1 ? "1 Vorschlag übernehmen" : "\(s.count) Vorschläge übernehmen", systemImage: "sparkles").font(.headline)
+                        Text(suggestionPreview(s, overview)).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                    }
+                }.disabled(busy)
+            }
+            if overview.rooms.isEmpty { Text("Noch keine Räume: Tippe ein Gerät an und wähle den Raum im Gebäudeplan oder lege ihn neu an.").font(.footnote).foregroundStyle(.secondary) }
+            ForEach(overview.areas) { area in
+                assignRow(title: area.name, detail: "Bereich", room: roomName(area.room_id, overview), own: true, suggested: s?.areas[area.area_id] != nil) {
+                    HARoomTarget(kind: .area, key: area.area_id, title: area.name, current: area.room_id, inherited: nil, inheritedFrom: nil, suggestion: s?.areas[area.area_id])
+                }
+            }
+            ForEach(overview.devices) { d in
+                let areaRoom = overview.areas.first { $0.area_id == d.area_id }?.room_id
+                assignRow(title: d.name, detail: [d.manufacturer, d.model].filter { !$0.isEmpty }.joined(separator: " · "), room: roomName(d.effective_room_id ?? d.room_id ?? areaRoom, overview), own: d.room_id != nil, suggested: s?.devices[d.device_id] != nil) {
+                    HARoomTarget(kind: .device, key: d.device_id, title: d.name, current: d.room_id, inherited: areaRoom, inheritedFrom: overview.areas.first { $0.area_id == d.area_id }.map { "Bereich \($0.name)" }, suggestion: s?.devices[d.device_id])
+                }
+            }
+            ForEach(looseEntities) { e in
+                let device = overview.devices.first { $0.device_id == e.device_id }
+                let inherited = device?.effective_room_id ?? overview.areas.first { $0.area_id == e.area_id }?.room_id
+                assignRow(title: e.name, detail: HAMetric.title(e.metric), room: roomName(e.effective_room_id ?? e.room_id ?? inherited, overview), own: e.room_id != nil, suggested: s?.entities[e.entity_id] != nil) {
+                    HARoomTarget(kind: .entity, key: e.entity_id, title: e.name, current: e.room_id, inherited: inherited, inheritedFrom: device.map { "Gerät \($0.name)" } ?? "Bereich", suggestion: s?.entities[e.entity_id])
+                }
+            }
+        } header: { Text("Räume zuordnen") } footer: {
+            Text("Ein Gerät kann einen eigenen Raum haben, sonst gilt der Raum seines Bereichs. Zugeordnete Werte und Lampen erscheinen in Sensorik, Wärmekarte, Lichtsteuerung und bei Nala im richtigen Raum.")
+        }
+    }
+    private func assignRow(title: String, detail: String, room: String?, own: Bool, suggested: Bool, target: @escaping () -> HARoomTarget) -> some View {
+        Button { if owner { chooser = target() } } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(.primary).lineLimit(1)
+                    if !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                Spacer(minLength: 6)
+                if room == nil && suggested { Image(systemName: "sparkles").foregroundStyle(d21Accent).accessibilityLabel("Vorschlag vorhanden") }
+                Text(room ?? "Kein Raum").font(.subheadline).foregroundStyle(room == nil ? Color.orange : own ? Color.primary : Color.secondary).lineLimit(1)
+                if owner { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+            }
+        }.disabled(!owner || busy)
+    }
+    private func suggestionPreview(_ s: HASuggestions, _ overview: HAOverview) -> String {
+        var lines: [String] = []
+        for (k, r) in s.areas { if let a = overview.areas.first(where: { $0.area_id == k }), let n = roomName(r, overview) { lines.append("\(a.name) → \(n)") } }
+        for (k, r) in s.devices { if let d = overview.devices.first(where: { $0.device_id == k }), let n = roomName(r, overview) { lines.append("\(d.name) → \(n)") } }
+        for (k, r) in s.entities { if let e = overview.entities.first(where: { $0.entity_id == k }), let n = roomName(r, overview) { lines.append("\(e.name) → \(n)") } }
+        return lines.sorted().prefix(4).joined(separator: "\n") + (lines.count > 4 ? "\n…" : "")
+    }
+    private func applySuggestions(_ s: HASuggestions) async {
+        guard !busy, let link else { return }; busy = true; defer { busy = false }
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/assignments", method: "PUT", body: ["areas": s.areas, "devices": s.devices, "entities": s.entities, "revision": link.revision]); apply(value, keepSelection: true); problem = nil; notice = "Vorschläge übernommen." }
+        catch { problem = error.localizedDescription }
+    }
+    private func assign(_ t: HARoomTarget, _ room: String?) async {
+        guard let link else { return }
+        let key = t.kind == .area ? "areas" : t.kind == .device ? "devices" : "entities"
+        do { let value: HAOverview = try await account.request("buildings/\(building.id)/home-assistant/assignments", method: "PUT", body: [key: [t.key: room as Any? ?? NSNull()], "revision": link.revision]); apply(value, keepSelection: true); problem = nil; notice = "Raum gespeichert." }
+        catch { problem = error.localizedDescription }
     }
 
     // Ungespeicherte Änderungen des jeweils anderen Abschnitts bleiben beim Speichern/Neuladen erhalten.

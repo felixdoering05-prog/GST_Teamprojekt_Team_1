@@ -44,7 +44,9 @@ enum WorkflowPreview {
         let link: Any = haStatus == "none" ? NSNull() : ["id":"preview-link","status":haStatus,"mode":haMode,"instance_name":"Zuhause","ha_version":"2026.11.2","revision":haRevision,"paired_at":iso.string(from: now.addingTimeInterval(-3600)),"last_inventory_at":iso.string(from: now.addingTimeInterval(-600)),"last_push_at":iso.string(from: now.addingTimeInterval(-40)),"pairing_expires_at":haStatus == "pending" ? iso.string(from: now.addingTimeInterval(600)) as Any : NSNull()]
         let areas: [[String:Any]] = [["area_id":"besprechung","name":"Besprechung"],["area_id":"labor","name":"Labor"],["area_id":"technik","name":"Technikraum"]].map { a in var item = a; item["room_id"] = haMapping[a["area_id"] as! String] ?? NSNull(); return item }
         let active = haStatus == "active"
-        return ["role":"owner","link":link,"limits":["entities":50],
+        var suggestions: [String: String] = [:]
+        for (a, r) in [("besprechung", "room-1"), ("labor", "room-2"), ("technik", "room-3")] where haMapping[a] == nil { suggestions[a] = r }
+        return ["role":"owner","link":link,"limits":["entities":50],"suggestions":["areas":active ? suggestions : [:],"devices":[:],"entities":[:]],
                 "rooms":[["id":"room-1","name":"Besprechung","room_code":"1.12"],["id":"room-2","name":"Labor","room_code":"0.04"],["id":"room-3","name":"Technik","room_code":"U.01"]],
                 "areas":active ? areas : [],"entities":active ? entities : [],
                 "devices":active ? [["device_id":"ik1","name":"KAJPLATS","manufacturer":"IKEA","model":"E27 Farbe","area_id":"besprechung"],["device_id":"aq1","name":"Aqara Klimasensor","manufacturer":"Aqara","model":"TH-P1","area_id":"besprechung"],["device_id":"wb","name":"Wallbox","manufacturer":"go-e","model":"Gemini","area_id":"technik"]] : []]
@@ -160,6 +162,7 @@ final class WorkflowPreviewProtocol: URLProtocol {
                 result = ["entity_id":"sensor.besprechung_temperatur","metric":"temperature","unit":"°C","truncated":false,"points":(0..<48).map { i in ["value":21 + sin(Double(i)/5) * 1.5,"measured_at":iso.string(from: start.addingTimeInterval(Double(i)*1800))] }]
             }
             else if path.hasSuffix("/entities") && method == "PUT" { WorkflowPreview.haSelected = Set(object["selected"] as? [String] ?? []); WorkflowPreview.haRevision += 1; result = WorkflowPreview.haOverview() }
+            else if path.hasSuffix("/assignments") && method == "PUT" { for (k,v) in object["areas"] as? [String:Any] ?? [:] { WorkflowPreview.haMapping[k] = v as? String }; WorkflowPreview.haRevision += 1; result = WorkflowPreview.haOverview() }
             else if path.hasSuffix("/areas") && method == "PUT" { for (k,v) in object["mapping"] as? [String:Any] ?? [:] { WorkflowPreview.haMapping[k] = v as? String }; WorkflowPreview.haRevision += 1; result = WorkflowPreview.haOverview() }
             else if method == "DELETE" { WorkflowPreview.haStatus = "none"; result = ["ok":true,"deleted":true] }
             else {
