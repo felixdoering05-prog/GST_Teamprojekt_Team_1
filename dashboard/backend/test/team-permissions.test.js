@@ -113,6 +113,9 @@ test('native team titles and optional backgrounds remain owner-controlled and do
  assert.equal(title.status,201);
  assert.equal((await request(owner,`/teams/${team.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,200);
  assert.equal((await request(owner,`/teams/${team.id}/members`)).body.find(p=>p.id===manager.id).title,'Native Sensorik');
+ const deletedTitle=await request(owner,`/teams/${team.id}/titles/${title.body.id}`,'DELETE');
+ assert.equal(deletedTitle.status,200);
+ assert.equal((await request(owner,`/teams/${team.id}/titles`)).body.some(item=>item.id===title.body.id),false);
  assert.equal((await request(manager,`/buildings/${first}/team-access`)).body.actor_role.role_key,before);
  const other=await request(owner,'/teams','POST',{name:'Anderes Team'});
  assert.equal((await request(owner,`/teams/${other.body.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,400);
