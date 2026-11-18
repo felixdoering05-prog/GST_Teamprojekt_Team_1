@@ -105,3 +105,24 @@ test('building groups apply the selected per-building role and replace individua
  assert.equal((await db.query('SELECT status,r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].status,'pending');
 });
 
+
+test('native team titles and optional backgrounds remain owner-controlled and do not alter building roles',async()=>{
+ const team=(await request(owner,'/teams')).body.find(t=>t.buildings.some(b=>Number(b.id)===Number(first)));
+ assert.ok(team);
+ const before=(await request(manager,`/buildings/${first}/team-access`)).body.actor_role.role_key;
+ const people=await request(owner,`/teams/${team.id}/members`);
+ assert.equal(people.status,200);assert.equal(new Set(people.body.map(p=>p.id)).size,people.body.length);
+ assert.equal((await request(manager,`/teams/${team.id}`,'PATCH',{background_color:'#123456'})).status,403);
+ assert.equal((await request(manager,`/teams/${team.id}/titles`,'POST',{name:'Sensorik'})).status,403);
+ const title=await request(owner,`/teams/${team.id}/titles`,'POST',{name:'Native Sensorik'});
+ assert.equal(title.status,201);
+ assert.equal((await request(owner,`/teams/${team.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,200);
+ assert.equal((await request(owner,`/teams/${team.id}/members`)).body.find(p=>p.id===manager.id).title,'Native Sensorik');
+ assert.equal((await request(manager,`/buildings/${first}/team-access`)).body.actor_role.role_key,before);
+ const other=await request(owner,'/teams','POST',{name:'Anderes Team'});
+ assert.equal((await request(owner,`/teams/${other.body.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,400);
+ const changed=await request(owner,`/teams/${team.id}`,'PATCH',{background_color:'#123456'});
+ assert.equal(changed.status,200);assert.equal(changed.body.background_color,'#123456');
+ assert.equal((await request(owner,`/teams/${team.id}`,'PATCH',{background_color:'invalid'})).status,400);
+ assert.equal((await request(owner,`/teams/${team.id}`,'PATCH',{background_color:null})).body.background_color,null);
+});

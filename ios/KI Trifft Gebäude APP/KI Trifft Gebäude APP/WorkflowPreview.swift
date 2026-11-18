@@ -133,7 +133,8 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let object = body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String:Any] ?? [:]
         let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
-        if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
+        if let fixture = NativeTeamsPreview.response(path, method: method, object: object) { status = fixture.0; result = fixture.1 }
+        else if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
         else if path.hasSuffix("admin/me") { result = ["admin":true] }
         else if path.contains("/admin/users/") && path.hasSuffix("/limits") {
             let items: [[String:Any]] = [["key":"assistant_day","label":"KI-Fragen pro 24 Stunden","default":20,"overridden":true,"override":50,"effective":50],["key":"plan_day","label":"Planaufträge pro 24 Stunden","default":3,"overridden":true,"override":NSNull(),"effective":NSNull()],["key":"storage_mb","label":"Speicher für eigene Gebäude (MB)","default":250,"overridden":false,"override":NSNull(),"effective":250]]

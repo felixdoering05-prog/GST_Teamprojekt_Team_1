@@ -291,7 +291,7 @@ struct BuildingDetailView: View {
         _name = State(initialValue: building.name); _address = State(initialValue: building.address)
     }
     private var isOwner: Bool { model.buildings.first(where: { $0.id == building.id })?.is_owner == true || building.is_owner == true }
-    private let areas = [("Dashboard", "Start", "chart.bar.xaxis"), ("3D", "Modell", "cube.transparent"), ("Geräte", "Geräte", "lightbulb"), ("KI", "KI", "sparkles"), ("Team", "Chat", "bubble.left.and.bubble.right")]
+    private let areas = [("Dashboard", "Start", "chart.bar.xaxis"), ("3D", "Modell", "cube.transparent"), ("Geräte", "Geräte", "lightbulb"), ("KI", "KI", "sparkles"), ("Team", "Team", "person.2")]
     private func isSelected(_ area: String) -> Bool { section == area || (area == "KI" && section == "Sprache") }
     private func open(_ area: String) {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { section = area }
@@ -336,7 +336,7 @@ struct BuildingDetailView: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .onChange(of: model.buildings) { _, all in if !all.contains(where: { $0.id == building.id }) { dismiss() } }
-        .sheet(isPresented: $sharing) { BuildingSharingView(building: building, account: model) }
+        .sheet(isPresented: $sharing) { NavigationStack { NativeBuildingTeamView(building: building, account: model).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { sharing = false } } } } }
         .sheet(isPresented: $managing) { management }
         .confirmationDialog("„\(name)“ endgültig löschen?", isPresented: Binding(get: { confirmDeletion && !managing }, set: { if !$0 { confirmDeletion = false } }), titleVisibility: .visible) {
             Button("Gebäude und zugehörige Daten löschen", role: .destructive) { Task { await deleteBuilding() } }
@@ -353,7 +353,8 @@ struct BuildingDetailView: View {
         case "Heatmap": BuildingHeatmapView(account: model, building: building)
         case "KI": BuildingAssistantView(building: building, account: model)
         case "Sprache": BuildingVoiceView(building: building, account: model)
-        case "Team", "Chat": BuildingChatView(building: building, account: model)
+        case "Team": NativeBuildingTeamView(building: building, account: model)
+        case "Chat": BuildingChatView(building: building, account: model)
         case "Sensorik", "Energie", "Analyse": TelemetryDashboardView(account: model, building: building, initialArea: section)
         // Aktuellen Stand aus der Gebäudeliste verwenden (z. B. neu hochgeladenes IFC-Modell), nicht den Stand beim Öffnen.
         default: BuildingCockpit(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open)
@@ -609,11 +610,11 @@ struct UIPreferences: Decodable {
 struct TeamInboxView:View {
     @ObservedObject var account:AccountModel
     @ObservedObject var social:CollaborationModel
-    @State private var section="Kontakte"
+    @State private var section="Teams"
     var body:some View {
         VStack(spacing:0) {
-            Picker("Team",selection:$section){Text("Kontakte").tag("Kontakte");Text(social.unread>0 ? "Mitteilungen (\(social.unread))" : "Mitteilungen").tag("Mitteilungen")}.pickerStyle(.segmented).padding()
-            if section=="Kontakte" {ContactsView(account:account,social:social)} else {NotificationsView(account:account,social:social,openContacts:{section="Kontakte"})}
+            Picker("Team",selection:$section){Text("Teams").tag("Teams");Text("Kontakte").tag("Kontakte");Text("Postfach").tag("Mitteilungen")}.pickerStyle(.segmented).padding()
+            if section=="Teams" {NativeTeamsEntry(account:account)} else if section=="Kontakte" {ContactsView(account:account,social:social)} else {NotificationsView(account:account,social:social,openContacts:{section="Kontakte"})}
         }.navigationTitle("Team")
     }
 }
