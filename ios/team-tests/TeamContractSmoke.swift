@@ -27,10 +27,10 @@ import Foundation
         precondition(!manager.canManage(manager.members[2], userID: 3)) // oneself
         precondition(manager.canManage(manager.members[2], userID: 2))
         let redacted = roles.map { row in row.filter { !["permissions","can_manage_members"].contains($0.key) } }
-        let readOnly = try access(owner: false, manages: false, rank: 2, permissions: ["schedule":"read","maintenance":"none"], roleRows: redacted)
+        let readOnly = try access(owner: false, manages: false, rank: 2, permissions: ["coordination":"read","maintenance":"none"], roleRows: redacted)
         precondition(readOnly.assignableRoles.isEmpty)
         precondition(!readOnly.canManage(readOnly.members[2], userID: 4))
-        precondition(readOnly.allows("schedule") && !readOnly.allows("schedule", edit: true))
+        precondition(readOnly.allows("coordination") && !readOnly.allows("coordination", edit: true))
         precondition(!readOnly.allows("maintenance"))
         let team = try JSONDecoder().decode(NativeTeam.self, from: Data(##"{"id":1,"name":"Nala","owner_id":1,"primary_color":"#596b3d","accent_color":"#cbd5a3","has_logo":false,"is_owner":false,"can_manage":false,"can_manage_groups":false,"buildings":[{"id":901,"name":"D21","address":"Campus","owner_id":1,"is_owner":false}]}"##.utf8))
         precondition(team.buildings.count == 1 && !team.can_manage)
