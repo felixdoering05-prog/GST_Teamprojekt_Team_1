@@ -25,6 +25,7 @@ import Alerts from './pages/Alerts';
 import DataSettings from './pages/DataSettings';
 import BuildingAssistant from './pages/BuildingAssistant';
 import TeamAccess from './pages/TeamAccess';
+import Teams from './pages/Teams';
 import BuildingSchedules from './pages/BuildingSchedules';
 import Admin from './pages/Admin';
 // Add page imports here
@@ -72,7 +73,8 @@ const AuthenticatedApp = () => {
           <Route path="/meldungen" element={<Alerts />} />
           <Route path="/daten" element={<DataSettings />} />
           <Route path="/assistent" element={<BuildingAssistant />} />
-          <Route path="/teams" element={<TeamAccess />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/rechte" element={<TeamAccess />} />
           <Route path="/zeitplanung" element={<BuildingSchedules />} />
           <Route path="/verwaltung" element={<Admin />} />
         </Route>
@@ -103,3 +105,4 @@ function App() {
 }
 
 export default App
+

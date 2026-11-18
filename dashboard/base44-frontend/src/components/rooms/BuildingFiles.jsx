@@ -34,6 +34,8 @@ export default function BuildingFiles({ building, onFilesAvailable, onDocumentsC
   const [rename, setRename] = useState(null), [newName, setNewName] = useState(''), [remove, setRemove] = useState(null), [preview, setPreview] = useState(null);
   const [imageLimit, setImageLimit] = useState(6);
   const query = useQuery({ queryKey: documentKey(building.id), queryFn: () => request(`/buildings/${building.id}/documents`) });
+  const access = useQuery({ queryKey: ['building-team-access',String(building.id)], queryFn: () => request(`/buildings/${building.id}/team-access`) });
+  const canEditFiles=access.data?.is_owner===true||access.data?.actor_role?.permissions?.documents==='edit';
   const files = query.data ?? [];
   const images = files.filter(isImage);
   const pending = queue.some(item => item.status !== 'done');
@@ -68,7 +70,7 @@ export default function BuildingFiles({ building, onFilesAvailable, onDocumentsC
     } finally { lock.current = false; setBusy(false); }
   }
   function choose(list) {
-    if (locked || lock.current) return;
+    if (!canEditFiles || locked || lock.current) return;
     setError(''); setSuccess('');
     const selected = Array.from(list ?? []), problems = [], items = [];
     for (const file of selected.slice(0, 20)) {
@@ -115,20 +117,20 @@ export default function BuildingFiles({ building, onFilesAvailable, onDocumentsC
   function actions(file) {
     return <div className="flex flex-wrap gap-1">
       <Button size="icon" variant="ghost" aria-label={`${file.name} herunterladen`} disabled={locked} onClick={() => open(file, true)}><Download className="h-4 w-4" /></Button>
-      <Button size="icon" variant="ghost" aria-label={`${file.name} umbenennen`} disabled={locked} onClick={() => { setNewName(file.name.slice(0, file.name.lastIndexOf('.'))); setRename(file); }}><Pencil className="h-4 w-4" /></Button>
-      <Button size="icon" variant="ghost" aria-label={`${file.name} löschen`} disabled={locked} onClick={() => setRemove(file)}><Trash2 className="h-4 w-4" /></Button>
+      {canEditFiles&&<><Button size="icon" variant="ghost" aria-label={`${file.name} umbenennen`} disabled={locked} onClick={() => { setNewName(file.name.slice(0, file.name.lastIndexOf('.'))); setRename(file); }}><Pencil className="h-4 w-4" /></Button>
+      <Button size="icon" variant="ghost" aria-label={`${file.name} löschen`} disabled={locked} onClick={() => setRemove(file)}><Trash2 className="h-4 w-4" /></Button></>}
     </div>;
   }
   return <section className={compact ? 'space-y-4' : 'surface space-y-5 p-5'}>
     {!compact && <div><h2 className="font-heading text-lg font-semibold">{mode === 'photos' ? 'Deine Bildergalerie' : mode === 'plans' ? 'Pläne und Modelle' : 'Bilder und Unterlagen'}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === 'photos' ? 'Fotos und Scans deines Gebäudes an einem Ort.' : 'Unterlagen hochladen, ansehen und gemeinsam verwenden.'}</p></div>}
-    <div onDragOver={event => { event.preventDefault(); if (!locked) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files); }} className={`rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${dragging ? 'border-primary bg-primary/10' : 'border-primary/20 bg-primary/5'}`}>
+    {canEditFiles?<div onDragOver={event => { event.preventDefault(); if (!locked) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files); }} className={`rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${dragging ? 'border-primary bg-primary/10' : 'border-primary/20 bg-primary/5'}`}>
       {mode === 'photos' ? <ImagePlus className="mx-auto mb-3 h-7 w-7 text-primary" aria-hidden="true" /> : <UploadCloud className="mx-auto mb-3 h-7 w-7 text-primary" aria-hidden="true" />}
       <Label htmlFor={inputId} className="block text-sm font-semibold">{mode === 'photos' ? 'Bilder hier ablegen' : 'Unterlagen hier ablegen'}</Label>
       <p className="mb-3 mt-1 text-xs text-muted-foreground">{mode === 'photos' ? 'JPG, PNG oder WebP' : 'PDF, Fotos/Scans, DXF, DWG oder IFC'} · mehrere Dateien möglich</p>
       <input ref={input} id={inputId} className="sr-only" type="file" multiple accept={mode === 'photos' ? '.jpg,.jpeg,.png,.webp' : '.pdf,.jpg,.jpeg,.png,.webp,.dxf,.dwg,.ifc'} disabled={locked} onChange={event => { choose(event.target.files); event.target.value = ''; }} />
       <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => input.current?.click()}>{busy ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}{mode === 'photos' ? 'Bilder auswählen' : 'Dateien auswählen'}</Button>
       <p className="mt-3 text-xs text-muted-foreground">Bis 25 MB pro Datei, IFC bis 20 MB. Bei aktivierter Plananalyse werden neue Bilder und PDFs wie freigegeben an Google Gemini übertragen.</p>
-    </div>
+    </div>:<p className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">Du kannst Unterlagen und Pläne ansehen und herunterladen. Zum Hinzufügen oder Ändern fehlt dir die Dateiberechtigung für dieses Gebäude.</p>}
     {queue.length > 0 && <div className="space-y-3 rounded-xl border p-3" aria-label="Dateiübertragungen">
       {queue.map(item => <div key={item.id} className="space-y-1"><div className="flex items-center justify-between gap-3 text-sm"><span className="truncate">{item.file.name}</span><span className="shrink-0 text-xs">{item.status === 'done' ? <span className="flex items-center gap-1 text-primary"><Check className="h-3 w-3" />Gespeichert</span> : item.status === 'error' ? 'Nicht gespeichert' : item.status === 'pending' ? 'Wartet' : item.progress >= 1 ? 'Server bestätigt …' : `${Math.round(item.progress * 100)} %`}</span></div>{item.status === 'uploading' && <progress className="h-1 w-full accent-primary" value={Math.min(item.progress, .99)} max="1" aria-label={`Upload von ${item.file.name}`} />}{item.error && <p role="alert" className="text-xs text-destructive">{item.error}</p>}</div>)}
       {pending && !busy && <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => upload(queue.filter(item => item.status !== 'done'))}><RefreshCw className="mr-1 h-3 w-3" />Fehlgeschlagene erneut versuchen</Button><Button size="sm" variant="ghost" onClick={() => setQueue([])}>Nicht gespeicherte Auswahl verwerfen</Button></div>}
@@ -145,3 +147,4 @@ export default function BuildingFiles({ building, onFilesAvailable, onDocumentsC
     <Dialog open={!!preview} onOpenChange={open => { if (!open) setPreview(null); }}><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>{preview?.file.name}</DialogTitle><DialogDescription>Gespeicherte Datei aus deiner Gebäudemappe.</DialogDescription></DialogHeader>{preview?.file.mime_type.startsWith('image/') ? <img alt={preview.file.name} src={preview.url} className="max-h-[70vh] w-full object-contain" /> : preview && <iframe title={preview.file.name} src={preview.url} className="h-[70vh] w-full" />}</DialogContent></Dialog>
   </section>;
 }
+

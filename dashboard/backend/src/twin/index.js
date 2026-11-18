@@ -170,7 +170,8 @@ function twinRouter(db,requireAccount) {
   const module={Building:'buildings',Floor:'structure',Room:'structure',Sensor:'sensors',Measurement:'sensors',EnergyReading:'energy',Alert:'issues',ThresholdConfig:'sensors'}[entity];
   async function scopedStorage(connection,operation){
    const rows=(await connection.query(`SELECT b.id,b.user_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(
-    SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted')`,[req.account.id])).rows;
+    SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted')
+    AND ($2::int IS NULL OR b.team_id=$2)`,[req.account.id,req.teamScope?.id??null])).rows;
    const buildingIDs=[],ownerIds=new Set([Number(req.account.id)]),ownerByBuilding={};
    for(const row of rows){
     const access=await buildingAccess(connection,Number(row.id),req.account.id);
@@ -188,6 +189,7 @@ function twinRouter(db,requireAccount) {
     if(membership.rows.length&&!owned.rows.length)fail('Diese Aktion braucht ein Gebäude, auf das du Zugriff hast.',403);
     return;
    }
+   if(req.teamScope&&!req.teamScope.buildingIDs.includes(Number(buildingID)))fail('Gebäude nicht in diesem Team gefunden.',404);
    const access=await buildingAccess(connection,Number(buildingID),req.account.id);
    if(!access)fail('Gebäude nicht gefunden.',404);
    if(!can(access,module,operation))fail('Dafür hast du in diesem Gebäude keine Berechtigung.',403);
@@ -277,3 +279,4 @@ async function transaction(db,userId,fn) {
  catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
 }
 module.exports={initTwin,twinRouter,service,transaction};
+
