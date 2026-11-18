@@ -89,7 +89,7 @@ function collaborationRouter(db,requireAccount){
   const result=await db.query('DELETE FROM app_contacts WHERE id=$1 AND (low_id=$2 OR high_id=$2) RETURNING id',[req.params.contactId,req.account.id]);
   if(!result.rows.length)return fail(res,404,'Kontakt nicht gefunden.');res.json({ok:true});
  }));
- r.get('/building-invitations',wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,u.name AS owner_name FROM app_building_members m JOIN app_buildings b ON b.id=m.building_id JOIN app_users u ON u.id=b.user_id WHERE m.user_id=$1 AND m.status='pending' ORDER BY b.id`,[req.account.id])).rows.map(x=>({...x,owner_name:firstName(x.owner_name)})))));
+ r.get('/building-invitations',wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.team_id,u.name AS owner_name FROM app_building_members m JOIN app_buildings b ON b.id=m.building_id JOIN app_users u ON u.id=b.user_id WHERE m.user_id=$1 AND m.status='pending' ORDER BY b.id`,[req.account.id])).rows.map(x=>({...x,owner_name:firstName(x.owner_name)})))));
  r.post('/buildings/:buildingId/invitation',wrap(async(req,res)=>{
   if(!['accept','decline'].includes(req.body?.action))return fail(res,400,'Bitte annehmen oder ablehnen.');
   await respondTransaction(db,res,async(c,res)=>{
