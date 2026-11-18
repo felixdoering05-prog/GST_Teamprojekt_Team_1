@@ -694,6 +694,7 @@ struct AccountHomeView: View {
                 .fullScreenCover(item: $planPreviewBuilding) { building in
                     NavigationStack {
                         if ProcessInfo.processInfo.arguments.contains("-D21MaintenancePreview") { BuildingMaintenanceView(building: building, account: model) }
+                        else if ProcessInfo.processInfo.arguments.contains("-D21EnergyPreview") { TelemetryDashboardView(account: model, building: building, initialArea: "Energie") }
                         else if ProcessInfo.processInfo.arguments.contains("-D21AutomationsPreview") { BuildingAutomationsView(building: building, account: model) }
                         else if ProcessInfo.processInfo.arguments.contains("-D21PlanEditorPreview") { PlanEditorView(building: building, jobID: PlanEditorPreviewData.jobID, account: model, onSaved: {}) }
                         else { PlanConversionView(building: building, account: model, onAdopt: {}) }
@@ -701,7 +702,7 @@ struct AccountHomeView: View {
                 }
                 .task(id: model.buildings.count) {
                     let args = ProcessInfo.processInfo.arguments
-                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
+                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview") || args.contains("-D21EnergyPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
                 }
                 #endif
                 .task { refreshDraft(); await HASync.syncAll(account: model) }

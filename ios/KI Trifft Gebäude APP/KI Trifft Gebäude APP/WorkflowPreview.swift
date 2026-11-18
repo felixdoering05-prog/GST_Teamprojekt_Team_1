@@ -198,6 +198,13 @@ final class WorkflowPreviewProtocol: URLProtocol {
                 WorkflowPreview.devices[index]["revision"] = (WorkflowPreview.devices[index]["revision"] as? Int ?? 0) + 1; result = WorkflowPreview.devices[index]
             } else { let id = Int(path.split(separator: "/").dropLast(1).last ?? "901") ?? 901; result = WorkflowPreview.devices.filter { $0["building_id"] as? Int == id } }
         }
+        else if path.hasSuffix("/energy-overview") {
+            let days = (0..<30).map { i -> [String:Any] in let d = Calendar.current.date(byAdding: .day, value: i - 29, to: .now)!; let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return ["day": f.string(from: d), "kwh": i == 29 ? 4.2 : 7.5 + Double((i * 7) % 5) - (i % 6 == 0 ? 2.5 : 0)] }
+            result = ["meters":[["entity_id":"sensor.zaehler","name":"Hauszähler","room":NSNull(),"today_kwh":4.2,"last7_kwh":56.4],["entity_id":"sensor.wallbox","name":"Wallbox","room":"Garage","today_kwh":0,"last7_kwh":21.0]],
+                      "power":[["entity_id":"sensor.leistung","name":"Hausleistung","room":NSNull(),"watts":812,"measured_at":"2026-11-17T20:00:00.000Z","stale":false]],
+                      "daily":days,"totals":["today_kwh":4.2,"yesterday_kwh":10.1,"last7_kwh":56.4,"avg_day_kwh":8.1],"base_load_w":240,
+                      "hints":["Gestern 25 % mehr Strom als im Schnitt der letzten Tage.","Nachts laufen dauerhaft etwa 240 W. Prüfe Geräte im Standby, Umwälzpumpe oder Kühlgeräte.","Wallbox hatte in den letzten 7 Tagen den größten Anteil (37 %)."]]
+        }
         else if path.hasSuffix("/maintenance/templates") { result = ["templates":[["title":"Heizungswartung","category":"heizung","interval_months":12,"notes":"Fachbetrieb"],["title":"Rauchmelder prüfen","category":"brandschutz","interval_months":12,"notes":""]],"categories":[]] }
         else if path.hasSuffix("/maintenance") && method == "GET" {
             let item: (Int, String, String, Int?, String?, String?, String?, String) -> [String:Any] = { ["id":$0,"title":$1,"category":$2,"interval_months":$3 as Any? ?? NSNull(),"last_done":$4 as Any? ?? NSNull(),"next_due":$5 as Any? ?? NSNull(),"warranty_until":$6 as Any? ?? NSNull(),"notes":"","revision":0,"status":$7,"can_edit":true] }

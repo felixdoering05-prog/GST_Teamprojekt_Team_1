@@ -42,9 +42,9 @@ async function ask(user,q='Wie groß ist das EG?'){
  return request(user,`/buildings/${building.id}/assistant`,{question:q,consent:'yes',context_hash:info.body.context_hash,chat:true},randomUUID());
 }
 test('declarations are read-only and the chat offers them to Gemini',async()=>{
- assert.deepEqual(toolDeclarations.map(t=>t.name),['ifc_rooms','ifc_elements','measurements','weather_heat','devices','ifc_quantities','ifc_clashes','ifc_find_elements','ifc_model_diff','maintenance']);
+ assert.deepEqual(toolDeclarations.map(t=>t.name),['ifc_rooms','ifc_elements','measurements','weather_heat','devices','ifc_quantities','ifc_clashes','ifc_find_elements','ifc_model_diff','maintenance','energy','documents','read_document']);
  calls=[];script=[{text:'Hallo.'}];const r=await ask(owner,'Hallo');assert.equal(r.status,200);
- assert.ok(calls[0].body.tools[0].functionDeclarations.length===10);assert.match(calls[0].body.systemInstruction.parts[0].text,/Vorschlag:/);
+ assert.ok(calls[0].body.tools[0].functionDeclarations.length===13);assert.match(calls[0].body.systemInstruction.parts[0].text,/Vorschlag:/);
  assert.equal(r.body.answer,'Hallo.');
 });
 test('tool loop answers room areas for a member and returns the model turn unchanged',async()=>{

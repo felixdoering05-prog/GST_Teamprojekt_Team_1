@@ -165,7 +165,7 @@ function assistantRouter(db,requireAccount,options={}){
     if(!calls.length||round===MAX_ROUNDS)break;
     if(calls.length>MAX_CALLS_PER_ROUND){const e=new Error('Too many tool calls');e.code=502;throw e;}
     const parts=[];
-    for(const part of calls){const {name,args,id}=part.functionCall;if(LABELS[name])usedTools.add(name);parts.push({functionResponse:{...(typeof id==='string'?{id}:{}),name,response:{result:await runTool(db,{user:req.account.id,building:building.id,options},name,args)}}});}
+    for(const part of calls){const {name,args,id}=part.functionCall;if(LABELS[name])usedTools.add(name);parts.push({functionResponse:{...(typeof id==='string'?{id}:{}),name,response:{result:await runTool(db,{user:req.account.id,building:building.id,options:{...options,getKey,fetch:fetchProvider}},name,args)}}});}
     // The model turn is returned unchanged so Gemini keeps its thought signatures.
     payload.contents.push(candidate.content,{role:'user',parts});
    }
