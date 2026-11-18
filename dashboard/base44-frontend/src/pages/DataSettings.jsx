@@ -3,6 +3,7 @@ import { Database } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import AppearanceCard from '@/components/settings/AppearanceCard';
+import TeamContactCard from '@/components/settings/TeamContactCard';
 import AISettingsCard from '@/components/settings/AISettingsCard';
 import DemoDataCard from '@/components/settings/DemoDataCard';
 import ImportMeasurementsCard from '@/components/settings/ImportMeasurementsCard';
@@ -104,6 +105,8 @@ export default function DataSettings() {
 
       <AppearanceCard />
 
+      <TeamContactCard />
+
       <AISettingsCard />
 
       <DemoDataCard counts={counts} onSeed={seed} onRemove={() => setConfirmOpen(true)} onRefresh={refreshAll} busy={busy} />
@@ -140,3 +143,4 @@ export default function DataSettings() {
     </div>
   );
 }
+
