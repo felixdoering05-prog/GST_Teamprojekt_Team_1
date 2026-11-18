@@ -31,6 +31,7 @@ const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
 const {initTeamPermissions,scopedAccessMiddleware}=require('./team-permissions');
 const {teamAccessRouter,initBuildingSchedules,scheduleRouter}=require('./team-access');
+const {initTeams,ensureDefaultTeam,teamScopeMiddleware,teamsRouter}=require('./teams');
 const express = require('express');
 const {initPasswordResets,passwordResetRouter}=require('./password-reset');
 const {initTwin,twinRouter}=require('./twin');
@@ -63,6 +64,7 @@ async function initAccounts(db) {
  await db.query('CREATE INDEX IF NOT EXISTS app_buildings_user_idx ON app_buildings(user_id)');
  await db.query('ALTER TABLE app_buildings ADD COLUMN IF NOT EXISTS creation_key TEXT');
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_buildings_creation_key_idx ON app_buildings(user_id,creation_key) WHERE creation_key IS NOT NULL');
+ await initTeams(db);
  await initPasswordResets(db);
  await initTwin(db);
  await initDocuments(db);await initIFCAnalysis(db);await initModelState(db);
@@ -103,6 +105,7 @@ function accountRouter(db,options={}) {
   state.count++;attempts.set(key,state);next();
  };
  const publicUser = u => ({id:u.id,name:u.name,email:u.email});
+ const applyTeamScope=teamScopeMiddleware(db);
  const session = async (user,connection=db) => {
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now()+SESSION_DAYS*86400000);
@@ -151,25 +154,30 @@ function accountRouter(db,options={}) {
  router.use(accountDeletionRouter(db,requireAccount,verifyPassword));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
- router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
- router.post('/buildings',requireAccount,wrap(async(req,res)=>{
+ router.get('/buildings',requireAccount,applyTeamScope,wrap(async(req,res)=>{
+  const params=[req.account.id],teamFilter=req.teamScope?' AND b.team_id=$2':'';if(req.teamScope)params.push(req.teamScope.id);
+  res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,b.team_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE (b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted'))${teamFilter} ORDER BY b.id`,params)).rows);
+ }));
+ router.post('/buildings',requireAccount,applyTeamScope,wrap(async(req,res)=>{
   const [owned,membership]=await Promise.all([
    db.query('SELECT 1 FROM app_buildings WHERE user_id=$1 LIMIT 1',[req.account.id]),
    db.query("SELECT 1 FROM app_building_members WHERE user_id=$1 AND status='accepted' LIMIT 1",[req.account.id]),
   ]);
   if(membership.rows.length&&!owned.rows.length)return res.status(403).json({error:'Mitgliedskonten können nur Gebäude anlegen, auf die sie selbst Eigentümerrechte haben.'});
+  if(req.teamScope&&!req.teamScope.is_owner)return res.status(403).json({error:'In diesem Team kann nur die Teamleitung Gebäude anlegen.'});
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const address=typeof req.body?.address==='string'?req.body.address.trim():'';
   if(!name||name.length>200||address.length>500)return res.status(400).json({error:'Gebäudename erforderlich (max. 200 Zeichen); Adresse max. 500 Zeichen.'});
   const key=req.get('X-Request-ID')||null;
+  const team=req.teamScope?.is_owner?{id:req.teamScope.id}:await ensureDefaultTeam(db,req.account.id);
   if(key&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(key))return res.status(400).json({error:'Ungültige Anfrage-Kennung.'});
-  if(!key)return res.status(201).json((await db.query('INSERT INTO app_buildings(user_id,name,address) VALUES($1,$2,$3) RETURNING id,name,address,created_at',[req.account.id,name,address])).rows[0]);
+  if(!key)return res.status(201).json((await db.query('INSERT INTO app_buildings(user_id,name,address,team_id) VALUES($1,$2,$3,$4) RETURNING id,name,address,team_id,created_at',[req.account.id,name,address,team.id])).rows[0]);
   const client=await db.connect();
   try {
    await client.query('BEGIN');await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[req.account.id]);
    const existing=(await client.query('SELECT id,name,address,created_at FROM app_buildings WHERE user_id=$1 AND creation_key=$2',[req.account.id,key])).rows[0];
    if(existing){await client.query('COMMIT');return res.json(existing);}
-   const created=(await client.query('INSERT INTO app_buildings(user_id,name,address,creation_key) VALUES($1,$2,$3,$4) RETURNING id,name,address,created_at',[req.account.id,name,address,key])).rows[0];
+   const created=(await client.query('INSERT INTO app_buildings(user_id,name,address,creation_key,team_id) VALUES($1,$2,$3,$4,$5) RETURNING id,name,address,team_id,created_at',[req.account.id,name,address,key,team.id])).rows[0];
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
@@ -177,8 +185,9 @@ function accountRouter(db,options={}) {
  // Device ingestion is authenticated by its per-device token in sensorDevicesRouter.
  router.use((req,res,next)=>{
   const tokenAuthenticated=req.path==='/sensor-input'||req.path==='/ha-client'||req.path==='/ha-bridge'||req.path.startsWith('/ha-bridge/');
-  return tokenAuthenticated?next():requireAccount(req,res,next);
+  return tokenAuthenticated?next():requireAccount(req,res,()=>applyTeamScope(req,res,next));
  });
+ router.use(teamsRouter(db,requireAccount));
  router.use(scopedAccessMiddleware(db));
  router.use(buildingDeletionRouter(db,requireAccount));
  router.use(teamAccessRouter(db,requireAccount));
@@ -218,3 +227,4 @@ function accountRouter(db,options={}) {
  return router;
 }
 module.exports={initAccounts,accountRouter,passwordHash,verifyPassword};
+
