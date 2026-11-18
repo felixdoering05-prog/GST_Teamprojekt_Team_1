@@ -145,14 +145,14 @@ async function initBuildingSchedules(db){
   updated_by INTEGER REFERENCES app_users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK(ends_at IS NULL OR ends_at>=starts_at))`);
  await db.query(`ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'appointment',ADD COLUMN IF NOT EXISTS interval_days INTEGER,ADD COLUMN IF NOT EXISTS reminder_days INTEGER,ADD COLUMN IF NOT EXISTS room_id TEXT,ADD COLUMN IF NOT EXISTS sensor_id TEXT`);
- await db.query(`DO $ BEGIN
+ await db.query(`DO $$ BEGIN
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='app_building_schedules' AND column_name='room_id' AND data_type<>'text') THEN
    ALTER TABLE app_building_schedules ALTER COLUMN room_id TYPE TEXT USING room_id::text;
   END IF;
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='app_building_schedules' AND column_name='sensor_id' AND data_type<>'text') THEN
    ALTER TABLE app_building_schedules ALTER COLUMN sensor_id TYPE TEXT USING sensor_id::text;
   END IF;
- END $`);
+ END $$`);
  await db.query('CREATE INDEX IF NOT EXISTS app_building_schedules_scope_idx ON app_building_schedules(building_id,starts_at,id)');
 }
 function scheduleRouter(db,requireAccount){
