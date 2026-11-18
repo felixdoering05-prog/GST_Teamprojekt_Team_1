@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [18.11.2026 09:15 · Feuchtealarm und Neustart](berichte/2026-11-18-0915.md)
+
 - [17.11.2026 17:04 · Home Assistant und Lampenstatus](berichte/2026-11-17-1704.md)
 
 - [17.11.2026 09:15 · Doppelte Sprachanfragen](berichte/2026-11-17-0915.md)
