@@ -8,6 +8,8 @@ struct NativeTeamsEntry: View {
         #if DEBUG
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21BuildingTeamPreview") {
             NativeBuildingTeamView(building: Building(id: 901, name: "Gebäude D21", address: "Hochschule Darmstadt"), account: account)
+        } else if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21TeamSchedulePreview") {
+            NativeBuildingSchedules(building: Building(id: 901, name: "Gebäude D21", address: "Hochschule Darmstadt"), account: account)
         } else if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21TeamGroupPreview") {
             NativeGroupDetail(team: previewTeam, group: NativeBuildingGroup(id: 1, name: "Campus Darmstadt", team_id: 1, buildings: previewTeam.buildings), account: account)
         } else if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21TeamDetailPreview") {

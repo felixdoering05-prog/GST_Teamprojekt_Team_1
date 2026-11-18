@@ -1,9 +1,9 @@
 const MODULES = [
   'overview', 'buildings', 'structure', 'sensors', 'energy', 'analysis', 'assistant',
-  'issues', 'documents', 'settings', 'bim', 'coordination', 'maintenance',
+  'issues', 'documents', 'settings', 'bim', 'schedule', 'coordination', 'maintenance',
 ];
 const FULL = Object.fromEntries(MODULES.map(name => [name, 'edit']));
-const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, name==='maintenance'?'none':name==='coordination'?'edit':'read']));
+const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, name==='maintenance'?'none':['schedule', 'coordination'].includes(name) ? 'edit' : 'read']));
 const DEFAULT_ROLES = [
   { key: 'management', name: 'Management', sort: 0, canManageMembers: true, permissions: FULL },
   { key: 'employee', name: 'Employee', sort: 1, canManageMembers: false, permissions: FULL },
@@ -30,8 +30,6 @@ async function initTeamPermissions(db) {
   )`);
   await db.query('ALTER TABLE app_building_members ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES app_building_roles(id) ON DELETE SET NULL');
   await db.query('CREATE INDEX IF NOT EXISTS app_building_roles_order_idx ON app_building_roles(building_id,sort_order,id)');
-  await db.query("UPDATE app_building_roles SET permissions=permissions-'schedule' WHERE permissions ? 'schedule'");
-  await db.query('DROP TABLE IF EXISTS app_building_schedules');
 }
 
 async function ensureBuildingRoles(db, buildingID) {

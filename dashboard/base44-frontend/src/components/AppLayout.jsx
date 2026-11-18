@@ -6,6 +6,7 @@ import {
   Boxes,
   BrainCircuit,
   Building2,
+  CalendarClock,
   Database,
   Flame,
   LayoutDashboard,
@@ -43,6 +44,7 @@ const NAV_GROUPS = [
   {
     label: 'Benachrichtigungen',
     items: [
+      { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
     ],
   },

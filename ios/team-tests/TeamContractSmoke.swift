@@ -41,7 +41,7 @@ import Foundation
         precondition(title.name == "Sensorik")
         let group = try JSONDecoder().decode(NativeBuildingGroup.self, from: Data(##"{"id":4,"team_id":1,"name":"Campus","buildings":[{"id":901,"name":"D21"}]}"##.utf8))
         precondition(group.buildings[0].address == nil)
-        precondition(Set(nativeTeamModules.map(\.key)).count == 13)
+        precondition(Set(nativeTeamModules.map(\.key)).count == 14)
         print("Team contract and authorization presentation checks passed.")
     }
 }
