@@ -52,7 +52,7 @@ const permissionGroups = [
     label: 'Zusammenarbeit & Termine',
     icon: Users,
     items: [
-      { key: 'schedule', label: 'Zeitplanung', hint: 'Termine, Fristen und Aufgabenplanung' },
+      { key: 'schedule', label: 'Kalender', hint: 'Termine, Fristen und Aufgabenplanung' },
       { key: 'coordination', label: 'Teamchat & Koordination', hint: 'Nachrichten und interne Teamabstimmung' },
       { key: 'issues', label: 'Mängel & Meldungen', hint: 'Erfassen, Bearbeiten und Lösen von Gebäudemängeln' },
       { key: 'assistant', label: 'Gebäude-Assistent', hint: 'Fragen an Nala zu Gebäudedaten und Unterlagen' },
