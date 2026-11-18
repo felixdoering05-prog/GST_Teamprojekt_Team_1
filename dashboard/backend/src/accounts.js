@@ -29,6 +29,8 @@ const {initLiveVoice,liveVoiceRouter}=require('./live-voice');
 const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
+const {initTeamPermissions,scopedAccessMiddleware}=require('./team-permissions');
+const {teamAccessRouter,initBuildingSchedules,scheduleRouter}=require('./team-access');
 const express = require('express');
 const {initPasswordResets,passwordResetRouter}=require('./password-reset');
 const {initTwin,twinRouter}=require('./twin');
@@ -66,6 +68,8 @@ async function initAccounts(db) {
  await initDocuments(db);await initIFCAnalysis(db);await initModelState(db);
  await initProfile(db);
  await initCollaboration(db);
+ await initTeamPermissions(db);
+ await initBuildingSchedules(db);
  await initAssistant(db);
  await initAdmin(db);
  await initDevices(db);
@@ -106,7 +110,7 @@ function accountRouter(db,options={}) {
   return {token,expires_at:expiresAt.toISOString(),user:publicUser(user)};
  };
  // Middleware wrapper explicitly continues only after successful authentication.
- const requireAccount=(req,res,next)=>Promise.resolve(authenticateAccount(req,res)).then(ok=>{if(ok)next()}).catch(next);
+ const requireAccount=(req,res,next)=>{if(req.account)return next();return Promise.resolve(authenticateAccount(req,res)).then(ok=>{if(ok)next()}).catch(next);};
  async function authenticateAccount(req,res){
   const token=req.get('X-D21-Session')||'';
   if(!/^[a-f0-9]{64}$/.test(token)){res.status(401).json({error:'Bitte anmelden.'});return false;}
@@ -145,11 +149,15 @@ function accountRouter(db,options={}) {
  }));
  router.use(passwordResetRouter(db,{passwordHash:boundedHash,throttle,...options}));
  router.use(accountDeletionRouter(db,requireAccount,verifyPassword));
- router.use(buildingDeletionRouter(db,requireAccount));
  router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
  router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
  router.get('/buildings',requireAccount,wrap(async(req,res)=>res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted') ORDER BY b.id`,[req.account.id])).rows)));
  router.post('/buildings',requireAccount,wrap(async(req,res)=>{
+  const [owned,membership]=await Promise.all([
+   db.query('SELECT 1 FROM app_buildings WHERE user_id=$1 LIMIT 1',[req.account.id]),
+   db.query("SELECT 1 FROM app_building_members WHERE user_id=$1 AND status='accepted' LIMIT 1",[req.account.id]),
+  ]);
+  if(membership.rows.length&&!owned.rows.length)return res.status(403).json({error:'Mitgliedskonten können nur Gebäude anlegen, auf die sie selbst Eigentümerrechte haben.'});
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const address=typeof req.body?.address==='string'?req.body.address.trim():'';
   if(!name||name.length>200||address.length>500)return res.status(400).json({error:'Gebäudename erforderlich (max. 200 Zeichen); Adresse max. 500 Zeichen.'});
@@ -165,6 +173,16 @@ function accountRouter(db,options={}) {
    await client.query('COMMIT');res.status(201).json(created);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
+ // Every building-scoped API below is authenticated and checked against the member's role.
+ // Device ingestion is authenticated by its per-device token in sensorDevicesRouter.
+ router.use((req,res,next)=>{
+  const tokenAuthenticated=req.path==='/sensor-input'||req.path==='/ha-client'||req.path==='/ha-bridge'||req.path.startsWith('/ha-bridge/');
+  return tokenAuthenticated?next():requireAccount(req,res,next);
+ });
+ router.use(scopedAccessMiddleware(db));
+ router.use(buildingDeletionRouter(db,requireAccount));
+ router.use(teamAccessRouter(db,requireAccount));
+ router.use(scheduleRouter(db,requireAccount));
  router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use(sensorDevicesRouter(db,requireAccount));

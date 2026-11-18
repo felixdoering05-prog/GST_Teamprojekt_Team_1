@@ -6,6 +6,7 @@ import {
   Boxes,
   BrainCircuit,
   Building2,
+  CalendarClock,
   Database,
   Flame,
   LayoutDashboard,
@@ -16,38 +17,45 @@ import {
   ShieldCheck,
   X,
   Zap,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { request, base44 } from '@/api/base44Client';
 
 const NAV = [
-  { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
-  { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
-  { path: '/heat-map', label: 'Heat Map', icon: Flame, hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
-  { path: '/gebaeude', label: 'Gebäude', icon: Building2, hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
-  { path: '/sensorik', label: 'Sensorik', icon: Radio, hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
-  { path: '/energie', label: 'Energie', icon: Zap, hint: 'Energieverbrauch und Auswertungen' },
-  { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
-  { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
-  { path: '/meldungen', label: 'Meldungen', icon: BellRing, hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
-  { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und Konfiguration' },
+  { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, module:'overview', hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
+  { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, module:'bim', hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
+  { path: '/heat-map', label: 'Heat Map', icon: Flame, module:'bim', hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
+  { path: '/gebaeude', label: 'Gebäude', icon: Building2, module:'buildings', hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
+  { path: '/sensorik', label: 'Sensorik', icon: Radio, module:'sensors', hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
+  { path: '/energie', label: 'Energie', icon: Zap, module:'energy', hint: 'Energieverbrauch und Auswertungen' },
+  { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, module:'analysis', hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
+  { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module:'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
+  { path: '/meldungen', label: 'Meldungen', icon: BellRing, module:'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
+  { path: '/daten', label: 'Daten & Einstellungen', icon: Database, module:'settings', hint: 'Datenimport, Export und Konfiguration' },
 ];
 
 const ADMIN_NAV = {path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'};
 const NAV_GROUPS = [
   { label: 'Gebäude', items: NAV.slice(0, 4) },
+  { label: 'Zusammenarbeit', items: [
+    { path: '/teams', label: 'Teams & Rechte', icon: Users, hint: 'Gebäudezugriff, Rollen und Berechtigungen verwalten' },
+    { path: '/zeitplanung', label: 'Zeitplanung', icon: CalendarClock, module:'schedule', hint: 'Gebäudebezogene Termine und Aufgaben koordinieren' },
+  ] },
   { label: 'Auswertung', items: NAV.slice(4, 9) },
   { label: 'Verwaltung', items: NAV.slice(9) },
 ];
 
-function NavItems({ onNavigate, isAdmin }) {
+function NavItems({ onNavigate, isAdmin, permissions }) {
   return (
     <nav aria-label="Hauptnavigation" className="space-y-5 px-3">
-      {NAV_GROUPS.map((group) => (
+      {NAV_GROUPS.map((group) => {
+        const items=group.items.filter(item=>!item.module||permissions===null||permissions[item.module]!=='none');
+        return items.length>0&&(
         <div key={group.label}>
           <p className="shell-nav-heading">{group.label}</p>
           <div className="flex flex-col gap-1">
-      {[...group.items, ...(group.label === 'Verwaltung' && isAdmin ? [ADMIN_NAV] : [])].map((item) => {
+      {[...items, ...(group.label === 'Verwaltung' && isAdmin ? [ADMIN_NAV] : [])].map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -75,14 +83,15 @@ function NavItems({ onNavigate, isAdmin }) {
       })}
           </div>
         </div>
-      ))}
+      );})}
     </nav>
   );
 }
 
-function SidebarBody({ onNavigate }) {
+function SidebarBody({ onNavigate, scopeKey }) {
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [permissions,setPermissions]=useState(null);
 
   useEffect(() => {
     request('/admin/me').then(data=>setIsAdmin(data.admin)).catch(()=>setIsAdmin(false));
@@ -91,6 +100,21 @@ function SidebarBody({ onNavigate }) {
       .then((u) => setEmail(u?.email || ''))
       .catch(() => setEmail(''));
   }, []);
+  useEffect(()=>{
+    let active=true;
+    const load=async()=>{
+      try{
+        const buildings=await request('/buildings');
+        if(!buildings.length){if(active)setPermissions(null);return;}
+        const preferred=localStorage.getItem('d21-selected-building');
+        const building=buildings.find(row=>String(row.id)===preferred)||buildings[0];
+        const access=await request(`/buildings/${building.id}/team-access`);
+        if(active)setPermissions(access.is_owner?null:access.actor_role?.permissions||{});
+      }catch{if(active)setPermissions(null);}
+    };
+    load();window.addEventListener('d21-building-change',load);
+    return()=>{active=false;window.removeEventListener('d21-building-change',load);};
+  },[scopeKey]);
 
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
@@ -106,7 +130,7 @@ function SidebarBody({ onNavigate }) {
 
       <div className="shell-divider mx-5 mb-2 h-px" />
       <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
-        <NavItems isAdmin={isAdmin} onNavigate={onNavigate} />
+        <NavItems isAdmin={isAdmin} onNavigate={onNavigate} permissions={permissions} />
       </div>
 
       <div className="shell-account border-t px-4 py-4">
@@ -137,7 +161,7 @@ function SidebarBody({ onNavigate }) {
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const current = [...NAV,ADMIN_NAV].find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
+  const current = [...NAV,...NAV_GROUPS.flatMap(group=>group.items),ADMIN_NAV].find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
@@ -150,7 +174,7 @@ export default function AppLayout() {
     <div className="glass-app min-h-screen">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="shell-sidebar fixed z-40 hidden lg:block">
-        <SidebarBody />
+        <SidebarBody scopeKey={`${location.pathname}${location.search}`} />
       </aside>
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -161,7 +185,7 @@ export default function AppLayout() {
             <Dialog.Close aria-label="Menü schließen" className="shell-icon-button absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="h-4 w-4" />
             </Dialog.Close>
-            <SidebarBody onNavigate={() => setOpen(false)} />
+            <SidebarBody scopeKey={`${location.pathname}${location.search}`} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { accessibleBuilding } = require('./collaboration');
+const { buildingAccess, can } = require('./team-permissions');
 const MAX_MODEL = 20 * 1024 * 1024;
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 
@@ -23,9 +23,11 @@ function campusRouter(db, requireAccount, options = {}) {
     if (!configuredBuilding) {
       res.status(503).json({error:'Die D21-Gebäudezuordnung ist auf dem Projektserver nicht eingerichtet.'}); return null;
     }
-    if (!await accessibleBuilding(db, buildingID, req.account.id)) {
+    const access = await buildingAccess(db, buildingID, req.account.id);
+    if (!access) {
       res.status(404).json({error:'Das D21-Campusmodell ist für dieses Konto nicht freigegeben.'}); return null;
     }
+    if (!can(access, 'bim', 'read')) { res.status(403).json({error:'Dafür hast du in diesem Gebäude keine Berechtigung.'}); return null; }
     const filename = options.file ?? process.env.D21_CAMPUS_MODEL_FILE ?? '/run/d21-models/H_DA_D21_Final.ifc';
     if (!path.isAbsolute(filename)) { res.status(503).json({error:'Das D21-Modell ist auf dem Projektserver noch nicht eingerichtet.'}); return null; }
     let handle;

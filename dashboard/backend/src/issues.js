@@ -1,6 +1,7 @@
 const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
 const {accessibleBuilding,accessSQL,notifyBuilding}=require('./collaboration');
+const {buildingAccess,can}=require('./team-permissions');
 const {campusBuildingID}=require('./campus');
 // Defect reports ("Mängel") per building: text, optional photo and an optional position in an IFC model
 // (model coordinates as used by the iOS viewer and room locator). Members may report and change the
@@ -93,7 +94,9 @@ function issuesRouter(db,requireAccount,campusOptions){
     AND ($4::text IS NULL OR ($4='open' AND i.status IN ('open','in_progress')) OR i.status=$4)
    ORDER BY i.id DESC LIMIT ${OVERVIEW_LIMIT+1}`,[req.account.id,buildingID??null,before??null,status??null])).rows;
   const truncated=rows.length>OVERVIEW_LIMIT;
-  res.json({truncated,next_before:truncated?rows[OVERVIEW_LIMIT-1].id:null,issues:rows.slice(0,OVERVIEW_LIMIT).map(row=>({
+  const permitted=[];
+  for(const row of rows){const access=await buildingAccess(db,row.building_id,req.account.id);if(access&&can(access,'issues','read'))permitted.push(row);}
+  res.json({truncated,next_before:truncated?rows[OVERVIEW_LIMIT-1].id:null,issues:permitted.slice(0,OVERVIEW_LIMIT).map(row=>({
    ...present(row,req.account.id,row.owner_id),building_name:row.building_name,building_address:row.building_address
   }))});
  }));
@@ -146,7 +149,7 @@ function issuesRouter(db,requireAccount,campusOptions){
    const b=await building(c,req),row=await issue(c,req,b,true);
    if(row.revision!==body.revision)fail('Mangel wurde inzwischen geändert. Bitte neu laden.',409);
    const editing=['title','description','room','priority'].some(k=>body[k]!==undefined);
-   if(editing&&row.user_id!==req.account.id&&b.user_id!==req.account.id)fail('Nur die meldende Person oder der Eigentümer kann die Angaben ändern.',403);
+   if(editing&&row.user_id!==req.account.id&&b.user_id!==req.account.id&&!can(req.buildingAccess,'issues','edit'))fail('Nur die meldende Person, eine berechtigte Teamrolle oder der Eigentümer kann die Angaben ändern.',403);
    const next={status:body.status??row.status,title:body.title===undefined?row.title:text(body.title,120,'Titel',true),description:body.description===undefined?row.description:text(body.description,2000,'Beschreibung'),room:body.room===undefined?row.room:text(body.room,100,'Raum'),priority:body.priority??row.priority};
    const changed=Object.keys(next).filter(key=>next[key]!==row[key]);
    if(!changed.length)return {row,owner:b.user_id};
@@ -164,18 +167,18 @@ function issuesRouter(db,requireAccount,campusOptions){
  r.delete(base+'/:issue',wrap(async(req,res)=>{
   await tx(async c=>{
    const b=await building(c,req),row=await issue(c,req,b,true);
-   if(row.user_id!==req.account.id&&b.user_id!==req.account.id)fail('Nur die meldende Person oder der Eigentümer kann löschen.',403);
+   if(row.user_id!==req.account.id&&b.user_id!==req.account.id&&!can(req.buildingAccess,'issues','edit'))fail('Nur die meldende Person, eine berechtigte Teamrolle oder der Eigentümer kann löschen.',403);
    await c.query('DELETE FROM app_building_issues WHERE id=$1',[row.id]);
   });
   res.json({ok:true});
  }));
  // Photos as raw bytes (not base64 JSON); authenticated and checked before buffering.
- r.put(base+'/:issue/photo',wrap(async(req,res,next)=>{const b=await building(db,req),row=await issue(db,req,b);if(row.user_id!==req.account.id&&b.user_id!==req.account.id)fail('Nur die meldende Person oder der Eigentümer kann das Foto ändern.',403);next();}),
+ r.put(base+'/:issue/photo',wrap(async(req,res,next)=>{const b=await building(db,req),row=await issue(db,req,b);if(row.user_id!==req.account.id&&b.user_id!==req.account.id&&!can(req.buildingAccess,'issues','edit'))fail('Nur die meldende Person, eine berechtigte Teamrolle oder der Eigentümer kann das Foto ändern.',403);next();}),
   express.raw({type:['image/jpeg','image/png','application/octet-stream'],limit:MAX_PHOTO}),wrap(async(req,res)=>{
   if(!Buffer.isBuffer(req.body)||!req.body.length)fail('Bitte ein Foto auswählen.');
   const type=photoType(req.body);if(!type)fail('Erlaubt sind JPG- und PNG-Fotos.',415);
   const result=await tx(async c=>{const b=await building(c,req),row=await issue(c,req,b,true);
-   if(row.user_id!==req.account.id&&b.user_id!==req.account.id)fail('Nur die meldende Person oder der Eigentümer kann das Foto ändern.',403);
+   if(row.user_id!==req.account.id&&b.user_id!==req.account.id&&!can(req.buildingAccess,'issues','edit'))fail('Nur die meldende Person, eine berechtigte Teamrolle oder der Eigentümer kann das Foto ändern.',403);
    const changed=await c.query('UPDATE app_building_issues SET photo=$2,photo_type=$3,revision=revision+1,updated_at=now() WHERE id=$1 AND photo IS DISTINCT FROM $2',[row.id,req.body,type]);
    if(changed.rowCount)await recordChange(c,row.id,row.revision+1,req.account.id,'photo');
    return {row:await issue(c,req,b),owner:b.user_id};});
