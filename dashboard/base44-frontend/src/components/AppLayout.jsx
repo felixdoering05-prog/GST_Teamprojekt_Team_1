@@ -22,29 +22,43 @@ import {
 import { cn } from '@/lib/utils';
 import { request, base44 } from '@/api/base44Client';
 
-const NAV = [
-  { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, module:'overview', hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
-  { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, module:'bim', hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
-  { path: '/heat-map', label: 'Heat Map', icon: Flame, module:'bim', hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
-  { path: '/gebaeude', label: 'Gebäude', icon: Building2, module:'buildings', hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
-  { path: '/sensorik', label: 'Sensorik', icon: Radio, module:'sensors', hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
-  { path: '/energie', label: 'Energie', icon: Zap, module:'energy', hint: 'Energieverbrauch und Auswertungen' },
-  { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, module:'analysis', hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
-  { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module:'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
-  { path: '/meldungen', label: 'Meldungen', icon: BellRing, module:'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
-  { path: '/daten', label: 'Daten & Einstellungen', icon: Database, module:'settings', hint: 'Datenimport, Export und Konfiguration' },
+const NAV_GROUPS = [
+  {
+    label: 'Gebäude',
+    items: [
+      { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, module: 'overview', hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
+      { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, module: 'bim', hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
+      { path: '/heat-map', label: 'Heat Map', icon: Flame, module: 'bim', hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
+      { path: '/gebaeude', label: 'Gebäude', icon: Building2, module: 'buildings', hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
+    ],
+  },
+  {
+    label: 'Auswertung',
+    items: [
+      { path: '/sensorik', label: 'Sensorik', icon: Radio, module: 'sensors', hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
+      { path: '/energie', label: 'Energie', icon: Zap, module: 'energy', hint: 'Energieverbrauch und Auswertungen' },
+      { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, module: 'analysis', hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
+    ],
+  },
+  {
+    label: 'Zusammenarbeit',
+    items: [
+      { path: '/zeitplanung', label: 'Zeitplanung', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine und Aufgaben koordinieren' },
+      { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
+      { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module: 'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
+      { path: '/teams', label: 'Teams & Rechte', icon: Users, module: 'coordination', hint: 'Gebäudezugriff, Rollen und Berechtigungen verwalten' },
+    ],
+  },
+  {
+    label: 'Verwaltung',
+    items: [
+      { path: '/daten', label: 'Daten & Einstellungen', icon: Database, module: 'settings', hint: 'Datenimport, Export und Konfiguration' },
+    ],
+  },
 ];
 
-const ADMIN_NAV = {path:'/verwaltung',label:'Serververwaltung',icon:ShieldCheck,hint:'Serverkapazität, API-Nutzung und Konten'};
-const NAV_GROUPS = [
-  { label: 'Gebäude', items: NAV.slice(0, 4) },
-  { label: 'Zusammenarbeit', items: [
-    { path: '/teams', label: 'Teams & Rechte', icon: Users, hint: 'Gebäudezugriff, Rollen und Berechtigungen verwalten' },
-    { path: '/zeitplanung', label: 'Zeitplanung', icon: CalendarClock, module:'schedule', hint: 'Gebäudebezogene Termine und Aufgaben koordinieren' },
-  ] },
-  { label: 'Auswertung', items: NAV.slice(4, 9) },
-  { label: 'Verwaltung', items: NAV.slice(9) },
-];
+const ADMIN_NAV = { path: '/verwaltung', label: 'Serververwaltung', icon: ShieldCheck, hint: 'Serverkapazität, API-Nutzung und Konten' };
+const ALL_NAV = [...NAV_GROUPS.flatMap((group) => group.items), ADMIN_NAV];
 
 function NavItems({ onNavigate, isAdmin, permissions }) {
   return (
@@ -161,7 +175,7 @@ function SidebarBody({ onNavigate, scopeKey }) {
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const current = [...NAV,...NAV_GROUPS.flatMap(group=>group.items),ADMIN_NAV].find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || NAV[0];
+  const current = ALL_NAV.find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || ALL_NAV[0];
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
