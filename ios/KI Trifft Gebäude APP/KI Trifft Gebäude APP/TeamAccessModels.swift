@@ -94,6 +94,6 @@ let nativeTeamModules: [(key: String, title: String)] = [
     ("structure", "Geschosse & Räume"), ("bim", "3D-Modell"), ("documents", "Dateien & Pläne"),
     ("sensors", "Sensoren & Geräte"), ("energy", "Energie"), ("analysis", "KI-Analyse"),
     ("assistant", "Gebäude-Assistent"), ("issues", "Mängel"), ("maintenance", "Wartung"),
-    ("schedule", "Zeitplanung"), ("coordination", "Teamchat"), ("settings", "Einstellungen & Importe")
+    ("coordination", "Teamchat"), ("settings", "Einstellungen & Importe")
 ]
 
