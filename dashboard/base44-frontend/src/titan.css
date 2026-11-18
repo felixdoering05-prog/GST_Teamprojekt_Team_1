@@ -1,7 +1,7 @@
-html[data-theme="light"] { color-scheme: light; }
+html[data-theme="light"] { color-scheme: light; --background: var(--team-background, 38 20% 87%); }
 html[data-theme="dark"] {
   color-scheme: dark;
-  --background: 222 24% 11%;
+  --background: var(--team-background, 222 24% 11%);
   --foreground: 215 28% 94%;
   --card: 220 23% 16%;
   --card-foreground: 215 28% 94%;

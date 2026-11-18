@@ -13,12 +13,16 @@ async function initTeams(db){
   is_default BOOLEAN NOT NULL DEFAULT false,
   primary_color TEXT NOT NULL DEFAULT '#596b3d',
   accent_color TEXT NOT NULL DEFAULT '#cbd5a3',
+  background_color TEXT,
   logo_type TEXT,
   logo BYTEA,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK((logo IS NULL)=(logo_type IS NULL))
  )`);
+ await db.query('ALTER TABLE app_teams ADD COLUMN IF NOT EXISTS background_color TEXT');
+ await db.query(`CREATE TABLE IF NOT EXISTS app_team_titles(id SERIAL PRIMARY KEY,team_id INTEGER NOT NULL REFERENCES app_teams(id) ON DELETE CASCADE,name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 60),UNIQUE(team_id,name))`);
+ await db.query(`CREATE TABLE IF NOT EXISTS app_team_member_titles(team_id INTEGER NOT NULL REFERENCES app_teams(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,title_id INTEGER NOT NULL REFERENCES app_team_titles(id) ON DELETE CASCADE,PRIMARY KEY(team_id,user_id))`);
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_teams_default_owner_idx ON app_teams(owner_id) WHERE is_default=true');
  await db.query('ALTER TABLE app_buildings ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES app_teams(id) ON DELETE SET NULL');
  await db.query('CREATE INDEX IF NOT EXISTS app_buildings_team_idx ON app_buildings(team_id,id)');
@@ -46,7 +50,7 @@ async function ensureDefaultTeam(db,userID){
 }
 
 async function accessibleTeam(db,teamID,userID){
- const team=(await db.query(`SELECT t.id,t.owner_id,t.name,t.is_default,t.primary_color,t.accent_color,(t.logo IS NOT NULL) has_logo,u.name AS leader_name
+ const team=(await db.query(`SELECT t.id,t.owner_id,t.name,t.is_default,t.primary_color,t.accent_color,t.background_color,(t.logo IS NOT NULL) has_logo,u.name AS leader_name
   FROM app_teams t JOIN app_users u ON u.id=t.owner_id WHERE t.id=$1`,[teamID])).rows[0];
  if(!team)return null;
  const isOwner=Number(team.owner_id)===Number(userID);
@@ -127,14 +131,19 @@ function teamsRouter(db,requireAccount){
  r.patch('/teams/:teamID',requireAccount,wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;
   if(!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann Teamname und Design ändern.'});
-  const body=req.body||{};if(Object.keys(body).some(key=>!['name','primary_color','accent_color'].includes(key)))return res.status(400).json({error:'Ungültige Teameinstellung.'});
+  const body=req.body||{};if(Object.keys(body).some(key=>!['name','primary_color','accent_color','background_color'].includes(key)))return res.status(400).json({error:'Ungültige Teameinstellung.'});
   const name=body.name===undefined?team.name:typeof body.name==='string'?body.name.trim():'';
   const primary=body.primary_color===undefined?team.primary_color:body.primary_color;
   const accent=body.accent_color===undefined?team.accent_color:body.accent_color;
-  if(!name||name.length>80||!HEX.test(primary)||!HEX.test(accent))return res.status(400).json({error:'Teamname (max. 80 Zeichen) und zwei Hex-Farben wie #596b3d sind erforderlich.'});
-  await db.query('UPDATE app_teams SET name=$2,primary_color=$3,accent_color=$4,updated_at=now() WHERE id=$1',[team.id,name,primary,accent]);
+  const background=body.background_color===undefined?team.background_color:body.background_color;
+  if(!name||name.length>80||!HEX.test(primary)||!HEX.test(accent)||(background!==null&&background!==''&&!HEX.test(background)))return res.status(400).json({error:'Teamname, gültige Haupt-/Akzentfarbe und optionale Hintergrundfarbe angeben.'});
+  await db.query('UPDATE app_teams SET name=$2,primary_color=$3,accent_color=$4,background_color=$5,updated_at=now() WHERE id=$1',[team.id,name,primary,accent,background||null]);
   res.json(await accessibleTeam(db,team.id,req.account.id));
  }));
+ r.get('/teams/:teamID/members',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const rows=(await db.query(`SELECT u.id,u.name,CASE WHEN EXISTS(SELECT 1 FROM app_teams t WHERE t.id=$1 AND t.owner_id=u.id) THEN 'Leitung' ELSE COALESCE(string_agg(DISTINCT r.name,', '),'Employee') END AS role,mt.name AS title,CASE WHEN bool_or(m.status='accepted') THEN 'accepted' ELSE 'pending' END AS status FROM app_users u JOIN app_building_members m ON m.user_id=u.id JOIN app_buildings b ON b.id=m.building_id LEFT JOIN app_building_roles r ON r.id=m.role_id LEFT JOIN app_team_member_titles x ON x.team_id=$1 AND x.user_id=u.id LEFT JOIN app_team_titles mt ON mt.id=x.title_id WHERE b.team_id=$1 AND m.status IN ('accepted','pending') GROUP BY u.id,u.name,mt.name UNION SELECT u.id,u.name,'Leitung',mt.name,'accepted' FROM app_users u JOIN app_teams t ON t.owner_id=u.id AND t.id=$1 LEFT JOIN app_team_member_titles x ON x.team_id=t.id AND x.user_id=u.id LEFT JOIN app_team_titles mt ON mt.id=x.title_id ORDER BY name,id`,[team.id])).rows;res.json(rows);}));
+ r.get('/teams/:teamID/titles',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;res.json((await db.query('SELECT id,name FROM app_team_titles WHERE team_id=$1 ORDER BY name',[team.id])).rows);}));
+ r.post('/teams/:teamID/titles',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;if(!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann Titel verwalten.'});const name=typeof req.body?.name==='string'?req.body.name.trim():'';if(!name||name.length>60)return res.status(400).json({error:'Bitte einen Titel mit höchstens 60 Zeichen eingeben.'});const row=(await db.query('INSERT INTO app_team_titles(team_id,name) VALUES($1,$2) ON CONFLICT(team_id,name) DO NOTHING RETURNING id,name',[team.id,name])).rows[0];if(!row)return res.status(409).json({error:'Dieser Titel existiert bereits.'});res.status(201).json(row);}));
+ r.put('/teams/:teamID/members/:userID/title',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;if(!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann Titel zuweisen.'});const user=Number(req.params.userID),title=req.body?.title_id?Number(req.body.title_id):null;if(!idOK(user)||(title&&!idOK(title)))return res.status(400).json({error:'Ungültige Auswahl.'});if(title){const valid=(await db.query(`SELECT 1 FROM app_team_titles WHERE id=$1 AND team_id=$2 AND EXISTS(SELECT 1 FROM app_building_members m JOIN app_buildings b ON b.id=m.building_id WHERE m.user_id=$3 AND b.team_id=$2 AND m.status='accepted')`,[title,team.id,user])).rows[0];if(!valid)return res.status(400).json({error:'Titel oder Teammitglied nicht gefunden.'});await db.query('INSERT INTO app_team_member_titles(team_id,user_id,title_id) VALUES($1,$2,$3) ON CONFLICT(team_id,user_id) DO UPDATE SET title_id=EXCLUDED.title_id',[team.id,user,title]);}else await db.query('DELETE FROM app_team_member_titles WHERE team_id=$1 AND user_id=$2',[team.id,user]);res.json({ok:true});}));
  r.put('/teams/:teamID/buildings/:buildingID',requireAccount,wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;
   if(!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann Gebäude zuordnen.'});
