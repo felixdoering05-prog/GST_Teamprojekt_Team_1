@@ -4,7 +4,7 @@ export const roomName = value => String(value || '').split(' · ').slice(1).join
 export function modelLights({ documentID, spaces = [], lamps = [], devices = [], imported = {}, names = [] }) {
   const spaceByRoom = new Map(names.map(r => [r.room_id, r.space_id]));
   const aliases = new Map(), key = value => String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('de');
-  for (const space of spaces) for (const name of [space.name, ...String(space.name || '').split(' · ')]) {
+  for (const space of spaces) for (const name of [space.name, ...(Array.isArray(space.aliases) ? space.aliases : [])]) {
     const alias = key(name); if (alias) aliases.set(alias, aliases.has(alias) && aliases.get(alias) !== space.id ? null : space.id);
   }
   const placed = (document, space, room) => document != null

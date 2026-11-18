@@ -19,7 +19,7 @@ after(async()=>{await new Promise(r=>server.close(r));await db.end()});
 async function req(user,path,method='GET',body){const r=await fetch(url+path,{method,headers:{'Content-Type':'application/json','X-Request-ID':randomUUID(),...(user?{'X-D21-Session':user.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:r.status,data:await r.json()};}
 const location=()=>`/integrations/home-assistant/lights/desk/location`;
 test('IFC room index returns only spaces; selected model is access-scoped',async()=>{
- assert.deepEqual(ifcRooms(bytes),[{id:20,name:'EG 01 · Büro'}]);assert.equal((await req(other,`/documents/${doc}/model-rooms`)).status,404);assert.equal((await req(owner,`/documents/${doc}/model-rooms`)).data.rooms[0].id,20);
+ assert.deepEqual(ifcRooms(bytes),[{id:20,name:'EG 01 · Büro',aliases:['EG 01','Büro']}]);assert.equal((await req(other,`/documents/${doc}/model-rooms`)).status,404);assert.equal((await req(owner,`/documents/${doc}/model-rooms`)).data.rooms[0].id,20);
 });
 test('lamp assignment validates building ownership, model membership and space IDs with revisions',async()=>{
  const b={building_id:building,room:'Ignored',document_id:doc,space_id:20,revision:0};assert.equal((await req(other,location(),'PUT',b)).status,404);assert.equal((await req(owner,location(),'PUT',{...b,building_id:foreign})).status,403);assert.equal((await req(owner,location(),'PUT',{...b,document_id:foreignDoc})).status,404);assert.equal((await req(owner,location(),'PUT',{...b,space_id:21})).status,400);
