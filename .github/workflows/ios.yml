@@ -17,8 +17,8 @@ jobs:
   viewer:
     name: IFC-Viewer (Tests + Build)
     # build.mjs komprimiert die Assets mit Apples Compression-Framework (LZFSE, per Swift),
-    # deshalb läuft der Job auf macOS.
-    runs-on: macos-latest
+    # deshalb dieselbe verfügbare macOS/Xcode-Umgebung wie der App-Build verwenden.
+    runs-on: xcode-27
     timeout-minutes: 20
     defaults:
       run:

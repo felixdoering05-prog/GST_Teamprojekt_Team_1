@@ -1,0 +1,70 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows: [Backend, iOS]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: d21-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      # Only trusted main code is checked out; no PR artifacts, caches or PR scripts.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Require successful tests for the latest main commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 dashboard/ops/ci-deploy-gate.py
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          ref: ${{ steps.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/base44-frontend/package-lock.json
+      - name: Check web application before publishing
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: dashboard/base44-frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run test:viewer
+          npm run build
+      - name: Publish tested commit (backup and health checks included)
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.D21_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.D21_DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SHA: ${{ steps.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/d21-deploy-key"
+          hosts="$RUNNER_TEMP/d21-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
+          ssh -T -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+            root@185.56.151.249 "deploy $DEPLOY_SHA"
