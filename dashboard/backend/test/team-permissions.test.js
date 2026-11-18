@@ -51,8 +51,6 @@ test('roles and building scopes limit reads and writes independently per buildin
  assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
  assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorFirst.id,data:{name:'OG'}})).status,200);
  assert.equal((await request(maintenance,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
- const schedule=await request(maintenance,`/buildings/${second}/schedules`,'POST',{title:'Wartung',starts_at:new Date(Date.now()+60000).toISOString()});
- assert.equal(schedule.status,201);
  assert.equal((await request(maintenance,`/twin/Sensor/create`,'POST',{data:{building_id:String(second),sensor_code:'S-1',metric:'temperature'}})).status,403);
  assert.equal((await request(maintenance,`/buildings/${second}/maintenance`,'POST',{title:'Neue Wartung',interval_months:12})).status,403);
  assert.equal((await request(maintenance,`/buildings/${second}/plan-conversion/jobs`,'POST',{document_ids:[1]})).status,403);
@@ -70,7 +68,7 @@ test('management can manage lower-ranked members while only the owner edits and 
  assert.equal((await request(manager,`/buildings/${first}/team-access/members/${peer.id}`,'DELETE')).status,403);
  assert.equal((await request(manager,`/buildings/${first}/team-access/roles`,'POST',{name:'Eigene Rolle',can_manage_members:false,permissions:{}})).status,403);
  assert.equal((await request(manager,`/buildings/${first}/team-access/roles/order`,'PATCH',{role_ids:roles.map(role=>role.id)})).status,403);
- const permissions=Object.fromEntries(MODULES.map(module=>[module,'none']));permissions.schedule='edit';permissions.coordination='edit';
+ const permissions=Object.fromEntries(MODULES.map(module=>[module,'none']));permissions.coordination='edit';
  const created=await request(owner,`/buildings/${first}/team-access/roles`,'POST',{name:'Koordination',permissions,can_manage_members:false});
  assert.equal(created.status,201);
  const edited=await request(owner,`/buildings/${first}/team-access/roles/${created.body.id}`,'PATCH',{name:'Planung',permissions,can_manage_members:false});
@@ -86,7 +84,6 @@ test('revoking access in one building leaves the same person’s other building 
  const buildings=await request(employee,'/buildings');
  assert.deepEqual(buildings.body.map(row=>Number(row.id)),[Number(second)]);
  assert.equal((await request(employee,`/buildings/${second}/team-access`)).body.actor_role.role_key,'maintenance');
- assert.equal((await request(employee,`/buildings/${second}/schedules`)).status,200);
 });
 
 test('building groups apply the selected per-building role and replace individual roles',async()=>{
