@@ -194,6 +194,7 @@ function teamsRouter(db,requireAccount){
   const buildings=(await db.query('SELECT b.id,b.user_id FROM app_building_group_items i JOIN app_buildings b ON b.id=i.building_id WHERE i.group_id=$1 ORDER BY b.id',[group.id])).rows;
   if(!buildings.length)return res.status(400).json({error:'Die Gruppe enthält keine Gebäude.'});
   if(!buildings.some(b=>Number(b.id)===sourceBuildingID))return res.status(400).json({error:'Die gewählte Rolle muss aus einem Gebäude dieser Gruppe stammen.'});
+  if(buildings.some(b=>Number(b.user_id)===target))return res.status(400).json({error:'Die Person ist Eigentümer eines Gebäudes in dieser Gruppe; Eigentümerrechte können nicht überschrieben werden.'});
   if(!await groupManage(req,res,team,buildings.map(b=>Number(b.id))))return;
   const contact=(await db.query("SELECT id FROM app_contacts WHERE low_id=$1 AND high_id=$2 AND status='accepted'",[Math.min(target,req.account.id),Math.max(target,req.account.id)])).rows[0];
   if(!contact)return res.status(400).json({error:'Die Person muss zuerst als bestätigter Kontakt verbunden sein.'});
@@ -204,29 +205,30 @@ function teamsRouter(db,requireAccount){
   if(!sourceAccess||(!sourceAccess.is_owner&&Number(sourceRole.sort_order)<=Number(sourceAccess.role.sort_order)))return res.status(403).json({error:'Du kannst diese Rolle nicht vergeben.'});
   const prepared=[];
   for(const building of buildings){
-   if(Number(building.user_id)===target)return res.status(400).json({error:'Die Person ist Eigentümer eines Gebäudes in dieser Gruppe; Eigentümerrechte können nicht überschrieben werden.'});
    const actor=await buildingAccess(db,building.id,req.account.id);
    if(!actor||(!actor.is_owner&&!actor.role?.can_manage_members))return res.status(403).json({error:'Für mindestens ein Gruppen-Gebäude fehlt die Mitgliederverwaltung.'});
    if(!actor.is_owner&&Number(sourceRole.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Die ausgewählte Rolle ist in mindestens einem Gebäude zu hoch eingestuft.'});
    const roles=await ensureBuildingRoles(db,building.id);
-   let chosen=roles.find(role=>role.name===sourceRole.name&&JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions)&&role.can_manage_members===sourceRole.can_manage_members);
-   if(!chosen){
-    const next=Number((await db.query('SELECT COALESCE(MAX(sort_order),-1)+1 AS next FROM app_building_roles WHERE building_id=$1',[building.id])).rows[0].next);
-    chosen=(await db.query(`INSERT INTO app_building_roles(building_id,role_key,name,sort_order,permissions,can_manage_members,is_system)
-      VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id,role_key,name,sort_order,permissions,can_manage_members,is_system`,
-      [building.id,'group-'+require('node:crypto').randomUUID(),sourceRole.name,next,JSON.stringify(sourceRole.permissions),sourceRole.can_manage_members])).rows[0];
-   }
-   if(!actor.is_owner&&Number(chosen.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Die übertragene Rolle ist in mindestens einem Gebäude nicht niedriger als deine eigene.'});
+   const chosen=roles.find(role=>role.name===sourceRole.name&&JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions)&&role.can_manage_members===sourceRole.can_manage_members);
    const existing=(await db.query('SELECT m.status,r.sort_order FROM app_building_members m LEFT JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[building.id,target])).rows[0];
    if(existing&&!actor.is_owner&&Number(existing.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Eine bestehende höhere oder gleichrangige Rolle darf nicht geändert werden.'});
-   prepared.push({buildingID:Number(building.id),roleID:Number(chosen.id),existing:existing||null});
+   prepared.push({buildingID:Number(building.id),roleID:chosen?Number(chosen.id):null,existing:existing||null,actor});
   }
   const client=await db.connect();
   try{
    await client.query('BEGIN');
    for(const item of prepared){
-    if(item.existing)await client.query('UPDATE app_building_members SET role_id=$3 WHERE building_id=$1 AND user_id=$2',[item.buildingID,target,item.roleID]);
-    else await client.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'pending',$3)",[item.buildingID,target,item.roleID]);
+    let roleID=item.roleID;
+    if(!roleID){
+     const next=Number((await client.query('SELECT COALESCE(MAX(sort_order),-1)+1 AS next FROM app_building_roles WHERE building_id=$1',[item.buildingID])).rows[0].next);
+     if(!item.actor.is_owner&&next<=Number(item.actor.role.sort_order))throw Object.assign(new Error('Die übertragene Rolle wäre nicht niedriger als deine eigene.'),{status:403});
+     const role=(await client.query(`INSERT INTO app_building_roles(building_id,role_key,name,sort_order,permissions,can_manage_members,is_system)
+      VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id`,
+      [item.buildingID,'group-'+require('node:crypto').randomUUID(),sourceRole.name,next,JSON.stringify(sourceRole.permissions),sourceRole.can_manage_members])).rows[0];
+     roleID=Number(role.id);
+    }
+    if(item.existing)await client.query('UPDATE app_building_members SET role_id=$3 WHERE building_id=$1 AND user_id=$2',[item.buildingID,target,roleID]);
+    else await client.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'pending',$3)",[item.buildingID,target,roleID]);
    }
    await client.query('COMMIT');
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
