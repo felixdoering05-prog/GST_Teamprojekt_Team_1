@@ -13,6 +13,7 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 | RADAR-006 | Sichtbare Gebäudedaten bei gesperrtem iPhone prüfen | Widget und Datenschutz | Jetzt testen | Privatsphäre auf gemeinsam einsehbaren Displays | 30 min geschätzt | Apple-SDK | [Morgenbericht](berichte/2026-11-16-0901.md) | Test zu #171 |
 | RADAR-007 | Raum- und Türzuordnung bei PDF-Seitendrehung prüfen | Grundriss zu IFC | Jetzt testen | Verdrehte Zuordnung erkennen | 1 h geschätzt | Bestehender Leser MIT | [Bericht](berichte/2026-11-16-1657.md) | Synthetischer Vergleich |
 | RADAR-008 | Feuchtealarm bei Neustart und bestehender Überschreitung | Sensorik und Automationen | Jetzt testen | Doppelte oder ausbleibende Hinweise erkennen | 45 min geschätzt | Quellenlizenz ungeprüft, eigener Verhaltenstest | [Bericht](berichte/2026-11-18-0915.md) | Test zu #225 |
+| RADAR-009 | Energiezähler nach Rücksetzung auswerten | Energie und Sensorik | Jetzt testen | Fehlende Verbrauchsanteile erkennen | 1 h geschätzt | Quellenlizenz ungeklärt, eigener Test | [Bericht](berichte/2026-11-18-1659.md) | Entscheidung zu Rücksetzungsmetadaten |
 
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
