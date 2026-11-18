@@ -96,7 +96,7 @@ test('building groups apply the selected per-building role and replace individua
  const assigned=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,role_building_id:first,role_id:firstRoles.find(role=>role.role_key==='maintenance').id});
  assert.equal(assigned.status,200,JSON.stringify(assigned.body));
  assert.equal((await db.query('SELECT r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[first,peer.id])).rows[0].role_key,'maintenance');
- assert.equal((await db.query('SELECT status,r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].role_key,'maintenance');
+ assert.equal((await db.query('SELECT r.name FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].name,'Maintenance');
  assert.equal((await db.query('SELECT status FROM app_building_members WHERE building_id=$1 AND user_id=$2',[second,peer.id])).rows[0].status,'pending');
 });
 
