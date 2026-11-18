@@ -1,3 +1,4 @@
+import { roomLightSetter } from '../../dashboard/base44-frontend/ifc-viewer/room-light.js';
 import {placementGeometry} from './placement-geometry.js';
 import {mountNativeHeat} from './heat.js';
 import { mountMapEnvironment } from './map-environment.js';
@@ -291,11 +292,11 @@ async function open() {
     toggle.setAttribute('aria-label', `Licht simulieren: ${label.textContent}`);
     toggle.textContent = meshes.length ? 'Licht aus' : 'Ohne Raumgeometrie'; toggle.disabled = !meshes.length;
     toggle.dataset.noGeometry=String(!meshes.length);
-    roomLights.set(id,(on,color='#ffd35c',linked=false,available=true)=>{toggle.setAttribute('aria-checked',String(on));toggle.textContent=!meshes.length?'Ohne Raumgeometrie':linked?(!available?'Gerät nicht erreichbar':on?'Licht an · Geräte':'Licht aus · Geräte'):on?'Licht an':'Licht aus';toggle.dataset.linked=String(linked);toggle.disabled=linked||!meshes.length;meshes.forEach(mesh=>{mesh.visible=on;mesh.material.color.set(color);});});
+    const setRoomLight = roomLightSetter(toggle, meshes);
+    roomLights.set(id, setRoomLight);
     toggle.onclick = () => {
       const on = toggle.getAttribute('aria-checked') !== 'true';
-      toggle.setAttribute('aria-checked', String(on)); toggle.textContent = on ? 'Licht an' : 'Licht aus';
-      meshes.forEach(mesh => mesh.visible = on); render(); changed({action:'light',ids:[id],on});
+      setRoomLight(on); render(); changed({action:'light',ids:[id],on});
     };
     row.append(toggle); roomsPanel.append(row);
   }

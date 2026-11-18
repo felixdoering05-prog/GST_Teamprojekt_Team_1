@@ -67,7 +67,7 @@ export default function ModelSmartHome({ document: model, frame, onChanged, chil
     try {
       const result = light.control === 'ha'
         ? await request(`/integrations/home-assistant/lights/${encodeURIComponent(light.key)}/command`, { method: 'POST', body, headers: { 'X-Request-ID': crypto.randomUUID() } })
-        : await request(`${root}/devices/${light.deviceID}`, { method: 'PATCH', body: { is_on: body.on, revision: light.revision, ...(body.rgb ? { rgb: body.rgb } : {}), ...(body.brightness ? { brightness: body.brightness } : {}) } });
+        : await request(`${root}/devices/${light.deviceID}`, { method: 'PATCH', body: { is_on: body.on, revision: light.revision, ...(body.rgb ? { rgb: body.rgb } : {}), ...(body.brightness != null ? { brightness: body.brightness } : {}) } });
       if (alive.current) setNotice(light.control === 'ha' ? result.message || (result.confirmed ? 'Zustand bestätigt.' : 'Auftrag gesendet; Zustand noch nicht bestätigt.') : 'Simulierter Zustand gespeichert.');
       onChanged?.(); post({ type: 'd21-smart-home-refresh' });
       return light.control !== 'ha' || result.confirmed === true;

@@ -17,7 +17,8 @@ function ifcRooms(content){
    field+=char;
   }
   const decode=value=>{const s=(value||'').trim();return /^'(?:''|[^'])*'$/.test(s)?s.slice(1,-1).replace(/''/g,"'").replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g,(_,hex)=>hex.match(/.{4}/g)?.map(x=>String.fromCharCode(parseInt(x,16))).join('')||'').slice(0,100):'';};
-  const name=[decode(fields[2]),decode(fields[7])].filter(Boolean).join(' · ').slice(0,100)||'Raum '+id;rooms.push({id,name});
+  const aliases=[decode(fields[2]),decode(fields[7])].filter(Boolean);
+  const name=aliases.join(' · ').slice(0,100)||'Raum '+id;rooms.push({id,name,aliases});
  }
  return rooms;
 }

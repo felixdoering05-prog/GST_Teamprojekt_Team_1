@@ -1,4 +1,5 @@
-export function applySharedState(state, appearance, roomLights) {
+import { applyDeviceLights } from '../../dashboard/base44-frontend/ifc-viewer/room-light.js';
+export function applySharedState(state, appearance, roomLights, deviceLights = []) {
   if (!state || !Array.isArray(state.hidden) || !state.colors || typeof state.colors !== 'object' || !Array.isArray(state.lights)) throw Error('Ungültiger gespeicherter Modellstand.');
   appearance.select(undefined); appearance.showAll(); appearance.resetColors();
   for (const id of state.hidden) for (const mesh of appearance.elements.get(id) || []) mesh.visible = false;
@@ -7,6 +8,7 @@ export function applySharedState(state, appearance, roomLights) {
     for (const mesh of appearance.elements.get(Number(key)) || []) mesh.material.color.set(color);
   }
   for (const [id,set] of roomLights) set(state.lights.includes(id));
+  applyDeviceLights(deviceLights, roomLights);
 }
 export function mountSynchronization({appearance,roomLights,update,environment=()=>{}}) {
   const native=window.webkit?.messageHandlers.ifcSceneRequest;
@@ -31,7 +33,7 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
       if(!Number.isInteger(result?.revision))throw Error('Ungültige Serverantwort.');
       if(Array.isArray(result.device_lights))latestDeviceLights=result.device_lights;const signature=JSON.stringify(latestDeviceLights);const different=!loaded||revision!==result.revision||signature!==deviceSignature;deviceSignature=signature; revision=result.revision;loaded=true;
       // While saves are queued, keep optimistic local changes; apply final authoritative state afterwards.
-      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights);for(const item of latestDeviceLights){if(!Array.isArray(item.rgb)||item.rgb.length!==3)continue;const color='#'+item.rgb.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');roomLights.get(item.space_id)?.(item.on,color,true,item.available);}update();}
+      if(!queue.length&&different){applySharedState(result.state,appearance,roomLights,latestDeviceLights);update();}
       if(result.map_view!==undefined)environment(result.map_view);
       status(queue.length?'Änderungen werden gespeichert …':'Gemeinsamer Modellstand · auf dem Server gespeichert');lock(false);next();
     }catch(e){failed=true;lock(true);status(e.message);retry.hidden=false;}

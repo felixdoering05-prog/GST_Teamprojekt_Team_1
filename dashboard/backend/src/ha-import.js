@@ -403,7 +403,7 @@ async function haLamps(db,buildingID){
   LEFT JOIN app_ha_devices d ON d.link_id=l.id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=d.link_id AND da.area_id=d.area_id
   CROSS JOIN LATERAL (SELECT COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id) x
   LEFT JOIN app_twin_records r ON r.id=x.room_id AND r.entity='Room'
-  WHERE l.building_id=$1 ORDER BY e.name,e.entity_id LIMIT 50`,[buildingID])).rows;
+  WHERE l.building_id=$1 ORDER BY e.name,e.entity_id LIMIT 500`,[buildingID])).rows;
  return rows.map(r=>({owner:r.owner,app_mode:r.mode==='app'&&r.status==='active',entity_id:r.entity_id,name:r.name,supports_color:r.supports_color===true,caps:r.light_caps||{},state:r.light_state||null,room_id:r.room_id||null,room:r.room_name||'',room_gid:r.room_gid||null}));
 }
 
