@@ -41,11 +41,7 @@ import Foundation
         precondition(title.name == "Sensorik")
         let group = try JSONDecoder().decode(NativeBuildingGroup.self, from: Data(##"{"id":4,"team_id":1,"name":"Campus","buildings":[{"id":901,"name":"D21"}]}"##.utf8))
         precondition(group.buildings[0].address == nil)
-        let schedule = try JSONDecoder().decode(NativeScheduleList.self, from: Data(##"{"items":[{"id":1,"title":"Begehung","details":"Treffpunkt Eingang","starts_at":"2026-11-18T10:00:00.000Z","ends_at":null}],"can_edit":false}"##.utf8))
-        precondition(schedule.items.count == 1 && !schedule.can_edit)
-        precondition(nativeTeamDate(schedule.items[0].starts_at) == nativeTeamDate("2026-11-18T10:00:00Z"))
-        precondition(nativeTeamDate("kein Datum") == nil)
-        precondition(Set(nativeTeamModules.map(\.key)).count == 14)
+        precondition(Set(nativeTeamModules.map(\.key)).count == 13)
         print("Team contract and authorization presentation checks passed.")
     }
 }
