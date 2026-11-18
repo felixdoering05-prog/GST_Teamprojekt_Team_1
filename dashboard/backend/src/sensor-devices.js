@@ -205,7 +205,7 @@ function sensorDevicesRouter(db,requireAccount){
    if(hw.metrics.some(k=>typeof b[k]!=='number')||Object.keys(b).some(k=>k!=='request_key'&&!hw.metrics.includes(k))){await c.query('ROLLBACK');return res.status(400).json({error:`Dieses Gerät sendet genau: ${hw.metrics.join(', ')}.`});}
    const api=service(c,d.user_id).entities,now=new Date().toISOString();
    for(const metric of hw.metrics){const s=(await api.Sensor.filter({id:d.sensors[metric]},{limit:1})).items[0];if(!s)throw Error('Device sensor missing');if(s.building_id!==String(d.building_id)||s.source!==hw.source||s.metric!==metric)throw Error('Device sensor mapping invalid');await api.Measurement.create({building_id:String(d.building_id),...(s.room_id?{room_id:s.room_id}:{}),sensor_id:s.id,sensor_code:s.sensor_code,metric,value:b[metric],unit:METRIC_META[metric].unit,source:hw.source,quality:'ok',measured_at:now});}
-   await c.query('UPDATE app_sensor_devices SET last_key=$2,last_hash=$3,last_at=now() WHERE id=$1',[d.id,b.request_key,digest]);await c.query('COMMIT');res.status(201).json({imported:hw.metrics.length,source:hw.source});
+   await c.query('UPDATE app_sensor_devices SET last_key=$2,last_hash=$3,last_at=now() WHERE id=$1',[d.id,b.request_key,digest]);await c.query('COMMIT');res.status(201).json({imported:hw.metrics.length,source:hw.source});setTimeout(()=>require('./automations').evaluateAutomations(db,d.building_id).catch(()=>{}),200).unref?.();
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }));return r;
 }
