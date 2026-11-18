@@ -35,18 +35,23 @@ const NAV_GROUPS = [
   {
     label: 'Auswertung',
     items: [
+      { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module: 'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
       { path: '/sensorik', label: 'Sensorik', icon: Radio, module: 'sensors', hint: 'Temperatur, CO₂ und Luftfeuchtigkeit je Raum' },
       { path: '/energie', label: 'Energie', icon: Zap, module: 'energy', hint: 'Energieverbrauch und Auswertungen' },
       { path: '/analyse', label: 'KI-Analyse', icon: BrainCircuit, module: 'analysis', hint: 'Auffälligkeiten, Trends und mögliche Ursachen' },
     ],
   },
   {
-    label: 'Zusammenarbeit',
+    label: 'Benachrichtigungen',
     items: [
       { path: '/zeitplanung', label: 'Zeitplanung', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine und Aufgaben koordinieren' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
-      { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module: 'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
-      { path: '/teams', label: 'Teams', icon: Users, hint: 'Teams, Organisationsdesign und Gebäudegruppen verwalten' },
+    ],
+  },
+  {
+    label: 'Organisation',
+    items: [
+      { path: '/teams', label: 'Dein Team', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
       { path: '/rechte', label: 'Rechte', icon: ShieldCheck, hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
     ],
   },
@@ -184,8 +189,8 @@ export default function AppLayout() {
   const [teams,setTeams]=useState([]),[teamID,setTeamID]=useState(()=>localStorage.getItem('d21-selected-team')||'');
   useEffect(()=>{let active=true;request('/teams').then(rows=>{if(!active)return;setTeams(rows);const saved=localStorage.getItem('d21-selected-team');const chosen=rows.some(row=>String(row.id)===saved)?saved:String(rows[0]?.id||'');setTeamID(chosen);if(chosen)localStorage.setItem('d21-selected-team',chosen);}).catch(()=>{});return()=>{active=false}},[]);
   const activeTeam=teams.find(row=>String(row.id)===teamID);
-  function chooseTeam(id){setTeamID(id);localStorage.setItem('d21-selected-team',id);const team=teams.find(row=>String(row.id)===id);document.documentElement.style.setProperty('--primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--ring',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--sidebar-primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--accent',hexHsl(team?.accent_color));window.dispatchEvent(new Event('d21-team-change'));}
-  useEffect(()=>{if(activeTeam)chooseTeam(String(activeTeam.id));},[activeTeam?.id,activeTeam?.primary_color,activeTeam?.accent_color]);
+  function chooseTeam(id){setTeamID(id);localStorage.setItem('d21-selected-team',id);const team=teams.find(row=>String(row.id)===id);document.documentElement.style.setProperty('--primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--ring',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--sidebar-primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--accent',hexHsl(team?.accent_color));if(team?.background_color)document.documentElement.style.setProperty('--team-background',hexHsl(team.background_color));else document.documentElement.style.removeProperty('--team-background');window.dispatchEvent(new Event('d21-team-change'));}
+  useEffect(()=>{if(activeTeam)chooseTeam(String(activeTeam.id));},[activeTeam?.id,activeTeam?.primary_color,activeTeam?.accent_color,activeTeam?.background_color]);
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
