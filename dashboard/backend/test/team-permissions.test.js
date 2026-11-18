@@ -1,0 +1,84 @@
+const {test,before,after}=require('node:test');
+const assert=require('node:assert/strict');
+const express=require('express');
+const {PGlite}=require('@electric-sql/pglite');
+const {randomBytes,createHash}=require('node:crypto');
+const {initAccounts,accountRouter}=require('../src/accounts');
+const {MODULES,ensureBuildingRoles}=require('../src/team-permissions');
+
+let db,server,url,owner,employee,maintenance,manager,peer,first,second,floorFirst,floorSecond;
+before(async()=>{
+ const pg=new PGlite();await pg.waitReady;
+ db={query:(sql,params)=>pg.query(sql,params),connect:async()=>({query:(sql,params)=>pg.query(sql,params),release(){}}),end:()=>pg.close()};
+ await initAccounts(db);
+ async function user(name){
+  const row=(await db.query("INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,'unused') RETURNING id",[name,`${name.toLowerCase()}@example.test`])).rows[0];
+  row.token=randomBytes(32).toString('hex');
+  await db.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval \'1 hour\')',[createHash('sha256').update(row.token).digest('hex'),row.id]);
+  return row;
+ }
+ owner=await user('Owner');employee=await user('Employee');maintenance=await user('Maintenance');manager=await user('Manager');peer=await user('Peer');
+ first=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'Erstes Gebäude') RETURNING id",[owner.id])).rows[0].id;
+ second=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'Zweites Gebäude') RETURNING id",[owner.id])).rows[0].id;
+ const firstRoles=await ensureBuildingRoles(db,first),secondRoles=await ensureBuildingRoles(db,second);
+ const role=(roles,key)=>roles.find(item=>item.role_key===key).id;
+ await db.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'accepted',$3),($4,$5,'accepted',$6)",[first,employee.id,role(firstRoles,'employee'),second,employee.id,role(secondRoles,'maintenance')]);
+ await db.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'accepted',$3)",[second,maintenance.id,role(secondRoles,'maintenance')]);
+ await db.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'accepted',$3),($1,$4,'accepted',$3)",[first,manager.id,role(firstRoles,'management'),peer.id]);
+ const app=express();app.use(express.json());app.use('/api/v1',accountRouter(db));server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));url=`http://127.0.0.1:${server.address().port}/api/v1`;
+ async function request(user,path,method='GET',body){
+  const response=await fetch(url+path,{method,headers:{'Content-Type':'application/json',...(user?{'X-D21-Session':user.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  return {status:response.status,body:await response.json()};
+ }
+ floorFirst=(await request(owner,'/twin/Floor/create','POST',{data:{building_id:String(first),name:'EG',level:0}})).body;
+ floorSecond=(await request(owner,'/twin/Floor/create','POST',{data:{building_id:String(second),name:'UG',level:-1}})).body;
+});
+after(async()=>{if(server)await new Promise(resolve=>server.close(resolve));await db.end();});
+async function request(user,path,method='GET',body){
+ const response=await fetch(url+path,{method,headers:{'Content-Type':'application/json',...(user?{'X-D21-Session':user.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ return {status:response.status,body:await response.json()};
+}
+
+test('roles and building scopes limit reads and writes independently per building',async()=>{
+ const accessFirst=await request(employee,`/buildings/${first}/team-access`);
+ const accessSecond=await request(employee,`/buildings/${second}/team-access`);
+ assert.equal(accessFirst.body.actor_role.role_key,'employee');
+ assert.equal(accessSecond.body.actor_role.role_key,'maintenance');
+ assert.equal(accessFirst.body.can_manage_members,false);
+ const floors=await request(employee,'/twin/Floor/list','POST',{});
+ assert.deepEqual(floors.body.map(row=>row.id).sort(),[floorFirst.id,floorSecond.id].sort());
+ assert.equal((await request(employee,`/buildings/${second}/team-access/members`, 'POST',{user_id:maintenance.id,role_id:accessSecond.body.roles.find(role=>role.role_key==='employee').id})).status,403);
+ assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
+ assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorFirst.id,data:{name:'OG'}})).status,200);
+ assert.equal((await request(maintenance,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
+ const schedule=await request(maintenance,`/buildings/${second}/schedules`,'POST',{title:'Wartung',starts_at:new Date(Date.now()+60000).toISOString()});
+ assert.equal(schedule.status,201);
+ assert.equal((await request(maintenance,`/twin/Sensor/create`,'POST',{data:{building_id:String(second),sensor_code:'S-1',metric:'temperature'}})).status,403);
+});
+
+test('management can manage lower-ranked members while only the owner edits and orders roles',async()=>{
+ const managerAccess=await request(manager,`/buildings/${first}/team-access`);
+ const roles=managerAccess.body.roles;
+ assert.equal(managerAccess.body.can_manage_members,true);
+ assert.equal((await request(manager,`/buildings/${first}/team-access/members/${employee.id}/role`,'PATCH',{role_id:roles.find(role=>role.role_key==='maintenance').id})).status,200);
+ assert.equal((await request(manager,`/buildings/${first}/team-access/members/${peer.id}`,'DELETE')).status,403);
+ assert.equal((await request(manager,`/buildings/${first}/team-access/roles`,'POST',{name:'Eigene Rolle',can_manage_members:false,permissions:{}})).status,403);
+ assert.equal((await request(manager,`/buildings/${first}/team-access/roles/order`,'PATCH',{role_ids:roles.map(role=>role.id)})).status,403);
+ const permissions=Object.fromEntries(MODULES.map(module=>[module,'none']));permissions.schedule='edit';permissions.coordination='edit';
+ const created=await request(owner,`/buildings/${first}/team-access/roles`,'POST',{name:'Koordination',permissions,can_manage_members:false});
+ assert.equal(created.status,201);
+ const edited=await request(owner,`/buildings/${first}/team-access/roles/${created.body.id}`,'PATCH',{name:'Planung',permissions,can_manage_members:false});
+ assert.equal(edited.status,200);assert.equal(edited.body.name,'Planung');
+ const reordered=[roles.find(role=>role.role_key==='maintenance').id,roles.find(role=>role.role_key==='management').id,roles.find(role=>role.role_key==='employee').id,created.body.id];
+ assert.equal((await request(owner,`/buildings/${first}/team-access/roles/order`,'PATCH',{role_ids:reordered})).status,200);
+ assert.equal((await request(owner,`/buildings/${first}/team-access/roles/${created.body.id}`,'DELETE')).status,200);
+});
+
+test('revoking access in one building leaves the same person’s other building role intact',async()=>{
+ const removed=await request(owner,`/buildings/${first}/team-access/members/${employee.id}`,'DELETE');
+ assert.equal(removed.status,200);
+ const buildings=await request(employee,'/buildings');
+ assert.deepEqual(buildings.body.map(row=>Number(row.id)),[Number(second)]);
+ assert.equal((await request(employee,`/buildings/${second}/team-access`)).body.actor_role.role_key,'maintenance');
+ assert.equal((await request(employee,`/buildings/${second}/schedules`)).status,200);
+});

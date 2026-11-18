@@ -7,6 +7,7 @@ const {METRIC_META}=require('./twin/thresholdRules');
 const {validateRoom}=require('./equipment');
 const {haRoomClimate}=require('./ha-import');
 const {spaceFinder}=require('./room-lighting');
+const {can}=require('./team-permissions');
 const hash=v=>createHash('sha256').update(v).digest('hex');
 async function initSensorDevices(db){await db.query(`CREATE TABLE IF NOT EXISTS app_sensor_devices(id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,token_hash TEXT UNIQUE NOT NULL,sensors JSONB NOT NULL,last_key TEXT,last_hash TEXT,last_at TIMESTAMPTZ,revoked BOOLEAN NOT NULL DEFAULT false,created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  // Echte Hardware und Zuordnung zu einem IFC-Raum (Dokument + IfcSpace-Express-ID).
@@ -38,12 +39,12 @@ function sensorDevicesRouter(db,requireAccount){
   const b=req.body||{};
   if(!/^[1-9]\d{0,9}$/.test(req.params.deviceBuilding)||Number(req.params.deviceBuilding)>2147483647||Object.keys(b).some(k=>k!=='room')||typeof b.room!=='string'||!b.room.trim()||b.room.length>80)return res.status(400).json({error:'Gebäude und Raumname erforderlich.'});
   const c=await db.connect();try{await c.query('BEGIN');const building=await accessibleBuilding(c,req.params.deviceBuilding,req.account.id,true);
-   if(!building||building.user_id!==req.account.id){await c.query('ROLLBACK');return res.status(404).json({error:'Gebäude nicht gefunden.'});}
+   if(!building||!can(req.buildingAccess,'sensors','edit')){await c.query('ROLLBACK');return res.status(404).json({error:'Gebäude nicht gefunden oder keine Bearbeitungsrechte.'});}
    if(Number((await c.query('SELECT count(*) n FROM app_sensor_devices WHERE user_id=$1',[req.account.id])).rows[0].n)>=20){await c.query('ROLLBACK');return res.status(409).json({error:'Maximal 20 Geräte.'});}
-   const api=service(c,req.account.id).entities,id=randomUUID(),token=randomBytes(32).toString('hex'),sensors={};
+   const api=service(c,building.user_id).entities,id=randomUUID(),token=randomBytes(32).toString('hex'),sensors={};
    const room=await api.Room.create({name:b.room.trim(),room_code:'ESP-'+id.slice(0,8),building_id:String(building.id),source:'demo'});
    for(const metric of ['temperature','humidity','co2']){const s=await api.Sensor.create({name:'ESP32 Simulation '+METRIC_META[metric].label,sensor_code:'ESP-'+id.slice(0,8)+'-'+metric,metric,unit:METRIC_META[metric].unit,building_id:String(building.id),room_id:room.id,source:'demo',status:'aktiv',hardware_type:'ESP32-S3 SIMULATION'});sensors[metric]=s.id;}
-   await c.query('INSERT INTO app_sensor_devices(id,user_id,building_id,token_hash,sensors) VALUES($1,$2,$3,$4,$5)',[id,req.account.id,building.id,hash(token),JSON.stringify(sensors)]);await c.query('COMMIT');res.set('Cache-Control','private, no-store').status(201).json({id,token,source:'demo',room_id:room.id});
+   await c.query('INSERT INTO app_sensor_devices(id,user_id,building_id,token_hash,sensors) VALUES($1,$2,$3,$4,$5)',[id,building.user_id,building.id,hash(token),JSON.stringify(sensors)]);await c.query('COMMIT');res.set('Cache-Control','private, no-store').status(201).json({id,token,source:'demo',room_id:room.id});
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }));
 
@@ -62,10 +63,11 @@ function sensorDevicesRouter(db,requireAccount){
   if(b.hardware!==undefined&&!Object.hasOwn(HARDWARE,b.hardware))return bad('Unbekannte Hardware.');
   const placing=b.document_id!==undefined||b.space_id!==undefined;
   const c=await db.connect();try{await c.query('BEGIN');
-   const d=(await c.query('SELECT * FROM app_sensor_devices WHERE id=$1 AND user_id=$2 AND revoked=false FOR UPDATE',[req.params.device,req.account.id])).rows[0];
+   const d=(await c.query('SELECT * FROM app_sensor_devices WHERE id=$1 AND revoked=false FOR UPDATE',[req.params.device])).rows[0];
    if(!d){await c.query('ROLLBACK');return res.status(404).json({error:'Gerät nicht gefunden.'});}
+   if(!can(req.buildingAccess,'sensors','edit')||Number(req.buildingAccess?.building_id)!==Number(d.building_id)){await c.query('ROLLBACK');return res.status(404).json({error:'Gerät nicht gefunden.'});}
    if(d.revision!==b.revision){await c.query('ROLLBACK');return res.status(409).json({error:'Gerät inzwischen geändert. Bitte neu laden.'});}
-   const api=service(c,req.account.id).entities;let sensors=d.sensors,hardware=d.hardware||'simulation';
+   const api=service(c,d.user_id).entities;let sensors=d.sensors,hardware=d.hardware||'simulation';
    if(b.hardware&&b.hardware!==hardware){
     if(b.hardware!=='bme280'){await c.query('ROLLBACK');return bad('Ein echtes Gerät kann nicht zurück auf Simulation gestellt werden.');}
     // Neue, echte Sensoren anlegen; alte Simulationswerte bleiben als Demo getrennt erhalten.
@@ -186,7 +188,7 @@ function sensorDevicesRouter(db,requireAccount){
   }
   res.json({document_id:doc.id,generated_at:new Date().toISOString(),rooms:mergeRoomReadings(rooms),room_names});
  }));
- r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND user_id=$2',[req.params.device,req.account.id]);res.json({ok:true});}));
+ r.delete('/sensor-devices/:device',requireAccount,wrap(async(req,res)=>{if(!can(req.buildingAccess,'sensors','edit'))return res.status(404).json({error:'Gerät nicht gefunden.'});await db.query('UPDATE app_sensor_devices SET revoked=true WHERE id=$1 AND building_id=$2',[req.params.device,req.buildingAccess.building_id]);res.json({ok:true});}));
  r.post('/sensor-input',wrap(async(req,res)=>{
   res.set('Cache-Control','private, no-store');const token=req.get('X-D21-Device')||'';
   if(!/^[a-f0-9]{64}$/.test(token))return res.status(401).json({error:'Gerätezugang ungültig.'});

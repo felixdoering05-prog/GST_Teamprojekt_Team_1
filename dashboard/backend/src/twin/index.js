@@ -3,6 +3,7 @@ const express = require('express');
 const {randomUUID} = require('node:crypto');
 const seed = require('./seed');
 const {runThresholdCheck} = require('./thresholdRules');
+const {buildingAccess,can} = require('../team-permissions');
 const names = ['Building','Floor','Room','Sensor','Measurement','EnergyReading','Alert','ThresholdConfig'];
 const schemas = Object.fromEntries(names.map(name => [name,require(`./${name}.json`)]));
 const refs = {building_id:'Building',floor_id:'Floor',room_id:'Room',sensor_id:'Sensor'};
@@ -61,11 +62,34 @@ function matches(row,filter={}) {
   return actual===expected;
  });
 }
-function service(db,userId) {
+function service(db,userId,scope={}) {
+ const sharedOwners=[...new Set([Number(userId),...(scope.ownerIds||[]).map(Number)])];
+ const buildingIDs=scope.buildingIDs?new Set(scope.buildingIDs.map(String)):null;
+ const ownerByBuilding=scope.ownerByBuilding||{};
+ const visibleRecord=row=>{
+  if(!buildingIDs)return true;
+  const buildingID=row.data?.building_id;
+  if(buildingID===undefined||buildingID===null)return Number(row.user_id)===Number(userId);
+  return buildingIDs.has(String(buildingID));
+ };
+ async function storageOwner(entity,id){
+  if(entity==='Building'){
+   const row=(await db.query('SELECT user_id FROM app_buildings WHERE id=$1 AND user_id=ANY($2::int[])',[id,sharedOwners])).rows[0];
+   if(!row||buildingIDs&&!buildingIDs.has(String(id)))fail('Datensatz nicht gefunden.',404);
+   return Number(row.user_id);
+  }
+  const row=(await db.query('SELECT user_id,data FROM app_twin_records WHERE id=$1 AND entity=$2 AND user_id=ANY($3::int[])',[String(id),entity,sharedOwners])).rows[0];
+  if(!row||!visibleRecord(row))fail('Datensatz nicht gefunden.',404);
+  return Number(row.user_id);
+ }
+ function ownerForData(entity,data){
+  if(entity==='Building'||data?.building_id==null)return Number(userId);
+  return Number(ownerByBuilding[String(data.building_id)]||userId);
+ }
  async function all(entity) {
   if(!Object.hasOwn(schemas,entity))fail('Unbekannter Datentyp.',404);
-  if(entity==='Building')return (await db.query('SELECT * FROM app_buildings WHERE user_id=$1 ORDER BY id LIMIT 20001',[userId])).rows.map(b=>({...b.twin_data,id:String(b.id),name:b.name,address:b.address,source:b.twin_data.source||'real',created_date:new Date(b.created_at).toISOString()}));
-  return (await db.query('SELECT * FROM app_twin_records WHERE user_id=$1 AND entity=$2 ORDER BY created_at,id LIMIT 20001',[userId,entity])).rows.map(r=>({...r.data,id:r.id,created_date:new Date(r.created_at).toISOString(),updated_date:new Date(r.updated_at).toISOString()}));
+  if(entity==='Building')return (await db.query('SELECT * FROM app_buildings WHERE user_id=ANY($1::int[]) ORDER BY id LIMIT 20001',[sharedOwners])).rows.filter(b=>!buildingIDs||buildingIDs.has(String(b.id))).map(b=>({...b.twin_data,id:String(b.id),name:b.name,address:b.address,source:b.twin_data.source||'real',created_date:new Date(b.created_at).toISOString()}));
+  return (await db.query('SELECT * FROM app_twin_records WHERE user_id=ANY($1::int[]) AND entity=$2 ORDER BY created_at,id LIMIT 20001',[sharedOwners,entity])).rows.filter(visibleRecord).map(r=>({...r.data,id:r.id,created_date:new Date(r.created_at).toISOString(),updated_date:new Date(r.updated_at).toISOString()}));
  }
  async function get(entity,id) {
   const rows=await all(entity);const row=rows.find(r=>r.id===String(id));
@@ -92,31 +116,37 @@ function service(db,userId) {
  }
  async function create(entity,input) {
   const data=validate(entity,input);await references(entity,data);
-  const count=Number((await db.query('SELECT COUNT(*) AS count FROM app_twin_records WHERE user_id=$1',[userId])).rows[0].count)+Number((await db.query('SELECT COUNT(*) AS count FROM app_buildings WHERE user_id=$1',[userId])).rows[0].count);
+  const storageOwner=ownerForData(entity,data);
+  const count=Number((await db.query('SELECT COUNT(*) AS count FROM app_twin_records WHERE user_id=$1',[storageOwner])).rows[0].count)+Number((await db.query('SELECT COUNT(*) AS count FROM app_buildings WHERE user_id=$1',[storageOwner])).rows[0].count);
   if(count>=MAX_ROWS)fail('Prototyp-Limit von 20.000 Datensätzen pro Konto erreicht.',413);
   if(entity==='Building') {
    const row=(await db.query('INSERT INTO app_buildings(user_id,name,address,twin_data) VALUES($1,$2,$3,$4) RETURNING id',[userId,data.name,data.address||'',JSON.stringify(data)])).rows[0];
-   await syncBuildingLocation(db,row.id,data);return get(entity,String(row.id));
+   await syncBuildingLocation(db,row.id,data);return {...data,id:String(row.id),created_date:new Date().toISOString()};
   }
-  const id=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[id,userId,entity,JSON.stringify(data)]);return { ...data, id, created_date:new Date().toISOString() };
+  const id=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[id,storageOwner,entity,JSON.stringify(data)]);return { ...data, id, created_date:new Date().toISOString() };
  }
  async function update(entity,id,input) {
   const old=await get(entity,id);const patch=validate(entity,input,true);
   const {id:_,created_date,updated_date,...original}=old;
   const data=validate(entity,{...original,...patch});await references(entity,data);
-  if(entity==='Building'){await db.query('UPDATE app_buildings SET name=$1,address=$2,twin_data=$3 WHERE id=$4 AND user_id=$5',[data.name,data.address||'',JSON.stringify(data),id,userId]);await syncBuildingLocation(db,id,data);}
-  else await db.query('UPDATE app_twin_records SET data=$1,updated_at=now() WHERE id=$2 AND user_id=$3 AND entity=$4',[JSON.stringify(data),id,userId,entity]);
+  const storageOwnerID=await storageOwner(entity,id);
+  if(entity!=='Building'&&original.building_id!=null&&data.building_id!=null&&ownerForData(entity,data)!==storageOwnerID)fail('Datensätze können nicht zwischen Gebäudeeigentümern verschoben werden.',403);
+  if(entity==='Building'){await db.query('UPDATE app_buildings SET name=$1,address=$2,twin_data=$3 WHERE id=$4 AND user_id=$5',[data.name,data.address||'',JSON.stringify(data),id,storageOwnerID]);await syncBuildingLocation(db,id,data);}
+  else await db.query('UPDATE app_twin_records SET data=$1,updated_at=now() WHERE id=$2 AND user_id=$3 AND entity=$4',[JSON.stringify(data),id,storageOwnerID,entity]);
   return get(entity,id);
  }
  async function remove(entity,id) {
   await get(entity,id);
-  const dependents=(await db.query('SELECT data FROM app_twin_records WHERE user_id=$1',[userId])).rows;
+  const storageOwnerID=await storageOwner(entity,id);
+  if(entity==='Building'&&storageOwnerID!==Number(userId))fail('Nur der Eigentümer kann ein Gebäude löschen.',403);
+  const dependents=(await db.query('SELECT data FROM app_twin_records WHERE user_id=ANY($1::int[])',[sharedOwners])).rows.filter(visibleRecord);
   if(dependents.some(({data})=>Object.entries(refs).some(([key,type])=>type===entity&&data[key]===id)||(entity==='Sensor'&&data.sensor_ids?.includes(id))))fail('Es bestehen noch zugeordnete Datensätze. Bitte zuerst diese Zuordnungen entfernen.',409);
   // Buildings with files cannot be deleted by demo cleanup or generic CRUD.
   if(entity==='Building') {
    if(Number((await db.query('SELECT COUNT(*) AS count FROM app_documents WHERE building_id=$1',[id])).rows[0].count))fail('Das Gebäude enthält noch Dateien und kann hier nicht gelöscht werden.',409);
-   await db.query('DELETE FROM app_buildings WHERE id=$1 AND user_id=$2',[id,userId]);
-  } else await db.query('DELETE FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3',[id,userId,entity]);
+   if(storageOwnerID!==Number(userId))fail('Nur der Eigentümer kann ein Gebäude löschen.',403);
+   await db.query('DELETE FROM app_buildings WHERE id=$1 AND user_id=$2',[id,storageOwnerID]);
+  } else await db.query('DELETE FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3',[id,storageOwnerID,entity]);
   return {ok:true};
  }
  const entities=Object.fromEntries(names.map(entity=>[entity,{
@@ -137,8 +167,80 @@ function twinRouter(db,requireAccount) {
   if(!Object.hasOwn(schemas,entity))fail('Unbekannter Datentyp.',404);
   if(!['list','filter','count','create','update','delete','bulkCreate','bulkUpdate','deleteMany'].includes(action))fail('Unbekannte Aktion.',404);
   const body=req.body||{};const read=['list','filter','count'].includes(action);
-  const execute=async client=>{
-   const api=service(client,req.account.id).entities[entity];
+  const module={Building:'buildings',Floor:'structure',Room:'structure',Sensor:'sensors',Measurement:'sensors',EnergyReading:'energy',Alert:'issues',ThresholdConfig:'sensors'}[entity];
+  async function scopedStorage(connection,operation){
+   const rows=(await connection.query(`SELECT b.id,b.user_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(
+    SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted')`,[req.account.id])).rows;
+   const buildingIDs=[],ownerIds=new Set([Number(req.account.id)]),ownerByBuilding={};
+   for(const row of rows){
+    const access=await buildingAccess(connection,Number(row.id),req.account.id);
+    if(access){ownerIds.add(Number(row.user_id));if(can(access,module,operation)){buildingIDs.push(String(row.id));ownerByBuilding[String(row.id)]=Number(row.user_id);}}
+   }
+   return {buildingIDs,ownerIds:[...ownerIds],ownerByBuilding};
+  }
+  async function authorizeData(connection,data,operation){
+   const buildingID=entity==='Building'?data?.id:data?.building_id;
+   if(!buildingID){
+    const [owned,membership]=await Promise.all([
+     connection.query('SELECT 1 FROM app_buildings WHERE user_id=$1 LIMIT 1',[req.account.id]),
+     connection.query("SELECT 1 FROM app_building_members WHERE user_id=$1 AND status='accepted' LIMIT 1",[req.account.id]),
+    ]);
+    if(membership.rows.length&&!owned.rows.length)fail('Diese Aktion braucht ein Gebäude, auf das du Zugriff hast.',403);
+    return;
+   }
+   const access=await buildingAccess(connection,Number(buildingID),req.account.id);
+   if(!access)fail('Gebäude nicht gefunden.',404);
+   if(!can(access,module,operation))fail('Dafür hast du in diesem Gebäude keine Berechtigung.',403);
+  }
+  async function authorizeExisting(connection,id,operation,scope){
+   if(entity==='Building')return authorizeData(connection,{id},operation);
+   const row=(await connection.query('SELECT data FROM app_twin_records WHERE id=$1 AND user_id=ANY($2::int[]) AND entity=$3',[String(id),scope.ownerIds,entity])).rows[0];
+   if(!row)fail('Datensatz nicht gefunden.',404);
+   await authorizeData(connection,row.data,operation);
+   return row.data;
+  }
+  async function authorizeReadResults(result){
+   const rows=action==='list'?result:action==='filter'?result.items:[];
+   if(action==='count'&&/^\d+$/.test(String(body.filter?.building_id??''))){
+    const access=await buildingAccess(db,Number(body.filter.building_id),req.account.id);
+    if(!access)fail('Gebäude nicht gefunden.',404);
+    if(!can(access,module,'read'))fail('Dafür hast du in diesem Gebäude keine Berechtigung.',403);
+    return result;
+   }
+   if(action==='count')return result;
+   const permitted=[];
+   for(const row of rows){try{await authorizeData(db,row,'read');permitted.push(row);}catch(error){if(error.status!==403&&error.status!==404)throw error;}}
+   if(action==='list')return permitted;
+   if(action==='filter')return {...result,items:permitted,has_more:result.has_more||false};
+   return result;
+  }
+  async function authorizeMutation(connection,scope){
+   if(action==='create')return authorizeData(connection,body.data,'edit');
+   if(action==='bulkCreate'){
+    if(!Array.isArray(body.data))fail('Datensätze erforderlich.');
+    for(const row of body.data)await authorizeData(connection,row,'edit');return;
+   }
+   if(action==='update'||action==='delete'){
+    const old=await authorizeExisting(connection,body.id,'edit',scope);
+    if(action==='update'&&entity!=='Building'&&body.data&&Object.hasOwn(body.data,'building_id'))await authorizeData(connection,{...old,...body.data},'edit');
+    return;
+   }
+   if(action==='bulkUpdate'){
+    if(!Array.isArray(body.data))fail('Datensätze erforderlich.');
+    for(const row of body.data){
+     const old=await authorizeExisting(connection,row.id,'edit',scope);
+     if(entity!=='Building'&&Object.hasOwn(row,'building_id'))await authorizeData(connection,{...old,...row},'edit');
+    }
+    return;
+   }
+   if(action==='deleteMany'){
+    const rows=await service(connection,req.account.id,scope).entities[entity].filter(body.filter,{limit:500});
+    if(rows.has_more)fail('Bitte lösche höchstens 500 Datensätze pro Anfrage.',413);
+    for(const row of rows.items)await authorizeExisting(connection,row.id,'edit',scope);
+   }
+  }
+  const execute=async (client,scope)=>{
+   const api=service(client,req.account.id,scope).entities[entity];
    if(action==='list')return api.list(body.sort,body.limit);
    if(action==='filter')return api.filter(body.filter,body.options);
    if(action==='count')return api.count(body.filter);
@@ -148,10 +250,14 @@ function twinRouter(db,requireAccount) {
    if(action==='bulkCreate'||action==='bulkUpdate')return api[action](body.data);
    return api.deleteMany(body.filter);
   };
-  res.json(read?await execute(db):await transaction(db,req.account.id,execute));
+  if(read){const scope=await scopedStorage(db,'read'),result=await execute(db,scope);res.json(await authorizeReadResults(result));return;}
+  res.json(await transaction(db,req.account.id,async client=>{const scope=await scopedStorage(client,'edit');await authorizeMutation(client,scope);return execute(client,scope);}));
  }));
  router.post('/twin-functions/:name',wrap(async(req,res)=>{
   if(!['seedDemoData','runThresholdCheck'].includes(req.params.name))fail('Unbekannte Funktion.',404);
+  const members=(await db.query("SELECT 1 FROM app_building_members WHERE user_id=$1 AND status='accepted' LIMIT 1",[req.account.id])).rows;
+  const owned=(await db.query('SELECT 1 FROM app_buildings WHERE user_id=$1 LIMIT 1',[req.account.id])).rows;
+  if(members.length&&!owned.length)fail('Diese kontoübergreifende Funktion steht für Gebäudemitglieder nicht zur Verfügung.',403);
   const result=await transaction(db,req.account.id,async client=>{
    const api=service(client,req.account.id);
    if(req.params.name==='seedDemoData')return seed(api);

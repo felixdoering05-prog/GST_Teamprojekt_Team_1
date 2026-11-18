@@ -28,7 +28,7 @@ test('schema, foreign references and hierarchy are checked on the server',async(
  assert.equal((await action('Room','create',{data:{name:'Raum',room_code:'R1',building_id:String(building.id)}},bob.token)).status,404);
  floor=(await action('Floor','create',{data:{name:'EG',level:0,building_id:String(building.id),source:'real'}})).body;
  const other=(await action('Building','create',{data:{name:'Anderes'}})).body;
- assert.equal((await action('Room','create',{data:{name:'Raum',room_code:'R1',building_id:other.id,floor_id:floor.id}})).status,400);
+ const crossBuildingRoom=await action('Room','create',{data:{name:'Raum',room_code:'R1',building_id:other.id,floor_id:floor.id}});assert.equal(crossBuildingRoom.status,400,JSON.stringify(crossBuildingRoom.body));
  assert.equal((await action('Floor','create',{data:{name:'EG',user_id:1}})).status,400);
  assert.equal((await action('Unknown','list')).status,404);
 });

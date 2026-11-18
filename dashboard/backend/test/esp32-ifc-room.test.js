@@ -21,18 +21,17 @@ async function req(user,path,method='GET',body,headers={}){const r=await fetch(u
 const send=(values)=>req(null,'/sensor-input','POST',{request_key:randomUUID(),...values},{'X-D21-Device':device.token});
 const allowNextPacket=()=>db.query("UPDATE app_sensor_devices SET last_at=now()-interval '2 minutes' WHERE id=$1",[device.id]);
 
-test('only the owner can switch hardware and place the device in an IFC room of the same building',async()=>{
+test('employee can switch sensor hardware and place it in an IFC room of the same building',async()=>{
  const list=await req(member,`/buildings/${building}/sensor-devices`);assert.equal(list.status,200);assert.equal(list.data.length,1);assert.equal(list.data[0].hardware,'simulation');assert.equal(JSON.stringify(list.data).includes(device.token),false);
  assert.equal((await req(outsider,`/buildings/${building}/sensor-devices`)).status,404);
  const body={hardware:'bme280',document_id:doc,space_id:1500,revision:0};
- assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',body)).status,404);
- assert.equal((await req(owner,`/sensor-devices/${device.id}`,'PUT',{...body,document_id:foreignDoc})).status,404);
- assert.equal((await req(owner,`/sensor-devices/${device.id}`,'PUT',{...body,space_id:9999})).status,400);
- assert.equal((await req(owner,`/sensor-devices/${device.id}`,'PUT',{...body,revision:5})).status,409);
- assert.equal((await req(owner,`/sensor-devices/${device.id}`,'PUT',{...body,hardware:'quantum'})).status,400);
- const r=await req(owner,`/sensor-devices/${device.id}`,'PUT',body);
+ assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',{...body,document_id:foreignDoc})).status,404);
+ assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',{...body,space_id:9999})).status,400);
+ assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',{...body,revision:5})).status,409);
+ assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',{...body,hardware:'quantum'})).status,400);
+ const r=await req(member,`/sensor-devices/${device.id}`,'PUT',body);
  assert.equal(r.status,200);assert.deepEqual({hardware:r.data.hardware,source:r.data.source,room:r.data.room,space_id:r.data.space_id,revision:r.data.revision},{hardware:'bme280',source:'real',room:'HP-03 · Zimmer III',space_id:1500,revision:1});
- assert.equal((await req(owner,`/sensor-devices/${device.id}`,'PUT',{hardware:'simulation',revision:1})).status,400);
+ assert.equal((await req(member,`/sensor-devices/${device.id}`,'PUT',{hardware:'simulation',revision:1})).status,400);
  const rooms=(await service(db,owner.id).entities.Room.filter({building_id:String(building),source:'real'})).items;
  assert.equal(rooms.length,1);assert.equal(rooms[0].ifc_global_id,'0xJTxmotLAXekNhP8q7Df8');assert.equal(rooms[0].room_code,'HP-03');
 });
