@@ -4,7 +4,6 @@ import Foundation
 // Served only by WorkflowPreviewProtocol, using its existing lock; no network traffic.
 enum NativeTeamsPreview {
     static var groups: [[String: Any]] = [["id":1,"team_id":1,"name":"Campus Darmstadt","buildings":[["id":901,"name":"Gebäude D21"]]]]
-    static var schedules: [[String: Any]] = [["id":1,"title":"Gemeinsame Gebäudebegehung","details":"Sensoren und Räume prüfen, Treffpunkt Haupteingang.","starts_at":"2026-11-20T09:00:00.000Z","ends_at":"2026-11-20T10:00:00.000Z","created_by_name":"Benjamin"]]
     static var teamName = "Nala Projektteam"
     static var primary = "#167d87"
     static var accent = "#b8e9df"
@@ -59,15 +58,6 @@ enum NativeTeamsPreview {
             if !owner { return (403,["error":"Keine Mitgliederverwaltung."]) }
             if path.contains("/roles") && !path.hasSuffix("/order") && method != "DELETE" { var r=roles[0]; r["name"]=object["name"]; r["permissions"]=object["permissions"]; r["can_manage_members"]=object["can_manage_members"]; return (200,r) }
             return (200,["ok":true])
-        }
-        if path.contains("/schedules") {
-            if method == "GET" { return (200,["items":schedules,"can_edit":owner]) }
-            if !owner { return (403,["error":"Keine Schreibrechte für Zeitpläne."]) }
-            let id = Int(path.split(separator: "/").last ?? "")
-            if method == "DELETE" { schedules.removeAll { $0["id"] as? Int == id }; return (200,["ok":true]) }
-            var item=object; item["id"]=id ?? nextID; item["created_by_name"]="Felix"
-            if method == "PATCH" { schedules.removeAll { $0["id"] as? Int == id } }; schedules.append(item); nextID += 1
-            return (method == "POST" ? 201:200,item)
         }
         return nil
     }

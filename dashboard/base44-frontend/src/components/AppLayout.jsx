@@ -6,7 +6,6 @@ import {
   Boxes,
   BrainCircuit,
   Building2,
-  CalendarClock,
   Database,
   Flame,
   LayoutDashboard,
@@ -44,7 +43,6 @@ const NAV_GROUPS = [
   {
     label: 'Benachrichtigungen',
     items: [
-      { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
     ],
   },
@@ -52,7 +50,7 @@ const NAV_GROUPS = [
     label: 'Organisation',
     items: [
       { path: '/teams', label: 'Dein Team', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
-      { path: '/rechte', label: 'Rechte', icon: ShieldCheck, hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
+      { path: '/rechte', label: 'Rechte', icon: ShieldCheck, module: 'teamRights', hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
     ],
   },
   {
@@ -70,7 +68,7 @@ function NavItems({ onNavigate, isAdmin, permissions }) {
   return (
     <nav aria-label="Hauptnavigation" className="space-y-5 px-3">
       {NAV_GROUPS.map((group) => {
-        const items=group.items.filter(item=>!item.module||permissions===null||permissions[item.module]!=='none');
+        const items=group.items.filter(item=>item.module==='teamRights'?permissions?.teamRights===true:!item.module||permissions===null||permissions[item.module]!=='none');
         return items.length>0&&(
         <div key={group.label}>
           <p className="shell-nav-heading">{group.label}</p>
@@ -124,16 +122,22 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam }) {
     let active=true;
     const load=async()=>{
       try{
-        const buildings=await request('/buildings');
-        if(!buildings.length){if(active)setPermissions(null);return;}
+        const teams=await request('/teams');
+        const selectedID=localStorage.getItem('d21-selected-team');
+        const team=teams.find(row=>String(row.id)===selectedID);
+        const teamRights=!!team&&(team.is_owner===true||team.can_manage_groups===true);
+        const buildings=team?.buildings||[];
+        if(!buildings.length){if(active)setPermissions({teamRights});return;}
         const preferred=localStorage.getItem('d21-selected-building');
         const building=buildings.find(row=>String(row.id)===preferred)||buildings[0];
         const access=await request(`/buildings/${building.id}/team-access`);
-        if(active)setPermissions(access.is_owner?null:access.actor_role?.permissions||{});
-      }catch{if(active)setPermissions(null);}
+        if(active)setPermissions({...(!access.is_owner?access.actor_role?.permissions||{}:{}),teamRights});
+      }catch{if(active)setPermissions({teamRights:false});}
     };
-    load();window.addEventListener('d21-building-change',load);
-    return()=>{active=false;window.removeEventListener('d21-building-change',load);};
+    load();
+    window.addEventListener('d21-building-change',load);
+    window.addEventListener('d21-team-change',load);
+    return()=>{active=false;window.removeEventListener('d21-building-change',load);window.removeEventListener('d21-team-change',load);};
   },[scopeKey]);
 
   return (

@@ -89,29 +89,11 @@ struct NativeBuildingAccess: Decodable {
     }
 }
 
-struct NativeSchedule: Decodable, Identifiable {
-    let id: Int
-    let title: String
-    let details: String
-    let starts_at: String
-    let ends_at: String?
-    let created_by_name: String?
-}
-struct NativeScheduleList: Decodable {
-    let items: [NativeSchedule]
-    let can_edit: Bool
-}
-
 let nativeTeamModules: [(key: String, title: String)] = [
     ("overview", "Übersicht"), ("buildings", "Gebäudeverwaltung"),
     ("structure", "Geschosse & Räume"), ("bim", "3D-Modell"), ("documents", "Dateien & Pläne"),
     ("sensors", "Sensoren & Geräte"), ("energy", "Energie"), ("analysis", "KI-Analyse"),
     ("assistant", "Gebäude-Assistent"), ("issues", "Mängel"), ("maintenance", "Wartung"),
-    ("schedule", "Zeitplanung"), ("coordination", "Teamchat"), ("settings", "Einstellungen & Importe")
+    ("coordination", "Teamchat"), ("settings", "Einstellungen & Importe")
 ]
 
-func nativeTeamDate(_ value: String) -> Date? {
-    let parser = ISO8601DateFormatter()
-    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-}

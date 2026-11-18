@@ -3,9 +3,9 @@ import Foundation
 @main struct TeamContractSmoke {
     static func main() throws {
         let roles: [[String: Any]] = [
-            ["id":10,"name":"Management","role_key":"management","sort_order":0,"permissions":["schedule":"edit"],"can_manage_members":true,"is_system":true],
-            ["id":11,"name":"Employee","role_key":"employee","sort_order":1,"permissions":["schedule":"read"],"can_manage_members":false,"is_system":true],
-            ["id":12,"name":"Maintenance","role_key":"maintenance","sort_order":2,"permissions":["maintenance":"none","schedule":"edit"],"can_manage_members":false,"is_system":true]
+            ["id":10,"name":"Management","role_key":"management","sort_order":0,"permissions":["coordination":"edit"],"can_manage_members":true,"is_system":true],
+            ["id":11,"name":"Employee","role_key":"employee","sort_order":1,"permissions":["coordination":"read"],"can_manage_members":false,"is_system":true],
+            ["id":12,"name":"Maintenance","role_key":"maintenance","sort_order":2,"permissions":["maintenance":"none","coordination":"edit"],"can_manage_members":false,"is_system":true]
         ]
         let members: [[String: Any]] = [
             ["id":1,"name":"Owner","status":"owner","role_id":NSNull(),"role_name":"Eigentümer","role_key":"owner","sort_order":-1],
@@ -27,10 +27,10 @@ import Foundation
         precondition(!manager.canManage(manager.members[2], userID: 3)) // oneself
         precondition(manager.canManage(manager.members[2], userID: 2))
         let redacted = roles.map { row in row.filter { !["permissions","can_manage_members"].contains($0.key) } }
-        let readOnly = try access(owner: false, manages: false, rank: 2, permissions: ["schedule":"read","maintenance":"none"], roleRows: redacted)
+        let readOnly = try access(owner: false, manages: false, rank: 2, permissions: ["coordination":"read","maintenance":"none"], roleRows: redacted)
         precondition(readOnly.assignableRoles.isEmpty)
         precondition(!readOnly.canManage(readOnly.members[2], userID: 4))
-        precondition(readOnly.allows("schedule") && !readOnly.allows("schedule", edit: true))
+        precondition(readOnly.allows("coordination") && !readOnly.allows("coordination", edit: true))
         precondition(!readOnly.allows("maintenance"))
         let team = try JSONDecoder().decode(NativeTeam.self, from: Data(##"{"id":1,"name":"Nala","owner_id":1,"primary_color":"#596b3d","accent_color":"#cbd5a3","has_logo":false,"is_owner":false,"can_manage":false,"can_manage_groups":false,"buildings":[{"id":901,"name":"D21","address":"Campus","owner_id":1,"is_owner":false}]}"##.utf8))
         precondition(team.buildings.count == 1 && !team.can_manage)
@@ -41,11 +41,7 @@ import Foundation
         precondition(title.name == "Sensorik")
         let group = try JSONDecoder().decode(NativeBuildingGroup.self, from: Data(##"{"id":4,"team_id":1,"name":"Campus","buildings":[{"id":901,"name":"D21"}]}"##.utf8))
         precondition(group.buildings[0].address == nil)
-        let schedule = try JSONDecoder().decode(NativeScheduleList.self, from: Data(##"{"items":[{"id":1,"title":"Begehung","details":"Treffpunkt Eingang","starts_at":"2026-11-18T10:00:00.000Z","ends_at":null}],"can_edit":false}"##.utf8))
-        precondition(schedule.items.count == 1 && !schedule.can_edit)
-        precondition(nativeTeamDate(schedule.items[0].starts_at) == nativeTeamDate("2026-11-18T10:00:00Z"))
-        precondition(nativeTeamDate("kein Datum") == nil)
-        precondition(Set(nativeTeamModules.map(\.key)).count == 14)
+        precondition(Set(nativeTeamModules.map(\.key)).count == 13)
         print("Team contract and authorization presentation checks passed.")
     }
 }

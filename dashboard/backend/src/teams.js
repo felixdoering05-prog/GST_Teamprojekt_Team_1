@@ -187,14 +187,52 @@ function teamsRouter(db,requireAccount){
  r.delete('/teams/:teamID/groups/:groupID',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const ids=(await db.query('SELECT i.building_id FROM app_building_group_items i JOIN app_building_groups g ON g.id=i.group_id WHERE g.id=$1 AND g.team_id=$2',[req.params.groupID,team.id])).rows.map(row=>Number(row.building_id));if(!ids.length)return res.status(404).json({error:'Gruppe nicht gefunden oder leer.'});if(!await groupManage(req,res,team,ids))return;const result=await db.query('DELETE FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.groupID,team.id]);if(!result.rowCount)return res.status(404).json({error:'Gruppe nicht gefunden.'});res.json({ok:true});}));
  r.post('/teams/:teamID/groups/:groupID/assign',requireAccount,wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;
-  const target=Number(req.body?.user_id),assignments=req.body?.assignments;if(!idOK(target)||target===Number(req.account.id)||!Array.isArray(assignments))return res.status(400).json({error:'Person und Rolle je Gebäude auswählen.'});
-  const group=(await db.query('SELECT id FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.groupID,team.id])).rows[0];if(!group)return res.status(404).json({error:'Gruppe nicht gefunden.'});
-  const buildings=(await db.query('SELECT b.id,b.user_id FROM app_building_group_items i JOIN app_buildings b ON b.id=i.building_id WHERE i.group_id=$1 ORDER BY b.id',[group.id])).rows;if(!buildings.length)return res.status(400).json({error:'Die Gruppe enthält keine Gebäude.'});
+  const target=Number(req.body?.user_id),sourceBuildingID=Number(req.body?.role_building_id),sourceRoleID=Number(req.body?.role_id);
+  if(!idOK(target)||target===Number(req.account.id)||!idOK(sourceBuildingID)||!idOK(sourceRoleID))return res.status(400).json({error:'Teammitglied, Gebäudegruppe und Rolle auswählen.'});
+  const group=(await db.query('SELECT id FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.groupID,team.id])).rows[0];
+  if(!group)return res.status(404).json({error:'Gruppe nicht gefunden.'});
+  const buildings=(await db.query('SELECT b.id,b.user_id FROM app_building_group_items i JOIN app_buildings b ON b.id=i.building_id WHERE i.group_id=$1 ORDER BY b.id',[group.id])).rows;
+  if(!buildings.length)return res.status(400).json({error:'Die Gruppe enthält keine Gebäude.'});
+  if(!buildings.some(b=>Number(b.id)===sourceBuildingID))return res.status(400).json({error:'Die gewählte Rolle muss aus einem Gebäude dieser Gruppe stammen.'});
+  if(buildings.some(b=>Number(b.user_id)===target))return res.status(400).json({error:'Die Person ist Eigentümer eines Gebäudes in dieser Gruppe; Eigentümerrechte können nicht überschrieben werden.'});
   if(!await groupManage(req,res,team,buildings.map(b=>Number(b.id))))return;
-  const contact=(await db.query("SELECT id FROM app_contacts WHERE low_id=$1 AND high_id=$2 AND status='accepted'",[Math.min(target,req.account.id),Math.max(target,req.account.id)])).rows[0];if(!contact)return res.status(400).json({error:'Die Person muss zuerst als bestätigter Kontakt verbunden sein.'});
-  if(assignments.length!==buildings.length||new Set(assignments.map(a=>Number(a.building_id))).size!==buildings.length)return res.status(400).json({error:'Für jedes Gruppen-Gebäude genau eine Rolle auswählen.'});
-  const prepared=[];for(const b of buildings){if(Number(b.user_id)===target)return res.status(400).json({error:'Die Person ist Eigentümer eines Gebäudes in dieser Gruppe; Eigentümerrechte können nicht überschrieben werden.'});const actor=await buildingAccess(db,b.id,req.account.id);if(!actor||(!actor.is_owner&&!actor.role?.can_manage_members))return res.status(403).json({error:'Für mindestens ein Gruppen-Gebäude fehlt die Mitgliederverwaltung.'});const assignment=assignments.find(a=>Number(a.building_id)===Number(b.id));if(!assignment||!idOK(assignment.role_id))return res.status(400).json({error:'Für jedes Gruppen-Gebäude eine gültige Rolle auswählen.'});const roles=await ensureBuildingRoles(db,b.id);const chosen=roles.find(r=>Number(r.id)===Number(assignment.role_id));if(!chosen)return res.status(400).json({error:'Die ausgewählte Rolle gehört nicht zum jeweiligen Gebäude.'});if(!actor.is_owner&&Number(chosen.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Du kannst nur eine niedrigere Rolle vergeben.'});const existing=(await db.query('SELECT m.status,r.sort_order FROM app_building_members m LEFT JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[b.id,target])).rows[0];if(existing&&!actor.is_owner&&Number(existing.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Eine bestehende höhere oder gleichrangige Rolle darf nicht geändert werden.'});prepared.push({buildingID:Number(b.id),roleID:Number(chosen.id),existing:existing||null});}
-  const client=await db.connect();try{await client.query('BEGIN');for(const p of prepared){if(p.existing)await client.query('UPDATE app_building_members SET role_id=$3 WHERE building_id=$1 AND user_id=$2',[p.buildingID,target,p.roleID]);else await client.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'pending',$3)",[p.buildingID,target,p.roleID]);}await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}res.json({ok:true,buildings:prepared.length});
+  const contact=(await db.query("SELECT id FROM app_contacts WHERE low_id=$1 AND high_id=$2 AND status='accepted'",[Math.min(target,req.account.id),Math.max(target,req.account.id)])).rows[0];
+  if(!contact)return res.status(400).json({error:'Die Person muss zuerst als bestätigter Kontakt verbunden sein.'});
+  const sourceAccess=await buildingAccess(db,sourceBuildingID,req.account.id);
+  const sourceRoles=await ensureBuildingRoles(db,sourceBuildingID);
+  const sourceRole=sourceRoles.find(role=>Number(role.id)===sourceRoleID);
+  if(!sourceRole)return res.status(400).json({error:'Die ausgewählte Rolle gehört nicht zum gewählten Gebäude.'});
+  if(!sourceAccess||(!sourceAccess.is_owner&&Number(sourceRole.sort_order)<=Number(sourceAccess.role.sort_order)))return res.status(403).json({error:'Du kannst diese Rolle nicht vergeben.'});
+  const prepared=[];
+  for(const building of buildings){
+   const actor=await buildingAccess(db,building.id,req.account.id);
+   if(!actor||(!actor.is_owner&&!actor.role?.can_manage_members))return res.status(403).json({error:'Für mindestens ein Gruppen-Gebäude fehlt die Mitgliederverwaltung.'});
+   if(!actor.is_owner&&Number(sourceRole.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Die ausgewählte Rolle ist in mindestens einem Gebäude zu hoch eingestuft.'});
+   const roles=await ensureBuildingRoles(db,building.id);
+   const chosen=roles.find(role=>role.name===sourceRole.name&&JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions)&&role.can_manage_members===sourceRole.can_manage_members);
+   const existing=(await db.query('SELECT m.status,r.sort_order FROM app_building_members m LEFT JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[building.id,target])).rows[0];
+   if(existing&&!actor.is_owner&&Number(existing.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Eine bestehende höhere oder gleichrangige Rolle darf nicht geändert werden.'});
+   prepared.push({buildingID:Number(building.id),roleID:chosen?Number(chosen.id):null,existing:existing||null,actor});
+  }
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');
+   for(const item of prepared){
+    let roleID=item.roleID;
+    if(!roleID){
+     const next=Number((await client.query('SELECT COALESCE(MAX(sort_order),-1)+1 AS next FROM app_building_roles WHERE building_id=$1',[item.buildingID])).rows[0].next);
+     if(!item.actor.is_owner&&next<=Number(item.actor.role.sort_order))throw Object.assign(new Error('Die übertragene Rolle wäre nicht niedriger als deine eigene.'),{status:403});
+     const role=(await client.query(`INSERT INTO app_building_roles(building_id,role_key,name,sort_order,permissions,can_manage_members,is_system)
+      VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id`,
+      [item.buildingID,'group-'+require('node:crypto').randomUUID(),sourceRole.name,next,JSON.stringify(sourceRole.permissions),sourceRole.can_manage_members])).rows[0];
+     roleID=Number(role.id);
+    }
+    if(item.existing)await client.query('UPDATE app_building_members SET role_id=$3 WHERE building_id=$1 AND user_id=$2',[item.buildingID,target,roleID]);
+    else await client.query("INSERT INTO app_building_members(building_id,user_id,status,role_id) VALUES($1,$2,'pending',$3)",[item.buildingID,target,roleID]);
+   }
+   await client.query('COMMIT');
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+  res.json({ok:true,buildings:prepared.length,role:sourceRole.name});
  }));
  return r;
 }

@@ -30,7 +30,7 @@ const {initModelState,modelStateRouter}=require('./model-state');
 const {initAssistant,assistantRouter}=require('./assistant');
 const {initCollaboration,collaborationRouter,accessSQL}=require('./collaboration');
 const {initTeamPermissions,scopedAccessMiddleware}=require('./team-permissions');
-const {teamAccessRouter,initBuildingSchedules,scheduleRouter}=require('./team-access');
+const {teamAccessRouter}=require('./team-access');
 const {initTeams,ensureDefaultTeam,teamScopeMiddleware,teamsRouter}=require('./teams');
 const express = require('express');
 const {initPasswordResets,passwordResetRouter}=require('./password-reset');
@@ -71,7 +71,6 @@ async function initAccounts(db) {
  await initProfile(db);
  await initCollaboration(db);
  await initTeamPermissions(db);
- await initBuildingSchedules(db);
  await initAssistant(db);
  await initAdmin(db);
  await initDevices(db);
@@ -191,7 +190,6 @@ function accountRouter(db,options={}) {
  router.use(scopedAccessMiddleware(db));
  router.use(buildingDeletionRouter(db,requireAccount));
  router.use(teamAccessRouter(db,requireAccount));
- router.use(scheduleRouter(db,requireAccount));
  router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use(sensorDevicesRouter(db,requireAccount));

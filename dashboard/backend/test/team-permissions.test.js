@@ -51,8 +51,6 @@ test('roles and building scopes limit reads and writes independently per buildin
  assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
  assert.equal((await request(employee,`/twin/Floor/update`,'POST',{id:floorFirst.id,data:{name:'OG'}})).status,200);
  assert.equal((await request(maintenance,`/twin/Floor/update`,'POST',{id:floorSecond.id,data:{name:'EG'}})).status,403);
- const schedule=await request(maintenance,`/buildings/${second}/schedules`,'POST',{title:'Wartung',starts_at:new Date(Date.now()+60000).toISOString()});
- assert.equal(schedule.status,201);
  assert.equal((await request(maintenance,`/twin/Sensor/create`,'POST',{data:{building_id:String(second),sensor_code:'S-1',metric:'temperature'}})).status,403);
  assert.equal((await request(maintenance,`/buildings/${second}/maintenance`,'POST',{title:'Neue Wartung',interval_months:12})).status,403);
  assert.equal((await request(maintenance,`/buildings/${second}/plan-conversion/jobs`,'POST',{document_ids:[1]})).status,403);
@@ -70,7 +68,7 @@ test('management can manage lower-ranked members while only the owner edits and 
  assert.equal((await request(manager,`/buildings/${first}/team-access/members/${peer.id}`,'DELETE')).status,403);
  assert.equal((await request(manager,`/buildings/${first}/team-access/roles`,'POST',{name:'Eigene Rolle',can_manage_members:false,permissions:{}})).status,403);
  assert.equal((await request(manager,`/buildings/${first}/team-access/roles/order`,'PATCH',{role_ids:roles.map(role=>role.id)})).status,403);
- const permissions=Object.fromEntries(MODULES.map(module=>[module,'none']));permissions.schedule='edit';permissions.coordination='edit';
+ const permissions=Object.fromEntries(MODULES.map(module=>[module,'none']));permissions.coordination='edit';
  const created=await request(owner,`/buildings/${first}/team-access/roles`,'POST',{name:'Koordination',permissions,can_manage_members:false});
  assert.equal(created.status,201);
  const edited=await request(owner,`/buildings/${first}/team-access/roles/${created.body.id}`,'PATCH',{name:'Planung',permissions,can_manage_members:false});
@@ -86,7 +84,6 @@ test('revoking access in one building leaves the same person’s other building 
  const buildings=await request(employee,'/buildings');
  assert.deepEqual(buildings.body.map(row=>Number(row.id)),[Number(second)]);
  assert.equal((await request(employee,`/buildings/${second}/team-access`)).body.actor_role.role_key,'maintenance');
- assert.equal((await request(employee,`/buildings/${second}/schedules`)).status,200);
 });
 
 test('building groups apply the selected per-building role and replace individual roles',async()=>{
@@ -96,13 +93,18 @@ test('building groups apply the selected per-building role and replace individua
  const made=await request(owner,`/teams/${team.id}/groups`,'POST',{name:'Campus Nord',building_ids:[first,second]});
  assert.equal(made.status,201,JSON.stringify(made.body));
  const firstRoles=await ensureBuildingRoles(db,first),secondRoles=await ensureBuildingRoles(db,second);
- const assigned=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,assignments:[
-  {building_id:first,role_id:firstRoles.find(role=>role.role_key==='maintenance').id},
-  {building_id:second,role_id:secondRoles.find(role=>role.role_key==='employee').id},
- ]});
+ const assigned=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,role_building_id:first,role_id:firstRoles.find(role=>role.role_key==='maintenance').id});
  assert.equal(assigned.status,200,JSON.stringify(assigned.body));
  assert.equal((await db.query('SELECT r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[first,peer.id])).rows[0].role_key,'maintenance');
- assert.equal((await db.query('SELECT status,r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].status,'pending');
+ assert.equal((await db.query('SELECT r.name FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].name,'Maintenance');
+ assert.equal((await db.query('SELECT status FROM app_building_members WHERE building_id=$1 AND user_id=$2',[second,peer.id])).rows[0].status,'pending');
+ const custom=await request(owner,`/buildings/${first}/team-access/roles`,'POST',{name:'Group Inspector',can_manage_members:false,permissions:firstRoles.find(role=>role.role_key==='maintenance').permissions});
+ assert.equal(custom.status,201,JSON.stringify(custom.body));
+ const copied=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,role_building_id:first,role_id:custom.body.id});
+ assert.equal(copied.status,200,JSON.stringify(copied.body));
+ const copiedRole=(await db.query('SELECT r.name,r.permissions FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0];
+ assert.equal(copiedRole.name,'Group Inspector');
+ assert.deepEqual(copiedRole.permissions,custom.body.permissions);
 });
 
 
@@ -118,6 +120,9 @@ test('native team titles and optional backgrounds remain owner-controlled and do
  assert.equal(title.status,201);
  assert.equal((await request(owner,`/teams/${team.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,200);
  assert.equal((await request(owner,`/teams/${team.id}/members`)).body.find(p=>p.id===manager.id).title,'Native Sensorik');
+ const deletedTitle=await request(owner,`/teams/${team.id}/titles/${title.body.id}`,'DELETE');
+ assert.equal(deletedTitle.status,200);
+ assert.equal((await request(owner,`/teams/${team.id}/titles`)).body.some(item=>item.id===title.body.id),false);
  assert.equal((await request(manager,`/buildings/${first}/team-access`)).body.actor_role.role_key,before);
  const other=await request(owner,'/teams','POST',{name:'Anderes Team'});
  assert.equal((await request(owner,`/teams/${other.body.id}/members/${manager.id}/title`,'PUT',{title_id:title.body.id})).status,400);
@@ -127,19 +132,4 @@ test('native team titles and optional backgrounds remain owner-controlled and do
  assert.equal((await request(owner,`/teams/${team.id}`,'PATCH',{background_color:null})).body.background_color,null);
 });
 
-test('calendar room and sensor IDs use Twin text IDs and older app edits preserve maintenance metadata',async()=>{
- const {initBuildingSchedules}=require('../src/team-access');
- await db.query('ALTER TABLE app_building_schedules ALTER COLUMN room_id TYPE INTEGER USING room_id::integer, ALTER COLUMN sensor_id TYPE INTEGER USING sensor_id::integer');
- const legacy=(await db.query("INSERT INTO app_building_schedules(building_id,title,starts_at,kind,room_id,sensor_id) VALUES($1,'Legacy',now(),'maintenance',123,456) RETURNING id",[second])).rows[0];
- await initBuildingSchedules(db);
- const restored=(await db.query('SELECT room_id,sensor_id FROM app_building_schedules WHERE id=$1',[legacy.id])).rows[0];assert.deepEqual(restored,{room_id:'123',sensor_id:'456'});
- const room='56e7a9cd-a133-40e7-a6ab-20df8db40211',sensor='sensor-calendar-test';
- await db.query("INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,'Room',$3),($4,$2,'Sensor',$5)",[room,owner.id,JSON.stringify({building_id:String(second),name:'Büro'}),sensor,JSON.stringify({building_id:String(second),name:'Temperatur'})]);
- const body={title:'Prüfung',details:'Termin',starts_at:new Date(Date.now()+3600000).toISOString(),ends_at:null,kind:'maintenance',interval_days:30,reminder_days:2,room_id:room,sensor_id:sensor};
- const created=await request(owner,`/buildings/${second}/schedules`,'POST',body);
- assert.equal(created.status,201,JSON.stringify(created.body));assert.equal(created.body.room_id,room);
- const list=await request(owner,`/buildings/${second}/schedules`);assert.equal(list.status,200);assert.equal(list.body.items.find(x=>x.id===created.body.id).room_name,'Büro');
- const edited=await request(owner,`/buildings/${second}/schedules/${created.body.id}`,'PATCH',{title:'Neuer Titel',details:'Andere Notiz',starts_at:body.starts_at,ends_at:null});
- assert.equal(edited.status,200,JSON.stringify(edited.body));assert.equal(edited.body.kind,'maintenance');assert.equal(edited.body.interval_days,30);assert.equal(edited.body.room_id,room);assert.equal(edited.body.sensor_id,sensor);
- assert.equal((await request(owner,`/buildings/${first}/schedules`,'POST',body)).status,400);
-});
+

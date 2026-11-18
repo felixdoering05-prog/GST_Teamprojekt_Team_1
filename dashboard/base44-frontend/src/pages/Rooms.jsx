@@ -15,7 +15,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { base44, request } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
 import BuildingWorkspace from '@/components/rooms/BuildingWorkspace';
-import BuildingInvitations from '@/components/rooms/BuildingInvitations';
 import BuildingSetupDialog from '@/components/rooms/BuildingSetupDialog';
 import BuildingStartSteps from '@/components/rooms/BuildingStartSteps';
 import BuildingTeam from '@/components/rooms/BuildingTeam';
@@ -125,7 +124,6 @@ export default function Rooms() {
             <summary className="cursor-pointer font-heading font-semibold">Erste Schritte</summary>
             <BuildingStartSteps active={1} />
           </details>
-          <BuildingInvitations onBuildingsChanged={refreshBuildings} />
           <BuildingGroups />
           {buildings.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
           {buildings.error && (

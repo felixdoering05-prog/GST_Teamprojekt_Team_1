@@ -49,10 +49,9 @@ const permissionGroups = [
     ],
   },
   {
-    label: 'Zusammenarbeit & Termine',
+    label: 'Zusammenarbeit',
     icon: Users,
     items: [
-      { key: 'schedule', label: 'Kalender', hint: 'Termine, Fristen und Aufgabenplanung' },
       { key: 'coordination', label: 'Teamchat & Koordination', hint: 'Nachrichten und interne Teamabstimmung' },
       { key: 'issues', label: 'Mängel & Meldungen', hint: 'Erfassen, Bearbeiten und Lösen von Gebäudemängeln' },
       { key: 'assistant', label: 'Gebäude-Assistent', hint: 'Fragen an Nala zu Gebäudedaten und Unterlagen' },
@@ -229,7 +228,8 @@ export default function TeamAccess() {
   const [dragged, setDragged] = useState(null);
 
   const buildings = useQuery({ queryKey: buildingListKey, queryFn: () => request('/buildings'), refetchOnWindowFocus: true });
-  const selectedId = buildingId || localStorage.getItem('d21-selected-building') || String(buildings.data?.[0]?.id || '');
+  const preferredBuildingId = buildingId || localStorage.getItem('d21-selected-building') || '';
+  const selectedId = String(buildings.data?.find(row => String(row.id) === String(preferredBuildingId))?.id || buildings.data?.[0]?.id || '');
   const selected = buildings.data?.find((row) => String(row.id) === selectedId);
 
   const team = useQuery({
