@@ -1,3 +1,19 @@
+## 18. November 2026, 19:04 MEZ – Lizenzstufe Essentials und automatisches IFC-Raummapping präzisiert
+
+**Neue verifizierte Differenzierung im Autodesk-Lizenzvergleich:** Die offiziellen [Autodesk-Nutzungsbedingungen](https://app.learn-one.autodesk.com/company/terms-of-use/en/subscription-types) führen neben Tandem Free (500 Assets, 3 Gebäude, 100 Mio. Datenpunkte) und Paid (10.000 Assets, unbegrenzt Gebäude, bis 1 Mrd. Datenpunkte) auch **Tandem Essentials** (5.000 Assets, unbegrenzt Gebäude, 100 Mio. Datenpunkte) auf. Essentials ist als kostenlose Berechtigung für bestimmte *kostenpflichtige* BIM Collaborate Pro-/Forma-Model-Management-Abos vorgesehen, nicht als allgemein kostenloser Tarif. Der Preis der zugrunde liegenden Autodesk-Abos und deutsche Tandem-Paid-Preise sind hier **nicht verifiziert**. Herstellerbedingungen, kein Praxistest.
+
+**Home Assistant:** Die offizielle [LLM-Dokumentation](https://www.home-assistant.io/integrations/llm/) beschreibt KI-Werkzeugsätze für Lesen, Geräteaktionen und administrative Funktionen mit unterschiedlichen Berechtigungen. Das LLM-System wurde laut Dokumentation mit **Home Assistant 2026.7** eingeführt, also **keine neue November-Einführung**. Sprachbedienung und LLM-Aktionen sind für Nala kein alleiniger USP; Berechtigungen und protokollierte Aktionen werden wichtiger.
+
+**Siemens:** [Operations Manager](https://www.siemens.com/de-ch/products/building-x/applications/operations-manager/) nennt den optionalen KI-gestützten Fault Triage Agent für wahrscheinliche Störungsursachen. Bereits bekannt; **keine neue November-Veröffentlichung** und kein verifizierter EUR-Listenpreis.
+
+**Korrigierter GitHub-Abgleich:** Der [Changelog auf main](../CHANGELOG.md) dokumentiert seit **17.11.** eine **regelbasierte automatische Sensor-IFC-Raumzuordnung**, wenn Raumname/-nummer eindeutig passt; mehrdeutige Fälle erfordern eine Nutzerentscheidung. Der Eintrag nennt die Endpunkte `POST /documents/:id/sensor-placement/sync` und `PUT /documents/:id/sensor-placement/:sensor` sowie lokale Tests (231 Backend-Tests: 229 bestanden, 2 übersprungen; Viewer-/Browserprüfung mit Test-IFC). Dies korrigiert ältere Aussagen, wonach *jede* automatische Zuordnung noch fehle. **Nicht nachgewiesen:** eine universelle semantische Autozuordnung, produktiv freigegebene D21-Echtmesswerte, unabhängiger Feldtest, KI-Ursachendiagnose, EUR-Kostenvorteil. Die [README auf main](../README.md) beschreibt Nala 1.0.152 als Quellstand, nicht als Geräteinstallation.
+
+**Chancen:** nachweisbarer, verständlicher Regel-/Rückfrage-Workflow bei eindeutigen und mehrdeutigen IFC-Räumen. **Risiken:** Lizenzbündelung bei Autodesk, LLM-Berechtigungen bei Home Assistant, KI-Diagnose bei Siemens; Nala-Vorteil muss durch identischen Feldversuch bewiesen werden. **Nächster Test:** echter freigegebener D21-Messpunkt mit Quelle, Zeitstempel, Rollenprüfung, Zuordnungskonflikt und Datenexport; Vergleich mit Tandem Essentials/Paid und Vollkosten.
+
+**Quellenabruf:** 18.11.2026; Herstellerseiten und Repository-Changelog. Keine unabhängigen Markt-/Gerätetests.
+
+---
+
 ## 17. November 2026, 19:00 MEZ – Tandem-Lizenzgrenzen, LiteLLM und Nala 1.0.149
 
 - **Präzisierung, kein neues Produkt:** Autodesk Tandem Free: 500 Assets, 3 Facilities, 100 Mio. Datenpunkte, 500 MB und 10 Modellimporte je Facility. Paid: bis 10.000 Assets und 1 Mrd. Datenpunkte; Tandem Connect Free **0 Produktionsplugins**, Paid **10**. Kapazitätsmodell seit Februar 2026; kein verifizierter EUR-Betrag auf dynamischer Kaufseite. [Nutzungsbedingungen](https://app.learn-one.autodesk.com/content/autodesk/global/en/company/terms-of-use/en/subscription-benefits) · [Tandem](https://www.autodesk.com/sg/products/Tandem/buy) · [Connect](https://www.autodesk.com/sg/products/tandem-connect/buy).
