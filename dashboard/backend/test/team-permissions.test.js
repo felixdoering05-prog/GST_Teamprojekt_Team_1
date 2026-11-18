@@ -98,6 +98,13 @@ test('building groups apply the selected per-building role and replace individua
  assert.equal((await db.query('SELECT r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[first,peer.id])).rows[0].role_key,'maintenance');
  assert.equal((await db.query('SELECT r.name FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].name,'Maintenance');
  assert.equal((await db.query('SELECT status FROM app_building_members WHERE building_id=$1 AND user_id=$2',[second,peer.id])).rows[0].status,'pending');
+ const custom=await request(owner,`/buildings/${first}/team-access/roles`,'POST',{name:'Group Inspector',can_manage_members:false,permissions:firstRoles.find(role=>role.role_key==='maintenance').permissions});
+ assert.equal(custom.status,201,JSON.stringify(custom.body));
+ const copied=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,role_building_id:first,role_id:custom.body.id});
+ assert.equal(copied.status,200,JSON.stringify(copied.body));
+ const copiedRole=(await db.query('SELECT r.name,r.permissions FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0];
+ assert.equal(copiedRole.name,'Group Inspector');
+ assert.deepEqual(copiedRole.permissions,custom.body.permissions);
 });
 
 
