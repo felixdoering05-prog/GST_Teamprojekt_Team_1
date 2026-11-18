@@ -12,6 +12,7 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 | RADAR-005 | IFC-Raum eines Mangels per BCF wiederfinden | BIM und iPhone | Jetzt testen | Eindeutige Übergabe an anderen Viewer prüfen | 2 h geschätzt | BCF-Werk CC BY-ND 4.0 | [Abendbericht](berichte/2026-11-15-2143.md) | Versuch zu #163 |
 | RADAR-006 | Sichtbare Gebäudedaten bei gesperrtem iPhone prüfen | Widget und Datenschutz | Jetzt testen | Privatsphäre auf gemeinsam einsehbaren Displays | 30 min geschätzt | Apple-SDK | [Morgenbericht](berichte/2026-11-16-0901.md) | Test zu #171 |
 | RADAR-007 | Raum- und Türzuordnung bei PDF-Seitendrehung prüfen | Grundriss zu IFC | Jetzt testen | Verdrehte Zuordnung erkennen | 1 h geschätzt | Bestehender Leser MIT | [Bericht](berichte/2026-11-16-1657.md) | Synthetischer Vergleich |
+| RADAR-008 | Feuchtealarm bei Neustart und bestehender Überschreitung | Sensorik und Automationen | Jetzt testen | Doppelte oder ausbleibende Hinweise erkennen | 45 min geschätzt | Quellenlizenz ungeprüft, eigener Verhaltenstest | [Bericht](berichte/2026-11-18-0915.md) | Test zu #225 |
 
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
@@ -20,3 +21,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [14.11.2026 · Datensicherung beim Hochschulserverumzug](berichte/2026-11-14-0904.md): im Projektplan bereits berücksichtigt.
 
 [17.11.2026 · Doppelte Sprachanfragen](berichte/2026-11-17-0915.md): Die serverseitige Prüfung ist bereits vorhanden.
+
+[17.11.2026 abends · Lampenstatus](berichte/2026-11-17-1704.md): vorhandenen Adapter abgeglichen, kein neuer Eintrag.
