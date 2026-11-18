@@ -3,9 +3,9 @@ import Foundation
 @main struct TeamContractSmoke {
     static func main() throws {
         let roles: [[String: Any]] = [
-            ["id":10,"name":"Management","role_key":"management","sort_order":0,"permissions":["schedule":"edit"],"can_manage_members":true,"is_system":true],
-            ["id":11,"name":"Employee","role_key":"employee","sort_order":1,"permissions":["schedule":"read"],"can_manage_members":false,"is_system":true],
-            ["id":12,"name":"Maintenance","role_key":"maintenance","sort_order":2,"permissions":["maintenance":"none","schedule":"edit"],"can_manage_members":false,"is_system":true]
+            ["id":10,"name":"Management","role_key":"management","sort_order":0,"permissions":["coordination":"edit"],"can_manage_members":true,"is_system":true],
+            ["id":11,"name":"Employee","role_key":"employee","sort_order":1,"permissions":["coordination":"read"],"can_manage_members":false,"is_system":true],
+            ["id":12,"name":"Maintenance","role_key":"maintenance","sort_order":2,"permissions":["maintenance":"none","coordination":"edit"],"can_manage_members":false,"is_system":true]
         ]
         let members: [[String: Any]] = [
             ["id":1,"name":"Owner","status":"owner","role_id":NSNull(),"role_name":"Eigentümer","role_key":"owner","sort_order":-1],
