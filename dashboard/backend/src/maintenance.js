@@ -1,5 +1,6 @@
 const express=require('express');
 const {accessibleBuilding,notifyBuilding}=require('./collaboration');
+const {buildingAccess,can}=require('./team-permissions');
 // Wartung und Lebenszyklus je Gebäude: wiederkehrende Prüfungen (Heizung, Rauchmelder, Dach …),
 // letzte Erledigung, nächste Fälligkeit und Garantie. Mitglieder dürfen anlegen und als erledigt
 // markieren; ändern und löschen dürfen Besitzer und wer den Eintrag angelegt hat.
@@ -56,7 +57,9 @@ function maintenanceRouter(db,requireAccount){
  const item=async(req)=>{
   if(!idOK(req.params.maintItem))fail('Ungültiger Eintrag.');
   const row=(await db.query('SELECT * FROM app_maintenance WHERE id=$1',[req.params.maintItem])).rows[0];if(!row)fail('Eintrag nicht gefunden.',404);
-  const b=await accessibleBuilding(db,row.building_id,req.account.id);if(!b)fail('Eintrag nicht gefunden.',404);return {row,b};
+  const b=await accessibleBuilding(db,row.building_id,req.account.id);if(!b)fail('Eintrag nicht gefunden.',404);
+  const access=await buildingAccess(db,b.id,req.account.id);if(!can(access,'maintenance','edit'))fail('Du darfst Wartungspläne in diesem Gebäude nicht ändern.',403);
+  return {row,b};
  };
  r.get('/maintenance/templates',(req,res)=>res.json({templates:TEMPLATES,categories:CATEGORIES}));
  r.get(base,wrap(async(req,res)=>{const b=await building(req.params.maintBuilding,req.account.id);const owner=b.user_id===req.account.id;
@@ -97,3 +100,4 @@ function maintenanceRouter(db,requireAccount){
  return r;
 }
 module.exports={initMaintenance,maintenanceRouter,maintenanceList,addMonths,status,TEMPLATES,CATEGORIES};
+

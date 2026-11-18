@@ -46,7 +46,8 @@ const NAV_GROUPS = [
       { path: '/zeitplanung', label: 'Zeitplanung', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine und Aufgaben koordinieren' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
       { path: '/assistent', label: 'Gebäude-Assistent', icon: MessageSquareText, module: 'assistant', hint: 'Fragen zu freigegebenen Gebäudedaten stellen' },
-      { path: '/teams', label: 'Teams & Rechte', icon: Users, module: 'coordination', hint: 'Gebäudezugriff, Rollen und Berechtigungen verwalten' },
+      { path: '/teams', label: 'Teams', icon: Users, hint: 'Teams, Organisationsdesign und Gebäudegruppen verwalten' },
+      { path: '/rechte', label: 'Rechte', icon: ShieldCheck, hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
     ],
   },
   {
@@ -102,7 +103,7 @@ function NavItems({ onNavigate, isAdmin, permissions }) {
   );
 }
 
-function SidebarBody({ onNavigate, scopeKey }) {
+function SidebarBody({ onNavigate, scopeKey, activeTeam }) {
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [permissions,setPermissions]=useState(null);
@@ -133,6 +134,7 @@ function SidebarBody({ onNavigate, scopeKey }) {
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 pb-6 pt-7">
+        {activeTeam?.has_logo?<TeamLogo id={activeTeam.id} name={activeTeam.name}/>:null}
         <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl">
           <Boxes className="h-[18px] w-[18px]" />
         </span>
@@ -172,10 +174,18 @@ function SidebarBody({ onNavigate, scopeKey }) {
   );
 }
 
+function TeamLogo({id,name}){const [src,setSrc]=useState('');useEffect(()=>{let active=true,objectURL='';request('/teams/'+id+'/logo',{raw:true}).then(blob=>{objectURL=URL.createObjectURL(blob);if(active)setSrc(objectURL)}).catch(()=>{});return()=>{active=false;if(objectURL)URL.revokeObjectURL(objectURL)}},[id]);return src?<img src={src} alt={'Logo '+name} className="h-10 w-10 rounded-xl object-contain"/>:null;}
+function hexHsl(hex){const n=parseInt(String(hex||'#596b3d').slice(1),16),r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0,s=0,l=(max+min)/2;if(d){s=d/(1-Math.abs(2*l-1));switch(max){case r:h=((g-b)/d)%6;break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h*=60;if(h<0)h+=360;}return Math.round(h)+' '+Math.round(s*100)+'% '+Math.round(l*100)+'%';}
+
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const current = ALL_NAV.find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || ALL_NAV[0];
+  const [teams,setTeams]=useState([]),[teamID,setTeamID]=useState(()=>localStorage.getItem('d21-selected-team')||'');
+  useEffect(()=>{let active=true;request('/teams').then(rows=>{if(!active)return;setTeams(rows);const saved=localStorage.getItem('d21-selected-team');const chosen=rows.some(row=>String(row.id)===saved)?saved:String(rows[0]?.id||'');setTeamID(chosen);if(chosen)localStorage.setItem('d21-selected-team',chosen);}).catch(()=>{});return()=>{active=false}},[]);
+  const activeTeam=teams.find(row=>String(row.id)===teamID);
+  function chooseTeam(id){setTeamID(id);localStorage.setItem('d21-selected-team',id);const team=teams.find(row=>String(row.id)===id);document.documentElement.style.setProperty('--primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--ring',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--sidebar-primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--accent',hexHsl(team?.accent_color));window.dispatchEvent(new Event('d21-team-change'));}
+  useEffect(()=>{if(activeTeam)chooseTeam(String(activeTeam.id));},[activeTeam?.id,activeTeam?.primary_color,activeTeam?.accent_color]);
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
@@ -188,7 +198,7 @@ export default function AppLayout() {
     <div className="glass-app min-h-screen">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="shell-sidebar fixed z-40 hidden lg:block">
-        <SidebarBody scopeKey={`${location.pathname}${location.search}`} />
+        <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam}/>
       </aside>
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -199,7 +209,7 @@ export default function AppLayout() {
             <Dialog.Close aria-label="Menü schließen" className="shell-icon-button absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="h-4 w-4" />
             </Dialog.Close>
-            <SidebarBody scopeKey={`${location.pathname}${location.search}`} onNavigate={() => setOpen(false)} />
+            <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
 
@@ -221,6 +231,7 @@ export default function AppLayout() {
               <Database className="h-3.5 w-3.5 text-primary" />
               Projektserver
             </span>
+            {teams.length===1?<span className="glass-pill max-w-48 truncate px-3 py-2 text-xs font-medium" title={teams[0].name}>{teams[0].name}</span>:teams.length>1?<select aria-label="Team auswählen" className="max-w-48 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium" value={teamID} onChange={event=>{chooseTeam(event.target.value);window.location.reload();}}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select>:null}
           </div>
         </header>
 

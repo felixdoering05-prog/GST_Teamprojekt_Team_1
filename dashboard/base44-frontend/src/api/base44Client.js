@@ -6,7 +6,8 @@ export const hasSession=()=>Boolean(sessionStorage.getItem(TOKEN_KEY));
  * @returns {Promise<any>}
  */
 export async function request(path,{method='GET',body,raw=false,headers={}}={}) {
- const response=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers:{...(body&&!raw?{'Content-Type':'application/json'}:{}),'X-D21-Session':sessionStorage.getItem(TOKEN_KEY)||'',...headers},...(body!==undefined?{body:raw?body:JSON.stringify(body)}:{})});
+ const selectedTeam=typeof window!=='undefined'?window.localStorage.getItem('d21-selected-team'):null;
+ const response=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers:{...(body&&!raw?{'Content-Type':'application/json'}:{}),'X-D21-Session':sessionStorage.getItem(TOKEN_KEY)||'',...(selectedTeam?{'X-D21-Team':selectedTeam}:{}),...headers},...(body!==undefined?{body:raw?body:JSON.stringify(body)}:{})});
  if(!response.ok){let data={};try{data=await response.json()}catch{}const error=Object.assign(new Error(data.error||`Serveranfrage fehlgeschlagen (${response.status}).`),{status:response.status});if(response.status===401)sessionStorage.removeItem(TOKEN_KEY);throw error;}
  return raw?response.blob():response.json();
 }
@@ -40,6 +41,7 @@ export function uploadFile(buildingID, file, uploadID, onProgress) {
   xhr.open('POST',`/api/v1/buildings/${buildingID}/documents`);
   xhr.timeout=120000;
   xhr.setRequestHeader('X-D21-Session',sessionStorage.getItem(TOKEN_KEY)||'');
+  const selectedTeam=localStorage.getItem('d21-selected-team');if(selectedTeam)xhr.setRequestHeader('X-D21-Team',selectedTeam);
   xhr.setRequestHeader('Content-Type','application/octet-stream');
   xhr.setRequestHeader('X-File-Name',encodeURIComponent(file.name));
   xhr.setRequestHeader('X-Upload-ID',uploadID);
@@ -54,3 +56,4 @@ export function uploadFile(buildingID, file, uploadID, onProgress) {
   xhr.send(file);
  });
 }
+

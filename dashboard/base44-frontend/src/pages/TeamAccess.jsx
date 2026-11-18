@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { request } from '@/api/base44Client';
+import GroupAccessPanel from '@/components/teams/GroupAccessPanel';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EmptyState from '@/components/EmptyState';
@@ -62,6 +63,7 @@ const permissionGroups = [
     icon: Settings,
     items: [
       { key: 'settings', label: 'Einstellungen & Importe', hint: 'Datenimport/-export, Schnittstellen und Konfiguration' },
+      { key: 'maintenance', label: 'Wartungspläne', hint: 'Wartungs- und Instandhaltungspläne' },
     ],
   },
 ];
@@ -311,7 +313,7 @@ export default function TeamAccess() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Teams & Rechte"
+        title="Rechte"
         description="Gebäudebezogene Rollen, Teammitglieder und Berechtigungen verwalten."
       >
         {buildings.data?.length > 0 && (
@@ -735,6 +737,7 @@ export default function TeamAccess() {
         </Tabs>
       )}
 
+      <GroupAccessPanel />
       <ConfirmDialog
         open={!!removal}
         onOpenChange={(open) => {

@@ -1,9 +1,9 @@
 const MODULES = [
   'overview', 'buildings', 'structure', 'sensors', 'energy', 'analysis', 'assistant',
-  'issues', 'documents', 'settings', 'bim', 'schedule', 'coordination',
+  'issues', 'documents', 'settings', 'bim', 'schedule', 'coordination', 'maintenance',
 ];
 const FULL = Object.fromEntries(MODULES.map(name => [name, 'edit']));
-const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, ['schedule', 'coordination'].includes(name) ? 'edit' : 'read']));
+const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, name==='maintenance'?'none':['schedule', 'coordination'].includes(name) ? 'edit' : 'read']));
 const DEFAULT_ROLES = [
   { key: 'management', name: 'Management', sort: 0, canManageMembers: true, permissions: FULL },
   { key: 'employee', name: 'Employee', sort: 1, canManageMembers: false, permissions: FULL },
@@ -48,6 +48,8 @@ async function ensureBuildingRoles(db, buildingID) {
    const employee = (await db.query("SELECT id FROM app_building_roles WHERE building_id=$1 AND role_key='employee'", [buildingID])).rows[0];
    if (employee) await db.query('UPDATE app_building_members SET role_id=$2 WHERE building_id=$1 AND role_id IS NULL', [buildingID, employee.id]);
   }
+  await db.query("UPDATE app_building_roles SET permissions=permissions||'{\"maintenance\":\"none\"}'::jsonb WHERE building_id=$1 AND role_key='maintenance' AND NOT (permissions ? 'maintenance')",[buildingID]);
+  await db.query("UPDATE app_building_roles SET permissions=permissions||'{\"maintenance\":\"edit\"}'::jsonb WHERE building_id=$1 AND role_key IN ('management','employee') AND NOT (permissions ? 'maintenance')",[buildingID]);
   return (await db.query('SELECT id,role_key,name,sort_order,permissions,can_manage_members,is_system FROM app_building_roles WHERE building_id=$1 ORDER BY sort_order,id', [buildingID])).rows;
 }
 
@@ -70,6 +72,7 @@ function moduleForBuildingPath(parts) {
   // The invitation endpoint validates the signed-in account and a pending invitation itself.
   if (['members','roles','team','team-access','schedules','invitation'].includes(area)) return null;
   if (area === 'documents') return 'documents';
+  if (area === 'maintenance') return 'maintenance';
   if (area === 'plan-conversion') return 'settings';
   if (area === 'structure') return 'structure';
   if (['telemetry','sensor-devices','devices','sensors'].includes(area)) return 'sensors';
@@ -96,6 +99,7 @@ function scopedAccessMiddleware(db) {
       const action = ['GET','HEAD','OPTIONS'].includes(req.method) ? 'read' : 'edit';
       if (parts[0] === 'buildings' && /^\d+$/.test(parts[1] || '')) {
         buildingID = Number(parts[1]);
+        if(req.teamScope&&!req.teamScope.buildingIDs.includes(buildingID))return res.status(404).json({error:'Gebäude nicht in diesem Team gefunden.'});
         module = moduleForBuildingPath(parts);
         if (!module) return next();
       } else if (parts[0] === 'documents' && /^\d+$/.test(parts[1] || '')) {
@@ -116,6 +120,7 @@ function scopedAccessMiddleware(db) {
       } else if (parts[0] === 'issues' && action === 'read' && !req.query.building_id) {
         return next(); // The overview endpoint filters rows to buildings with issue-read access.
       }
+      if(req.teamScope&&buildingID!==null&&!req.teamScope.buildingIDs.includes(Number(buildingID)))return res.status(404).json({error:'Gebäude nicht in diesem Team gefunden.'});
       if (buildingID && module) {
         const access = await buildingAccess(db, buildingID, req.account.id);
         if (!access) return res.status(404).json({ error: 'Gebäude nicht gefunden.' });
@@ -129,3 +134,4 @@ function scopedAccessMiddleware(db) {
 }
 
 module.exports = { MODULES, DEFAULT_ROLES, can, initTeamPermissions, ensureBuildingRoles, buildingAccess, scopedAccessMiddleware };
+

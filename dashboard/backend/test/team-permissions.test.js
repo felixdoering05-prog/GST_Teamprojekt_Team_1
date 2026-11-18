@@ -54,6 +54,12 @@ test('roles and building scopes limit reads and writes independently per buildin
  const schedule=await request(maintenance,`/buildings/${second}/schedules`,'POST',{title:'Wartung',starts_at:new Date(Date.now()+60000).toISOString()});
  assert.equal(schedule.status,201);
  assert.equal((await request(maintenance,`/twin/Sensor/create`,'POST',{data:{building_id:String(second),sensor_code:'S-1',metric:'temperature'}})).status,403);
+ assert.equal((await request(maintenance,`/buildings/${second}/maintenance`,'POST',{title:'Neue Wartung',interval_months:12})).status,403);
+ assert.equal((await request(maintenance,`/buildings/${second}/plan-conversion/jobs`,'POST',{document_ids:[1]})).status,403);
+ const plan=await request(owner,`/buildings/${second}/maintenance`,'POST',{title:'Wartungsplan',interval_months:12});
+ assert.equal(plan.status,201);
+ assert.equal((await request(maintenance,`/buildings/${second}/maintenance`)).status,403);
+ assert.equal((await request(maintenance,`/maintenance/${plan.body.id}/done`,'POST',{revision:0})).status,403);
 });
 
 test('management can manage lower-ranked members while only the owner edits and orders roles',async()=>{
@@ -82,3 +88,20 @@ test('revoking access in one building leaves the same person’s other building 
  assert.equal((await request(employee,`/buildings/${second}/team-access`)).body.actor_role.role_key,'maintenance');
  assert.equal((await request(employee,`/buildings/${second}/schedules`)).status,200);
 });
+
+test('building groups apply the selected per-building role and replace individual roles',async()=>{
+ await db.query('INSERT INTO app_contacts(low_id,high_id,requester_id,status) VALUES($1,$2,$1,\'accepted\')',[Math.min(owner.id,peer.id),Math.max(owner.id,peer.id)]);
+ await request(owner,'/teams');
+ const team=(await db.query('SELECT id FROM app_teams WHERE owner_id=$1 AND is_default=true',[owner.id])).rows[0];
+ const made=await request(owner,`/teams/${team.id}/groups`,'POST',{name:'Campus Nord',building_ids:[first,second]});
+ assert.equal(made.status,201,JSON.stringify(made.body));
+ const firstRoles=await ensureBuildingRoles(db,first),secondRoles=await ensureBuildingRoles(db,second);
+ const assigned=await request(owner,`/teams/${team.id}/groups/${made.body.id}/assign`,'POST',{user_id:peer.id,assignments:[
+  {building_id:first,role_id:firstRoles.find(role=>role.role_key==='maintenance').id},
+  {building_id:second,role_id:secondRoles.find(role=>role.role_key==='employee').id},
+ ]});
+ assert.equal(assigned.status,200,JSON.stringify(assigned.body));
+ assert.equal((await db.query('SELECT r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[first,peer.id])).rows[0].role_key,'maintenance');
+ assert.equal((await db.query('SELECT status,r.role_key FROM app_building_members m JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[second,peer.id])).rows[0].status,'pending');
+});
+
