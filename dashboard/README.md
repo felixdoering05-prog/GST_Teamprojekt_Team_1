@@ -36,6 +36,12 @@ GitHub ist die einzige Codequelle: **eigener Branch → Pull Request → Review 
 
 Aktiver Serverpfad: `/opt/gst/dashboard`. Veröffentlichung ausschließlich mit dem eingerichteten Befehl:
 
+Nach erfolgreich geprüften Merges nach `main` übernimmt **Deploy production** den Aufruf automatisch.
+Der Ablauf wartet auf erfolgreiche Backend- und iOS-Push-Prüfungen desselben aktuellen Commits,
+prüft die Web-App, sichert die Datenbank und kontrolliert nach dem Start die Erreichbarkeit.
+Einzelheiten und die einmalige Einrichtung: [Automatische Veröffentlichung](../docs/automatische-veroeffentlichung.md).
+Manueller Aufruf für den Betrieb (derselbe Schutz und dieselbe Datenbanksicherung):
+
 ```bash
 ssh root@185.56.151.249 d21-deploy
 ```
