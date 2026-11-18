@@ -32,7 +32,7 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 | 🌡️ **Sensorik & Energie** | Dashboards, CSV-Import und Auswertungen; reale, simulierte und wetterbasierte Werte werden unterschieden |
 | 💡 **Gebäudeautomation** | Erste private Home-Assistant-Lampenanbindung mit Zuordnung zu Gebäuden und IFC-Räumen |
 | 🤖 **KI & Sprache** | Gebäudeassistent mit Google Gemini, IFC-Fakten als Kontext und bewusst gestartete Sprachfunktionen mit ElevenLabs |
-| 👥 **Zusammenarbeit** | Gebäudefreigaben, Einladungen, gemeinsame Dokumente und Team-Chat |
+| 👥 **Zusammenarbeit** | Gebäudefreigaben, Einladungen, gemeinsame Dokumente und Team-Chat; gebäudebezogene Rollen und Zeitplanung im Quellcode ergänzt ([#229](../../pull/229), [#230](../../pull/230)) |
 | 🗺️ **Karten & Heatmaps** | Standortbezogene Ansichten, Kartenumgebung und klar gekennzeichnete Wetter-/Simulationsdaten |
 | 📐 **Plan → IFC** | Unterstützte Erzeugung **prüfbarer Entwürfe** aus Plänen; keine automatische fachliche Freigabe |
 
@@ -40,12 +40,12 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 17. November 2026, Repository-Abgleich (Quellcode; kein Gerätetest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 18. November 2026, abendlicher Repository-Abgleich (Quellcode und gemergte PRs; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
 | **iPhone-App** | Aktueller Quellstand **1.0.152**: iPhone-App heißt **Nala**, die Gebäudeassistentin hat einen eigenen Reiter mit überarbeitetem Chat ([#198](../../pull/198), [#200](../../pull/200), [#201](../../pull/201)); zuvor Produktname **Nala Solutions**, zusätzlich Planerkennung aus Fotos/Scans und Korrektur-Editor ([#185](../../pull/185)), gemeinsame Sensor-Raum-Zuordnung ([#187](../../pull/187)), ESP32-/BME280-Raumbezug ([#188](../../pull/188)), Fortschritt und Ebenenwahl beim Planentwurf ([#194](../../pull/194)). Seit Version 1.0.149 vereinheitlicht die App Lampenkarten, verhindert doppelte Home-Assistant-Lampeneinträge und erlaubt die Raumänderung importierter Lampen ([#219](../../pull/219)). Ergänzt sind Wartungsplan, persönliche Messwertregeln sowie eine Energieübersicht aus Home Assistant (#225, #226). Eine Installation dieses Gesamtstands ist nicht nachgewiesen; direkte Installation war zuletzt durch die fehlende Geräteregistrierung im Hochschul-Developer-Team blockiert. |
-| **Web & IFC** | **[nala-solutions.de](https://nala-solutions.de)** ist laut Repository-Konfiguration der Dashboard-Zugang mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. Raum-Popups mit Sensorwerten, Raumumbenennung und eine Sensorzuordnung mit Rückfrage sind im Quellcode dokumentiert ([Arbeitsbericht 17.11.](docs/protokolle/2026-11-17-raum-popups-sensoren.md)); automatische Zuordnung ist nicht mit einer fachlich geprüften D21-Sensorintegration gleichzusetzen. |
+| **Web & IFC** | **[nala-solutions.de](https://nala-solutions.de)** ist laut Repository-Konfiguration der Dashboard-Zugang mit persönlicher Account-Anmeldung, ohne vorgeschalteten Browser-Passwortdialog ([#193](../../pull/193)). **[kitrifftgebäude.de](https://kitrifftgebäude.de)** bleibt die öffentliche Landingpage. Dashboard-Widgets, gemeinsame Gebäudemappen, IFC-Viewer und Heatmaps sind integriert. Die Webnavigation, Team-/Rechteverwaltung und Zeitplanung wurden im Quellcode überarbeitet ([#229](../../pull/229), [#230](../../pull/230)); ein produktiver Funktionstest ist damit nicht belegt. Raum-Popups mit Sensorwerten, Raumumbenennung und eine Sensorzuordnung mit Rückfrage sind im Quellcode dokumentiert ([Arbeitsbericht 17.11.](docs/protokolle/2026-11-17-raum-popups-sensoren.md)); automatische Zuordnung ist nicht mit einer fachlich geprüften D21-Sensorintegration gleichzusetzen. |
 | **Sensorik** | ESP32-Testübertragung, gemeinsame Raumzuordnung und BME280-/IFC-Raum-Schnittstelle implementiert ([#180](../../pull/180), [#187](../../pull/187), [#188](../../pull/188)). Simulation und echte Messungen bleiben getrennt. Implementierung ersetzt keinen Hardware-Dauertest und keinen Nachweis für echte D21-Werte. |
 | **Plan → IFC** | Vektorvermessung, Erkennung von Fotos/Scans, Korrektur-Editor und Ebenenwahl sind gemergt. Vorübergehende Gemini-Überlastung wird wiederholt und als vorübergehend gemeldet ([#190](../../pull/190)); Planrahmen-Erkennung korrigiert ([#191](../../pull/191)). Ergebnisse bleiben prüfpflichtige Entwürfe. |
 | **KI** | Dokumentinhalte benötigen eine gesonderte Freigabe für die konkret ausgewählte Datei; die bisherigen Apps übertragen im Chat weiterhin keine PDF-/Bildinhalte. Lesende Gemini-Werkzeuge für IFC-Räume, Bauteile, Messwerte, Wetter und Geräte sind gemergt ([#161](../../pull/161)); Mengen, Kollisionshinweise, Elementfilter und Modellvergleich wurden ergänzt ([#164](../../pull/164)). Ergebnisse bleiben fachlich zu prüfen |
@@ -59,9 +59,9 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 1. **P1 · [#74](../../issues/74)** – echten D21-Messwert mit Datenquelle, Einheit, Zeitstempel und Testnachweis integrieren (**Frist 13.11. überschritten; Abschluss gesondert prüfen**).
 2. **P1 · [#102](../../issues/102)** – Sensoren, Thermostate, Schnittstellen und Datenrechte abstimmen.
-3. **P1 · [#105](../../issues/105)** – Datenschutz und erforderliche Freigaben klären.
+3. **P1 · Datenschutz/Freigaben** – [#105](../../issues/105) ist in GitHub geschlossen; der Issue-Text enthält weiterhin ungeprüfte Checklistenpunkte. Abschlussgrund und Freigaben vor einer fachlichen Erledigt-Meldung nachweisen.
 4. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
-5. **P2 · [#73](../../issues/73)** – Revit-/IFC-Übergabe zum Server reproduzierbar dokumentieren.
+5. **P2 · Revit-/IFC-Übergabe** – [#73](../../issues/73) ist in GitHub geschlossen; die dokumentierten offenen Arbeitsschritte und der reproduzierbare Server-Prozess sind getrennt zu verifizieren.
 6. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
 7. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
 
@@ -69,10 +69,12 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ### 🗒️ Protokolle und Review
 
-**Abgleich 17.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
+**Abgleich 18.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
 
 
 Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** bleibt **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Technische Arbeitsberichte sind keine freigegebenen Teamprotokolle.
+
+Am 18.11. wurden zusätzlich **#228 (Dateifreigabe/Energiewerte), #229 (gebäudebezogene Rollen und Zeitplanung), #230 (Webnavigation und Rollenoberfläche) und #231 (CI-abhängiger Deploy-Workflow)** gemergt. #231 beschreibt einen automatisierten Veröffentlichungsweg, belegt aber ohne Produktionsnachweis keine erfolgreiche Bereitstellung. **#232 (Energiezähler nach Rücksetzung) und #233 (Team-Branding/Gebäudegruppenrechte) sind zum Prüfzeitpunkt offen und keine gemergten Funktionen.**
 
 Die vormals offenen PRs **#153, #163, #167, #168, #169, #171 und #173 sind inzwischen zusammengeführt**. Sie werden nicht weiter als ausstehende Reviews geführt. Code-Merge, Geräteinstallation, TestFlight-Veröffentlichung und fachliche Abnahme bleiben getrennte Nachweise.
 
