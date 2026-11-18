@@ -26,6 +26,7 @@ import DataSettings from './pages/DataSettings';
 import BuildingAssistant from './pages/BuildingAssistant';
 import TeamAccess from './pages/TeamAccess';
 import Teams from './pages/Teams';
+import BuildingSchedules from './pages/BuildingSchedules';
 import Admin from './pages/Admin';
 // Add page imports here
 
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
           <Route path="/daten" element={<DataSettings />} />
           <Route path="/assistent" element={<BuildingAssistant />} />
           <Route path="/teams" element={<Teams />} />
+          <Route path="/zeitplanung" element={<BuildingSchedules />} />
           <Route path="/rechte" element={<TeamAccess />} />
           <Route path="/verwaltung" element={<Admin />} />
         </Route>
