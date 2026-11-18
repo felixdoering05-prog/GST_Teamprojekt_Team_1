@@ -30,6 +30,7 @@ async function initTeamPermissions(db) {
   )`);
   await db.query('ALTER TABLE app_building_members ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES app_building_roles(id) ON DELETE SET NULL');
   await db.query('CREATE INDEX IF NOT EXISTS app_building_roles_order_idx ON app_building_roles(building_id,sort_order,id)');
+  await db.query("UPDATE app_building_roles SET permissions=permissions-'schedule' WHERE permissions ? 'schedule'");
 }
 
 async function ensureBuildingRoles(db, buildingID) {
@@ -70,7 +71,7 @@ async function buildingAccess(db, buildingID, userID) {
 function moduleForBuildingPath(parts) {
   const area = parts[2] || '';
   // The invitation endpoint validates the signed-in account and a pending invitation itself.
-  if (['members','roles','team','team-access','schedules','invitation'].includes(area)) return null;
+  if (['members','roles','team','team-access','invitation'].includes(area)) return null;
   if (area === 'documents') return 'documents';
   if (area === 'maintenance') return 'maintenance';
   if (area === 'plan-conversion') return 'settings';
