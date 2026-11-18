@@ -17,11 +17,22 @@ test('documents are listed with readability',async()=>{
 });
 test('read_document sends only the selected file and the question, returns a short answer',async()=>{
  let sent;const fetch=async(url,init)=>{sent=JSON.parse(init.body);return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:'Garantie bis 30.06.2029 (Seite 2).'}]}}]})};};
- const r=await readDocumentTool(db,building,{document_id:pdf,question:'Wie lange gilt die Garantie?'},{getKey:()=>'k',fetch});
+ const r=await readDocumentTool(db,building,{document_id:pdf,question:'Wie lange gilt die Garantie?'},{getKey:()=>'k',fetch,documentReadIDs:[pdf,ifc]});
  assert.equal(r.answer,'Garantie bis 30.06.2029 (Seite 2).');
  assert.equal(sent.contents[0].parts[0].inline_data.mime_type,'application/pdf');
  assert.match(sent.contents[0].parts[1].text,/Garantie/);
- assert.match((await readDocumentTool(db,building,{document_id:ifc,question:'x'},{getKey:()=>'k',fetch})).error,/nur PDF und Fotos/);
- assert.match((await readDocumentTool(db,building+1,{document_id:pdf,question:'x'},{getKey:()=>'k',fetch})).error,/nicht in diesem Gebäude/);
- assert.match((await readDocumentTool(db,building,{document_id:pdf},{getKey:()=>'k',fetch})).error,/Frage/);
+ assert.match((await readDocumentTool(db,building,{document_id:ifc,question:'x'},{getKey:()=>'k',fetch,documentReadIDs:[pdf,ifc]})).error,/nur PDF und Fotos/);
+ assert.match((await readDocumentTool(db,building+1,{document_id:pdf,question:'x'},{getKey:()=>'k',fetch,documentReadIDs:[pdf,ifc]})).error,/nicht in diesem Gebäude/);
+ assert.match((await readDocumentTool(db,building,{document_id:pdf},{getKey:()=>'k',fetch,documentReadIDs:[pdf,ifc]})).error,/Frage/);
+});
+
+test('general AI access cannot transfer file contents without a separate selection',async()=>{
+ let queried=false,sent=false;
+ const isolated={query:async()=>{queried=true;throw Error('must not read contents');}};
+ const options={getKey:()=>'k',fetch:async()=>{sent=true;throw Error('must not send');}};
+ for(const documentReadIDs of [undefined,[],[pdf+100]]){
+  const r=await readDocumentTool(isolated,building,{document_id:pdf,question:'Garantie?'},{...options,documentReadIDs});
+  assert.match(r.error,/ausdrücklich auswählen/);
+ }
+ assert.equal(queried,false);assert.equal(sent,false);
 });

@@ -49,3 +49,14 @@ test('without Home Assistant the overview is empty, not an error',async()=>{
  const other=(await request('/buildings','POST',{name:'Leer'},owner.token)).data;
  const r=await energyOverview(db,{id:other.id});assert.deepEqual(r.meters,[]);assert.equal(r.totals.today_kwh,null);
 });
+test('missing counter intervals stay unknown, measured zero stays zero; multiple power meters do not invent a base load',async()=>{
+ const now=new Date('2026-11-18T12:00:00Z');
+ const entities=[{entity_id:'empty',name:'Ohne Verlauf',metric:'energy'},{entity_id:'zero',name:'Nullverbrauch',metric:'energy'},{entity_id:'p1',name:'Hauptzähler',metric:'power'},{entity_id:'p2',name:'Unterzähler',metric:'power'}];
+ const samples=[{entity_id:'empty',value:10,measured_at:'2026-11-18T08:00:00Z'},{entity_id:'zero',value:10,measured_at:'2026-11-18T08:00:00Z'},{entity_id:'zero',value:10,measured_at:'2026-11-18T10:00:00Z'},...['p1','p2'].flatMap(entity_id=>Array.from({length:6},(_,i)=>({entity_id,value:entity_id==='p1'?300:100,measured_at:`2026-11-18T01:${String(i*5).padStart(2,'0')}:00Z`})) )];
+ const fake={query:async sql=>({rows:sql.includes('FROM app_ha_links')?[{id:1}]:sql.includes('FROM app_ha_entities')?entities:samples})};
+ const r=await energyOverview(fake,{id:1},now);
+ assert.equal(r.meters.find(m=>m.entity_id==='empty').today_kwh,null);
+ assert.equal(r.meters.find(m=>m.entity_id==='empty').last7_kwh,null);
+ assert.equal(r.meters.find(m=>m.entity_id==='zero').today_kwh,0);
+ assert.equal(r.base_load_w,null);
+});

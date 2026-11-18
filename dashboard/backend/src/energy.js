@@ -13,7 +13,7 @@ function dailyFromCounter(points){
  const days=new Map();
  for(let i=1;i<points.length;i++){
   const delta=points[i].value-points[i-1].value;
-  if(!(delta>0)||delta>500)continue; // Rücksetzung oder Sprung (z. B. Zählertausch) nicht als Verbrauch werten
+  if(!Number.isFinite(delta)||delta<0||delta>500)continue; // Rücksetzung oder Sprung (z. B. Zählertausch) nicht als Verbrauch werten
   const day=berlinDay(new Date(points[i].measured_at));days.set(day,(days.get(day)||0)+delta);
  }
  return days;
@@ -32,7 +32,8 @@ async function energyOverview(db,building,now=new Date()){
  for(const e of entities.filter(x=>x.metric==='energy')){
   const days=dailyFromCounter(by.get(e.entity_id)||[]);
   for(const [d,v] of days)total.set(d,(total.get(d)||0)+v);
-  meters.push({entity_id:e.entity_id,name:e.name,room:e.room||null,today_kwh:round(days.get(today)||0),last7_kwh:round([...days].filter(([d])=>last7.has(d)).reduce((a,[,v])=>a+v,0))});
+  const week=[...days].filter(([d])=>last7.has(d));
+  meters.push({entity_id:e.entity_id,name:e.name,room:e.room||null,today_kwh:days.has(today)?round(days.get(today)):null,last7_kwh:week.length?round(week.reduce((a,[,v])=>a+v,0)):null});
  }
  const night=[];
  for(const e of entities.filter(x=>x.metric==='power')){
@@ -43,15 +44,16 @@ async function energyOverview(db,building,now=new Date()){
  const daily=Array.from({length:DAYS},(_,i)=>berlinDay(new Date(now.getTime()-(DAYS-1-i)*86400000))).map(day=>({day,kwh:total.has(day)?round(total.get(day)):null}));
  const full=daily.filter(d=>d.kwh!==null&&d.day!==today);
  const avg=full.length?full.reduce((a,d)=>a+d.kwh,0)/full.length:null;
- // Grundlast: 10.-Perzentil der Leistungswerte zwischen 1 und 5 Uhr (nur ein Sensor sinnvoll; bei mehreren grobe Summe pro Sensor-Mittel).
- let base=null;if(night.length>=6){const sorted=[...night].sort((a,b)=>a-b);base=round(sorted[Math.floor(sorted.length*0.1)],0);}
- const totals={today_kwh:total.has(today)?round(total.get(today)):null,yesterday_kwh:total.has(yesterday)?round(total.get(yesterday)):null,last7_kwh:full.length||total.has(today)?round([...total].filter(([d])=>last7.has(d)).reduce((a,[,v])=>a+v,0)):null,avg_day_kwh:round(avg)};
+ // Ohne Zählerhierarchie lässt sich bei mehreren Leistungssensoren keine Gebäude-Grundlast bestimmen.
+ let base=null;if(entities.filter(e=>e.metric==='power').length===1&&night.length>=6){const sorted=[...night].sort((a,b)=>a-b);base=round(sorted[Math.floor(sorted.length*0.1)],0);}
+ const weekTotal=[...total].filter(([d])=>last7.has(d));
+ const totals={today_kwh:total.has(today)?round(total.get(today)):null,yesterday_kwh:total.has(yesterday)?round(total.get(yesterday)):null,last7_kwh:weekTotal.length?round(weekTotal.reduce((a,[,v])=>a+v,0)):null,avg_day_kwh:round(avg)};
  const hints=[];
  if(avg&&totals.yesterday_kwh!==null&&full.length>=5){const diff=(totals.yesterday_kwh-avg)/avg;if(diff>0.3)hints.push(`Gestern ${Math.round(diff*100)} % mehr Strom als im Schnitt der letzten Tage.`);else if(diff<-0.3)hints.push(`Gestern ${Math.round(-diff*100)} % weniger Strom als im Schnitt – gut!`);}
  if(base!==null&&base>=150)hints.push(`Nachts laufen dauerhaft etwa ${base} W. Prüfe Geräte im Standby, Umwälzpumpe oder Kühlgeräte.`);
  const top=meters.filter(m=>m.last7_kwh>0).sort((a,b)=>b.last7_kwh-a.last7_kwh)[0];
  if(top&&meters.length>1&&totals.last7_kwh)hints.push(`${top.name} hatte in den letzten 7 Tagen den größten Anteil (${Math.round(top.last7_kwh/totals.last7_kwh*100)} %).`);
- return {meters,power,daily,totals,base_load_w:base,hints,source:'home_assistant',meaning:'Aus Home-Assistant-Zählern (kWh) und Leistungssensoren (W). Tageswerte = Summe positiver Zählerzuwächse (Europe/Berlin); Lücken in der Übertragung können Tage zu niedrig erscheinen lassen. Keine Abrechnung, keine Kostenberechnung.'};
+ return {meters,power,daily,totals,base_load_w:base,hints,source:'home_assistant',meaning:'Aus Home-Assistant-Zählern (kWh) und Leistungssensoren (W). Tageswerte = Summe positiver Zählerzuwächse (Europe/Berlin); Lücken in der Übertragung können Tage zu niedrig erscheinen lassen. Mehrere Zähler werden addiert und können sich überschneiden (Haupt- und Unterzähler). Grundlast nur bei genau einem ausgewählten Leistungssensor. Keine Abrechnung, keine Kostenberechnung.'};
 }
 function energyRouter(db,requireAccount){
  const r=express.Router();
