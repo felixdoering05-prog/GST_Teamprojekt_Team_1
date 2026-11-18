@@ -1,3 +1,13 @@
+## 17. November 2026, 19:00 MEZ – Tandem-Lizenzgrenzen, LiteLLM und Nala 1.0.149
+
+- **Präzisierung, kein neues Produkt:** Autodesk Tandem Free: 500 Assets, 3 Facilities, 100 Mio. Datenpunkte, 500 MB und 10 Modellimporte je Facility. Paid: bis 10.000 Assets und 1 Mrd. Datenpunkte; Tandem Connect Free **0 Produktionsplugins**, Paid **10**. Kapazitätsmodell seit Februar 2026; kein verifizierter EUR-Betrag auf dynamischer Kaufseite. [Nutzungsbedingungen](https://app.learn-one.autodesk.com/content/autodesk/global/en/company/terms-of-use/en/subscription-benefits) · [Tandem](https://www.autodesk.com/sg/products/Tandem/buy) · [Connect](https://www.autodesk.com/sg/products/tandem-connect/buy).
+- **Beobachtung:** Home Assistant dokumentiert einen LiteLLM-Proxy als Sprach-/Konversationsintegration. Veröffentlichungsdatum nicht verifiziert; keine behauptete Neuerscheinung. [Offizielle Dokumentation](https://www.home-assistant.io/integrations/litellm) · [Assist](https://www.home-assistant.io/voice_control/). Siemens Fault Triage bleibt belegter September-2026-Stand ([Release Notes](https://www.siemens.com/de-de/products/building-x/release-notes/)).
+- **GitHub/main:** [#217](../../pull/217) und [#219](../../pull/219) bringen Home-Assistant-Lampen in die iOS-Geräteansicht und einheitliche Karten (Quellstand Nala 1.0.149); [#218](../../pull/218) verbessert Raum-/Geschosserkennung. [#222](../../pull/222) zur README ist noch offen. Echter D21-Sensor, automatische Sensor-IFC-Zuordnung und produktive KI-Fehler-/Energieanalyse **nicht nachgewiesen**.
+- **Chance (Hypothese):** niedrige Einrichtungshürde und erklärbare IFC-Raum-/Geräteverknüpfung; **Risiko:** starke bestehende BIM-/IoT- und LLM-Angebote. Kein belegter Preis- oder Qualitätsvorteil. **Nächster Test:** D21-Livemesswert mit Quelle/Einheit/Zeitstempel und kontrollierter 1:1-Vergleich.
+- **Quellenprüfung:** 17.11.2026, offizielle Herstellerseiten und Repository. Anbieterangaben nicht unabhängig praktisch validiert.
+
+---
+
 ## 16. November 2026, 19:05 MEZ – KI-Fehleranalyse und Wettbewerbsabgleich
 
 **Siemens Building X Operations Manager:** [Release Notes September 2026](https://www.siemens.com/de-de/products/building-x/release-notes/) bestätigen den optionalen **Fault Triage Agent** für KI-gestützte Untersuchung von Störungen, wahrscheinliche Ursachen und mögliche Lösungswege. [Produktseite](https://www.siemens.com/de-ch/products/building-x/applications/operations-manager/). Zielgruppe: technische Gebäudebetreiber. **Kein bestätigter EUR-Preis, keine unabhängige Validierung der Diagnosequalität; kein neues November-Release.**
