@@ -42,7 +42,7 @@ export default function BuildingSchedules(){
   const items=schedules.data?.items||[];
   function submit(event){
     event.preventDefault();
-    const body={title:title.trim(),details:details.trim(),starts_at:new Date(startsAt).toISOString(),ends_at:endsAt?new Date(endsAt).toISOString():null,kind,interval_days:kind==='maintenance'&&intervalDays?Number(intervalDays):null,reminder_days:kind==='maintenance'&&reminderDays!==''?Number(reminderDays):null,room_id:kind==='maintenance'&&roomID?Number(roomID):null,sensor_id:kind==='maintenance'&&sensorID?Number(sensorID):null};
+    const body={title:title.trim(),details:details.trim(),starts_at:new Date(startsAt).toISOString(),ends_at:endsAt?new Date(endsAt).toISOString():null,kind,interval_days:kind==='maintenance'&&intervalDays?Number(intervalDays):null,reminder_days:kind==='maintenance'&&reminderDays!==''?Number(reminderDays):null,room_id:kind==='maintenance'&&roomID?roomID:null,sensor_id:kind==='maintenance'&&sensorID?sensorID:null};
     mutation.mutate({path:`/buildings/${selectedId}/schedules${editing?`/${editing.id}`:''}`,method:editing?'PATCH':'POST',body});
   }
   function edit(item){setEditing(item);setTitle(item.title);setDetails(item.details||'');setStartsAt(localInput(item.starts_at));setEndsAt(localInput(item.ends_at));setKind(item.kind||'appointment');setIntervalDays(item.interval_days?String(item.interval_days):'');setReminderDays(item.reminder_days===null||item.reminder_days===undefined?'':String(item.reminder_days));setRoomID(item.room_id?String(item.room_id):'');setSensorID(item.sensor_id?String(item.sensor_id):'');}

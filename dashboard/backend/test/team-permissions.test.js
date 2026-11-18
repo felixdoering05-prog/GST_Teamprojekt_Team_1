@@ -126,3 +126,20 @@ test('native team titles and optional backgrounds remain owner-controlled and do
  assert.equal((await request(owner,`/teams/${team.id}`,'PATCH',{background_color:'invalid'})).status,400);
  assert.equal((await request(owner,`/teams/${team.id}`,'PATCH',{background_color:null})).body.background_color,null);
 });
+
+test('calendar room and sensor IDs use Twin text IDs and older app edits preserve maintenance metadata',async()=>{
+ const {initBuildingSchedules}=require('../src/team-access');
+ await db.query('ALTER TABLE app_building_schedules ALTER COLUMN room_id TYPE INTEGER USING room_id::integer, ALTER COLUMN sensor_id TYPE INTEGER USING sensor_id::integer');
+ const legacy=(await db.query("INSERT INTO app_building_schedules(building_id,title,starts_at,kind,room_id,sensor_id) VALUES($1,'Legacy',now(),'maintenance',123,456) RETURNING id",[second])).rows[0];
+ await initBuildingSchedules(db);
+ const restored=(await db.query('SELECT room_id,sensor_id FROM app_building_schedules WHERE id=$1',[legacy.id])).rows[0];assert.deepEqual(restored,{room_id:'123',sensor_id:'456'});
+ const room='56e7a9cd-a133-40e7-a6ab-20df8db40211',sensor='sensor-calendar-test';
+ await db.query("INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,'Room',$3),($4,$2,'Sensor',$5)",[room,owner.id,JSON.stringify({building_id:String(second),name:'Büro'}),sensor,JSON.stringify({building_id:String(second),name:'Temperatur'})]);
+ const body={title:'Prüfung',details:'Termin',starts_at:new Date(Date.now()+3600000).toISOString(),ends_at:null,kind:'maintenance',interval_days:30,reminder_days:2,room_id:room,sensor_id:sensor};
+ const created=await request(owner,`/buildings/${second}/schedules`,'POST',body);
+ assert.equal(created.status,201,JSON.stringify(created.body));assert.equal(created.body.room_id,room);
+ const list=await request(owner,`/buildings/${second}/schedules`);assert.equal(list.status,200);assert.equal(list.body.items.find(x=>x.id===created.body.id).room_name,'Büro');
+ const edited=await request(owner,`/buildings/${second}/schedules/${created.body.id}`,'PATCH',{title:'Neuer Titel',details:'Andere Notiz',starts_at:body.starts_at,ends_at:null});
+ assert.equal(edited.status,200,JSON.stringify(edited.body));assert.equal(edited.body.kind,'maintenance');assert.equal(edited.body.interval_days,30);assert.equal(edited.body.room_id,room);assert.equal(edited.body.sensor_id,sensor);
+ assert.equal((await request(owner,`/buildings/${first}/schedules`,'POST',body)).status,400);
+});
