@@ -4,6 +4,16 @@ const navLinks = [...document.querySelectorAll('nav a')];
 const previous = document.querySelector('#previous');
 const next = document.querySelector('#next');
 let activeSection = 0;
+
+// Keep anchor targets below the header when its navigation wraps on mobile.
+const header = document.querySelector('.header');
+function syncScrollOffset() {
+  const top = Number.parseFloat(getComputedStyle(header).top) || 0;
+  const offset = Math.ceil(header.getBoundingClientRect().height + top + 12);
+  document.documentElement.style.scrollPaddingTop = `${offset}px`;
+}
+syncScrollOffset();
+new ResizeObserver(syncScrollOffset).observe(header);
 function updateNavigation(index) {
   activeSection = index;
   document.querySelector('#section-count').textContent = `${String(index + 1).padStart(2, '0')} / 05`;
@@ -26,7 +36,7 @@ window.addEventListener('scroll', () => {
   if (scrollQueued) return;
   scrollQueued = true;
   requestAnimationFrame(() => {
-    const boundary = document.querySelector('.header').getBoundingClientRect().height + 90;
+    const boundary = header.getBoundingClientRect().height + 90;
     let current = 0;
     sections.forEach((section, index) => { if (section.getBoundingClientRect().top <= boundary) current = index; });
     updateNavigation(current);
