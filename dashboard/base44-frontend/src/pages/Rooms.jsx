@@ -22,6 +22,7 @@ import BuildingTeam from '@/components/rooms/BuildingTeam';
 import SharedBuildingStructure from '@/components/rooms/SharedBuildingStructure';
 import DeleteBuildingButton from '@/components/rooms/DeleteBuildingButton';
 import { documentKey } from '@/components/rooms/buildingFilesModel';
+import BuildingGroups from '@/components/rooms/BuildingGroups';
 
 const buildingsKey = ['account-buildings'];
 
@@ -125,6 +126,7 @@ export default function Rooms() {
             <BuildingStartSteps active={1} />
           </details>
           <BuildingInvitations onBuildingsChanged={refreshBuildings} />
+          <BuildingGroups />
           {buildings.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
           {buildings.error && (
             <div className="flex flex-wrap items-center gap-3">
