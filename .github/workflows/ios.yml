@@ -32,6 +32,13 @@ jobs:
           cache-dependency-path: ios/ifc-viewer/package-lock.json
       - run: npm ci
       - run: npm test
+      - name: Native team API contracts and role presentation
+        working-directory: .
+        run: |
+          swiftc -parse-as-library \
+            "ios/KI Trifft Gebäude APP/KI Trifft Gebäude APP/TeamAccessModels.swift" \
+            ios/team-tests/TeamContractSmoke.swift -o "$RUNNER_TEMP/team-contract-tests"
+          "$RUNNER_TEMP/team-contract-tests"
       - run: node build.mjs
       - name: Gebündelte App-Assets entsprechen dem Build
         working-directory: .

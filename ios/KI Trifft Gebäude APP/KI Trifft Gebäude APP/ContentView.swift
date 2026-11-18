@@ -581,7 +581,7 @@ struct AccountHomeView: View {
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NalaPreview") { return 5 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DashboardPreview") { return 4 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21DevicesPreview") { return 3 }
-        if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") { return 1 }
+        if WorkflowPreview.enabled && (ProcessInfo.processInfo.arguments.contains("-D21ContactsPreview") || ProcessInfo.processInfo.arguments.contains("-D21TeamsPreview")) { return 1 }
         if WorkflowPreview.enabled && ProcessInfo.processInfo.arguments.contains("-D21NoticesPreview") { return 2 }
         return 0
         #else
