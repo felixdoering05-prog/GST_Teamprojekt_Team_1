@@ -196,6 +196,8 @@ struct IFCStoredModelView: View {
             }
         }
         .overlay(alignment: .topTrailing) { IFCFloatingControls(viewer: viewer, commands: account != nil && buildingID != nil).padding(12) }
+        .overlay(alignment: .bottom) { if viewer.showSun { IFCSunPanel(viewer: viewer).padding(.horizontal, 12).padding(.bottom, 12).transition(.move(edge: .bottom).combined(with: .opacity)) } }
+        .animation(.snappy, value: viewer.showSun)
         .overlay(alignment: .bottom) {
             if canAlign {
                 Button { autoPlace = true } label: {
@@ -277,6 +279,7 @@ struct IFCFloatingControls: View {
             Menu {
                 Button("Alles anzeigen", systemImage: "eye") { viewer.click("show-all") }
                 Button("Farben zurücksetzen", systemImage: "paintbrush") { viewer.click("reset-colors") }
+                Button("Sonne & Schatten", systemImage: "sun.max") { viewer.showSun = true }
                 Section("Raumklima") {
                     climateButton("Temperatur", "thermometer.medium", "temperature")
                     climateButton("Luftfeuchte", "humidity", "humidity")
@@ -382,6 +385,16 @@ private enum IFCError: LocalizedError {
     }
     /// Reloads the defect markers (after a new report or a status change).
     func refreshIssues() { web?.evaluateJavaScript("window.d21RequestIssues?.()") }
+    /// Sonne & Schatten: Leiste mit Datum und Uhrzeit.
+    @Published var showSun = false
+    /// Sonnenstand für einen Zeitpunkt (nil = jetzt). Antwort: Höhe und Richtung in Grad, nil ohne Kartenausrichtung.
+    func setSunTime(_ date: Date?) async -> (altitude: Int, azimuth: Int)? {
+        guard let web else { return nil }
+        let iso = date.map { ISO8601DateFormatter().string(from: $0) }
+        guard let value = try? await web.callAsyncJavaScript("return window.d21SetSunTime ? window.d21SetSunTime(iso) : null", arguments: ["iso": iso as Any? ?? NSNull()], in: nil, contentWorld: .page) as? [String: Any],
+              let alt = value["altitude"] as? Int, let az = value["azimuth"] as? Int else { return nil }
+        return (alt, az)
+    }
     /// Raumklima-Einfärbung: Temperatur, Luftfeuchte, CO₂ oder aus (nil).
     @Published private(set) var climate: String?
     func setClimate(_ metric: String?) {
@@ -608,5 +621,50 @@ struct IFCWebView: UIViewRepresentable {
             activeTask?.cancel(); sceneTask?.cancel()
             webView.loadHTMLString("<meta name='viewport' content='width=device-width'><p style='font:18px -apple-system;padding:24px'>Das Modell benötigt zu viel Speicher. Bitte über „Datei öffnen“ einen kleineren IFC-Ausschnitt auswählen.</p>", baseURL: nil)
         }
+    }
+}
+
+/// Sonne & Schatten: Datum und Uhrzeit wählen, Nachbargebäude und Modell werfen den passenden Schatten.
+struct IFCSunPanel: View {
+    @ObservedObject var viewer: IFCViewerController
+    @State private var day = Date()
+    @State private var hour = Double(Calendar.current.component(.hour, from: .now)) + Double(Calendar.current.component(.minute, from: .now)) / 60
+    @State private var info: (altitude: Int, azimuth: Int)?
+    @State private var checked = false
+    private var moment: Date {
+        let start = Calendar.current.startOfDay(for: day)
+        return start.addingTimeInterval(hour * 3600)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Sonne & Schatten", systemImage: "sun.max.fill").font(.headline).foregroundStyle(.orange)
+                Spacer()
+                Button { Task { _ = await viewer.setSunTime(nil); viewer.showSun = false } } label: { Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary) }
+                    .buttonStyle(.plain).accessibilityLabel("Schließen")
+            }
+            HStack {
+                DatePicker("Tag", selection: $day, displayedComponents: .date).labelsHidden()
+                Spacer()
+                Text(moment.formatted(date: .omitted, time: .shortened)).font(.title3.monospacedDigit().weight(.semibold))
+            }
+            Slider(value: $hour, in: 4...22, step: 0.25) { Text("Uhrzeit") } minimumValueLabel: { Image(systemName: "sunrise") } maximumValueLabel: { Image(systemName: "sunset") }
+            HStack(spacing: 8) {
+                ForEach([("21. Juni", 6, 21), ("21. Dez.", 12, 21)], id: \.0) { label, month, dayOfMonth in
+                    Button(label) { var c = Calendar.current.dateComponents([.year], from: .now); c.month = month; c.day = dayOfMonth; if let d = Calendar.current.date(from: c) { day = d } }
+                        .font(.caption.weight(.semibold)).buttonStyle(.bordered)
+                }
+                Button("Jetzt") { day = .now; hour = Double(Calendar.current.component(.hour, from: .now)) + Double(Calendar.current.component(.minute, from: .now)) / 60 }.font(.caption.weight(.semibold)).buttonStyle(.bordered)
+            }
+            Group {
+                if let info { Text(info.altitude <= 0 ? "Die Sonne ist untergegangen." : "Sonne \(info.altitude)° hoch, aus \(direction(info.azimuth)) (\(info.azimuth)°)") }
+                else if checked { Text("Für echte Schatten das Modell zuerst auf der Karte ausrichten.") }
+            }.font(.footnote).foregroundStyle(.secondary)
+        }
+        .padding(16).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .task(id: moment) { info = await viewer.setSunTime(moment); checked = true }
+    }
+    private func direction(_ az: Int) -> String {
+        ["Norden","Nordosten","Osten","Südosten","Süden","Südwesten","Westen","Nordwesten"][Int((Double(az) + 22.5) / 45) % 8]
     }
 }

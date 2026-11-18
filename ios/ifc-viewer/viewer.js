@@ -1,7 +1,7 @@
 import {placementGeometry} from './placement-geometry.js';
 import {mountNativeHeat} from './heat.js';
 import { mountMapEnvironment } from './map-environment.js';
-import { displaySun } from './sun.js';
+import { displaySun, sunPosition } from './sun.js';
 import { mountSynchronization } from './sync.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -147,16 +147,28 @@ async function open() {
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mapBase = mountMapEnvironment(scene, centeredBounds.min.y - span*.001,render);
   // Sun from the building's location: realistic shadow direction; the map group is rotated by the heading.
+  let sunView = null, sunTime = null;
   function setSun(view) {
-    const sun = displaySun(view.latitude, view.longitude), unit = view.meters_per_unit || 1;
+    sunView = view;
+    const sun = sunTime ? { ...sunPosition(sunTime, view.latitude, view.longitude), live: true } : displaySun(view.latitude, view.longitude), unit = view.meters_per_unit || 1;
     const dir = new THREE.Vector3(Math.sin(sun.azimuth) * Math.cos(sun.altitude), Math.sin(sun.altitude), -Math.cos(sun.azimuth) * Math.cos(sun.altitude))
       .applyAxisAngle(new THREE.Vector3(0, 1, 0), view.heading * Math.PI / 180);
     const reach = Math.max(span * 1.6, 60 / unit);
     light.position.copy(dir.multiplyScalar(reach * 2)); light.target.position.set(0, 0, 0); scene.add(light.target);
     Object.assign(light.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: .1, far: reach * 5 });
     light.shadow.mapSize.set(2048, 2048); light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.camera.updateProjectionMatrix();
-    light.intensity = sun.live ? 2.8 : 2.4; refreshShadows();
+    const night = sun.altitude <= 0;
+    light.intensity = night ? .25 : sun.live ? 2.8 : 2.4; light.castShadow = !night; refreshShadows();
+    return sun;
   }
+  // Sonnenstand für Datum/Uhrzeit (ISO-Text) oder null = jetzt. Liefert Höhe und Richtung in Grad.
+  window.d21SetSunTime = iso => {
+    const date = iso ? new Date(iso) : null;
+    if (date && Number.isNaN(date.getTime())) return null;
+    sunTime = date; if (!sunView) return null;
+    const sun = setSun(sunView);
+    return { altitude: Math.round(sun.altitude * 180 / Math.PI), azimuth: Math.round(((sun.azimuth * 180 / Math.PI) % 360 + 360) % 360) };
+  };
   const applyMap = view => { mapBase(view); if (view && Number.isFinite(view.latitude)) setSun(view); else refreshShadows(); };
   window.d21SetGround = (url, metres) => { mapBase.setGround(url, metres, () => { ground.visible = false; refreshShadows(); }); };
   // Gentle motion: fly in once, then orbit slowly until the person touches the model.

@@ -16,6 +16,7 @@ const {equipmentRouter}=require('./equipment');
 const {initIssues,issuesRouter}=require('./issues');
 const {initMaintenance,maintenanceRouter}=require('./maintenance');
 const {initAutomations,automationsRouter}=require('./automations');
+const {energyRouter}=require('./energy');
 const {initHomeAssistant,homeAssistantRouter}=require('./home-assistant');
 const {initAdmin,adminRouter}=require('./admin');
 const {campusRouter}=require('./campus');
@@ -182,6 +183,7 @@ function accountRouter(db,options={}) {
  router.use(issuesRouter(db,requireAccount,options.campus));
  router.use(maintenanceRouter(db,requireAccount));
  router.use(automationsRouter(db,requireAccount));
+ router.use(energyRouter(db,requireAccount));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));
  router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));
  router.use(liveVoiceRouter(db,requireAccount,{...options.liveVoice,homeAssistant:options.homeAssistant}));
