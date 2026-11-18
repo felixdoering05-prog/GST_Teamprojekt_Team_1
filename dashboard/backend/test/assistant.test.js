@@ -39,7 +39,7 @@ test('status is authenticated and building-scoped without calling Google',async(
  assert.equal(JSON.stringify(info.body).includes(privateContent),false);assert.equal(JSON.stringify(info.body).includes(mockKey),false);
 });
 test('consent, valid request ID, bounded question and reviewed snapshot required',async()=>{
- for(const overrides of [{consent:'no'},{question:''},{question:'x'.repeat(2001)}])assert.equal((await question(owner,overrides)).status,400);
+ for(const overrides of [{consent:'no'},{question:''},{question:'x'.repeat(2001)},{document_read_ids:[1]},{document_read_ids:[1,2],document_content_consent:true},{document_read_ids:['1'],document_content_consent:true}])assert.equal((await question(owner,overrides)).status,400);
  assert.equal((await question(owner,{},'invalid')).status,400);
  assert.equal((await question(owner,{context_hash:'stale'})).status,409);
  assert.equal(calls.length,0);

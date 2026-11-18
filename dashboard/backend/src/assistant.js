@@ -103,12 +103,15 @@ function assistantRouter(db,requireAccount,options={}){
   const commandMode=req.body?.mode==='ifc-command',chat=req.body?.chat===true;
   const analysisMode=req.body?.mode==='measurement-analysis';
   if(analysisMode&&(!['real','demo'].includes(req.body.source)||chat||req.body.document_id!==undefined))return res.status(400).json({error:'Messwertanalyse benötigt eine getrennte Quelle, ohne Chat oder IFC-Auswahl.'});
+  const readIDs=req.body?.document_read_ids;
+  if(readIDs!==undefined&&(!Array.isArray(readIDs)||readIDs.length>1||readIDs.some(id=>!Number.isInteger(id)||id<1||id>2147483647)||req.body.document_content_consent!==true))return problem(res,400);
+  const documentReadIDs=readIDs||[];
   const documentID=req.body?.document_id;
   if(documentID!==undefined&&(!Number.isInteger(documentID)||!(await db.query("SELECT id FROM app_documents WHERE id=$1 AND building_id=$2 AND mime_type='application/x-step'",[documentID,building.id])).rows.length))return res.status(400).json({error:'Bitte ein IFC-Modell dieses Gebäudes auswählen.'});
   const context=commandMode?commandContext:analysisMode?await analysisContext(db,building,req.body.source):await contextFor(db,building,documentID);
   if(req.body?.context_hash!==contextHash(context))return res.status(409).json({error:'Die Gebäudedaten haben sich geändert. Bitte den Gebäudestand aktualisieren und erneut prüfen.'});
   if(analysisMode&&!context.metrics.some(m=>m.count>0))return res.status(422).json({error:'Für diese Quelle fehlen auswertbare Messwerte. Bitte zuerst Daten importieren.'});
-  const state=await reserve(db,req.account.id,building.id,key,createHash('sha256').update(question+'\n'+req.body.context_hash+(chat?'\nchat:'+String(documentID||''):'' )).digest('hex'),model);
+  const state=await reserve(db,req.account.id,building.id,key,createHash('sha256').update(question+'\n'+req.body.context_hash+'\ndocument-read:'+JSON.stringify(documentReadIDs)+(chat?'\nchat:'+String(documentID||''):'' )).digest('hex'),model);
   if(state.error)return problem(res,state.error,state.processing);
   const respond=async(stored,cached,usedModel=model,haActions=[])=>{
    if(!await aiEnabled(db,req.account.id))return res.status(403).json({error:disabledMessage});
@@ -165,7 +168,7 @@ function assistantRouter(db,requireAccount,options={}){
     if(!calls.length||round===MAX_ROUNDS)break;
     if(calls.length>MAX_CALLS_PER_ROUND){const e=new Error('Too many tool calls');e.code=502;throw e;}
     const parts=[];
-    for(const part of calls){const {name,args,id}=part.functionCall;if(LABELS[name])usedTools.add(name);parts.push({functionResponse:{...(typeof id==='string'?{id}:{}),name,response:{result:await runTool(db,{user:req.account.id,building:building.id,options:{...options,getKey,fetch:fetchProvider}},name,args)}}});}
+    for(const part of calls){const {name,args,id}=part.functionCall;if(LABELS[name])usedTools.add(name);parts.push({functionResponse:{...(typeof id==='string'?{id}:{}),name,response:{result:await runTool(db,{user:req.account.id,building:building.id,options:{...options,getKey,fetch:fetchProvider,documentReadIDs}},name,args)}}});}
     // The model turn is returned unchanged so Gemini keeps its thought signatures.
     payload.contents.push(candidate.content,{role:'user',parts});
    }

@@ -6,9 +6,10 @@ const text=(v,max)=>typeof v==='string'?v.slice(0,max):null;
 async function documentsTool(db,building){
  const rows=(await db.query('SELECT id,name,mime_type,size,created_at FROM app_documents WHERE building_id=$1 ORDER BY id DESC LIMIT 101',[building])).rows;
  return {count:Math.min(rows.length,100),more:rows.length>100,documents:rows.slice(0,100).map(d=>({document_id:d.id,name:text(d.name,120),type:d.mime_type==='application/x-step'?'IFC-Modell':d.mime_type==='application/pdf'?'PDF':d.mime_type.startsWith('image/')?'Bild':'CAD',size_kb:Math.round(d.size/1024),uploaded_at:d.created_at,readable:READABLE.includes(d.mime_type)&&d.size<=MAX_BYTES})),
-  meaning:'Hochgeladene Dateien dieses Gebäudes. Mit read_document kann eine lesbare Datei (PDF/Bild bis 15 MB) zu einer konkreten Frage gelesen werden.'};
+  meaning:'Hochgeladene Dateien dieses Gebäudes. PDF/Bilder bis 15 MB können erst nach ausdrücklicher Auswahl und gesonderter Übertragungsfreigabe gelesen werden; die bisherigen Apps übertragen weiterhin keine Datei-Inhalte.'};
 }
 async function readDocumentTool(db,building,args,options={}){
+ if(!Array.isArray(options.documentReadIDs)||!options.documentReadIDs.includes(args.document_id))return {error:'Bitte diese Datei vor der Übertragung an Google Gemini ausdrücklich auswählen und freigeben. Die allgemeine KI-Freigabe reicht dafür nicht aus.'};
  if(!Number.isInteger(args.document_id))return {error:'Bitte document_id aus dem Werkzeug documents angeben.'};
  const question=text(args.question,500)?.trim();if(!question)return {error:'Bitte die Frage an das Dokument angeben.'};
  const doc=(await db.query('SELECT id,name,mime_type,size,content FROM app_documents WHERE id=$1 AND building_id=$2',[args.document_id,building])).rows[0];
