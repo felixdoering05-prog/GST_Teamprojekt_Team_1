@@ -101,7 +101,7 @@ export default function GroupAccessPanel() {
         {group.buildings.length} Gebäude: {group.buildings.map(building => building.name).join(', ')}
       </p>}
       {assignment.error && <p role="alert" className="text-sm text-destructive">{assignment.error.message}</p>}
-      {assignment.isSuccess && <p role="status" className="text-sm text-emerald-700">Die Rolle wurde auf alle Gebäude der Gruppe übertragen.</p>}
+      {assignment.isSuccess && <p role="status" className="text-sm text-emerald-700">Die Rolle wurde auf alle Gebäude übertragen. Bei bisher fehlendem Zugriff muss die Person die jeweilige Einladung noch annehmen.</p>}
       <div className="flex justify-end">
         <Button type="button" onClick={() => assignment.mutate()} disabled={!userID || !roleID || !allowed || assignment.isPending}>
           <Users className="h-4 w-4" /> {assignment.isPending ? 'Wird übertragen …' : 'Rolle auf alle Gebäude anwenden'}
