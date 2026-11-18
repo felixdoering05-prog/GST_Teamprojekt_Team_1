@@ -31,6 +31,7 @@ async function initTeamPermissions(db) {
   await db.query('ALTER TABLE app_building_members ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES app_building_roles(id) ON DELETE SET NULL');
   await db.query('CREATE INDEX IF NOT EXISTS app_building_roles_order_idx ON app_building_roles(building_id,sort_order,id)');
   await db.query("UPDATE app_building_roles SET permissions=permissions-'schedule' WHERE permissions ? 'schedule'");
+  await db.query('DROP TABLE IF EXISTS app_building_schedules');
 }
 
 async function ensureBuildingRoles(db, buildingID) {
