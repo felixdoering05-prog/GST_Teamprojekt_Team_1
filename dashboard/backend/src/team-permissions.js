@@ -1,9 +1,9 @@
 const MODULES = [
   'overview', 'buildings', 'structure', 'sensors', 'energy', 'analysis', 'assistant',
-  'issues', 'documents', 'settings', 'bim', 'schedule', 'coordination', 'maintenance',
+  'issues', 'documents', 'settings', 'bim', 'coordination', 'maintenance',
 ];
 const FULL = Object.fromEntries(MODULES.map(name => [name, 'edit']));
-const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, name==='maintenance'?'none':['schedule', 'coordination'].includes(name) ? 'edit' : 'read']));
+const READ_ONLY = Object.fromEntries(MODULES.map(name => [name, name==='maintenance'?'none':name==='coordination'?'edit':'read']));
 const DEFAULT_ROLES = [
   { key: 'management', name: 'Management', sort: 0, canManageMembers: true, permissions: FULL },
   { key: 'employee', name: 'Employee', sort: 1, canManageMembers: false, permissions: FULL },
