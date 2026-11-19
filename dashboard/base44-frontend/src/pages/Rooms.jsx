@@ -124,7 +124,6 @@ export default function Rooms() {
             <summary className="cursor-pointer font-heading font-semibold">Erste Schritte</summary>
             <BuildingStartSteps active={1} />
           </details>
-          <BuildingGroups />
           {buildings.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
           {buildings.error && (
             <div className="flex flex-wrap items-center gap-3">
@@ -153,6 +152,7 @@ export default function Rooms() {
               ))}
             </div>
           )}
+          <BuildingGroups />
         </>
       )}
       {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} />}

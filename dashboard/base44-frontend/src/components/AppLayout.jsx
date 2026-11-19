@@ -27,9 +27,9 @@ const NAV_GROUPS = [
     label: 'Gebäude',
     items: [
       { path: '/', label: 'Kommandozentrale', icon: LayoutDashboard, end: true, module: 'overview', hint: 'Gebäudeübersicht, Kennzahlen und Raumzustände' },
+      { path: '/gebaeude', label: 'Gebäude', icon: Building2, module: 'buildings', hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
       { path: '/bim-viewer', label: 'BIM-Viewer', icon: Boxes, module: 'bim', hint: 'IFC-Modelle vom Projektserver in 3D öffnen und Bauteile erkunden' },
       { path: '/heat-map', label: 'Heat Map', icon: Flame, module: 'bim', hint: 'Raumtemperaturen im Gebäude und Wärmeverteilung auf dem Campus' },
-      { path: '/gebaeude', label: 'Gebäude', icon: Building2, module: 'buildings', hint: 'Gebäude, Bilder, Pläne und Räume verwalten' },
     ],
   },
   {
@@ -42,22 +42,17 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Benachrichtigungen',
+    label: 'Betrieb',
     items: [
-      { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
+      { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
     ],
   },
   {
-    label: 'Organisation',
+    label: 'Team & Einstellungen',
     items: [
       { path: '/teams', label: 'Dein Team', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
       { path: '/rechte', label: 'Rechte', icon: ShieldCheck, module: 'teamRights', hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
-    ],
-  },
-  {
-    label: 'Verwaltung',
-    items: [
       { path: '/daten', label: 'Daten & Einstellungen', icon: Database, module: 'settings', hint: 'Datenimport, Export und Konfiguration' },
     ],
   },
@@ -68,14 +63,14 @@ const ALL_NAV = [...NAV_GROUPS.flatMap((group) => group.items), ADMIN_NAV];
 
 function NavItems({ onNavigate, isAdmin, permissions }) {
   return (
-    <nav aria-label="Hauptnavigation" className="space-y-5 px-3">
+    <nav aria-label="Hauptnavigation" className="space-y-4 px-3">
       {NAV_GROUPS.map((group) => {
         const items=group.items.filter(item=>item.module==='teamRights'?permissions?.teamRights===true:!item.module||permissions===null||permissions[item.module]!=='none');
         return items.length>0&&(
         <div key={group.label}>
           <p className="shell-nav-heading">{group.label}</p>
-          <div className="flex flex-col gap-1">
-      {[...items, ...(group.label === 'Verwaltung' && isAdmin ? [ADMIN_NAV] : [])].map((item) => {
+          <div className="flex flex-col gap-0.5">
+      {[...items, ...(group.label === 'Team & Einstellungen' && isAdmin ? [ADMIN_NAV] : [])].map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -86,7 +81,7 @@ function NavItems({ onNavigate, isAdmin, permissions }) {
             title={item.hint}
             className={({ isActive }) =>
               cn(
-                'shell-nav-link group relative flex min-h-11 items-center gap-3 px-3 py-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'shell-nav-link group relative flex min-h-10 items-center gap-3 px-3 py-2 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 isActive && 'shell-nav-link-active',
               )
             }
@@ -108,7 +103,7 @@ function NavItems({ onNavigate, isAdmin, permissions }) {
   );
 }
 
-function SidebarBody({ onNavigate, scopeKey, activeTeam }) {
+function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }) {
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [permissions,setPermissions]=useState(null);
@@ -155,20 +150,16 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam }) {
         </div>
       </div>
 
+      {teams?.length>0&&<div className="px-5 pb-4"><TeamSwitcher wide teams={teams} teamID={teamID} onChange={onTeam}/></div>}
       <div className="shell-divider mx-5 mb-2 h-px" />
       <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
         <NavItems isAdmin={isAdmin} onNavigate={onNavigate} permissions={permissions} />
       </div>
 
-      <div className="shell-account border-t px-4 py-4">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Datenquelle</p>
-        <p className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <Database className="h-3 w-3 shrink-0 text-primary" />
-          Projektserver · eigene Daten
-        </p>
+      <div className="shell-account border-t px-4 py-3" title="Datenquelle: Projektserver · eigene Daten">
         {email ? (
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="truncate text-[10px] text-muted-foreground">{email}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2 truncate text-[10px] text-muted-foreground"><Database className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />{email}</span>
             <button
               type="button"
               onClick={() => base44.auth.logout('/login')}
@@ -187,6 +178,13 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam }) {
 
 function TeamLogo({id,name}){const [src,setSrc]=useState('');useEffect(()=>{let active=true,objectURL='';request('/teams/'+id+'/logo',{raw:true}).then(blob=>{objectURL=URL.createObjectURL(blob);if(active)setSrc(objectURL)}).catch(()=>{});return()=>{active=false;if(objectURL)URL.revokeObjectURL(objectURL)}},[id]);return src?<img src={src} alt={'Logo '+name} className="h-8 w-8 shrink-0 rounded-lg object-contain"/>:null;}
 function hexHsl(hex){const n=parseInt(String(hex||'#596b3d').slice(1),16),r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0,s=0,l=(max+min)/2;if(d){s=d/(1-Math.abs(2*l-1));switch(max){case r:h=((g-b)/d)%6;break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h*=60;if(h<0)h+=360;}return Math.round(h)+' '+Math.round(s*100)+'% '+Math.round(l*100)+'%';}
+
+function TeamSwitcher({teams,teamID,onChange,wide=false}){
+  if(!teams?.length)return null;
+  const width=wide?'w-full':'max-w-48';
+  if(teams.length===1)return <span className={`glass-pill ${width} block truncate px-3 py-2 text-xs font-medium`} title={teams[0].name}>{teams[0].name}</span>;
+  return <select aria-label="Team auswählen" className={`${width} rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium`} value={teamID} onChange={event=>onChange(event.target.value)}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select>;
+}
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
@@ -209,7 +207,7 @@ export default function AppLayout() {
     <div className="glass-app min-h-screen">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="shell-sidebar fixed z-40 hidden lg:block">
-        <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam}/>
+        <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.reload();}}/>
       </aside>
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -220,12 +218,12 @@ export default function AppLayout() {
             <Dialog.Close aria-label="Menü schließen" className="shell-icon-button absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="h-4 w-4" />
             </Dialog.Close>
-            <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} onNavigate={() => setOpen(false)} />
+            <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.reload();}} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
 
       <div className="shell-workspace">
-        <header className="shell-header sticky top-0 z-30 px-4 pb-3 pt-4 sm:px-6 lg:px-7">
+        <header className="shell-header sticky top-0 z-30 px-4 pb-3 pt-4 sm:px-6 lg:hidden">
           <div className="shell-header-inner mx-auto flex max-w-[1600px] items-center gap-3 px-3 py-2 sm:px-4">
             <Dialog.Trigger
               type="button"
@@ -238,15 +236,12 @@ export default function AppLayout() {
               <h1 className="truncate font-heading text-sm font-semibold text-foreground sm:text-base">{current.label}</h1>
               <p className="hidden truncate text-[10px] text-muted-foreground sm:block">{current.hint}</p>
             </div>
-            <span className="glass-pill hidden items-center gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground sm:inline-flex">
-              <Database className="h-3.5 w-3.5 text-primary" />
-              Projektserver
-            </span>
-            {teams.length===1?<span className="glass-pill max-w-48 truncate px-3 py-2 text-xs font-medium" title={teams[0].name}>{teams[0].name}</span>:teams.length>1?<select aria-label="Team auswählen" className="max-w-48 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium" value={teamID} onChange={event=>{chooseTeam(event.target.value);window.location.reload();}}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select>:null}
+            
+            <TeamSwitcher teams={teams} teamID={teamID} onChange={id=>{chooseTeam(id);window.location.reload();}}/>
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 pb-7 pt-2 focus:outline-none sm:px-6 sm:pb-9 lg:px-7 lg:pt-3">
+        <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 pb-7 pt-2 focus:outline-none sm:px-6 sm:pb-9 lg:px-7 lg:pt-7">
           <Outlet />
         </main>
       </div>
