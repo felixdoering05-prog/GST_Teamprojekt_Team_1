@@ -29,6 +29,7 @@ export default function BuildingSchedules(){
   const [startsAt,setStartsAt]=useState(defaultStart);
   const [endsAt,setEndsAt]=useState('');
   const [kind,setKind]=useState('appointment'),[intervalDays,setIntervalDays]=useState(''),[reminderDays,setReminderDays]=useState(''),[roomID,setRoomID]=useState(''),[sensorID,setSensorID]=useState('');
+  const [formOpen,setFormOpen]=useState(false);
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const buildings=useQuery({queryKey:buildingsKey,queryFn:()=>request('/buildings'),refetchOnWindowFocus:true});
   const selectedId=buildingId||localStorage.getItem('d21-selected-building')||String(buildings.data?.[0]?.id||'');
@@ -36,7 +37,7 @@ export default function BuildingSchedules(){
   const schedules=useQuery({queryKey:scheduleKey(selectedId),queryFn:()=>request(`/buildings/${selectedId}/schedules`),enabled:!!selectedId,refetchOnWindowFocus:true});
   const mutation=useMutation({
     mutationFn:({path,method='POST',body})=>request(path,{method,body}),
-    onSuccess:async()=>{await cache.invalidateQueries({queryKey:scheduleKey(selectedId)});setEditing(null);setTitle('');setDetails('');setStartsAt(defaultStart());setEndsAt('');},
+    onSuccess:async()=>{await cache.invalidateQueries({queryKey:scheduleKey(selectedId)});setFormOpen(false);setEditing(null);setTitle('');setDetails('');setStartsAt(defaultStart());setEndsAt('');},
   });
   const error=buildings.error||schedules.error||mutation.error;
   const items=schedules.data?.items||[];
@@ -45,8 +46,8 @@ export default function BuildingSchedules(){
     const body={title:title.trim(),details:details.trim(),starts_at:new Date(startsAt).toISOString(),ends_at:endsAt?new Date(endsAt).toISOString():null,kind,interval_days:kind==='maintenance'&&intervalDays?Number(intervalDays):null,reminder_days:kind==='maintenance'&&reminderDays!==''?Number(reminderDays):null,room_id:kind==='maintenance'&&roomID?roomID:null,sensor_id:kind==='maintenance'&&sensorID?sensorID:null};
     mutation.mutate({path:`/buildings/${selectedId}/schedules${editing?`/${editing.id}`:''}`,method:editing?'PATCH':'POST',body});
   }
-  function edit(item){setEditing(item);setTitle(item.title);setDetails(item.details||'');setStartsAt(localInput(item.starts_at));setEndsAt(localInput(item.ends_at));setKind(item.kind||'appointment');setIntervalDays(item.interval_days?String(item.interval_days):'');setReminderDays(item.reminder_days===null||item.reminder_days===undefined?'':String(item.reminder_days));setRoomID(item.room_id?String(item.room_id):'');setSensorID(item.sensor_id?String(item.sensor_id):'');}
-  function cancelEdit(){setEditing(null);setTitle('');setDetails('');setStartsAt(defaultStart());setEndsAt('');setKind('appointment');setIntervalDays('');setReminderDays('');setRoomID('');setSensorID('');}
+  function edit(item){setFormOpen(true);window.scrollTo({top:0,behavior:'smooth'});setEditing(item);setTitle(item.title);setDetails(item.details||'');setStartsAt(localInput(item.starts_at));setEndsAt(localInput(item.ends_at));setKind(item.kind||'appointment');setIntervalDays(item.interval_days?String(item.interval_days):'');setReminderDays(item.reminder_days===null||item.reminder_days===undefined?'':String(item.reminder_days));setRoomID(item.room_id?String(item.room_id):'');setSensorID(item.sensor_id?String(item.sensor_id):'');}
+  function cancelEdit(){setFormOpen(false);setEditing(null);setTitle('');setDetails('');setStartsAt(defaultStart());setEndsAt('');setKind('appointment');setIntervalDays('');setReminderDays('');setRoomID('');setSensorID('');}
   const calendarItems=useMemo(()=>{
     const start=new Date(month.getFullYear(),month.getMonth(),1),end=new Date(month.getFullYear(),month.getMonth()+1,1);
     return items.flatMap(item=>{
@@ -61,12 +62,13 @@ export default function BuildingSchedules(){
   return <div className="space-y-5">
     <PageHeader title="Kalender" description="Termine und Wartungen für Gebäude planen und koordinieren.">
       {buildings.data?.length>0&&<label className="flex items-center gap-2 text-sm">Gebäude<select className="max-w-64 rounded-md border border-input bg-background px-3 py-2" value={selectedId} onChange={event=>{setBuildingId(event.target.value);localStorage.setItem('d21-selected-building',event.target.value);window.dispatchEvent(new Event('d21-building-change'));cancelEdit();}}>{buildings.data.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+      {selected&&schedules.data?.can_edit&&!formOpen&&!editing&&<Button onClick={()=>setFormOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true"/>Eintrag anlegen</Button>}
     </PageHeader>
     {error&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error.message}</p>}
     {buildings.isPending&&<p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
     {!buildings.isPending&&!buildings.data?.length&&<section className="surface p-5 text-sm text-muted-foreground">Für den Kalender ist mindestens ein zugängliches Gebäude erforderlich.</section>}
     {selected&&<>
-      {schedules.data?.can_edit&&<form onSubmit={submit} className="surface grid gap-4 p-5 md:grid-cols-2">
+      {schedules.data?.can_edit&&(formOpen||editing)&&<form onSubmit={submit} className="surface grid gap-4 p-5 md:grid-cols-2">
         <div className="flex items-center gap-3 md:col-span-2"><CalendarClock className="h-5 w-5 text-primary"/><div><h2 className="font-heading font-semibold">{editing?'Eintrag bearbeiten':'Termin oder Wartung planen'}</h2><p className="text-xs text-muted-foreground">Der Eintrag ist nur für Mitglieder mit Kalender-Zugriff in {selected.name} sichtbar.</p></div></div>
         <label className="grid gap-1 text-xs font-medium">Kalendereintrag<select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={kind} onChange={event=>{setKind(event.target.value);if(event.target.value==='appointment'){setIntervalDays('');setReminderDays('');setRoomID('');setSensorID('');}}}><option value="appointment">Termin oder Aufgabe</option><option value="maintenance">Wartung</option></select></label>
         <label className="grid gap-1 text-xs font-medium md:col-span-2">Titel<Input value={title} onChange={event=>setTitle(event.target.value)} maxLength={120} required placeholder="z. B. Wartung Lüftungsanlage"/></label>
@@ -79,7 +81,7 @@ export default function BuildingSchedules(){
           <label className="grid gap-1 text-xs font-medium">Sensor zuordnen<select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={sensorID} onChange={event=>setSensorID(event.target.value)}><option value="">Kein Sensor</option>{(schedules.data?.sensors||[]).map(sensor=><option key={sensor.id} value={sensor.id}>{sensor.name}</option>)}</select></label>
         </>}
         <label className="grid gap-1 text-xs font-medium md:col-span-2">Details<textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm" value={details} onChange={event=>setDetails(event.target.value)} maxLength={2000} placeholder="Ort, Vorbereitung oder Abstimmung …"/></label>
-        <div className="flex justify-end gap-2 md:col-span-2">{editing&&<Button type="button" variant="outline" onClick={cancelEdit} disabled={mutation.isPending}>Abbrechen</Button>}<Button type="submit" disabled={mutation.isPending||!title.trim()}><Plus className="h-4 w-4"/>{mutation.isPending?'Speichert …':editing?'Änderungen speichern':'Eintrag anlegen'}</Button></div>
+        <div className="flex justify-end gap-2 md:col-span-2"><Button type="button" variant="outline" onClick={cancelEdit} disabled={mutation.isPending}>Abbrechen</Button><Button type="submit" disabled={mutation.isPending||!title.trim()}><Plus className="h-4 w-4"/>{mutation.isPending?'Speichert …':editing?'Änderungen speichern':'Eintrag anlegen'}</Button></div>
       </form>}
       <section className="surface space-y-4 p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-heading font-semibold">Kalender · {new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(month)}</h2><div className="flex gap-2"><Button size="sm" variant="outline" onClick={()=>setMonth(value=>new Date(value.getFullYear(),value.getMonth()-1,1))} aria-label="Vorheriger Monat">‹</Button><Button size="sm" variant="outline" onClick={()=>setMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1))}>Heute</Button><Button size="sm" variant="outline" onClick={()=>setMonth(value=>new Date(value.getFullYear(),value.getMonth()+1,1))} aria-label="Nächster Monat">›</Button></div></div>
         <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-border bg-border">{['Mo','Di','Mi','Do','Fr','Sa','So'].map(day=><div key={day} className="bg-muted px-2 py-2 text-center text-xs font-semibold">{day}</div>)}{monthDays.map((day,index)=><div key={index} className={`min-h-24 bg-background p-1.5 ${day?'':'opacity-40'}`}>{day&&<><span className={`text-sm font-semibold ${keyDate(day)===keyDate(new Date())?'rounded-full bg-primary px-2 py-1 text-primary-foreground':'text-muted-foreground'}`}>{day.getDate()}</span><div className="mt-1 space-y-1">{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).slice(0,2).map(item=><button key={item.occurrenceKey||item.id} type="button" onClick={()=>schedules.data?.can_edit&&edit(item.original)} className={`block w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${item.kind==='maintenance'?'bg-amber-500/15 text-amber-800':'bg-primary/10 text-primary'}`} title={item.title}>{item.isReminder?'Erinnerung · ':item.kind==='maintenance'?'Wartung · ':''}{item.title}</button>)}{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).length>2&&<span className="text-[10px] text-muted-foreground">+{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).length-2} weitere</span>}</div></>}</div>)}</div>
