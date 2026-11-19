@@ -62,3 +62,5 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 - [12.11.2026 17:18 · Sensorausfälle in Raum-Heatmaps](berichte/2026-11-12-1718.md)
 
 - [12.11.2026 13:39 · erste Sichtung: IFC-Qualität und Geschossvorschau](berichte/2026-11-12-1339.md) – manuell geprüft; noch kein geplanter Lauf nachgewiesen.
+
+[19.11.2026 09:04 · Eingeschränkter Quellenabgleich](berichte/2026-11-19-0904.md) – keine neue Empfehlung, vollständiger Projektabgleich offen.
