@@ -142,3 +142,12 @@ Neue Rechercheläufe werden **oben** eingetragen.
 
 - Ordner und Vergleichsvorlage für die regelmäßige Wettbewerbsbeobachtung vorbereitet.
 - Zum Zeitpunkt der Ordneranlage waren noch keine Produkt- oder Preisbehauptungen verifiziert.
+
+
+## 19. November 2026, 19:04 MEZ – Bentley-Tarife und Tandem-Connect-EUR-Preis
+
+**Neue belegte Preisdetails:** [Bentley iTwin Platform Pricing](https://developer.bentley.com/pricing/) zeigt Community kostenlos nur für nichtkommerziellen, nichtproduktiven Einsatz (100 Credits/Monat), Standard 199 USD/Monat (200 Credits), Premium 499 USD/Monat (500 Credits), Zusatzcredit 1,20 USD. Dies sind **Entwicklerplattformtarife**, keine fertigen Gebäudebetriebs-App-Lizenzen. [Bentley iTwin Experience](https://www.bentley.com/products/itwin-experience/) und [iTwin IoT](https://www.bentley.com/products/itwin-iot) bieten BIM-/IoT-/Rollenfunktionen beziehungsweise Monitoring und laut Hersteller KI-Anomaliehinweise; Preise nur auf Anfrage.
+
+**Neue Preisquelle:** [Autodesk Tandem Connect Niederlande](https://www.autodesk.com/nl/products/tandem-connect/buy) zeigt **666 EUR/Monat** (monatlich bezahlt) für Paid mit zehn Produktionsplugins, Free ohne Produktionsplugins. Preis für deutsche Rechnungsadresse/Steuern nicht verifiziert. Dies ist **nicht** der Preis von Autodesk Tandem. [Tandem Terms](https://www.autodesk.com/company/terms-of-use/en/offering-types-and-benefits) bestätigen Capacity-based Free 500, Essentials 5.000 und Paid 10.000 Assets, getrennt vom älteren Tagged-Assets-Modell. Keine bestätigte neue November-Einführung.
+
+**GitHub-Stand:** [PR #244](../../pull/244) betrifft Dashboard-Navigation; [#238](../../pull/238) iPhone 1.0.153 mit Teams/Rollen, [#239](../../pull/239) Wartungskalender, [#240](../../pull/240) IFC-Licht. Nach Kalenderentfernung/-wiederherstellung [#241](../../pull/241)/[#242](../../pull/242) ist [#243](../../issues/243) ein Datenintegritätsrisiko, kein bewiesener Datenverlust. Echter D21-Live-Praxistest und belegter Preis-/Qualitätsvorsprung fehlen weiterhin. **Chance:** einfacher Raum–Sensor–Rechte–Wartungs-Pilot; **Risiko:** Bentley/Autodesk decken wesentliche Bestandteile ab. Nächster Schritt: identische Demo und Gesamtbetriebskostenvergleich. Quellenabruf **19.11.2026**; keine eigenen Produktivtests.
