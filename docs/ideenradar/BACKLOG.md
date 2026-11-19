@@ -24,3 +24,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [17.11.2026 · Doppelte Sprachanfragen](berichte/2026-11-17-0915.md): Die serverseitige Prüfung ist bereits vorhanden.
 
 [17.11.2026 abends · Lampenstatus](berichte/2026-11-17-1704.md): vorhandenen Adapter abgeglichen, kein neuer Eintrag.
+
+[19.11.2026 09:04 · Eingeschränkter Quellenabgleich](berichte/2026-11-19-0904.md) – keine neue Empfehlung, vollständiger Projektabgleich offen.
