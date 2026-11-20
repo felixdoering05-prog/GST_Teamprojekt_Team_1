@@ -1,5 +1,22 @@
 # Wettbewerbsvergleich – KI trifft Gebäude
 
+## 20.11.2026, abends – Qonic AI, Honeywell EBI One und ODA MCP
+
+Quellenabruf 20.11.2026; Herstellerangaben, keine unabhängigen Praxistests.
+
+| Angebot / Zielgruppe | Datierte Neuerung | Preis / Abgrenzung |
+| --- | --- | --- |
+| [Qonic](https://www.qonic.com/posts/qonic-november-2026-release) – BIM-Planer und Koordinatoren | 04.11.: IFC-basierte KI-Agenten für Abfragen, Eigenschaftsprüfung, Berichte und Modelländerungen; MCP mit rollenbegrenzten Aktionen und persönlichen Änderungen vor Veröffentlichung | Tokenpakete ab 50 EUR, bezahlte Pläne mit monatlichem Kontingent; MCP ohne Qonic-Tokenverbrauch, externe KI-Kosten separat. Kein bestätigter Gesamtpreis oder D21-artiger Live-Betriebsworkflow. |
+| [Honeywell EBI One](https://www.honeywell.com/us/en/news/press-releases/2026/11/honeywell-technologies-expands-autonomous-building-operations-with-ebi-one) – gewerbliche Betreiber, Campus und Rechenzentren | Globaler Launch 10.11.: Forge Cognition, KI-Alarmklassifizierung und natürlichsprachliche Abfrage von Betriebsdaten, Alarmen, Historie und Dokumentation | Öffentlicher Preis/Lizenzumfang und IFC- oder Sprachsteuerung nicht in dieser Quelle bestätigt. |
+| [Open Design Alliance](https://www.opendesign.com/blog/2026/november/devconnect26-ai-agent-real-dwg-step-and-ifc-models) – Softwareentwickler | Ankündigung 12.11. für Demos am 18./19.11.: MCP-Operationen auf IFC, Viewer-Interaktion, atomare Änderungen/Undo, lokale LLM-Option | SDK-/MCP-Preis nicht bestätigt; Revit als nächster Schritt angekündigt, nicht als ausgeliefert belegt. Kein fertiges FM-Produkt; tatsächlicher Demoablauf nicht unabhängig geprüft. |
+
+**Nala-Abgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) nennt jetzt gemergten Quellstand 1.0.154 (Korrektur zur morgendlichen Momentaufnahme), Gemini-Kontext aus IFC und lesende Werkzeuge, ElevenLabs-Sprache, private HA-Lampen, ESP32 und Raumzuordnung mit Rückfrage. Echte D21-Daten, reproduzierbarer Revit-Server-Prozess, produktive Installation und Kalenderintegrität ([#243](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/243)) bleiben unbelegt. Keine neue Anwendungscode-PR-Aktivität in der heutigen PR-Suche festgestellt; kein eigener Funktionstest.
+
+**Chance:** Kombination aus überprüfbarer IFC-Raumabfrage, realem Sensorwert und berechtigter Geräteaktion für kleine Betreiberteams. **Risiko:** KI auf IFC und natürlichsprachliche Betriebsabfragen sind bereits separat verfügbar. Kein exklusiver USP, Preis- oder Qualitätsvorteil belegt. Pilotkriterien: Quellenbezug, Rollenprüfung, Bestätigung vor Schreibaktion, Auditprotokoll, Fehlerbehandlung und Kosten je Gebäude; Modelländerungen und Geräteaktionen getrennt bewerten.
+
+---
+
+
 **Jüngste Ergänzung: 20.11.2026.**
 
 ## 20.11.2026 – dTwin, Twinview und ioFM (Quellenabruf 20.11.2026)
