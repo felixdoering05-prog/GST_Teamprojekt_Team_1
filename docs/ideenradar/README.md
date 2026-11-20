@@ -64,3 +64,5 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 - [12.11.2026 13:39 · erste Sichtung: IFC-Qualität und Geschossvorschau](berichte/2026-11-12-1339.md) – manuell geprüft; noch kein geplanter Lauf nachgewiesen.
 
 [19.11.2026 09:04 · Eingeschränkter Quellenabgleich](berichte/2026-11-19-0904.md) – keine neue Empfehlung, vollständiger Projektabgleich offen.
+
+[20.11.2026 · Verzögerter Quellenabgleich](berichte/2026-11-20-0902.md) – Fortsetzung des Abendlaufs, keine neue Empfehlung.
