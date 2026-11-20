@@ -1,3 +1,19 @@
+## 20.11.2026 – dTwin, Twinview und ioFM (Quellenabruf 20.11.2026)
+
+| Anbieter / Zielgruppe | Herstellerseitig belegte Funktionen | Lizenz / Preis |
+| --- | --- | --- |
+| [Nemetschek dTwin](https://www.nemetschek-dtwin.com/pricing) – Betreiber und Asset-Management | BIM, GIS, 2D, Reality Capture, Dashboards; höherer Tarif mit Echtzeitdaten und FM/ERP/BMS/IoT-Anbindung | View & Explore ab 3.500 EUR/Jahr; View, Connect & Operate ab 5.000 EUR/Jahr, jährliche Abrechnung; Enterprise individuell. Endpreis abhängig u.a. von Fläche und Speicher. |
+| [Twinview](https://www.twinview.com/platform) – FM-Teams und Portfolioverantwortliche | Assetregister, Lebenszyklus, Anomaliehinweise, Audit-Trails, Rollen/SSO; [Integrationen](https://www.twinview.com/integrations) nennen IFC, Revit, MQTT, BACnet, Modbus und REST | Demo/Vertrieb; kein öffentlicher Betrag in geprüften Seiten. |
+| [ioLabs ioFM](https://www.siemens.com/en-us/products/iolabs-ag-iofm-fast-and-cost-effective-way-to-digital-twin/) – Betreiber heterogen dokumentierter Bestandsportfolios | Minimal-BIM, Modellierung als Dienstleistung aus CAD, PDF, IFC und weiteren Bestandsunterlagen, Webviewer | Raumbezogenes Abo laut Produktseite; konkreter Betrag nicht bestätigt. |
+
+Keine datierte November-Neueinführung bestätigt; neu im Vergleich erfasste Angebote, keine unabhängigen Leistungstests. Sprachassistenten oder konkrete KI-Geräteaktionen bei diesen drei Angeboten nicht anhand dieser Quellen bestätigt (kein Nachweis ihres Fehlens).
+
+**Nala-Abgleich:** README/main nennt noch 1.0.152, während gemergte #238 und #240 den neueren iPhone-Stand einschließlich Rollen/Gebäudegruppen und IFC-Licht dokumentieren; #244 überarbeitet Webnavigation. README dokumentiert ESP32/BME280, private Home-Assistant-Anbindung und Sensor-Raum-Zuordnung mit Rückfrage. Echter D21-Datenpunkt, reproduzierbare Revit-Anbindung, produktive Installation und Kalender-Datenintegrität (#243) nicht nachgewiesen. Kein neuer Anwendungscode-PR seit #244 in der aktuellen PR-Suche festgestellt. [README](../README.md), [#238](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/238), [#240](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/240), [#244](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/244), [#243](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/243).
+
+**Chance:** Einstieg für kleine Gebäude mit bestehenden IFC-Dateien und nachvollziehbaren Sensor-/Sprachaktionen. **Risiko:** dTwin bietet bereits einen konkreten EUR-Preisanker, Twinview breite Standardprotokolle und ioFM senkt die Modellierungshürde. Kein belegter USP oder Kostenvorteil. Pilot: ein IFC-Raum, echter Messwert, Rechteprüfung, dokumentierte Geräteaktion, Export und Vollkosten einschließlich Hosting/LLM/Integration.
+
+---
+
 ## 17. November 2026, 19:00 MEZ – Tandem-Lizenzgrenzen, LiteLLM und Nala 1.0.149
 
 - **Präzisierung, kein neues Produkt:** Autodesk Tandem Free: 500 Assets, 3 Facilities, 100 Mio. Datenpunkte, 500 MB und 10 Modellimporte je Facility. Paid: bis 10.000 Assets und 1 Mrd. Datenpunkte; Tandem Connect Free **0 Produktionsplugins**, Paid **10**. Kapazitätsmodell seit Februar 2026; kein verifizierter EUR-Betrag auf dynamischer Kaufseite. [Nutzungsbedingungen](https://app.learn-one.autodesk.com/content/autodesk/global/en/company/terms-of-use/en/subscription-benefits) · [Tandem](https://www.autodesk.com/sg/products/Tandem/buy) · [Connect](https://www.autodesk.com/sg/products/tandem-connect/buy).
