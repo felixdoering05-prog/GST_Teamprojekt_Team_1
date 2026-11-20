@@ -40,7 +40,7 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 19. November 2026, 18 Uhr (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 20. November 2026, morgens (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
@@ -58,20 +58,21 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ### 🎯 Aktuelle Prioritäten
 
-1. **P1 · [#74](../../issues/74)** – echten D21-Messwert mit Datenquelle, Einheit, Zeitstempel und Testnachweis integrieren (**Frist 13.11. überschritten; Abschluss gesondert prüfen**).
-2. **P1 · [#102](../../issues/102)** – Sensoren, Thermostate, Schnittstellen und Datenrechte abstimmen.
-3. **P1 · Datenschutz/Freigaben** – [#105](../../issues/105) ist in GitHub geschlossen; der Issue-Text enthält weiterhin ungeprüfte Checklistenpunkte. Abschlussgrund und Freigaben vor einer fachlichen Erledigt-Meldung nachweisen.
-4. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
-5. **P2 · Revit-/IFC-Übergabe** – [#73](../../issues/73) ist in GitHub geschlossen; die dokumentierten offenen Arbeitsschritte und der reproduzierbare Server-Prozess sind getrennt zu verifizieren.
-6. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
-7. **P1 · [#243](../../issues/243)** – nach Kalender-Entfernung/Wiederherstellung Produktivmigration, Backups, Terminbestand und Regressionstests nachweisbar prüfen; kein Datenverlust behauptet.
-8. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
+1. **P1 · [#243](../../issues/243)** – nach Kalender-Entfernung/Wiederherstellung Produktivmigration, Backups, Terminbestand und Regressionstests nachweisbar prüfen; kein Datenverlust behauptet.
+2. **P1 · [#74](../../issues/74)** – echten D21-Messwert mit Datenquelle, Einheit, Zeitstempel und Testnachweis integrieren (**Frist 13.11. überschritten; Abschluss gesondert prüfen**).
+3. **P1 · [#102](../../issues/102)** – Sensoren, Thermostate, Schnittstellen und Datenrechte abstimmen.
+4. **P1 · Datenschutz/Freigaben** – [#105](../../issues/105) ist in GitHub geschlossen; der Issue-Text enthält weiterhin ungeprüfte Checklistenpunkte. Abschlussgrund und Freigaben vor einer fachlichen Erledigt-Meldung nachweisen.
+5. **P1 · [#101](../../issues/101)** – Hochschul-KI-Infrastruktur und Zugänge prüfen.
+6. **P2 · Revit-/IFC-Übergabe** – [#73](../../issues/73) ist in GitHub geschlossen; die dokumentierten offenen Arbeitsschritte und der reproduzierbare Server-Prozess sind getrennt zu verifizieren.
+7. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
+8. **P2 · [#189](../../issues/189)** – ESP32-Hardwaretest und reale Sensorübertragung dokumentieren; implementierte Serverbasis ersetzt keinen Hardwaretest.
+9. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Die neue Marktforschung zu Bentley und Autodesk ([#245](../../pull/245)) ist offen, nicht integriert. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
 
-**Abgleich 19.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
+**Abgleich 20.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
 
 
 Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** bleibt **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Technische Arbeitsberichte sind keine freigegebenen Teamprotokolle.
