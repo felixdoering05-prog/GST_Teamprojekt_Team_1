@@ -1,3 +1,16 @@
+## 21.11.2026 – Dalux FM und BIMcollab: mobile Betriebsprozesse und Nutzerpreise
+
+Quellenabruf 21.11.2026; Herstellerangaben, keine unabhängigen Produkttests. Neu im Vergleich, nicht als November-Neueinführung belegt.
+
+| Angebot / Zielgruppe | Belegte Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [Dalux FM](https://www.dalux.com/de-at/produkte/dalux-fm/) – FM-Teams, Betreiber und Dienstleister | Web/iOS/Android, 2D/3D-BIM, Arbeitsaufträge, geplante Wartung, Helpdesk, QR-Assets, Lieferantenportal; [Revit und IFC](https://www.dalux.com/de/produkte/dalux-fm/bim-dokumentation/) | 14-tägiger Test; produktiver Lizenzpreis nicht öffentlich bestätigt |
+| [BIMcollab Platform](https://www.bimcollab.com/de/plans/bimcollab-platform/) – BIM-Koordination und Projektteams | Dokumentenmanagement, Modellkoordination, Zusammenarbeit; drei Nutzerabos | Basic 12,50 / 19 EUR, Advanced 18,75 / 29 EUR, Enterprise 25 / 39 EUR je Nutzer/Monat bei jährlicher bzw. monatlicher Bindung; Modellprüfung separat betrachten |
+
+**Preisanker:** Sechs Nutzer kosten bei Jahresbindung rechnerisch 75 / 112,50 / 150 EUR pro Monat (900 / 1.350 / 1.800 EUR pro Jahr); keine Aussage zu Steuern, Zusatzleistungen oder Nala-Gesamtkosten. BIMcollab ist primär Koordinationssoftware, kein nachgewiesener Ersatz für Gebäudeautomation. Bei Dalux sind KI-Sprachsteuerung und Live-Gebäudeautomation in den geprüften Quellen nicht nachgewiesen; daraus folgt keine bestätigte Abwesenheit.
+
+**Projektabgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) (Stand 20.11.) bestätigt iPhone-Quellstand 1.0.154, IFC-Viewer, Dokumente, Rollen, Wartungskalender und private Home-Assistant-Testanbindung. Dalux belegt, dass mobile BIM-Wartung allein kein USP ist. Nala hat keinen belegten gleichwertigen Arbeitsauftrags-/Lieferantenworkflow; echte D21-Messwerte, reproduzierbare Revit-Anbindung und Kalenderintegrität bleiben offen (#74, #102, #243). Chance: schlanker Raum–Messwert–KI–Wartungsablauf für kleine Teams. Nächster Test: QR-/Raumzugriff, Wartungseintrag, Rechteprüfung und echter Messwert mit Herkunft; Zeitaufwand und Gesamtkosten erfassen. Kein belegter Preis- oder Leistungsvorsprung.
+
 ## 20.11.2026 – dTwin, Twinview und ioFM (Quellenabruf 20.11.2026)
 
 ## 20.11.2026, abends – Qonic AI, Honeywell EBI One und ODA MCP
