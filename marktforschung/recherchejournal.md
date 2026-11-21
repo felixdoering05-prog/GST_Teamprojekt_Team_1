@@ -1,3 +1,16 @@
+## 21.11.2026, abends – ThingsBoard: IoT-Preisanker und Lizenzrisiko
+
+Quellenabruf 21.11.2026; Herstellerangaben, keine eigenen Produkttests. Neu in diesem Vergleich, keine bestätigte heutige Produkteinführung.
+
+- [ThingsBoard Cloud EU](https://thingsboard.io/docs/paas/eu/reference/subscriptions/) / [Preise](https://thingsboard.io/pricing/): Free 0 EUR/Monat (5 Geräte, 5 Assets, 1 Mio. Datenpunkte/Monat); Prototype 45 EUR (50/50, 10 Mio.); Pilot 145 EUR (100/100, 100 Mio.). Zielgruppe: IoT-Entwickler, Integratoren und Betreiber. Tarife seit 20.01.2026 laut Dokumentation; White Label ab Pilot. Steuer-/Vertragsdetails separat prüfen.
+- [On-premises](https://thingsboard.io/products/thingsboard-pe/): kostenloser Einstieg mit 100 Geräten, laut Anbieter 1.000 für nichtkommerzielle Projekte; bezahlte Abos ab 99 USD/Monat; Dauerlizenz ab 4.999 USD für 5.000 Geräte. Hosting selbst zu tragen.
+- [Lizenzvertrag](https://thingsboard.io/legal/license-agreement/): aktuelle Bedingungen nennen Business Source License 1.1 und Additional Use Grant für unentgeltliche Nutzung. Nicht pauschal als uneingeschränktes Open Source oder frei weiterverteilbar einstufen; konkrete Version, Nutzungsart und Bedingungen prüfen.
+- [Plattform](https://thingsboard.io/): Geräteverwaltung, Telemetrie, Dashboards, Alarme, Rollen und APIs. Nativer IFC/Revit-Viewer und gebäudebezogener Sprachassistent in diesen Quellen nicht bestätigt (keine Aussage über generelle Abwesenheit).
+
+**Projektabgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md), letzter gefundener Hauptbranch-Merge [eb0a5a4](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/commit/eb0a5a4d1c604d11e26dfa2fd3a4e06f9e09c625), 20.11.: Nala 1.0.154, IFC, ESP32-Serverbasis, private Home-Assistant-Anbindung, Gemini und ElevenLabs dokumentiert; kein nachgewiesener D21-Livewert (#74/#102), Hardware-Dauertest (#189), reproduzierbarer Revit-Prozess oder Kalender-Datenintegritätsnachweis (#243). Kein belegter USP oder Preisvorteil.
+
+**Chance/Risiko:** ThingsBoard als optionale Telemetrie-Schicht evaluieren, nicht voreilig integrieren. 50 Geräte × 1 Messgröße × 1/min × 30 Tage = 2,16 Mio. Datenpunkte; unter Prototype-Kontingent, bei 5 Messgrößen 10,8 Mio. und damit darüber. Modell-/Asset-Zuordnung, Rollen, Datenexport, Ausfallsicherheit und Lizenz separat prüfen. Nala-TCO einschließlich Hosting, KI/Sprache und Betrieb gegen den gleichen Pilot rechnen; keine direkte Gleichsetzung mit vollständiger FM-/BIM-Lizenz.
+
 ## 21.11.2026 – Dalux FM und BIMcollab: mobile Betriebsprozesse und Nutzerpreise
 
 Quellenabruf 21.11.2026; Herstellerangaben, keine unabhängigen Produkttests. Neu im Vergleich, nicht als November-Neueinführung belegt.
