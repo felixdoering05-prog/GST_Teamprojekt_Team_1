@@ -1,5 +1,18 @@
 # Wettbewerbsvergleich – KI trifft Gebäude
 
+## 22.11.2026, abends – CONTEXUS und OpenRemote: modulare Konkurrenz und Lizenzgrenzen
+
+Quellenabruf 22.11.2026. Neu im Vergleich, kein belegtes November-Release; Herstellerangaben, keine eigenen Produkttests.
+
+| Angebot / Zielgruppe | Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [CONTEXUS](https://contexus.io/) – Systemintegratoren, FM, Campusbetreiber | Anbieter beschreibt IFC-/Revit-Modelle, 7D-FM, Sensordaten im Modell, BACnet/Modbus/MQTT/LoRaWAN, KI-Abfragen und Energieoptimierung; [BIM-Details](https://contexus.io/products/7d-bim) | [Lizenzseite](https://contexus.io/licensing): sechs offene Module ohne Lizenzgebühr für Eigenbetrieb/Anpassung; Partner-White-Label und proprietäre Erweiterungen separat, Beträge nicht bestätigt. [Öffentliches IoTHub-Repo](https://github.com/Contexus/contexus) nennt MIT; Lizenz und tatsächliche Verfügbarkeit jedes weiteren Moduls separat prüfen. |
+| [OpenRemote](https://openremote.io/) – Hersteller, Integratoren, IoT-/Energiemanagement | Geräte-/Assetverwaltung, Regeln, Echtzeit-Dashboards, Karten, APIs und eigene Oberflächen | [AGPLv3](https://openremote.io/open-source/), Eigenbetrieb ohne Softwarelizenzgebühr; Hosting, Support und alternative kommerzielle Lizenz kostenpflichtig, Beträge nicht bestätigt. |
+
+**Evidenzgrenzen:** CONTEXUS beschreibt seine Module als produktionsreif; das öffentliche IoTHub-README führt mobile App und ML-Integration als Roadmap. Das belegt weder Auslieferung aller BIM-/KI-Module noch deren gemeinsame Produktivreife. Keine Einsparversprechen übernommen. [EULA vom 17.04.2026](https://contexus.io/eula) und jeweilige Codelizenzen vor Weitervertrieb prüfen. Sprachassistent/privates Smart Home bei beiden nicht bestätigt; nativer IFC-Viewer bei OpenRemote nicht bestätigt.
+
+**Nala-Abgleich:** [README auf main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) am 22.11. erneut gelesen (Blob e5b02a1): gemergter iOS-Quellstand 1.0.154, IFC/Pass, ESP32, private HA-Lampen, Gemini/ElevenLabs, Rollen und Wartungskalender. D21-Livewert (#74/#102), Revit-Server-Prozess und Kalenderintegrität (#243) nicht nachgewiesen. CONTEXUS ist wegen beanspruchter BIM+IoT+KI-Kombination ein direkter funktionaler Vergleich, OpenRemote eine mögliche Integrationsschicht. Kombination allein kein belegter USP. Chance: messbar einfache Einrichtung und sichere mobile sprachgestützte Raumabfrage für kleine Betreiber. Pilotvergleich: Zeit bis zum ersten freigegebenen Livewert, IFC-Raumzuordnung, Datenherkunft, Rollenprüfung, Ausfallverhalten und Gesamtbetriebskosten inkl. Hosting/KI/Support. Keine AGPL-Codeübernahme ohne Lizenzprüfung; API-Kopplung separat bewerten.
+
 ## 22.11.2026, morgens – Normal Software, BuiltLayer und Trigrr: GA-Integration und Preisstruktur
 
 Quellenabruf 22.11.2026; Herstellerangaben, nicht unabhängig getestet. Neu im Vergleich, kein belegtes Neueinführungsdatum.
