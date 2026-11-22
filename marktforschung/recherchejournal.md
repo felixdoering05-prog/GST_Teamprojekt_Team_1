@@ -1,3 +1,17 @@
+## 22.11.2026, morgens – Normal Software, BuiltLayer und Trigrr: GA-Integration und Preisstruktur
+
+Quellenabruf 22.11.2026; Herstellerangaben, nicht unabhängig getestet. Neu im Vergleich, kein belegtes Neueinführungsdatum.
+
+| Angebot / Zielgruppe | Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [Normal Software](https://www.normal.dev/pricing.html) – GA-Integratoren und Betreiber | BACnet (inkl. SC), Modbus, Niagara Fox, Sparkplug B, REST, PostgreSQL, Zeitpläne, Schreibschutzregeln, MCP-KI-Zugang | Erste aktive Anlage kostenlos je Nutzer; weitere Gebäude 2.000 USD einmalig, optional Wartung 20 % jährlich; Volumenpreise ab zehn Gebäuden, bis zu 300 USD/Gebäude bei entsprechendem Umfang |
+| [BuiltLayer](https://builtlayer.com/pricing/) – OT/IT-Integratoren | BACnet/IP, Modbus/TCP, SNMP, HTTP als Eingänge; strukturierte Daten und KI-Modellconnector im Intelligence-Tarif; BACnet-Ausgang erst angekündigt | Intelligence selbstgehostet: kostenlos bis 50 Punkte, 29 USD/Monat bis 500, 99 USD bis 5.000. Proto ohne KI-Connector: 99 USD einmalig bis 500 Punkte, 499 bis 5.000, 999 bis 20.000 |
+| [Trigrr](https://www.trigrr.io/pricing) – gewerbliche Betreiber, Integratoren, Bildungsgebäude | BOS für vorhandene Systeme, bidirektionale Integration, Automatisierungseditor, Advanced mit KI-Automation und 2D-Monitoring | Mini unter 3.000 m², Festpreis, 50 Geräte/5 Nutzer; Core/Advanced flächenbasiert; konkrete Beträge nicht veröffentlicht |
+
+**Abgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) am 22.11. gelesen: Nala 1.0.154, IFC, Gebäudepass, ESP32, private Home-Assistant-Lampen, Gemini/ElevenLabs, Rollen und Wartungskalender im dokumentierten Quellstand. Kein nachgewiesener D21-Livewert (#74/#102), produktiver Revit-Prozess oder Kalenderintegritätsnachweis (#243). Nativer IFC/Revit-Viewer und Sprachassistent bei den drei GA-Angeboten in diesen Quellen nicht bestätigt; keine Aussage über generelle Abwesenheit.
+
+**Chance/Risiko:** Normal als Ein-Gebäude-Pilot und BuiltLayer als günstige Protokollschicht prüfen; keine Produktentscheidung ohne IT-/OT-Freigabe. KI plus GA ist bereits am Markt, kein USP. BuiltLayer 500 Punkte kosten bei monatlicher Zahlung rechnerisch 348 USD/Jahr (Intelligence) oder 99 USD einmalig (Proto, anderer Umfang); Hosting, KI, Steuern, Support und Integrationsaufwand separat. Normal-Lizenz für weitere Gebäude plus optionale Wartung rechnerisch 400 USD/Jahr pro 2.000-USD-Lizenz. Kein belegter Preisvorteil Nalas. Nächster Test: freigegebener read-only D21-Datenpunkt mit Quelle, Einheit, Zeitstempel und IFC-Raum; Rollen, Export und Ausfallverhalten prüfen. Schreibzugriffe erst nach expliziter Freigabe.
+
 ## 21.11.2026, abends – ThingsBoard: IoT-Preisanker und Lizenzrisiko
 
 Quellenabruf 21.11.2026; Herstellerangaben, keine eigenen Produkttests. Neu in diesem Vergleich, keine bestätigte heutige Produkteinführung.
