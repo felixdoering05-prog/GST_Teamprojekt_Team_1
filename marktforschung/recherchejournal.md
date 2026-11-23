@@ -1,3 +1,116 @@
+## 23.11.2026, 19:00 MEZ – Home Assistant 2026.11: KI-Diagnose, KNX und Sprachrechte
+
+**Neue belegte Produktänderung (Release 04.11.2026, nicht erst heute erschienen):** [Home Assistant Core 2026.11](https://www.home-assistant.io/blog/2026/11/04/release-202611/) führt laut offizieller Release-Note einen integrierten Marketplace (HACS), zusätzliche LLM-API-Werkzeuge zur System-/Loganalyse, Aktionen und Integrationsverwaltung sowie KNX-spezifische LLM-Werkzeuge für Telegrammspeicher, Projektdatei und Datenpunkttypen ein. Ein MCP-Server kann auf lesende Werkzeuge beschränkt werden; die Freigabe einer LLM-API erfolgt durch Administratoren. Außerdem wurden Energie-Dashboard und Kalenderdarstellung erweitert. **Zielgruppe:** Smart-Home-Nutzer, Integratoren, Automatisierungsentwickler; professionelle KNX-Anwender als angrenzende Zielgruppe. **Preis/Lizenz:** Open-Source-Software; keine belastbare neue Monatsgebühr aus dieser Release-Note; Hardware, Cloud-LLM, Hosting und Integrationsaufwand sind getrennte Kosten. Keine unabhängigen Praxis- oder Sicherheitsbenchmarks.
+
+**Wettbewerbsfolge:** Sprach-/LLM-gesteuerte Geräteaktionen, Energie-Dashboard und KI-gestützte technische Fehlerrecherche sind keine nachgewiesenen Alleinstellungsmerkmale von Nala. Neu relevant ist die **feingranulare Rechtevergabe an KI-Werkzeuge** und das sichere Trennen lesender Diagnose von schreibenden Gebäudeaktionen. Home Assistant 2026.11 belegt **keinen nativen IFC-/Revit-Gebäudezwilling** in dieser Quelle; fehlender Nachweis ist kein Beweis des Fehlens.
+
+**Nala-Abgleich, [README/main](../README.md) und [offener PR #245](../../pull/245), geprüft 23.11.:** gemergter iOS-Quellstand 1.0.154, IFC-/Webviewer, Gemini-/ElevenLabs-Funktionen, private Home-Assistant-Lampen und ESP32-Schnittstellen dokumentiert. Ein echter freigegebener D21-Messwert ([#74](../../issues/74), [#102](../../issues/102)), produktive KNX-/BACnet-Anbindung, durchgängig geprüfte Sprach-Aktor-Rechte, reproduzierbarer Revit-Server-Prozess und Kalender-Datenintegrität ([#243](../../issues/243)) **nicht bestätigt**. Kein nachgewiesener Preis-, Qualitäts- oder Funktionsvorsprung.
+
+**Chance (Hypothese):** IFC-Bauteil/Raum → reale Sensordaten → erklärbare Diagnose → bestätigte, rollenbegrenzte Aktion mit Auditprotokoll. **Risiko:** Wettbewerber bieten schon KI-Aktionen und KNX-Diagnose; unkontrollierte Schreibaktionen an Gebäudeanlagen sind sicherheitskritisch. **Prüfplan:** nur lesender D21-Test, Herkunft/Einheit/Zeitstempel, Rollen-/Tool-Whitelist, Freigabe vor Aktoraktionen und identischer Kosten-/Zeitvergleich.
+
+**Quellen und Daten:** Hersteller-Release [Home Assistant 2026.11, 04.11.2026](https://www.home-assistant.io/blog/2026/11/04/release-202611/); [Assist-Dokumentation](https://www.home-assistant.io/voice_control); Repository [README](../README.md), [PR #245](../../pull/245). Abruf **23.11.2026, ca. 19:00 MEZ**. Keine neuen Preise und keine neue Markteinführung behauptet; alle Funktionsangaben sind Herstellerangaben.
+
+---
+
+## 23.11.2026, 09:00 MEZ – Autodesk Tandem und Siemens Lifecycle Twin: direkte Funktionsüberschneidung
+
+**Quellenprüfung 23.11.2026, Herstellerseiten; keine neue Produkteinführung nachgewiesen.**
+
+| Produkt / Zielgruppe | Belegte Funktionen | Lizenz / Preis und Grenzen |
+| --- | --- | --- |
+| [Autodesk Tandem](https://www.autodesk.com/products/tandem/buy) – Facility-Betreiber, BIM-/AEC-Teams | BIM-basierter 3D-Zwilling mit Anlagen, Dokumenten, historischen und nahezu Echtzeit-Daten; [Tandem Connect](https://www.autodesk.com/products/tandem-connect/buy) verbindet Gebäudesysteme über Low-Code | **Kapazitätsbasiert statt pro Nutzer**; [regionale Angebotsseite](https://www.autodesk.com/sg/products/Tandem/buy) nennt Tandem Free mit 500 Assets, 100 Mio. Datenpunkten und drei Gebäuden; kostenpflichtige Stufe 10.000 Assets und 1 Mrd. Datenpunkte. **Kein belastbarer deutscher EUR-Preis** auf der geprüften Seite (dynamischer Platzhalter). Tandem Connect Free: 25 Sandbox-Plug-ins, 100 Nachrichten je Deployment, **keine** Produktions-Plug-ins; bezahlt: 10 Produktions-Plug-ins und unbegrenzte Nachrichten. |
+| [Siemens Building X – Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/) – Gebäudeeigentümer und Betreiber | 2D-/3D-Twin, Anlagen, Dokumente, Inspektion und präventive Wartung, **Revit-Integration zur automatischen Anlagenerkennung**; [Building X](https://www.siemens.com/de-de/products/building-x/) ergänzt Echtzeitdaten, Energie und Betriebs-Apps | Lifecycle Twin Base in Paketen **10 Nutzer/20 GB, 25/50, 50/100, 100/200, 250/500**; Zusatz-CAD-Server und API-Integration gesondert. **Preisbeträge auf Anfrage**, keine verifizierte öffentliche EUR-Liste. Building X: App-/API-Abonnements. |
+
+**Nala-Abgleich:** [README auf main](../README.md) (Dokumentationsstand 20.11.; Quellstand iOS 1.0.154) beschreibt IFC-Viewer, Gebäudepass, Wartungsplan, Gemini/ElevenLabs und private Home-Assistant-Anbindung. Echter D21-Messwert ([#74](../../issues/74), [#102](../../issues/102)), reproduzierbarer Revit-Prozess und produktiver Gesamttest **nicht belegt**. Autodesk und Siemens widerlegen eine pauschale Einzigartigkeit von BIM + Sensorik + Wartung. **Hypothese statt USP:** schnell einrichtbarer, preislich transparenter IFC-Raum–Sensor–Sprach-Workflow für kleinere Betreiber; messbar erst nach D21-Pilot und TCO-Vergleich.
+
+**Technischer Standard:** [buildingSMART](https://www.buildingsmart.org/standards/bsi-standards/industry-foundation-%20%20classes/) nennt IFC 4.3.2.0 (ISO 16739-1:2024) als aktuelle offizielle IFC-Version; Kompatibilität der Nala-Importpipeline damit ist nicht geprüft.
+
+## 22.11.2026, abends – CONTEXUS und OpenRemote: modulare Konkurrenz und Lizenzgrenzen
+
+Quellenabruf 22.11.2026. Neu im Vergleich, kein belegtes November-Release; Herstellerangaben, keine eigenen Produkttests.
+
+| Angebot / Zielgruppe | Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [CONTEXUS](https://contexus.io/) – Systemintegratoren, FM, Campusbetreiber | Anbieter beschreibt IFC-/Revit-Modelle, 7D-FM, Sensordaten im Modell, BACnet/Modbus/MQTT/LoRaWAN, KI-Abfragen und Energieoptimierung; [BIM-Details](https://contexus.io/products/7d-bim) | [Lizenzseite](https://contexus.io/licensing): sechs offene Module ohne Lizenzgebühr für Eigenbetrieb/Anpassung; Partner-White-Label und proprietäre Erweiterungen separat, Beträge nicht bestätigt. [Öffentliches IoTHub-Repo](https://github.com/Contexus/contexus) nennt MIT; Lizenz und tatsächliche Verfügbarkeit jedes weiteren Moduls separat prüfen. |
+| [OpenRemote](https://openremote.io/) – Hersteller, Integratoren, IoT-/Energiemanagement | Geräte-/Assetverwaltung, Regeln, Echtzeit-Dashboards, Karten, APIs und eigene Oberflächen | [AGPLv3](https://openremote.io/open-source/), Eigenbetrieb ohne Softwarelizenzgebühr; Hosting, Support und alternative kommerzielle Lizenz kostenpflichtig, Beträge nicht bestätigt. |
+
+**Evidenzgrenzen:** CONTEXUS beschreibt seine Module als produktionsreif; das öffentliche IoTHub-README führt mobile App und ML-Integration als Roadmap. Das belegt weder Auslieferung aller BIM-/KI-Module noch deren gemeinsame Produktivreife. Keine Einsparversprechen übernommen. [EULA vom 17.04.2026](https://contexus.io/eula) und jeweilige Codelizenzen vor Weitervertrieb prüfen. Sprachassistent/privates Smart Home bei beiden nicht bestätigt; nativer IFC-Viewer bei OpenRemote nicht bestätigt.
+
+**Nala-Abgleich:** [README auf main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) am 22.11. erneut gelesen (Blob e5b02a1): gemergter iOS-Quellstand 1.0.154, IFC/Pass, ESP32, private HA-Lampen, Gemini/ElevenLabs, Rollen und Wartungskalender. D21-Livewert (#74/#102), Revit-Server-Prozess und Kalenderintegrität (#243) nicht nachgewiesen. CONTEXUS ist wegen beanspruchter BIM+IoT+KI-Kombination ein direkter funktionaler Vergleich, OpenRemote eine mögliche Integrationsschicht. Kombination allein kein belegter USP. Chance: messbar einfache Einrichtung und sichere mobile sprachgestützte Raumabfrage für kleine Betreiber. Pilotvergleich: Zeit bis zum ersten freigegebenen Livewert, IFC-Raumzuordnung, Datenherkunft, Rollenprüfung, Ausfallverhalten und Gesamtbetriebskosten inkl. Hosting/KI/Support. Keine AGPL-Codeübernahme ohne Lizenzprüfung; API-Kopplung separat bewerten.
+
+## 22.11.2026, morgens – Normal Software, BuiltLayer und Trigrr: GA-Integration und Preisstruktur
+
+Quellenabruf 22.11.2026; Herstellerangaben, nicht unabhängig getestet. Neu im Vergleich, kein belegtes Neueinführungsdatum.
+
+| Angebot / Zielgruppe | Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [Normal Software](https://www.normal.dev/pricing.html) – GA-Integratoren und Betreiber | BACnet (inkl. SC), Modbus, Niagara Fox, Sparkplug B, REST, PostgreSQL, Zeitpläne, Schreibschutzregeln, MCP-KI-Zugang | Erste aktive Anlage kostenlos je Nutzer; weitere Gebäude 2.000 USD einmalig, optional Wartung 20 % jährlich; Volumenpreise ab zehn Gebäuden, bis zu 300 USD/Gebäude bei entsprechendem Umfang |
+| [BuiltLayer](https://builtlayer.com/pricing/) – OT/IT-Integratoren | BACnet/IP, Modbus/TCP, SNMP, HTTP als Eingänge; strukturierte Daten und KI-Modellconnector im Intelligence-Tarif; BACnet-Ausgang erst angekündigt | Intelligence selbstgehostet: kostenlos bis 50 Punkte, 29 USD/Monat bis 500, 99 USD bis 5.000. Proto ohne KI-Connector: 99 USD einmalig bis 500 Punkte, 499 bis 5.000, 999 bis 20.000 |
+| [Trigrr](https://www.trigrr.io/pricing) – gewerbliche Betreiber, Integratoren, Bildungsgebäude | BOS für vorhandene Systeme, bidirektionale Integration, Automatisierungseditor, Advanced mit KI-Automation und 2D-Monitoring | Mini unter 3.000 m², Festpreis, 50 Geräte/5 Nutzer; Core/Advanced flächenbasiert; konkrete Beträge nicht veröffentlicht |
+
+**Abgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) am 22.11. gelesen: Nala 1.0.154, IFC, Gebäudepass, ESP32, private Home-Assistant-Lampen, Gemini/ElevenLabs, Rollen und Wartungskalender im dokumentierten Quellstand. Kein nachgewiesener D21-Livewert (#74/#102), produktiver Revit-Prozess oder Kalenderintegritätsnachweis (#243). Nativer IFC/Revit-Viewer und Sprachassistent bei den drei GA-Angeboten in diesen Quellen nicht bestätigt; keine Aussage über generelle Abwesenheit.
+
+**Chance/Risiko:** Normal als Ein-Gebäude-Pilot und BuiltLayer als günstige Protokollschicht prüfen; keine Produktentscheidung ohne IT-/OT-Freigabe. KI plus GA ist bereits am Markt, kein USP. BuiltLayer 500 Punkte kosten bei monatlicher Zahlung rechnerisch 348 USD/Jahr (Intelligence) oder 99 USD einmalig (Proto, anderer Umfang); Hosting, KI, Steuern, Support und Integrationsaufwand separat. Normal-Lizenz für weitere Gebäude plus optionale Wartung rechnerisch 400 USD/Jahr pro 2.000-USD-Lizenz. Kein belegter Preisvorteil Nalas. Nächster Test: freigegebener read-only D21-Datenpunkt mit Quelle, Einheit, Zeitstempel und IFC-Raum; Rollen, Export und Ausfallverhalten prüfen. Schreibzugriffe erst nach expliziter Freigabe.
+
+## 21.11.2026, abends – ThingsBoard: IoT-Preisanker und Lizenzrisiko
+
+Quellenabruf 21.11.2026; Herstellerangaben, keine eigenen Produkttests. Neu in diesem Vergleich, keine bestätigte heutige Produkteinführung.
+
+- [ThingsBoard Cloud EU](https://thingsboard.io/docs/paas/eu/reference/subscriptions/) / [Preise](https://thingsboard.io/pricing/): Free 0 EUR/Monat (5 Geräte, 5 Assets, 1 Mio. Datenpunkte/Monat); Prototype 45 EUR (50/50, 10 Mio.); Pilot 145 EUR (100/100, 100 Mio.). Zielgruppe: IoT-Entwickler, Integratoren und Betreiber. Tarife seit 20.01.2026 laut Dokumentation; White Label ab Pilot. Steuer-/Vertragsdetails separat prüfen.
+- [On-premises](https://thingsboard.io/products/thingsboard-pe/): kostenloser Einstieg mit 100 Geräten, laut Anbieter 1.000 für nichtkommerzielle Projekte; bezahlte Abos ab 99 USD/Monat; Dauerlizenz ab 4.999 USD für 5.000 Geräte. Hosting selbst zu tragen.
+- [Lizenzvertrag](https://thingsboard.io/legal/license-agreement/): aktuelle Bedingungen nennen Business Source License 1.1 und Additional Use Grant für unentgeltliche Nutzung. Nicht pauschal als uneingeschränktes Open Source oder frei weiterverteilbar einstufen; konkrete Version, Nutzungsart und Bedingungen prüfen.
+- [Plattform](https://thingsboard.io/): Geräteverwaltung, Telemetrie, Dashboards, Alarme, Rollen und APIs. Nativer IFC/Revit-Viewer und gebäudebezogener Sprachassistent in diesen Quellen nicht bestätigt (keine Aussage über generelle Abwesenheit).
+
+**Projektabgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md), letzter gefundener Hauptbranch-Merge [eb0a5a4](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/commit/eb0a5a4d1c604d11e26dfa2fd3a4e06f9e09c625), 20.11.: Nala 1.0.154, IFC, ESP32-Serverbasis, private Home-Assistant-Anbindung, Gemini und ElevenLabs dokumentiert; kein nachgewiesener D21-Livewert (#74/#102), Hardware-Dauertest (#189), reproduzierbarer Revit-Prozess oder Kalender-Datenintegritätsnachweis (#243). Kein belegter USP oder Preisvorteil.
+
+**Chance/Risiko:** ThingsBoard als optionale Telemetrie-Schicht evaluieren, nicht voreilig integrieren. 50 Geräte × 1 Messgröße × 1/min × 30 Tage = 2,16 Mio. Datenpunkte; unter Prototype-Kontingent, bei 5 Messgrößen 10,8 Mio. und damit darüber. Modell-/Asset-Zuordnung, Rollen, Datenexport, Ausfallsicherheit und Lizenz separat prüfen. Nala-TCO einschließlich Hosting, KI/Sprache und Betrieb gegen den gleichen Pilot rechnen; keine direkte Gleichsetzung mit vollständiger FM-/BIM-Lizenz.
+
+## 21.11.2026 – Dalux FM und BIMcollab: mobile Betriebsprozesse und Nutzerpreise
+
+Quellenabruf 21.11.2026; Herstellerangaben, keine unabhängigen Produkttests. Neu im Vergleich, nicht als November-Neueinführung belegt.
+
+| Angebot / Zielgruppe | Belegte Funktionen | Preis / Lizenz |
+| --- | --- | --- |
+| [Dalux FM](https://www.dalux.com/de-at/produkte/dalux-fm/) – FM-Teams, Betreiber und Dienstleister | Web/iOS/Android, 2D/3D-BIM, Arbeitsaufträge, geplante Wartung, Helpdesk, QR-Assets, Lieferantenportal; [Revit und IFC](https://www.dalux.com/de/produkte/dalux-fm/bim-dokumentation/) | 14-tägiger Test; produktiver Lizenzpreis nicht öffentlich bestätigt |
+| [BIMcollab Platform](https://www.bimcollab.com/de/plans/bimcollab-platform/) – BIM-Koordination und Projektteams | Dokumentenmanagement, Modellkoordination, Zusammenarbeit; drei Nutzerabos | Basic 12,50 / 19 EUR, Advanced 18,75 / 29 EUR, Enterprise 25 / 39 EUR je Nutzer/Monat bei jährlicher bzw. monatlicher Bindung; Modellprüfung separat betrachten |
+
+**Preisanker:** Sechs Nutzer kosten bei Jahresbindung rechnerisch 75 / 112,50 / 150 EUR pro Monat (900 / 1.350 / 1.800 EUR pro Jahr); keine Aussage zu Steuern, Zusatzleistungen oder Nala-Gesamtkosten. BIMcollab ist primär Koordinationssoftware, kein nachgewiesener Ersatz für Gebäudeautomation. Bei Dalux sind KI-Sprachsteuerung und Live-Gebäudeautomation in den geprüften Quellen nicht nachgewiesen; daraus folgt keine bestätigte Abwesenheit.
+
+**Projektabgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) (Stand 20.11.) bestätigt iPhone-Quellstand 1.0.154, IFC-Viewer, Dokumente, Rollen, Wartungskalender und private Home-Assistant-Testanbindung. Dalux belegt, dass mobile BIM-Wartung allein kein USP ist. Nala hat keinen belegten gleichwertigen Arbeitsauftrags-/Lieferantenworkflow; echte D21-Messwerte, reproduzierbare Revit-Anbindung und Kalenderintegrität bleiben offen (#74, #102, #243). Chance: schlanker Raum–Messwert–KI–Wartungsablauf für kleine Teams. Nächster Test: QR-/Raumzugriff, Wartungseintrag, Rechteprüfung und echter Messwert mit Herkunft; Zeitaufwand und Gesamtkosten erfassen. Kein belegter Preis- oder Leistungsvorsprung.
+
+## 20.11.2026 – dTwin, Twinview und ioFM (Quellenabruf 20.11.2026)
+
+## 20.11.2026, abends – Qonic AI, Honeywell EBI One und ODA MCP
+
+Quellenabruf 20.11.2026; Herstellerangaben, keine unabhängigen Praxistests.
+
+| Angebot / Zielgruppe | Datierte Neuerung | Preis / Abgrenzung |
+| --- | --- | --- |
+| [Qonic](https://www.qonic.com/posts/qonic-november-2026-release) – BIM-Planer und Koordinatoren | 04.11.: IFC-basierte KI-Agenten für Abfragen, Eigenschaftsprüfung, Berichte und Modelländerungen; MCP mit rollenbegrenzten Aktionen und persönlichen Änderungen vor Veröffentlichung | Tokenpakete ab 50 EUR, bezahlte Pläne mit monatlichem Kontingent; MCP ohne Qonic-Tokenverbrauch, externe KI-Kosten separat. Kein bestätigter Gesamtpreis oder D21-artiger Live-Betriebsworkflow. |
+| [Honeywell EBI One](https://www.honeywell.com/us/en/news/press-releases/2026/11/honeywell-technologies-expands-autonomous-building-operations-with-ebi-one) – gewerbliche Betreiber, Campus und Rechenzentren | Globaler Launch 10.11.: Forge Cognition, KI-Alarmklassifizierung und natürlichsprachliche Abfrage von Betriebsdaten, Alarmen, Historie und Dokumentation | Öffentlicher Preis/Lizenzumfang und IFC- oder Sprachsteuerung nicht in dieser Quelle bestätigt. |
+| [Open Design Alliance](https://www.opendesign.com/blog/2026/november/devconnect26-ai-agent-real-dwg-step-and-ifc-models) – Softwareentwickler | Ankündigung 12.11. für Demos am 18./19.11.: MCP-Operationen auf IFC, Viewer-Interaktion, atomare Änderungen/Undo, lokale LLM-Option | SDK-/MCP-Preis nicht bestätigt; Revit als nächster Schritt angekündigt, nicht als ausgeliefert belegt. Kein fertiges FM-Produkt; tatsächlicher Demoablauf nicht unabhängig geprüft. |
+
+**Nala-Abgleich:** [README/main](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/blob/main/README.md) nennt jetzt gemergten Quellstand 1.0.154 (Korrektur zur morgendlichen Momentaufnahme), Gemini-Kontext aus IFC und lesende Werkzeuge, ElevenLabs-Sprache, private HA-Lampen, ESP32 und Raumzuordnung mit Rückfrage. Echte D21-Daten, reproduzierbarer Revit-Server-Prozess, produktive Installation und Kalenderintegrität ([#243](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/243)) bleiben unbelegt. Keine neue Anwendungscode-PR-Aktivität in der heutigen PR-Suche festgestellt; kein eigener Funktionstest.
+
+**Chance:** Kombination aus überprüfbarer IFC-Raumabfrage, realem Sensorwert und berechtigter Geräteaktion für kleine Betreiberteams. **Risiko:** KI auf IFC und natürlichsprachliche Betriebsabfragen sind bereits separat verfügbar. Kein exklusiver USP, Preis- oder Qualitätsvorteil belegt. Pilotkriterien: Quellenbezug, Rollenprüfung, Bestätigung vor Schreibaktion, Auditprotokoll, Fehlerbehandlung und Kosten je Gebäude; Modelländerungen und Geräteaktionen getrennt bewerten.
+
+---
+
+
+| Anbieter / Zielgruppe | Herstellerseitig belegte Funktionen | Lizenz / Preis |
+| --- | --- | --- |
+| [Nemetschek dTwin](https://www.nemetschek-dtwin.com/pricing) – Betreiber und Asset-Management | BIM, GIS, 2D, Reality Capture, Dashboards; höherer Tarif mit Echtzeitdaten und FM/ERP/BMS/IoT-Anbindung | View & Explore ab 3.500 EUR/Jahr; View, Connect & Operate ab 5.000 EUR/Jahr, jährliche Abrechnung; Enterprise individuell. Endpreis abhängig u.a. von Fläche und Speicher. |
+| [Twinview](https://www.twinview.com/platform) – FM-Teams und Portfolioverantwortliche | Assetregister, Lebenszyklus, Anomaliehinweise, Audit-Trails, Rollen/SSO; [Integrationen](https://www.twinview.com/integrations) nennen IFC, Revit, MQTT, BACnet, Modbus und REST | Demo/Vertrieb; kein öffentlicher Betrag in geprüften Seiten. |
+| [ioLabs ioFM](https://www.siemens.com/en-us/products/iolabs-ag-iofm-fast-and-cost-effective-way-to-digital-twin/) – Betreiber heterogen dokumentierter Bestandsportfolios | Minimal-BIM, Modellierung als Dienstleistung aus CAD, PDF, IFC und weiteren Bestandsunterlagen, Webviewer | Raumbezogenes Abo laut Produktseite; konkreter Betrag nicht bestätigt. |
+
+Keine datierte November-Neueinführung bestätigt; neu im Vergleich erfasste Angebote, keine unabhängigen Leistungstests. Sprachassistenten oder konkrete KI-Geräteaktionen bei diesen drei Angeboten nicht anhand dieser Quellen bestätigt (kein Nachweis ihres Fehlens).
+
+**Nala-Abgleich:** README/main nennt noch 1.0.152, während gemergte #238 und #240 den neueren iPhone-Stand einschließlich Rollen/Gebäudegruppen und IFC-Licht dokumentieren; #244 überarbeitet Webnavigation. README dokumentiert ESP32/BME280, private Home-Assistant-Anbindung und Sensor-Raum-Zuordnung mit Rückfrage. Echter D21-Datenpunkt, reproduzierbare Revit-Anbindung, produktive Installation und Kalender-Datenintegrität (#243) nicht nachgewiesen. Kein neuer Anwendungscode-PR seit #244 in der aktuellen PR-Suche festgestellt. [README](../README.md), [#238](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/238), [#240](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/240), [#244](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/244), [#243](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/issues/243).
+
+**Chance:** Einstieg für kleine Gebäude mit bestehenden IFC-Dateien und nachvollziehbaren Sensor-/Sprachaktionen. **Risiko:** dTwin bietet bereits einen konkreten EUR-Preisanker, Twinview breite Standardprotokolle und ioFM senkt die Modellierungshürde. Kein belegter USP oder Kostenvorteil. Pilot: ein IFC-Raum, echter Messwert, Rechteprüfung, dokumentierte Geräteaktion, Export und Vollkosten einschließlich Hosting/LLM/Integration.
+
+---
+
 ## 17. November 2026, 19:00 MEZ – Tandem-Lizenzgrenzen, LiteLLM und Nala 1.0.149
 
 - **Präzisierung, kein neues Produkt:** Autodesk Tandem Free: 500 Assets, 3 Facilities, 100 Mio. Datenpunkte, 500 MB und 10 Modellimporte je Facility. Paid: bis 10.000 Assets und 1 Mrd. Datenpunkte; Tandem Connect Free **0 Produktionsplugins**, Paid **10**. Kapazitätsmodell seit Februar 2026; kein verifizierter EUR-Betrag auf dynamischer Kaufseite. [Nutzungsbedingungen](https://app.learn-one.autodesk.com/content/autodesk/global/en/company/terms-of-use/en/subscription-benefits) · [Tandem](https://www.autodesk.com/sg/products/Tandem/buy) · [Connect](https://www.autodesk.com/sg/products/tandem-connect/buy).
@@ -142,3 +255,12 @@ Neue Rechercheläufe werden **oben** eingetragen.
 
 - Ordner und Vergleichsvorlage für die regelmäßige Wettbewerbsbeobachtung vorbereitet.
 - Zum Zeitpunkt der Ordneranlage waren noch keine Produkt- oder Preisbehauptungen verifiziert.
+
+
+## 19. November 2026, 19:04 MEZ – Bentley-Tarife und Tandem-Connect-EUR-Preis
+
+**Neue belegte Preisdetails:** [Bentley iTwin Platform Pricing](https://developer.bentley.com/pricing/) zeigt Community kostenlos nur für nichtkommerziellen, nichtproduktiven Einsatz (100 Credits/Monat), Standard 199 USD/Monat (200 Credits), Premium 499 USD/Monat (500 Credits), Zusatzcredit 1,20 USD. Dies sind **Entwicklerplattformtarife**, keine fertigen Gebäudebetriebs-App-Lizenzen. [Bentley iTwin Experience](https://www.bentley.com/products/itwin-experience/) und [iTwin IoT](https://www.bentley.com/products/itwin-iot) bieten BIM-/IoT-/Rollenfunktionen beziehungsweise Monitoring und laut Hersteller KI-Anomaliehinweise; Preise nur auf Anfrage.
+
+**Neue Preisquelle:** [Autodesk Tandem Connect Niederlande](https://www.autodesk.com/nl/products/tandem-connect/buy) zeigt **666 EUR/Monat** (monatlich bezahlt) für Paid mit zehn Produktionsplugins, Free ohne Produktionsplugins. Preis für deutsche Rechnungsadresse/Steuern nicht verifiziert. Dies ist **nicht** der Preis von Autodesk Tandem. [Tandem Terms](https://www.autodesk.com/company/terms-of-use/en/offering-types-and-benefits) bestätigen Capacity-based Free 500, Essentials 5.000 und Paid 10.000 Assets, getrennt vom älteren Tagged-Assets-Modell. Keine bestätigte neue November-Einführung.
+
+**GitHub-Stand:** [PR #244](../../pull/244) betrifft Dashboard-Navigation; [#238](../../pull/238) iPhone 1.0.153 mit Teams/Rollen, [#239](../../pull/239) Wartungskalender, [#240](../../pull/240) IFC-Licht. Nach Kalenderentfernung/-wiederherstellung [#241](../../pull/241)/[#242](../../pull/242) ist [#243](../../issues/243) ein Datenintegritätsrisiko, kein bewiesener Datenverlust. Echter D21-Live-Praxistest und belegter Preis-/Qualitätsvorsprung fehlen weiterhin. **Chance:** einfacher Raum–Sensor–Rechte–Wartungs-Pilot; **Risiko:** Bentley/Autodesk decken wesentliche Bestandteile ab. Nächster Schritt: identische Demo und Gesamtbetriebskostenvergleich. Quellenabruf **19.11.2026**; keine eigenen Produktivtests.
