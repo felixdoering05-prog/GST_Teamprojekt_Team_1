@@ -39,6 +39,10 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [23.11.2026 08:55 · Haupt- und Unterzähler, Swift Charts](berichte/2026-11-23-0855.md)
+
+- [18.11.2026 16:59 · Energiezähler nach Rücksetzung](berichte/2026-11-18-1659.md)
+
 - [18.11.2026 09:15 · Feuchtealarm und Neustart](berichte/2026-11-18-0915.md)
 
 - [17.11.2026 17:04 · Home Assistant und Lampenstatus](berichte/2026-11-17-1704.md)
@@ -60,3 +64,7 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 - [12.11.2026 17:18 · Sensorausfälle in Raum-Heatmaps](berichte/2026-11-12-1718.md)
 
 - [12.11.2026 13:39 · erste Sichtung: IFC-Qualität und Geschossvorschau](berichte/2026-11-12-1339.md) – manuell geprüft; noch kein geplanter Lauf nachgewiesen.
+
+[19.11.2026 09:04 · Eingeschränkter Quellenabgleich](berichte/2026-11-19-0904.md) – keine neue Empfehlung, vollständiger Projektabgleich offen.
+
+[20.11.2026 · Verzögerter Quellenabgleich](berichte/2026-11-20-0902.md) – Fortsetzung des Abendlaufs, keine neue Empfehlung.
