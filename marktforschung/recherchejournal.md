@@ -1,3 +1,17 @@
+## 23.11.2026, 19:00 MEZ – Home Assistant 2026.11: KI-Diagnose, KNX und Sprachrechte
+
+**Neue belegte Produktänderung (Release 04.11.2026, nicht erst heute erschienen):** [Home Assistant Core 2026.11](https://www.home-assistant.io/blog/2026/11/04/release-202611/) führt laut offizieller Release-Note einen integrierten Marketplace (HACS), zusätzliche LLM-API-Werkzeuge zur System-/Loganalyse, Aktionen und Integrationsverwaltung sowie KNX-spezifische LLM-Werkzeuge für Telegrammspeicher, Projektdatei und Datenpunkttypen ein. Ein MCP-Server kann auf lesende Werkzeuge beschränkt werden; die Freigabe einer LLM-API erfolgt durch Administratoren. Außerdem wurden Energie-Dashboard und Kalenderdarstellung erweitert. **Zielgruppe:** Smart-Home-Nutzer, Integratoren, Automatisierungsentwickler; professionelle KNX-Anwender als angrenzende Zielgruppe. **Preis/Lizenz:** Open-Source-Software; keine belastbare neue Monatsgebühr aus dieser Release-Note; Hardware, Cloud-LLM, Hosting und Integrationsaufwand sind getrennte Kosten. Keine unabhängigen Praxis- oder Sicherheitsbenchmarks.
+
+**Wettbewerbsfolge:** Sprach-/LLM-gesteuerte Geräteaktionen, Energie-Dashboard und KI-gestützte technische Fehlerrecherche sind keine nachgewiesenen Alleinstellungsmerkmale von Nala. Neu relevant ist die **feingranulare Rechtevergabe an KI-Werkzeuge** und das sichere Trennen lesender Diagnose von schreibenden Gebäudeaktionen. Home Assistant 2026.11 belegt **keinen nativen IFC-/Revit-Gebäudezwilling** in dieser Quelle; fehlender Nachweis ist kein Beweis des Fehlens.
+
+**Nala-Abgleich, [README/main](../README.md) und [offener PR #245](../../pull/245), geprüft 23.11.:** gemergter iOS-Quellstand 1.0.154, IFC-/Webviewer, Gemini-/ElevenLabs-Funktionen, private Home-Assistant-Lampen und ESP32-Schnittstellen dokumentiert. Ein echter freigegebener D21-Messwert ([#74](../../issues/74), [#102](../../issues/102)), produktive KNX-/BACnet-Anbindung, durchgängig geprüfte Sprach-Aktor-Rechte, reproduzierbarer Revit-Server-Prozess und Kalender-Datenintegrität ([#243](../../issues/243)) **nicht bestätigt**. Kein nachgewiesener Preis-, Qualitäts- oder Funktionsvorsprung.
+
+**Chance (Hypothese):** IFC-Bauteil/Raum → reale Sensordaten → erklärbare Diagnose → bestätigte, rollenbegrenzte Aktion mit Auditprotokoll. **Risiko:** Wettbewerber bieten schon KI-Aktionen und KNX-Diagnose; unkontrollierte Schreibaktionen an Gebäudeanlagen sind sicherheitskritisch. **Prüfplan:** nur lesender D21-Test, Herkunft/Einheit/Zeitstempel, Rollen-/Tool-Whitelist, Freigabe vor Aktoraktionen und identischer Kosten-/Zeitvergleich.
+
+**Quellen und Daten:** Hersteller-Release [Home Assistant 2026.11, 04.11.2026](https://www.home-assistant.io/blog/2026/11/04/release-202611/); [Assist-Dokumentation](https://www.home-assistant.io/voice_control); Repository [README](../README.md), [PR #245](../../pull/245). Abruf **23.11.2026, ca. 19:00 MEZ**. Keine neuen Preise und keine neue Markteinführung behauptet; alle Funktionsangaben sind Herstellerangaben.
+
+---
+
 ## 23.11.2026, 09:00 MEZ – Autodesk Tandem und Siemens Lifecycle Twin: direkte Funktionsüberschneidung
 
 **Quellenprüfung 23.11.2026, Herstellerseiten; keine neue Produkteinführung nachgewiesen.**
