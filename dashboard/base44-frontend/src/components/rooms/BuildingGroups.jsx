@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, MapPin, Plus, Save, Trash2, X } from 'lucide-react';
+import { Building2, MapPin, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
 import { request } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ export default function BuildingGroups({ buildings = [], onOpenBuilding, createO
   const [name, setName] = useState('');
   const [newBuildings, setNewBuildings] = useState([]);
   const [drafts, setDrafts] = useState({});
+  const [manageGroupId, setManageGroupId] = useState(null);
   const [error, setError] = useState('');
   const teams = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
   const active = (teams.data || []).find(team => String(team.id) === localStorage.getItem('d21-selected-team')) || (teams.data || []).find(team => team.is_owner) || teams.data?.[0];
@@ -83,8 +84,23 @@ export default function BuildingGroups({ buildings = [], onOpenBuilding, createO
     {error && !createOpen && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
     {groups.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäudegruppen werden geladen …</p>}
     {groupsWithBuildings.map(group => <section key={group.id} className="surface space-y-4 p-5">
-      <div className="flex items-center gap-3 border-b border-border pb-3"><Building2 className="h-5 w-5 text-primary" /><div><h2 className="font-heading text-lg font-semibold">{group.name}</h2><p className="text-sm text-muted-foreground">Gebäudegruppe · {group.visibleBuildings.length} {group.visibleBuildings.length === 1 ? 'Gebäude' : 'Gebäude'}</p></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex items-center gap-3"><Building2 className="h-5 w-5 text-primary" /><div><h2 className="font-heading text-lg font-semibold">{group.name}</h2><p className="text-sm text-muted-foreground">Gebäudegruppe · {group.visibleBuildings.length} {group.visibleBuildings.length === 1 ? 'Gebäude' : 'Gebäude'}</p></div></div>
+        {active?.can_manage_groups && <Button type="button" size="sm" variant={manageGroupId === group.id ? 'secondary' : 'outline'} aria-expanded={manageGroupId === group.id} onClick={() => setManageGroupId(current => current === group.id ? null : group.id)}>
+          {manageGroupId === group.id ? <X className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}{manageGroupId === group.id ? 'Verwaltung schließen' : 'Gruppe verwalten'}
+        </Button>}
+      </div>
       {group.visibleBuildings.length ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{group.visibleBuildings.map(building => <BuildingCard key={`${group.id}-${building.id}`} building={building} onOpen={onOpenBuilding} />)}</div> : <p className="text-sm text-muted-foreground">In dieser Gruppe sind keine sichtbaren Gebäude.</p>}
+      {manageGroupId === group.id && active?.can_manage_groups && (() => {
+        const draft = drafts[group.id] || { name: group.name, building_ids: group.buildings.map(item => String(item.id)) };
+        const allowed = canEditGroup(group);
+        return <div className="space-y-3 rounded-xl border border-border p-4" aria-label={`Gebäudegruppe ${group.name} verwalten`}>
+          <label className="grid max-w-sm gap-1 text-xs font-medium">Gruppenname<Input value={draft.name} disabled={!allowed} maxLength={80} onChange={event => setDrafts(current => ({ ...current, [group.id]: { ...draft, name: event.target.value } }))} /></label>
+          <div className="grid gap-2 sm:grid-cols-2">{manageable.map(building => <label key={building.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.building_ids.includes(String(building.id))} disabled={!allowed} onChange={event => setDrafts(current => ({ ...current, [group.id]: { ...draft, building_ids: event.target.checked ? [...draft.building_ids, String(building.id)] : draft.building_ids.filter(id => id !== String(building.id)) } }))} />{building.name}</label>)}</div>
+          {!allowed && <p className="text-sm text-muted-foreground">Du kannst diese Gruppe nur verwalten, wenn du alle zugehörigen Gebäude bearbeiten darfst.</p>}
+          <div className="flex flex-wrap gap-2">{allowed && dirty(group) && <Button size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate({ path: `/teams/${active.id}/groups/${group.id}`, method: 'PATCH', body: { name: draft.name.trim(), building_ids: draft.building_ids.map(Number) } })}><Save className="h-4 w-4" />Speichern</Button>}{allowed && <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => { if (window.confirm(`Gruppe „${group.name}“ unwiderruflich löschen?`)) mutation.mutate({ path: `/teams/${active.id}/groups/${group.id}`, method: 'DELETE' }, { onSuccess: () => setManageGroupId(null) }); }}><Trash2 className="h-4 w-4" />Gruppe löschen</Button>}</div>
+        </div>;
+      })()}
     </section>)}
 
     <section className="surface space-y-4 p-5">
@@ -92,18 +108,5 @@ export default function BuildingGroups({ buildings = [], onOpenBuilding, createO
       {ungrouped.length ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{ungrouped.map(building => <BuildingCard key={building.id} building={building} onOpen={onOpenBuilding} />)}</div> : <p className="text-sm text-muted-foreground">Alle Gebäude sind einer Gruppe zugeordnet.</p>}
     </section>
 
-    {active?.can_manage_groups && <details className="surface group space-y-4 p-5" open={false}>
-      <summary className="flex cursor-pointer list-none items-center gap-3"><Building2 className="h-5 w-5 text-primary" /><div><h2 className="font-heading text-lg font-semibold">Gruppen verwalten · {active.name}</h2><p className="text-sm text-muted-foreground">Namen und Gebäudezuordnungen bearbeiten.</p></div><span className="ml-auto shrink-0 text-xs font-medium text-primary">{groups.data?.length || 0} Gruppen</span></summary>
-      {(groups.data || []).map(group => {
-        const draft = drafts[group.id] || { name: group.name, building_ids: group.buildings.map(item => String(item.id)) };
-        const allowed = canEditGroup(group);
-        return <div key={group.id} className="space-y-3 rounded-xl border border-border p-4">
-          <label className="grid max-w-sm gap-1 text-xs font-medium">Gruppenname<Input value={draft.name} disabled={!allowed} maxLength={80} onChange={event => setDrafts(current => ({ ...current, [group.id]: { ...draft, name: event.target.value } }))} /></label>
-          <div className="grid gap-2 sm:grid-cols-2">{manageable.map(building => <label key={building.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.building_ids.includes(String(building.id))} disabled={!allowed} onChange={event => setDrafts(current => ({ ...current, [group.id]: { ...draft, building_ids: event.target.checked ? [...draft.building_ids, String(building.id)] : draft.building_ids.filter(id => id !== String(building.id)) } }))} />{building.name}</label>)}</div>
-          <div className="flex gap-2">{allowed && dirty(group) && <Button size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate({ path: `/teams/${active.id}/groups/${group.id}`, method: 'PATCH', body: { name: draft.name.trim(), building_ids: draft.building_ids.map(Number) } })}><Save className="h-4 w-4" />Speichern</Button>}{allowed && <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => { if (window.confirm(`Gruppe „${group.name}“ unwiderruflich löschen?`)) mutation.mutate({ path: `/teams/${active.id}/groups/${group.id}`, method: 'DELETE' }); }}><Trash2 className="h-4 w-4" />Gruppe löschen</Button>}</div>
-        </div>;
-      })}
-      {!groups.isPending && !groups.data?.length && <p className="text-sm text-muted-foreground">Noch keine Gebäudegruppen vorhanden.</p>}
-    </details>}
   </div>;
 }
