@@ -1,5 +1,19 @@
 # Wettbewerbsvergleich – KI trifft Gebäude
 
+## 23.11.2026, 09:00 MEZ – Autodesk Tandem und Siemens Lifecycle Twin: direkte Funktionsüberschneidung
+
+**Quellenprüfung 23.11.2026, Herstellerseiten; keine neue Produkteinführung nachgewiesen.**
+
+| Produkt / Zielgruppe | Belegte Funktionen | Lizenz / Preis und Grenzen |
+| --- | --- | --- |
+| [Autodesk Tandem](https://www.autodesk.com/products/tandem/buy) – Facility-Betreiber, BIM-/AEC-Teams | BIM-basierter 3D-Zwilling mit Anlagen, Dokumenten, historischen und nahezu Echtzeit-Daten; [Tandem Connect](https://www.autodesk.com/products/tandem-connect/buy) verbindet Gebäudesysteme über Low-Code | **Kapazitätsbasiert statt pro Nutzer**; [regionale Angebotsseite](https://www.autodesk.com/sg/products/Tandem/buy) nennt Tandem Free mit 500 Assets, 100 Mio. Datenpunkten und drei Gebäuden; kostenpflichtige Stufe 10.000 Assets und 1 Mrd. Datenpunkte. **Kein belastbarer deutscher EUR-Preis** auf der geprüften Seite (dynamischer Platzhalter). Tandem Connect Free: 25 Sandbox-Plug-ins, 100 Nachrichten je Deployment, **keine** Produktions-Plug-ins; bezahlt: 10 Produktions-Plug-ins und unbegrenzte Nachrichten. |
+| [Siemens Building X – Lifecycle Twin](https://www.siemens.com/de-de/products/building-x/applications/lifecycle-twin/) – Gebäudeeigentümer und Betreiber | 2D-/3D-Twin, Anlagen, Dokumente, Inspektion und präventive Wartung, **Revit-Integration zur automatischen Anlagenerkennung**; [Building X](https://www.siemens.com/de-de/products/building-x/) ergänzt Echtzeitdaten, Energie und Betriebs-Apps | Lifecycle Twin Base in Paketen **10 Nutzer/20 GB, 25/50, 50/100, 100/200, 250/500**; Zusatz-CAD-Server und API-Integration gesondert. **Preisbeträge auf Anfrage**, keine verifizierte öffentliche EUR-Liste. Building X: App-/API-Abonnements. |
+
+**Nala-Abgleich:** [README auf main](../README.md) (Dokumentationsstand 20.11.; Quellstand iOS 1.0.154) beschreibt IFC-Viewer, Gebäudepass, Wartungsplan, Gemini/ElevenLabs und private Home-Assistant-Anbindung. Echter D21-Messwert ([#74](../../issues/74), [#102](../../issues/102)), reproduzierbarer Revit-Prozess und produktiver Gesamttest **nicht belegt**. Autodesk und Siemens widerlegen eine pauschale Einzigartigkeit von BIM + Sensorik + Wartung. **Hypothese statt USP:** schnell einrichtbarer, preislich transparenter IFC-Raum–Sensor–Sprach-Workflow für kleinere Betreiber; messbar erst nach D21-Pilot und TCO-Vergleich.
+
+**Technischer Standard:** [buildingSMART](https://www.buildingsmart.org/standards/bsi-standards/industry-foundation-%20%20classes/) nennt IFC 4.3.2.0 (ISO 16739-1:2024) als aktuelle offizielle IFC-Version; Kompatibilität der Nala-Importpipeline damit ist nicht geprüft.
+
+
 ## 22.11.2026, abends – CONTEXUS und OpenRemote: modulare Konkurrenz und Lizenzgrenzen
 
 Quellenabruf 22.11.2026. Neu im Vergleich, kein belegtes November-Release; Herstellerangaben, keine eigenen Produkttests.
