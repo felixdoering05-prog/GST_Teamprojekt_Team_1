@@ -139,13 +139,15 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }
 
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
-      <div className={`flex flex-col pb-6 pt-7 ${activeTeam?.has_logo ? 'items-stretch gap-2 px-5' : 'flex-row items-center gap-3 px-5'}`}>
-        {activeTeam?.has_logo ? <TeamLogo id={activeTeam.id} name={activeTeam.name} /> : (
-          <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl"><Boxes className="h-[18px] w-[18px]" /></span>
-        )}
-        <div className={activeTeam?.has_logo ? 'text-center' : 'min-w-0'}>
-          <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Nala Solutions</p>
-          {!activeTeam?.has_logo && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>}
+      <div className={`flex pb-6 pt-7 px-5 ${activeTeam?.has_logo ? 'flex-col items-center gap-2' : 'items-center gap-3'}`}>
+        {activeTeam?.has_logo && <TeamLogo id={activeTeam.id} name={activeTeam.name} />}
+        {!activeTeam?.has_logo && <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl"><Boxes className="h-[18px] w-[18px]" /></span>}
+        <div className={`${activeTeam?.has_logo ? 'flex items-center justify-center gap-3' : 'min-w-0'}`}>
+          {activeTeam?.has_logo && <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl"><Boxes className="h-[18px] w-[18px]" /></span>}
+          <div className="min-w-0">
+            <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Nala Solutions</p>
+            {!activeTeam?.has_logo && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>}
+          </div>
         </div>
       </div>
 
@@ -175,7 +177,7 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }
   );
 }
 
-function TeamLogo({id,name}){const [src,setSrc]=useState('');useEffect(()=>{let active=true,objectURL='';request('/teams/'+id+'/logo',{raw:true}).then(blob=>{objectURL=URL.createObjectURL(blob);if(active)setSrc(objectURL)}).catch(()=>{});return()=>{active=false;if(objectURL)URL.revokeObjectURL(objectURL)}},[id]);return src?<img src={src} alt={'Logo '+name} className="-mx-5 h-24 w-[calc(100%+2.5rem)] object-contain"/>:null;}
+function TeamLogo({id,name}){const [src,setSrc]=useState('');useEffect(()=>{let active=true,objectURL='';request('/teams/'+id+'/logo',{raw:true}).then(blob=>{objectURL=URL.createObjectURL(blob);if(active)setSrc(objectURL)}).catch(()=>{});return()=>{active=false;if(objectURL)URL.revokeObjectURL(objectURL)}},[id]);return src?<div className="-mx-5 flex h-24 w-[calc(100%+2.5rem)] items-center justify-center"><img src={src} alt={'Logo '+name} className="h-full max-w-full object-contain object-center"/></div>:null;}
 function hexHsl(hex){const n=parseInt(String(hex||'#596b3d').slice(1),16),r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0,s=0,l=(max+min)/2;if(d){s=d/(1-Math.abs(2*l-1));switch(max){case r:h=((g-b)/d)%6;break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h*=60;if(h<0)h+=360;}return Math.round(h)+' '+Math.round(s*100)+'% '+Math.round(l*100)+'%';}
 
 function TeamSwitcher({teams,teamID,onChange,wide=false}){
