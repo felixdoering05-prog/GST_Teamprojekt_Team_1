@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Building2, Layers, MapPin, Plus, RefreshCw, Users } from 'lucide-react';
+import { ArrowLeft, Building2, Layers, Plus, RefreshCw, Users } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -36,6 +36,9 @@ export default function Rooms() {
     queryFn: () => request('/buildings'),
     refetchOnWindowFocus: true,
   });
+  const teams = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
+  const activeTeam = (teams.data || []).find(team => String(team.id) === localStorage.getItem('d21-selected-team')) || (teams.data || []).find(team => team.is_owner) || teams.data?.[0];
+  const [groupCreateOpen, setGroupCreateOpen] = useState(false);
   const requestedId = params.get('building');
   const selected = buildings.data?.find(building => String(building.id) === requestedId);
   const start = params.get('start') === '1';
@@ -119,6 +122,7 @@ export default function Rooms() {
         <>
           <PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
             <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>
+            {activeTeam?.can_manage_groups && <Button variant="outline" onClick={() => setGroupCreateOpen(open => !open)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäudegruppe erstellen</Button>}
           </PageHeader>
           <details className="surface space-y-4 p-5" open={start || undefined}>
             <summary className="cursor-pointer font-heading font-semibold">Erste Schritte</summary>
@@ -132,27 +136,7 @@ export default function Rooms() {
             </div>
           )}
           {requestedId && buildings.isSuccess && <p role="status" className="text-sm text-muted-foreground">Dieses Gebäude ist für dein Konto nicht verfügbar.</p>}
-          {buildings.data?.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {[...buildings.data].reverse().map(building => (
-                <button key={building.id} type="button" onClick={() => openBuilding(building)}
-                  className="surface group flex w-full flex-col items-start gap-5 overflow-hidden p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none"
-                  aria-label={`Gebäude ${building.name} öffnen`}>
-                  <span className="mb-1 flex h-28 w-full items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-transparent text-primary"><Building2 className="h-14 w-14 stroke-[1.2]" aria-hidden="true" /></span>
-                  <span className="flex min-w-0 items-start gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><Building2 className="h-5 w-5" aria-hidden="true" /></span>
-                    <span className="min-w-0">
-                      <span className="block break-words font-heading text-lg font-semibold text-foreground">{building.name}</span>
-                      {building.address && <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{building.address}</span>}
-                      <span className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">{building.model_document_id && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">3D-Modell</span>}{!building.is_owner && <span className="rounded-full bg-muted px-2 py-1">Mit dir geteilt</span>}</span>
-                    </span>
-                  </span>
-                  <span className="flex w-full items-center justify-between border-t border-border pt-4 text-xs font-medium text-primary">Gebäude öffnen<ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" /></span>
-                </button>
-              ))}
-            </div>
-          )}
-          <BuildingGroups />
+          <BuildingGroups buildings={buildings.data || []} onOpenBuilding={building => openBuilding(building)} createOpen={groupCreateOpen} onCloseCreate={() => setGroupCreateOpen(false)} />
         </>
       )}
       {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} />}
