@@ -51,7 +51,7 @@ export default function WidgetBoard({ renderWidget, buildings }) {
 
   const cards = <>
     {layout.map((item, index) => <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={!editing || busy}>
-      {drag => <li ref={drag.innerRef} {...drag.draggableProps} className={`titan-widget titan-widget-${item.size} ${editing ? 'surface rounded-xl p-3' : ''}`}>
+      {drag => <li ref={drag.innerRef} {...drag.draggableProps} className={`titan-widget titan-widget-${item.size} titan-widget-id-${item.id} ${editing ? 'titan-widget-editing surface rounded-xl p-3' : ''}`}>
         {editing && <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border pb-2">
           <span {...drag.dragHandleProps} className="grid min-h-11 min-w-11 cursor-grab place-items-center rounded-lg text-muted-foreground active:cursor-grabbing"
             aria-label={`${widgetTitles[item.id]} verschieben`} title="Widget ziehen"><GripVertical className="h-5 w-5" /></span>

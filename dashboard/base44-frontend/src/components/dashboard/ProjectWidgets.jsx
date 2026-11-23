@@ -9,12 +9,12 @@ import DashboardModel from './DashboardModel';
 import { widgetTitles } from './WidgetBoard';
 
 function Widget({ title, children, link }) {
-  return <section className="glass-card min-w-0 space-y-3 p-4 sm:p-5">
-    <div className="flex flex-wrap items-start justify-between gap-2">
+  return <section className="glass-card flex h-full min-h-0 min-w-0 flex-col space-y-3 overflow-hidden p-4 sm:p-5">
+    <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
       <h3 className="font-semibold">{title}</h3>
       {link && <Link to={link} className="text-sm font-medium text-primary underline-offset-4 hover:underline">Öffnen</Link>}
     </div>
-    {children}
+    <div className="titan-widget-content min-h-0 flex-1">{children}</div>
   </section>;
 }
 
