@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [23.11.2026 08:55 · Haupt- und Unterzähler, Swift Charts](berichte/2026-11-23-0855.md)
+
 - [18.11.2026 16:59 · Energiezähler nach Rücksetzung](berichte/2026-11-18-1659.md)
 
 - [18.11.2026 09:15 · Feuchtealarm und Neustart](berichte/2026-11-18-0915.md)
