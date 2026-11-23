@@ -15,6 +15,8 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 | RADAR-008 | Feuchtealarm bei Neustart und bestehender Überschreitung | Sensorik und Automationen | Jetzt testen | Doppelte oder ausbleibende Hinweise erkennen | 45 min geschätzt | Quellenlizenz ungeprüft, eigener Verhaltenstest | [Bericht](berichte/2026-11-18-0915.md) | Test zu #225 |
 | RADAR-009 | Energiezähler nach Rücksetzung auswerten | Energie und Sensorik | Jetzt testen | Fehlende Verbrauchsanteile erkennen | 1 h geschätzt | Quellenlizenz ungeklärt, eigener Test | [Bericht](berichte/2026-11-18-1659.md) | Entscheidung zu Rücksetzungsmetadaten |
 
+| RADAR-010 | Haupt- und Unterzähler getrennt ausweisen | Sensorik und SwiftUI | Jetzt testen | Doppelzählung und unklare Summen erkennen | 60–90 min plus 20 min VoiceOver, geschätzt | HA Core Apache-2.0; Apple-SDK proprietär; eigener Test | [Bericht](berichte/2026-11-23-0855.md) | Noch keine Umsetzung beauftragt |
+
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
 Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
