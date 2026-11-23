@@ -58,7 +58,7 @@ export default function WidgetBoard({ renderWidget, buildings }) {
           <span className="min-w-32 flex-1 font-medium">{widgetTitles[item.id]}</span>
           <label className="flex items-center gap-2 text-sm">Größe
             <select className="titan-select w-auto" value={item.size} disabled={busy} onChange={e => configure(item.id, { size: e.target.value })}>
-              <option value="small">Klein</option><option value="medium">Mittel</option><option value="wide">Breit</option>
+              <option value="small">Klein</option><option value="medium">Mittel</option><option value="wide">Breit</option><option value="lang">Lang</option>
             </select>
           </label>
           {item.id === 'issues' && <label className="flex items-center gap-2 text-sm">Status
