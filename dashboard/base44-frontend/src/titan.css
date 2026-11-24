@@ -87,12 +87,13 @@ html[data-theme="dark"] {
 .titan-select.w-auto { width: auto; }
 .titan-widget-board { container-type: inline-size; }
 .titan-widget-grid { display: grid; align-items: stretch; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
-.titan-widget { display: flex; min-width: 0; min-height: 0; height: 26rem; flex-direction: column; overflow: hidden; }
-.titan-widget-medium, .titan-widget-wide { height: 30rem; }
-.titan-widget-id-model, .titan-widget-id-map { height: 34rem; }
+.titan-widget { display: flex; min-width: 0; min-height: 26rem; align-self: stretch; flex-direction: column; overflow: hidden; }
+.titan-widget-lang { min-height: 40rem; }
+.titan-widget-id-model, .titan-widget-id-map { min-height: 34rem; }
 .titan-widget > :is(section, article) { height: 100%; min-height: 0; }
 .titan-widget-editing > :is(section, article) { height: auto; min-height: 0; flex: 1; }
 .titan-widget-content { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.titan-widget-content > ul { min-height: 0; }
 .titan-widget .climate-card { min-width: 0; }
 @container (min-width: 36rem) {
   .titan-widget-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

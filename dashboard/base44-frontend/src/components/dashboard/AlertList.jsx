@@ -38,15 +38,15 @@ export function AlertRow({ alert, actions, showSource = true }) {
 
 export default function AlertList({ alerts = [], title = 'Warnmeldungen', emptyText = 'Keine offenen Meldungen.', actions }) {
   return (
-    <div className="surface flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
+    <div className="surface flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-4">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         <span className="tabular rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">{alerts.length}</span>
       </div>
       {alerts.length === 0 ? (
         <p className="px-5 py-8 text-center text-sm text-muted-foreground">{emptyText}</p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain divide-y divide-border">
           {alerts.map((alert) => (
             <AlertRow key={alert.id} alert={alert} actions={actions ? actions(alert) : null} />
           ))}
