@@ -34,3 +34,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [20.11.2026 · Verzögerter Quellenabgleich](berichte/2026-11-20-0902.md) – Fortsetzung des Abendlaufs, keine neue Empfehlung.
 
 [23.11.2026 17:11 · APNs und Hochschulserver: keine neue Empfehlung](berichte/2026-11-23-1711.md).
+
+[24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md).
