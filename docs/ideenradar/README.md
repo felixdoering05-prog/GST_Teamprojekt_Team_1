@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md)
+
 - [24.11.2026 09:01 · BIMCraft-Versionsvergleich](berichte/2026-11-24-0901.md)
 
 - [23.11.2026 17:11 · APNs und Hochschulserver](berichte/2026-11-23-1711.md)
