@@ -40,7 +40,7 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 20. November 2026, morgens (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 24. November 2026, morgens (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
@@ -53,8 +53,10 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 | **D21-Messdaten** | Erster echter Datenpunkt mit Quelle, Einheit, Zeitstempel und Zugriffsfreigabe noch **nicht als abgeschlossen nachgewiesen** |
 | **Revit-Anbindung** | Modell-/IFC-Arbeit vorhanden; reproduzierbarer automatischer Revit→Server-Prozess noch offen |
 
-**Nächster Projekttermin:** 23. November 2026, 14:00 Uhr · Green Office, Gebäude C10.  
+**Zuletzt geplanter Projekttermin:** 23. November 2026, 14:00 Uhr · Green Office, Gebäude C10. Durchführung und Protokoll noch zu verifizieren ([#246](../../issues/246)); nächster Termin nicht bestätigt.  
 **Geplante Abgabe:** 5. Februar 2027.
+
+**Web-Update 23.11.:** [#247](../../pull/247) und [#248](../../pull/248) sind gemergt: Teamlogo, direkt verschiebbare und konfigurierbare Widgets, scrollbare Widgetlisten und Gebäudegruppenverwaltung. Laut PRs Build, Lint und 44 Viewer-Tests erfolgreich; #247 meldet weiterhin Typecheck-Fehler. [#249](../../pull/249) (Widgethöhen und einklappbare Teamlisten) ist am 24.11. morgens noch offen. Kein produktiver Funktionstest nachgewiesen.
 
 ### 🎯 Aktuelle Prioritäten
 
@@ -66,18 +68,20 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 6. **P2 · Revit-/IFC-Übergabe** – [#73](../../issues/73) ist in GitHub geschlossen; die dokumentierten offenen Arbeitsschritte und der reproduzierbare Server-Prozess sind getrennt zu verifizieren.
 7. **P2 · Protokollprüfung** – [Entwurf 10.11.](docs/protokolle/README.md) durch tatsächlich Beteiligte prüfen und freigeben; keine Anwesenheiten oder Beschlüsse ergänzen, die nicht belegt sind.
 8. **P2 · [#189](../../issues/189)** – ESP32-Hardwaretest und reale Sensorübertragung dokumentieren; implementierte Serverbasis ersetzt keinen Hardwaretest.
-9. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Die neue Marktforschung zu Bentley und Autodesk ([#245](../../pull/245)) ist offen, nicht integriert. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
+9. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Die erweiterte Marktforschung ([#245](../../pull/245)) und das Ideenradar ([#232](../../pull/232)) wurden am 23.11. gemergt. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
 
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
+
+**Abgleich 24.11.:** Für den geplanten Termin vom 23.11. fehlt weiterhin ein bestätigtes Protokoll; [#246](../../issues/246) deckt die Verifikation ab. 14 offene Issues laut GitHub-Suche; keine weiteren fachlichen Abschlüsse nachgewiesen.
 
 **Abgleich 20.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
 
 
 Das [Sitzungsprotokoll vom 03.11.](docs/protokolle/README.md) ist freigegeben. Der Termin vom **10.11.** bleibt **Entwurf** und benötigt Gegenprüfung durch Beteiligte. Technische Arbeitsberichte sind keine freigegebenen Teamprotokolle.
 
-Am 18.11. wurden zusätzlich **#228 (Dateifreigabe/Energiewerte), #229 (gebäudebezogene Rollen und Zeitplanung), #230 (Webnavigation und Rollenoberfläche) und #231 (CI-abhängiger Deploy-Workflow)** gemergt. #231 beschreibt einen automatisierten Veröffentlichungsweg, belegt aber ohne Produktionsnachweis keine erfolgreiche Bereitstellung. **#232 (Energiezähler nach Rücksetzung)** bleibt als Ideen-/Recherche-PR gesondert zu prüfen. **#233 (Team-Branding/Gebäudegruppenrechte)** ist mittlerweile integriert; #236, #238 und #239 belegen nachfolgende Teamfunktionen. Das Kalender-Datenrisiko aus #241/#242 wird in [#243](../../issues/243) untersucht; ein Datenverlust ist nicht nachgewiesen.
+Am 18.11. wurden zusätzlich **#228 (Dateifreigabe/Energiewerte), #229 (gebäudebezogene Rollen und Zeitplanung), #230 (Webnavigation und Rollenoberfläche) und #231 (CI-abhängiger Deploy-Workflow)** gemergt. #231 beschreibt einen automatisierten Veröffentlichungsweg, belegt aber ohne Produktionsnachweis keine erfolgreiche Bereitstellung. **#232 (Energiezähler nach Rücksetzung)** wurde am 23.11. gemergt; der synthetische Vergleich ist kein produktiver Messnachweis. **#233 (Team-Branding/Gebäudegruppenrechte)** ist mittlerweile integriert; #236, #238 und #239 belegen nachfolgende Teamfunktionen. Das Kalender-Datenrisiko aus #241/#242 wird in [#243](../../issues/243) untersucht; ein Datenverlust ist nicht nachgewiesen.
 
 Die vormals offenen PRs **#153, #163, #167, #168, #169, #171 und #173 sind inzwischen zusammengeführt**. Sie werden nicht weiter als ausstehende Reviews geführt. Code-Merge, Geräteinstallation, TestFlight-Veröffentlichung und fachliche Abnahme bleiben getrennte Nachweise.
 
