@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { request } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { rememberLanguage, storedLanguage } from '@/lib/i18n';
 
 const AppearanceContext = createContext(null);
-const defaults = { theme: 'system', font_scale: 100, dashboard_layout: null, language: null, revision: 0 };
+const defaults = { theme: 'system', font_scale: 100, dashboard_layout: null, revision: 0 };
 const storageKey = id => `titan-fs:appearance:${id}`;
 const route = '/profile/ui?view=appearance';
 const patchPreferences = (fields, revision) => request(route, { method: 'PATCH', body: { ...fields, revision } });
@@ -55,11 +54,6 @@ function AccountAppearance({ id, children }) {
       }
       setValue(remote);
       writeFallback(id, remote);
-      // Hat das Konto eine Sprache gewählt, gilt sie auf jedem Gerät.
-      if (remote.language && remote.language !== storedLanguage()) {
-        rememberLanguage(remote.language);
-        window.location.reload();
-      }
     }).catch(() => {
       if (active) setError('Kontoeinstellungen konnten nicht abgeglichen werden. Erneut speichern, sobald eine Verbindung besteht.');
     }).finally(() => { if (active) setLoading(false); });
