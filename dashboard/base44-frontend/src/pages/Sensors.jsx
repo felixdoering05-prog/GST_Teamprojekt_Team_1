@@ -1,3 +1,4 @@
+import { useBuildingScope } from '@/hooks/useBuildingScope';
 import { useEffect, useState } from 'react';
 import { Cpu, Plus, Radio, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -12,13 +13,15 @@ import AlertList from '@/components/dashboard/AlertList';
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
-import { base44 } from '@/api/base44Client';
+import { base44, request } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
 import { METRIC_KEYS, metric as metricDef } from '@/lib/metrics';
 import { readingsForRoom, roomSeries } from '@/lib/roomMetrics';
 
 export default function Sensors() {
-  const data = useD21Data();
+  const scope = useBuildingScope();
+  const buildingIDs = scope.readable('sensors').map(row => row.id).join(',');
+  const data = useD21Data('', { buildingIDs });
   const { toast } = useToast();
   const [roomFilter, setRoomFilter] = useState('all');
   const [metricKey, setMetricKey] = useState('temperature');
@@ -44,8 +47,9 @@ export default function Sensors() {
   const runCheck = async () => {
     setRunning(true);
     try {
-      const response = await base44.functions.invoke('runThresholdCheck', { sinceHours: 4 });
-      const payload = response?.data || {};
+      const payload = await request('/twin-functions/runThresholdCheck', {
+        method: 'POST', body: { sinceHours: 4 }, headers: { 'X-D21-Buildings': buildingIDs || 'none' },
+      });
       toast({ title: 'Prüflauf abgeschlossen', description: payload.message || 'Prüflauf wurde ausgeführt.' });
       await data.reload();
     } catch (e) {
