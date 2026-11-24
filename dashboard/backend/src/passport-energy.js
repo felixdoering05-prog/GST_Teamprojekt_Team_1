@@ -135,7 +135,7 @@ async function getPassportEnergy(db, req, res) {
     return res.status(404).json({ error: 'Gebäude nicht gefunden oder Energiedaten nicht freigegeben.' });
   }
   filters.reference = candidates.some((row) => String(row.id) === filters.building && row.code === reference.building.code);
-  const includeUnassigned = !req.teamScope || (req.teamScope.is_owner && req.teamScope.is_default);
+  const includeUnassigned = !req.teamScope || (!req.teamScope.hasBuildingFilter && req.teamScope.is_owner && req.teamScope.is_default);
   const records = (await db.query(`SELECT id,data FROM app_twin_records WHERE entity='EnergyReading' AND (
     data->>'building_id'=ANY($1::text[]) OR ($2::boolean AND user_id=$3 AND data->>'building_id' IS NULL)
   ) ORDER BY created_at,id`, [buildings.map((row) => row.id), includeUnassigned, userID])).rows;
