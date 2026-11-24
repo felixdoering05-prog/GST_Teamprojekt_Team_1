@@ -131,6 +131,10 @@ struct NativeTeamDetail: View {
     @State private var assignBuilding = false
     @State private var logoRevision = 0
     @State private var assigningBuilding = false
+    @State private var contactMember: NativeOrganisationMember?
+    @State private var editingContact = false
+    @State private var inviting = false
+    @Environment(\.dismiss) private var dismissDetail
     private var value: NativeTeam { current ?? team }
     var body: some View {
         List {
@@ -149,6 +153,7 @@ struct NativeTeamDetail: View {
             if current != nil {
                 Section {
                     ForEach(members) { member in
+                        Button { if member.status == "accepted" { contactMember = member } } label: {
                         HStack(spacing: 12) {
                             ContactInitials(name: member.name, id: member.id, size: 38)
                             VStack(alignment: .leading, spacing: 3) {
@@ -156,10 +161,15 @@ struct NativeTeamDetail: View {
                                 if let title = member.title { Text(title).font(.subheadline).foregroundStyle(d21Accent) }
                                 Text(member.role + (member.status == "pending" ? " · Einladung offen" : "")).font(.caption).foregroundStyle(.secondary)
                             }
-                        }
+                            Spacer(minLength: 0)
+                            if member.status == "accepted" { Image(systemName: "phone.circle").font(.title3).foregroundStyle(.secondary) }
+                        }.contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityHint(member.status == "accepted" ? "Kontaktdaten anzeigen" : "")
                     }
+                    if value.is_owner && value.buildings.contains(where: { $0.owner_id == value.owner_id }) { Button("Mitglied einladen", systemImage: "person.badge.plus") { inviting = true } }
+                    Button("Meine Kontaktdaten", systemImage: "phone.badge.checkmark") { editingContact = true }
                     if value.can_manage { Button("Titel & Zuständigkeiten", systemImage: "person.text.rectangle") { managingTitles = true } }
-                } header: { Text("Teammitglieder") } footer: { Text("Jede Person erscheint einmal. Titel beschreiben Zuständigkeiten und ändern keine Zugriffsrechte.") }
+                } header: { Text("Teammitglieder") } footer: { Text("Jede Person erscheint einmal. Tippe auf ein Mitglied für Telefon und E-Mail, sofern es sie mit dem Team teilt. Titel beschreiben Zuständigkeiten und ändern keine Zugriffsrechte.") }
                 Section {
                     ForEach(groups) { group in
                         NavigationLink { NativeGroupDetail(team: value, group: group, account: account) } label: {
@@ -184,7 +194,10 @@ struct NativeTeamDetail: View {
             .navigationTitle("Teamübersicht").navigationBarTitleDisplayMode(.inline)
             .toolbar { if current?.can_manage == true { Button("Bearbeiten", systemImage: "pencil") { editing = true } } }
             .task { await load() }.refreshable { await load() }
-            .sheet(isPresented: $editing, onDismiss: { Task { await load() } }) { NativeTeamEditor(team: value, account: account) }
+            .sheet(isPresented: $editing, onDismiss: { Task { await load() } }) { NativeTeamEditor(team: value, account: account, onDeleted: { dismissDetail() }) }
+            .sheet(item: $contactMember) { member in NativeMemberContactSheet(team: value, member: member, account: account).presentationDetents([.medium]) }
+            .sheet(isPresented: $editingContact) { NativeTeamContactEditor(account: account) }
+            .sheet(isPresented: $inviting, onDismiss: { Task { await load() } }) { NativeTeamInviteSheet(team: value, members: members, account: account) }
             .sheet(isPresented: $addGroup, onDismiss: { Task { await load() } }) { NativeGroupEditor(team: value, group: nil, account: account) }
             .sheet(isPresented: $assignBuilding, onDismiss: { Task { await load() } }) { buildingAssignment }
             .sheet(isPresented: $managingTitles, onDismiss: { Task { await load() } }) { NativeTeamTitlesView(team: value, account: account) }
@@ -233,8 +246,10 @@ struct NativeTeamEditor: View {
     @State private var removeLogo = false
     @State private var problem: String?
     @State private var busy = false
-    init(team: NativeTeam?, account: AccountModel) {
-        self.team = team; self.account = account
+    @State private var confirmDelete = false
+    var onDeleted: (() -> Void)? = nil
+    init(team: NativeTeam?, account: AccountModel, onDeleted: (() -> Void)? = nil) {
+        self.team = team; self.account = account; self.onDeleted = onDeleted
         _name = State(initialValue: team?.name ?? "")
         _primary = State(initialValue: teamColor(team?.primary_color ?? "#596b3d"))
         _accent = State(initialValue: teamColor(team?.accent_color ?? "#cbd5a3"))
@@ -258,7 +273,15 @@ struct NativeTeamEditor: View {
                     }
                 }
                 if let problem { Section { TeamProblem(message: problem) } }
+                if let team, team.is_owner, team.is_default != true {
+                    Section {
+                        Button("Team entfernen", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    } footer: { Text("Team, Logo, Design, Titel und Gebäudegruppen werden dauerhaft entfernt. Die Gebäude bleiben erhalten und kommen in dein Standardteam.") }
+                }
             }.navigationTitle(team == nil ? "Neues Team" : "Team bearbeiten")
+                .confirmationDialog("„\(team?.name ?? "")“ unwiderruflich entfernen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Team entfernen", role: .destructive) { Task { await deleteTeam() } }
+                } message: { Text("Das lässt sich nicht rückgängig machen. Die Gebäude bleiben erhalten.") }
                 .disabled(busy)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(busy) }
@@ -279,6 +302,11 @@ struct NativeTeamEditor: View {
             }
             logo = jpeg; removeLogo = false; problem = nil
         } catch { problem = error.localizedDescription }
+    }
+    private func deleteTeam() async {
+        guard let team, !busy else { return }; busy = true; defer { busy = false }
+        do { let _: LogoutResult = try await account.request("teams/\(team.id)", method: "DELETE"); dismiss(); onDeleted?() }
+        catch { problem = error.localizedDescription }
     }
     private func save() async {
         guard !busy else { return }; busy = true; defer { busy = false }

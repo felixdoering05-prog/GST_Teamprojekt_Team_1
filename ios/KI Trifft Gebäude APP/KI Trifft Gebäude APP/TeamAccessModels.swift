@@ -13,6 +13,7 @@ struct NativeTeam: Decodable, Identifiable {
     let can_manage_groups: Bool
     let buildings: [NativeTeamBuilding]
     var background_color: String? = nil
+    var is_default: Bool? = nil
 }
 
 struct NativeOrganisationMember: Decodable, Identifiable {
