@@ -76,6 +76,7 @@ function moduleForBuildingPath(parts) {
   if (area === 'plan-conversion') return 'settings';
   if (area === 'structure') return 'structure';
   if (['telemetry','sensor-devices','devices','sensors'].includes(area)) return 'sensors';
+  if (area === 'schedules') return 'schedule';
   if (area === 'energy') return 'energy';
   if (area === 'analysis') return 'analysis';
   if (area === 'assistant') return 'assistant';
