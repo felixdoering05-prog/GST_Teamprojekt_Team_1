@@ -209,9 +209,9 @@ function twinRouter(db,requireAccount) {
   const body=req.body||{};const read=['list','filter','count'].includes(action);
   const module={Building:'buildings',Floor:'structure',Room:'structure',Sensor:'sensors',Measurement:'sensors',EnergyReading:'energy',Alert:'issues',ThresholdConfig:'sensors'}[entity];
   async function scopedStorage(connection,operation){
-   const rows=(await connection.query(`SELECT b.id,b.user_id FROM app_buildings b WHERE b.user_id=$1 OR EXISTS(
-    SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted')
-    AND ($2::int IS NULL OR b.team_id=$2)`,[req.account.id,req.teamScope?.id??null])).rows;
+   const rows=(await connection.query(`SELECT b.id,b.user_id FROM app_buildings b WHERE (b.user_id=$1 OR EXISTS(
+    SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted'))
+    AND ($2::int[] IS NULL OR b.id=ANY($2::int[]))`,[req.account.id,req.teamScope?.buildingIDs??null])).rows;
    const buildingIDs=[],ownerIds=new Set([Number(req.account.id)]),ownerByBuilding={};
    for(const row of rows){
     const access=await buildingAccess(connection,Number(row.id),req.account.id);
@@ -310,7 +310,10 @@ function twinRouter(db,requireAccount) {
     return seedPassportEnergy(service(client,req.account.id,{teamID,buildingIDs:buildings.map(row=>row.id)}));
    }
    const sinceHours=Math.min(72,Math.max(1,Number(req.body?.sinceHours)||4));
-   const r=await runThresholdCheck(api,{sinceHours});
+   const thresholdAPI=req.teamScope?.hasBuildingFilter
+    ? service(client,req.account.id,{buildingIDs:req.teamScope.buildingIDs})
+    : api;
+   const r=await runThresholdCheck(thresholdAPI,{sinceHours});
    return {checked:r.checkedSensors,sensors_total:r.sensorsTotal,created:r.created,resolved:r.resolved,violations:r.violations,window_hours:r.windowHours,message:`${r.violations.length} Grenzwertüberschreitungen, ${r.created} neue Meldungen.`};
   });res.json(result);
  }));

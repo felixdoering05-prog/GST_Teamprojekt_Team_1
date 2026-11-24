@@ -1,12 +1,11 @@
+import { useBuildingScope } from '@/hooks/useBuildingScope';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { SelectField, TextAreaField, TextField } from '@/components/Field';
 import PageHeader from '@/components/PageHeader';
-import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
-import { useBuildingSelection } from '@/hooks/useBuildingSelection';
 import { request } from '@/api/base44Client';
 import { formatDateShort, formatDateTime } from '@/lib/dates';
 
@@ -195,13 +194,19 @@ function OperationsContent({ building, mode, selectedAsset, initialTask }) {
 }
 
 export default function Operations({ mode }) {
-  const selection = useBuildingSelection();
-  const { building, params } = selection;
-  const asset = params.get('asset');
-  const task = params.get('task');
+  const scope = useBuildingScope();
+  const [params] = useSearchParams();
+  const buildings = scope.readable('maintenance');
   return <div className="space-y-5">
-    <PageHeader title={mode === 'assets' ? 'Technische Anlagen' : 'Wartungen'} description={mode === 'assets' ? 'Anlagen, Standorte und Wartungstermine im gewählten Gebäude.' : 'Fälligkeiten, Bearbeitungsstatus und Wartungshistorie.'} />
-    <BuildingSectionSelect selection={selection} />
-    {building && <OperationsContent key={[building.id, mode, asset, task].join('/')} building={building.id} mode={mode} selectedAsset={asset} initialTask={task} />}
+    <PageHeader title={mode === 'assets' ? 'Technische Anlagen' : 'Wartungen'} />
+    {buildings.map(building => {
+      const detail = params.get('building') === String(building.id);
+      const asset = detail ? params.get('asset') : null;
+      const task = detail ? params.get('task') : null;
+      return <section key={building.id} className="space-y-3">
+        {buildings.length > 1 && <h2 className="font-semibold">{building.name}</h2>}
+        <OperationsContent key={[building.id, mode, asset, task].join('/')} building={building.id} mode={mode} selectedAsset={asset} initialTask={task} />
+      </section>;
+    })}
   </div>;
 }

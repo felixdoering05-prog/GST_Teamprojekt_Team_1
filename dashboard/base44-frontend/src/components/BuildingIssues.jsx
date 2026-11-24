@@ -1,3 +1,4 @@
+import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -217,24 +218,23 @@ export default function BuildingIssues({ editable = false }) {
   const [adding, setAdding] = useState(false);
   const trigger = useRef(null);
   const heading = useRef(null);
-  const buildings = useQuery({
-    queryKey: ['issue-buildings', user.id], queryFn: () => request('/buildings'), refetchInterval: 15000, gcTime: 0,
-  });
-  const authorizedBuildings = buildings.isError ? [] : buildings.data || [];
-  const selectedBuilding = authorizedBuildings.some(building => String(building.id) === buildingFilter) ? buildingFilter : 'all';
+  const scope = useBuildingScope();
+  const authorizedBuildings = scope.readable('issues');
+  const headers = buildingScopeHeaders(authorizedBuildings);
+  const selectedBuilding = authorizedBuildings.length === 1 ? String(authorizedBuildings[0].id) : authorizedBuildings.some(building => String(building.id) === buildingFilter) ? buildingFilter : 'all';
   const activeBuilding = authorizedBuildings.find(row => String(row.id) === selectedBuilding) ||
     authorizedBuildings.find(row => String(row.id) === localStorage.getItem('d21-selected-building')) || authorizedBuildings[0];
   const access = useQuery({ queryKey: ['building-team-access', String(activeBuilding?.id)], enabled: editable && !!activeBuilding,
     queryFn: () => request('/buildings/' + activeBuilding.id + '/team-access'), retry: false });
   const mayCreate = access.data?.is_owner || access.data?.actor_role?.permissions?.issues === 'edit';
   const query = useInfiniteQuery({
-    queryKey: ['building-issue-pages', user.id, selectedBuilding, filter],
+    queryKey: ['building-issue-pages', user.id, headers['X-D21-Buildings'], selectedBuilding, filter],
     queryFn: ({ pageParam }) => {
       const filters = new URLSearchParams();
       if (selectedBuilding !== 'all') filters.set('building_id', selectedBuilding);
       if (filter !== 'all') filters.set('status', filter);
       if (pageParam) filters.set('before', pageParam);
-      return request(`/issues?${filters}`);
+      return request(`/issues?${filters}`, { headers });
     },
     initialPageParam: null,
     getNextPageParam: page => page.next_before,
@@ -258,7 +258,7 @@ export default function BuildingIssues({ editable = false }) {
         {editable && mayCreate && <Button onClick={() => setAdding(true)}>Mangel erfassen</Button>}
         <select className="titan-select w-auto max-w-full" aria-label="Gebäude filtern" value={selectedBuilding}
           onChange={event => { setBuildingFilter(event.target.value); setLimit(25); }}>
-          <option value="all">Alle Gebäude</option>
+          {authorizedBuildings.length !== 1 && <option value="all">Alle Gebäude</option>}
           {authorizedBuildings.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
         </select>
         <select className="titan-select w-auto" aria-label="Meldungsstatus filtern" value={filter} onChange={event => { setFilter(event.target.value); setLimit(25); }}>
@@ -288,7 +288,7 @@ export default function BuildingIssues({ editable = false }) {
         }
         setLimit(value => value + 25);
       }}>Mehr anzeigen</Button>}
-    {limitedId(building) && limitedId(id) && <IssueDialog key={`${building}/${id}`} building={building} id={id} close={close}
+    {authorizedBuildings.some(row => String(row.id) === building) && limitedId(id) && <IssueDialog key={`${building}/${id}`} building={building} id={id} close={close}
       restoreFocus={() => (trigger.current?.isConnected ? trigger.current : heading.current)?.focus()} />}
     {adding && activeBuilding && <CreateIssue buildings={authorizedBuildings} activeBuilding={activeBuilding} close={() => setAdding(false)} created={row => {
       setAdding(false);

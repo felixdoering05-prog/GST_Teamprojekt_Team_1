@@ -1,5 +1,5 @@
 const express=require('express');
-const {buildingAccess,ensureBuildingRoles}=require('./team-permissions');
+const {buildingAccess,can,ensureBuildingRoles}=require('./team-permissions');
 const MAX_LOGO=2*1024*1024;
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const idOK=value=>/^[1-9]\d*$/.test(String(value||''))&&Number(value)<=2147483647;
@@ -76,6 +76,15 @@ function teamScopeMiddleware(db){
    const team=await accessibleTeam(db,Number(raw),req.account.id);
    if(!team)return res.status(404).json({error:'Team nicht gefunden.'});
    req.teamScope={id:team.id,owner_id:team.owner_id,is_owner:team.is_owner,is_default:team.is_default,buildingIDs:team.buildings.map(row=>Number(row.id))};
+   const buildingFilter = req.get('X-D21-Buildings');
+   if (buildingFilter) {
+    if (buildingFilter !== 'none' && !/^[1-9]\d{0,9}(,[1-9]\d{0,9})*$/.test(buildingFilter)) {
+     return res.status(400).json({error:'Ungültige Gebäude-Auswahl.'});
+    }
+    const selected = new Set(buildingFilter.split(',').map(Number));
+    req.teamScope.buildingIDs = req.teamScope.buildingIDs.filter(id => selected.has(id));
+    req.teamScope.hasBuildingFilter = true;
+   }
    next();
   }catch(error){next(error);}
  };
@@ -98,6 +107,29 @@ function teamsRouter(db,requireAccount){
     ORDER BY t.is_default DESC,t.id`,[req.account.id])).rows;
   const teams=[];for(const row of rows){const team=await accessibleTeam(db,Number(row.id),req.account.id);if(team)teams.push(team);}
   res.json(teams);
+ }));
+ r.get('/teams/:teamID/building-navigation',requireAccount,wrap(async(req,res)=>{
+  const team=await currentTeam(req,res);if(!team)return;
+  const ids=team.buildings.map(building=>Number(building.id));
+  const contents=(await db.query(`SELECT b.id,
+    EXISTS(SELECT 1 FROM app_twin_records t WHERE t.entity='Sensor' AND t.data->>'building_id'=b.id::text) AS sensors,
+    EXISTS(SELECT 1 FROM app_twin_records t WHERE t.entity='EnergyReading' AND t.data->>'building_id'=b.id::text) AS energy,
+    EXISTS(SELECT 1 FROM app_technical_assets a WHERE a.building_id=b.id) AS assets,
+    EXISTS(SELECT 1 FROM app_maintenance m WHERE m.building_id=b.id) AS maintenance,
+    EXISTS(SELECT 1 FROM app_building_issues i WHERE i.building_id=b.id) AS issues,
+    EXISTS(SELECT 1 FROM app_twin_records t WHERE t.entity='Alert' AND t.data->>'building_id'=b.id::text) AS alerts,
+    EXISTS(SELECT 1 FROM app_building_schedules s WHERE s.building_id=b.id) AS schedule
+    FROM app_buildings b WHERE b.id=ANY($1::int[])`,[ids])).rows;
+  const rows=await Promise.all(contents.map(async({id,...content})=>{
+   const access=await buildingAccess(db,id,req.account.id);
+   if(!access)return null;
+   for(const category of Object.keys(content)){
+    const module=category==='alerts'?'issues':category==='assets'?'maintenance':category;
+    content[category]=can(access,module,'read')&&content[category];
+   }
+   return {id,content,is_owner:access.is_owner,permissions:access.role?.permissions||{}};
+  }));
+  res.set('Cache-Control','private, no-store').json(rows.filter(Boolean));
  }));
  r.post('/teams',requireAccount,wrap(async(req,res)=>{
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';

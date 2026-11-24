@@ -1,3 +1,4 @@
+import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
 import { useEffect, useState } from 'react';
 import { BellRing, Check, CheckCircle2, RefreshCw, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -9,7 +10,7 @@ import { AlertRow } from '@/components/dashboard/AlertList';
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
-import { base44 } from '@/api/base44Client';
+import { base44, request } from '@/api/base44Client';
 
 const TABS = [
   { key: 'offen', label: 'Offen' },
@@ -19,6 +20,9 @@ const TABS = [
 ];
 
 export default function Alerts() {
+  const scope = useBuildingScope();
+  const buildings = scope.readable('issues');
+  const headers = buildingScopeHeaders(buildings);
   const { toast } = useToast();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,9 +35,15 @@ export default function Alerts() {
 
   const load = async () => {
     setLoading(true);
-    const rows = await base44.entities.Alert.list('-triggered_at', 500);
-    setAlerts(rows || []);
-    setLoading(false);
+    try {
+      const rows = await request('/twin/Alert/list', { method: 'POST', body: { sort: '-triggered_at', limit: 500 }, headers });
+      const ids = new Set(buildings.map(row => String(row.id)));
+      setAlerts(rows.filter(row => ids.has(String(row.building_id))));
+    } catch (error) {
+      toast({ title: 'Meldungen konnten nicht geladen werden', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -80,8 +90,9 @@ export default function Alerts() {
   const runCheck = async () => {
     setRunning(true);
     try {
-      const response = await base44.functions.invoke('runThresholdCheck', { sinceHours: 4 });
-      const payload = response?.data || {};
+      const payload = await request('/twin-functions/runThresholdCheck', {
+        method: 'POST', body: { sinceHours: 4 }, headers: headers,
+      });
       toast({ title: 'Prüflauf abgeschlossen', description: payload.message || 'Prüflauf wurde ausgeführt.' });
       await load();
     } catch (e) {

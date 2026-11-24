@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+import { BuildingScopeContext } from '@/hooks/useBuildingScope';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   BellRing,
@@ -65,11 +67,11 @@ const NAV_GROUPS = [
 const ADMIN_NAV = { path: '/verwaltung', label: 'Serververwaltung', icon: ShieldCheck, hint: 'Serverkapazität, API-Nutzung und Konten' };
 const ALL_NAV = [...NAV_GROUPS.flatMap((group) => group.items), ADMIN_NAV];
 
-function NavItems({ onNavigate, isAdmin, permissions }) {
+function NavItems({ onNavigate, isAdmin, permissions, hiddenPaths }) {
   return (
     <nav aria-label="Hauptnavigation" className="space-y-4 px-3">
       {NAV_GROUPS.map((group) => {
-        const items=group.items.filter(item=>item.module==='teamRights'?permissions?.teamRights===true:!item.module||permissions===null||permissions[item.module]!=='none');
+        const items=group.items.filter(item=>!hiddenPaths.has(item.path)).filter(item=>item.module==='teamRights'?permissions?.teamRights===true:!item.module||permissions[item.module]!=='none');
         return items.length>0&&(
         <div key={group.label}>
           <p className="shell-nav-heading">{group.label}</p>
@@ -107,10 +109,9 @@ function NavItems({ onNavigate, isAdmin, permissions }) {
   );
 }
 
-function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }) {
+function SidebarBody({ onNavigate, scope, activeTeam, teams, teamID, onTeam }) {
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [permissions,setPermissions]=useState(null);
 
   useEffect(() => {
     request('/admin/me').then(data=>setIsAdmin(data.admin)).catch(()=>setIsAdmin(false));
@@ -119,27 +120,6 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }
       .then((u) => setEmail(u?.email || ''))
       .catch(() => setEmail(''));
   }, []);
-  useEffect(()=>{
-    let active=true;
-    const load=async()=>{
-      try{
-        const teams=await request('/teams');
-        const selectedID=localStorage.getItem('d21-selected-team');
-        const team=teams.find(row=>String(row.id)===selectedID);
-        const teamRights=!!team&&(team.is_owner===true||team.can_manage_groups===true);
-        const buildings=team?.buildings||[];
-        if(!buildings.length){if(active)setPermissions({teamRights});return;}
-        const preferred=localStorage.getItem('d21-selected-building');
-        const building=buildings.find(row=>String(row.id)===preferred)||buildings[0];
-        const access=await request(`/buildings/${building.id}/team-access`);
-        if(active)setPermissions({...(!access.is_owner?access.actor_role?.permissions||{}:{}),teamRights});
-      }catch{if(active)setPermissions({teamRights:false});}
-    };
-    load();
-    window.addEventListener('d21-building-change',load);
-    window.addEventListener('d21-team-change',load);
-    return()=>{active=false;window.removeEventListener('d21-building-change',load);window.removeEventListener('d21-team-change',load);};
-  },[scopeKey]);
 
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
@@ -155,10 +135,25 @@ function SidebarBody({ onNavigate, scopeKey, activeTeam, teams, teamID, onTeam }
         {activeTeam?.has_logo && <TeamLogo id={activeTeam.id} name={activeTeam.name} />}
       </div>
 
-      {teams?.length>0&&<div className="px-5 pb-4"><TeamSwitcher wide teams={teams} teamID={teamID} onChange={onTeam}/></div>}
+      {activeTeam && <div className="space-y-3 px-5 pb-4">
+        <TeamSwitcher wide teams={teams} teamID={teamID} onChange={onTeam} />
+        <label className="grid gap-1 text-xs font-medium">
+          Gebäude oder Gebäudegruppe
+          <select className="w-full rounded-xl border border-border bg-background px-3 py-2"
+            value={scope.value} onChange={event => { scope.choose(event.target.value); onNavigate?.(); }}>
+            <option value="all">Alle Gebäude</option>
+            <optgroup label="Gebäudegruppen">
+              {scope.groups.map(group => <option key={group.id} value={'group:' + group.id}>{group.name}</option>)}
+            </optgroup>
+            <optgroup label="Gebäude">
+              {activeTeam.buildings.map(building => <option key={building.id} value={'building:' + building.id}>{building.name}</option>)}
+            </optgroup>
+          </select>
+        </label>
+      </div>}
       <div className="shell-divider mx-5 mb-2 h-px" />
       <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
-        <NavItems isAdmin={isAdmin} onNavigate={onNavigate} permissions={permissions} />
+        <NavItems isAdmin={isAdmin} onNavigate={onNavigate} permissions={scope.permissions} hiddenPaths={scope.hiddenPaths} />
       </div>
 
       <div className="shell-account border-t px-4 py-3" title="Datenquelle: Projektserver · eigene Daten">
@@ -194,12 +189,93 @@ function TeamSwitcher({teams,teamID,onChange,wide=false}){
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const current = ALL_NAV.find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || ALL_NAV[0];
-  const [teams,setTeams]=useState([]),[teamID,setTeamID]=useState(()=>localStorage.getItem('d21-selected-team')||'');
-  useEffect(()=>{let active=true;request('/teams').then(rows=>{if(!active)return;setTeams(rows);const saved=localStorage.getItem('d21-selected-team');const chosen=rows.some(row=>String(row.id)===saved)?saved:String(rows[0]?.id||'');setTeamID(chosen);if(chosen&&chosen!==saved){localStorage.setItem('d21-selected-team',chosen);window.dispatchEvent(new Event('d21-team-change'));}}).catch(()=>{});return()=>{active=false}},[]);
-  const activeTeam=teams.find(row=>String(row.id)===teamID);
-  function chooseTeam(id){setTeamID(id);localStorage.setItem('d21-selected-team',id);const team=teams.find(row=>String(row.id)===id);document.documentElement.style.setProperty('--primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--ring',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--sidebar-primary',hexHsl(team?.primary_color));document.documentElement.style.setProperty('--accent',hexHsl(team?.accent_color));if(team?.background_color)document.documentElement.style.setProperty('--team-background',hexHsl(team.background_color));else document.documentElement.style.removeProperty('--team-background');window.dispatchEvent(new Event('d21-team-change'));}
-  useEffect(()=>{if(activeTeam)chooseTeam(String(activeTeam.id));},[activeTeam?.id,activeTeam?.primary_color,activeTeam?.accent_color,activeTeam?.background_color]);
+  const [teamID, setTeamID] = useState(() => localStorage.getItem('d21-selected-team') || '');
+  const [selection, setSelection] = useState(() => localStorage.getItem('d21-building-scope:' + teamID) || 'all');
+  const teamQuery = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
+  const teams = teamQuery.data || [];
+  const activeTeam = teams.find(row => String(row.id) === teamID);
+  function chooseTeam(id) {
+    localStorage.setItem('d21-selected-team', id);
+    setTeamID(id);
+    setSelection(localStorage.getItem('d21-building-scope:' + id) || 'all');
+  }
+  useEffect(() => {
+    if (teamQuery.isSuccess && !activeTeam && teams.length) chooseTeam(String(teams[0].id));
+  }, [teamQuery.isSuccess, activeTeam, teams]);
+  useEffect(() => {
+    for (const [property, color] of [
+      ['--primary', activeTeam?.primary_color], ['--ring', activeTeam?.primary_color],
+      ['--sidebar-primary', activeTeam?.primary_color], ['--accent', activeTeam?.accent_color],
+      ['--team-background', activeTeam?.background_color],
+    ]) {
+      if (color) document.documentElement.style.setProperty(property, hexHsl(color));
+      else document.documentElement.style.removeProperty(property);
+    }
+  }, [activeTeam]);
+
+  const groupQuery = useQuery({
+    queryKey: ['building-groups', teamID],
+    queryFn: () => request('/teams/' + teamID + '/groups'),
+    enabled: !!activeTeam,
+  });
+  const groups = (groupQuery.data || []).filter(group => group.buildings.length);
+  const group = groups.find(row => selection === 'group:' + row.id);
+  const single = activeTeam?.buildings.find(row => selection === 'building:' + row.id);
+  const value = single || group ? selection : 'all';
+  const buildings = single ? [single] : group ? group.buildings : activeTeam?.buildings || [];
+  const navigation = useQuery({
+    queryKey: ['building-navigation', teamID],
+    queryFn: () => request('/teams/' + teamID + '/building-navigation'),
+    enabled: !!activeTeam,
+  });
+  const accessByBuilding = new Map((navigation.data || []).map(row => [String(row.id), row]));
+  function readable(module) {
+    return buildings.filter(building => {
+      const access = accessByBuilding.get(String(building.id));
+      const level = access?.permissions?.[module];
+      return access?.is_owner || level === 'read' || level === 'edit';
+    });
+  }
+  function showContent(module, ...categories) {
+    return readable(module).some(building => {
+      const access = accessByBuilding.get(String(building.id));
+      return access.is_owner || access.permissions[module] === 'edit'
+        || categories.some(category => access.content[category]);
+    });
+  }
+  const permissions = Object.fromEntries(ALL_NAV.filter(item => item.module).map(item =>
+    [item.module, readable(item.module).length ? 'read' : 'none']));
+  const hiddenPaths = new Set([
+    ['/sensorik', showContent('sensors', 'sensors')],
+    ['/energie', showContent('energy', 'energy')],
+    ['/betrieb/technische-anlagen', showContent('maintenance', 'assets')],
+    ['/betrieb/wartungen', showContent('maintenance', 'maintenance')],
+    ['/issues', showContent('issues', 'issues')],
+    ['/meldungen', showContent('issues', 'issues', 'alerts')],
+    ['/zeitplanung', showContent('schedule', 'schedule')],
+  ].filter(([, visible]) => !visible).map(([path]) => path));
+  permissions.teamRights = !!(activeTeam?.is_owner || activeTeam?.can_manage_groups);
+  // The building overview remains the entry point for creating the first building.
+  if (activeTeam?.is_owner && !activeTeam.buildings.length) permissions.buildings = 'read';
+  const ready = teamQuery.isSuccess && (!teams.length || !!activeTeam)
+    && (!selection.startsWith('group:') || !groupQuery.isPending || !activeTeam)
+    && (!activeTeam || !navigation.isPending);
+  const scopeError = navigation.error || (selection.startsWith('group:') ? groupQuery.error : null);
+  const scope = {
+    value, groups, readable, permissions, hiddenPaths,
+    choose(next) {
+      localStorage.setItem('d21-building-scope:' + teamID, next);
+      setSelection(next);
+      const params = new URLSearchParams(location.search);
+      for (const key of ['building', 'unit', 'offset', 'issue', 'asset', 'task']) params.delete(key);
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    },
+  };
+  const forbidden = current.module === 'teamRights' ? !permissions.teamRights
+    : hiddenPaths.has(current.path) || (current.module && permissions[current.module] === 'none');
+  const fallback = ALL_NAV.find(item => !item.module || permissions[item.module] === 'read');
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
@@ -212,7 +288,7 @@ export default function AppLayout() {
     <div className="glass-app min-h-screen">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="shell-sidebar fixed z-40 hidden lg:block">
-        <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.reload();}}/>
+        <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.assign(location.pathname);}}/>
       </aside>
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -223,7 +299,7 @@ export default function AppLayout() {
             <Dialog.Close aria-label="Menü schließen" className="shell-icon-button absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="h-4 w-4" />
             </Dialog.Close>
-            <SidebarBody scopeKey={`${location.pathname}${location.search}${teamID}`} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.reload();}} onNavigate={() => setOpen(false)} />
+            <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.assign(location.pathname);}} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
 
@@ -242,12 +318,17 @@ export default function AppLayout() {
               <p className="hidden truncate text-[10px] text-muted-foreground sm:block">{current.hint}</p>
             </div>
 
-            <TeamSwitcher teams={teams} teamID={teamID} onChange={id=>{chooseTeam(id);window.location.reload();}}/>
+            <TeamSwitcher teams={teams} teamID={teamID} onChange={id=>{chooseTeam(id);window.location.assign(location.pathname);}}/>
           </div>
         </header>
 
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 pb-7 pt-2 focus:outline-none sm:px-6 sm:pb-9 lg:px-7 lg:pt-7">
-          <Outlet />
+          {(teamQuery.isError || scopeError) ? <p role="alert">{(teamQuery.error || scopeError).message}</p>
+            : !ready ? <p role="status">Gebäudezugriff wird geladen …</p>
+            : forbidden ? <Navigate to={fallback.path} replace />
+            : <BuildingScopeContext.Provider value={scope} key={[teamID, value, ...buildings.map(building => building.id)].join('/')}>
+                <Outlet />
+              </BuildingScopeContext.Provider>}
         </main>
       </div>
       </Dialog.Root>
