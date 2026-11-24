@@ -1,3 +1,4 @@
+import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -176,8 +177,13 @@ export default function Energy() {
   const [dialog, setDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const { toast } = useToast();
-  const building = params.get('building') || '';
-  const unit = params.get('unit') || '';
+  const selection = useBuildingScope();
+  const buildings = selection.readable('energy');
+  const headers = buildingScopeHeaders(buildings);
+  const requestedBuilding = params.get('building');
+  const building = buildings.length === 1 ? String(buildings[0].id)
+    : buildings.some(row => String(row.id) === requestedBuilding) ? requestedBuilding : '';
+  const unit = building === requestedBuilding ? params.get('unit') || '' : '';
   const months = params.get('months') || '12';
   const source = params.get('source') || '';
   const end = params.get('end') || '';
@@ -186,8 +192,8 @@ export default function Energy() {
   const queryParams = new URLSearchParams({ building, unit, months, source, medium, offset: String(offset), ...(end ? { end } : {}) });
 
   const energy = useQuery({
-    queryKey: ['energy-consumption', scope, queryParams.toString()],
-    queryFn: () => request('/energy-consumption?' + queryParams),
+    queryKey: ['energy-consumption', scope, headers['X-D21-Buildings'], queryParams.toString()],
+    queryFn: () => request('/energy-consumption?' + queryParams, { headers }),
     enabled: validMedium,
     retry: false,
   });
@@ -253,8 +259,8 @@ export default function Energy() {
   const buildingName = (id) => data?.buildings.find((row) => row.id === id)?.name || 'Ohne Gebäudezuordnung';
   const editableBuildings = data?.buildings.filter((row) => row.can_edit) || [];
   const visibleMedia = [...new Set([...(data?.media || Object.keys(ENERGY_MEDIA).slice(0, 4)), ...(validMedium && medium ? [medium] : [])])];
-  const buildingOptions = [{ ...ALL, label: 'Alle Gebäude' }, ...(data?.buildings || []).map((row) => ({ value: row.id, label: row.name }))];
-  if (data?.has_unassigned) buildingOptions.push({ value: 'unassigned', label: 'Ohne Gebäudezuordnung' });
+  const buildingOptions = [...(buildings.length === 1 ? [] : [{ ...ALL, label: 'Alle Gebäude' }]), ...(data?.buildings || []).map((row) => ({ value: row.id, label: row.name }))];
+
   const title = validMedium && medium ? ENERGY_MEDIA[medium][0] : 'Energie';
   return (
     <div className="space-y-5">
