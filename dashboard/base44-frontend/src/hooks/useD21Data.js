@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { request } from '@/api/base44Client';
 import { DEFAULT_THRESHOLDS } from '@/lib/metrics';
 
 const HOUR = 3600 * 1000;
@@ -27,7 +27,7 @@ const EMPTY = {
  * Gebäude, Geschosse, Räume, Sensoren, Grenzwerte, Meldungen und
  * die Messwerte der letzten 24 Stunden.
  */
-export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } = {}) {
+export default function useD21Data(requestedBuildingID = '', { refreshMs = 0, buildingIDs } = {}) {
   const [state, setState] = useState(EMPTY);
   const request = useRef(0); // nur die Antwort der jüngsten Abfrage übernehmen
   const busy = useRef(false);
@@ -42,13 +42,20 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } =
     try {
       const since = new Date(Date.now() - SERIES_HOURS * HOUR).toISOString();
 
+      const scoped = buildingIDs !== undefined;
+      const ids = new Set(scoped ? buildingIDs.split(',').filter(Boolean) : []);
+      const read = (entity, action, body) => request('/twin/' + entity + '/' + action, {
+        method: 'POST', body, headers: scoped ? { 'X-D21-Buildings': buildingIDs || 'none' } : {},
+      });
+      const list = (entity, sort, limit) => read(entity, 'list', { sort, limit });
+      const filter = (entity, filter, options) => read(entity, 'filter', { filter, options });
       const [buildings, floors, rooms, sensors, thresholdRows, alertPage] = await Promise.all([
-        base44.entities.Building.list('-created_date', 500),
-        base44.entities.Floor.list('level', 100),
-        base44.entities.Room.list('room_code', 500),
-        base44.entities.Sensor.list('sensor_code', 500),
-        base44.entities.ThresholdConfig.list('metric', 20),
-        base44.entities.Alert.filter({ status: { $ne: 'erledigt' } }, { sort: '-triggered_at', limit: 200 }),
+        list('Building', '-created_date', 500),
+        list('Floor', 'level', 100),
+        list('Room', 'room_code', 500),
+        list('Sensor', 'sensor_code', 500),
+        list('ThresholdConfig', 'metric', 20),
+        filter('Alert', { status: { $ne: 'erledigt' } }, { sort: '-triggered_at', limit: 200 }),
       ]);
 
       const series = [];
@@ -58,7 +65,7 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } =
       while (hasMore && pages < MAX_PAGES) {
         const options = { sort: '-measured_at', limit: PAGE_SIZE };
         if (cursor) options.cursor = cursor;
-        const page = await base44.entities.Measurement.filter({ measured_at: { $gte: since } }, options);
+        const page = await filter('Measurement', { measured_at: { $gte: since } }, options);
         series.push(...(page.items || []));
         hasMore = Boolean(page.has_more);
         cursor = page.next_cursor;
@@ -67,7 +74,7 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } =
 
       if (current !== request.current) return;
       const selected = buildings.find(b => b.id === requestedBuildingID) || buildings.find(b => b.id === localStorage.getItem('d21-selected-building')) || buildings[0] || null;
-      const belongs = row => row.building_id === selected?.id;
+      const belongs = row => scoped ? ids.has(String(row.building_id)) : row.building_id === selected?.id;
       const thresholds = { ...DEFAULT_THRESHOLDS };
       (thresholdRows || []).forEach((row) => {
         if (!row || !row.metric) return;
@@ -108,7 +115,7 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } =
     } finally {
       if (current === request.current) busy.current = false;
     }
-  }, [requestedBuildingID]);
+  }, [requestedBuildingID, buildingIDs]);
 
   useEffect(() => {
     load();
