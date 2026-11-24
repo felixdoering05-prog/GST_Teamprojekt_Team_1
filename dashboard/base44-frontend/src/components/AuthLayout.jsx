@@ -1,8 +1,26 @@
 import React from "react";
+import { LANGUAGES, rememberLanguage, storedLanguage } from "@/lib/i18n";
+
+// Vor der Anmeldung gilt die Sprache nur für diesen Browser.
+function LanguageSwitch() {
+  const current = storedLanguage();
+  return (
+    <div className="absolute right-4 top-4 flex gap-1 text-xs" translate="no">
+      {LANGUAGES.map(item => (
+        <button key={item.value} type="button" aria-pressed={current === item.value}
+          className={`rounded-full px-3 py-1.5 font-medium ${current === item.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => { if (item.value !== current) { rememberLanguage(item.value); window.location.reload(); } }}>
+          {item.value.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4">
+      <LanguageSwitch />
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
