@@ -39,6 +39,11 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [24.11.2026 09:01 · BIMCraft-Versionsvergleich](berichte/2026-11-24-0901.md)
+
+- [23.11.2026 17:11 · APNs und Hochschulserver](berichte/2026-11-23-1711.md)
+
+
 - [23.11.2026 08:55 · Haupt- und Unterzähler, Swift Charts](berichte/2026-11-23-0855.md)
 
 - [18.11.2026 16:59 · Energiezähler nach Rücksetzung](berichte/2026-11-18-1659.md)
