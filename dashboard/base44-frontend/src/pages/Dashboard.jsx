@@ -19,7 +19,7 @@ import { formatNumber } from '@/lib/metrics';
 import { formatDateTime } from '@/lib/dates';
 
 export default function Dashboard() {
-  const data = useD21Data();
+  const data = useD21Data('', { refreshMs: 60000 });
   const projectBuildings = useWidgetBuildings();
   const [seeding, setSeeding] = useState(false);
   const { toast } = useToast();
@@ -126,7 +126,7 @@ export default function Dashboard() {
         <StatCard label="Offene Meldungen" value={`${openAlerts.length}`} hint="regelbasiert erkannt" icon={BellRing} tone={openAlerts.length ? 'warn' : 'ok'} />
         <StatCard label="Sensoren aktiv" value={`${activeSensors} / ${sensors.length}`} hint="Zugeordnete Sensoren im Gebäude" icon={Radio} tone="primary" />
       </section>
-      <p className="dashboard-source-note">Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt{series.length ? ` · Stand ${formatDateTime(series[series.length - 1]?.measured_at)}` : ''} · <Link to="/heat-map" className="underline underline-offset-2">Frankfurter Wetterdaten & Heat map</Link></p></div>),
+      <p className="dashboard-source-note">Messwerte im Betrachtungszeitraum: {counts.demo.toLocaleString('de-DE')} Demo · {counts.real.toLocaleString('de-DE')} echt{series.length ? ` · Stand ${formatDateTime(series[0]?.measured_at)}` : ''} · <Link to="/heat-map" className="underline underline-offset-2">Frankfurter Wetterdaten & Heat map</Link></p></div>),
     trend: () => <TrendChart data={chartData} demoShare={demoShare} />,
     warnings: () => <AlertList alerts={openAlerts} title="Offene Warnmeldungen" emptyText="Keine offenen Sensorwarnungen." />,
     rooms: () => rooms.length ? (<section>
