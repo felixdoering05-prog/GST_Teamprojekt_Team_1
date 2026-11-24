@@ -150,7 +150,7 @@ function SidebarBody({ onNavigate, scope, activeTeam, teams, teamID, onTeam }) {
             </optgroup>
           </select>
         </label>
-      </div>
+      </div>}
       <div className="shell-divider mx-5 mb-2 h-px" />
       <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
         <NavItems isAdmin={isAdmin} onNavigate={onNavigate} permissions={scope.permissions} hiddenPaths={scope.hiddenPaths} />
