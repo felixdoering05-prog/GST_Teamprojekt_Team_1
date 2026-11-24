@@ -21,6 +21,13 @@ struct NativeTeamTitlesView: View {
                         TextField("Zum Beispiel Sensorik", text: $title)
                         Button("Titel hinzufügen", systemImage: "plus") { Task { await create() } }.disabled(busy || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || title.count > 60)
                     }
+                    if !titles.isEmpty {
+                        Section {
+                            ForEach(titles) { item in Text(item.name) }
+                                .onDelete { offsets in let doomed = offsets.map { titles[$0] }; Task { for item in doomed { await remove(item) } } }
+                                .deleteDisabled(!team.is_owner)
+                        } header: { Text("Vorhandene Titel") } footer: { Text("Zum Löschen nach links wischen. Mitglieder behalten ihre Gebäuderechte.") }
+                    }
                     Section("Titel zuordnen") {
                         ForEach(members.filter { $0.status == "accepted" && $0.id != team.owner_id }) { member in
                             Menu {
@@ -44,6 +51,11 @@ struct NativeTeamTitlesView: View {
     private func create() async {
         guard !busy else { return }; busy = true; defer { busy = false }
         do { let _: NativeTeamTitle = try await account.request("teams/\(team.id)/titles", method: "POST", body: ["name": title.trimmingCharacters(in: .whitespacesAndNewlines)]); title = ""; await load() }
+        catch { await load(); problem = error.localizedDescription }
+    }
+    private func remove(_ item: NativeTeamTitle) async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { let _: LogoutResult = try await account.request("teams/\(team.id)/titles/\(item.id)", method: "DELETE"); await load() }
         catch { await load(); problem = error.localizedDescription }
     }
     private func assign(_ member: NativeOrganisationMember, titleID: Int?) async {

@@ -12,6 +12,7 @@ enum NativeTeamsPreview {
     static var titles: [[String:Any]] = [["id":1,"name":"Projektleitung"],["id":2,"name":"Sensorik"]]
     static var people: [[String:Any]] = [["id":999999,"name":"Felix","role":"Leitung","title":NSNull(),"status":"accepted"],["id":2,"name":"Benjamin","role":"Employee","title":"Sensorik","status":"accepted"]]
     static var nextID = 20
+    static var contact: [String:Any] = ["phone":"","email":"","share_with_team":false]
     static var owner: Bool { !ProcessInfo.processInfo.arguments.contains("-D21TeamReadOnlyPreview") }
     static var roles: [[String: Any]] {
         ["Management", "Employee", "Maintenance"].enumerated().map { i, name in
@@ -19,6 +20,18 @@ enum NativeTeamsPreview {
         }
     }
     static func response(_ path: String, method: String, object: [String: Any]) -> (Int, Any)? {
+        if path.hasSuffix("/profile/team-contact") {
+            if method == "PATCH" { contact = ["phone":object["phone"] ?? "","email":object["email"] ?? "","share_with_team":object["share_with_team"] ?? false] }
+            return (200,contact)
+        }
+        if path.contains("/teams/1/members/") && path.hasSuffix("/contact") {
+            return path.contains("/members/2/") ? (200,["phone":"+49 6151 123456","email":"benjamin@team.example"]) : (200,["phone":"","email":""])
+        }
+        if path.contains("/teams/1/titles/") && method == "DELETE" {
+            let id = Int(path.split(separator: "/").last ?? ""); titles.removeAll { $0["id"] as? Int == id }; return (200,["ok":true])
+        }
+        if path.hasSuffix("/teams/1") && method == "DELETE" { return (200,["ok":true]) }
+        if path.contains("/buildings/") && path.hasSuffix("/members") && method == "POST" { return (200,["ok":true]) }
         if path.hasSuffix("/teams") {
             if ProcessInfo.processInfo.arguments.contains("-D21TeamsErrorPreview") { return (503,["error":"Teamdaten vorübergehend nicht erreichbar."]) }
             if method == "POST" { teamName = object["name"] as? String ?? teamName }
