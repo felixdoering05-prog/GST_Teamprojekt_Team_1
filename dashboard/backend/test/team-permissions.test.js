@@ -39,6 +39,27 @@ async function request(user,path,method='GET',body){
  return {status:response.status,body:await response.json()};
 }
 
+test('team navigation and building selection respect the selected buildings and membership',async()=>{
+ const team=(await request(owner,'/teams')).body.find(row=>row.buildings.some(building=>building.id===first));
+ assert.ok(team);
+ const navigation=await request(maintenance,`/teams/${team.id}/building-navigation`);
+ assert.equal(navigation.status,200,JSON.stringify(navigation.body));
+ assert.deepEqual(navigation.body.map(row=>row.id),[second]);
+ assert.equal(navigation.body[0].permissions.maintenance,'none');
+
+ async function scopedFloors(user, selection){
+  const response=await fetch(url+'/twin/Floor/list',{method:'POST',headers:{
+   'Content-Type':'application/json','X-D21-Session':user.token,'X-D21-Team':String(team.id),'X-D21-Buildings':selection,
+  },body:'{}'});
+  assert.equal(response.status,200);
+  return (await response.json()).map(row=>row.id).sort();
+ }
+ assert.deepEqual(await scopedFloors(owner,String(first)),[floorFirst.id]);
+ assert.deepEqual(await scopedFloors(owner,`${first},${second}`),[floorFirst.id,floorSecond.id].sort());
+ assert.deepEqual(await scopedFloors(maintenance,`${first},${second}`),[floorSecond.id]);
+ assert.deepEqual(await scopedFloors(owner,'none'),[]);
+});
+
 test('roles and building scopes limit reads and writes independently per building',async()=>{
  const accessFirst=await request(employee,`/buildings/${first}/team-access`);
  const accessSecond=await request(employee,`/buildings/${second}/team-access`);
