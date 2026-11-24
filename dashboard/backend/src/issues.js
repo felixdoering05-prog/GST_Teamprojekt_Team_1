@@ -102,8 +102,8 @@ function issuesRouter(db,requireAccount,campusOptions){
    FROM app_building_issues i JOIN app_buildings b ON b.id=i.building_id LEFT JOIN app_users u ON u.id=i.user_id
    WHERE ${accessSQL.replaceAll('$2','$1')} AND ($2::int IS NULL OR b.id=$2) AND ($3::int IS NULL OR i.id<$3)
     AND ($4::text IS NULL OR ($4 IN ('open','active') AND i.status IN ('open','assigned','in_progress')) OR i.status=$4)
-    AND ($5::int IS NULL OR b.team_id=$5)
-   ORDER BY i.id DESC LIMIT ${OVERVIEW_LIMIT+1}`,[req.account.id,buildingID??null,before??null,status??null,req.teamScope?.id??null])).rows;
+    AND ($5::int[] IS NULL OR b.id=ANY($5::int[]))
+   ORDER BY i.id DESC LIMIT ${OVERVIEW_LIMIT+1}`,[req.account.id,buildingID??null,before??null,status??null,req.teamScope?.buildingIDs??null])).rows;
   const truncated=rows.length>OVERVIEW_LIMIT;
   const permitted=[];
   for(const row of rows){const access=await buildingAccess(db,row.building_id,req.account.id);if(access&&can(access,'issues','read'))permitted.push(row);}
