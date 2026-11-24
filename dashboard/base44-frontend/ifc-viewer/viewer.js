@@ -486,7 +486,6 @@ async function open() {
   const cancelCommand = mountCommands({ appearance, types: elementTypes, update: updateSelection, changed, destroyed: () => destroyed });
   const ray = new THREE.Raycaster();
   function pick(x, y) {
-    if (isDashboard) return;
     ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), camera);
     if (roomHeatView) { roomHeatView.pick(ray); return; }
     cancelCommand();
@@ -501,6 +500,9 @@ async function open() {
       bimFloors ? bimFloors.canPick(hit) : cut === null || hit.point.y <= cut);
     // Klick in einen Raum öffnet dessen Popup; Klick daneben oder erneut in denselben Raum schließt es.
     const allowed = hit => renderer.clippingPlanes.every(plane => plane.distanceToPoint(hit.point) >= 0) && (cut === null || bimFloors || hit.point.y <= cut);
+    if (isDashboard) { // Im Dashboard-Widget nur Raum-Popups, keine Bauteilauswahl.
+      roomSensors?.pick(ray, { element, allowed }); render(); return;
+    }
     if (roomSensors?.pick(ray, { element, allowed })) { appearance.select(undefined); updateSelection(); render(); return; }
     appearance.select(element?.object.userData.expressID);
     updateSelection();

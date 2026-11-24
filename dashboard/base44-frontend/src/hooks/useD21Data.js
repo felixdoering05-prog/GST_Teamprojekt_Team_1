@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { DEFAULT_THRESHOLDS } from '@/lib/metrics';
 
@@ -27,11 +27,18 @@ const EMPTY = {
  * Gebäude, Geschosse, Räume, Sensoren, Grenzwerte, Meldungen und
  * die Messwerte der letzten 24 Stunden.
  */
-export default function useD21Data(requestedBuildingID = '') {
+export default function useD21Data(requestedBuildingID = '', { refreshMs = 0 } = {}) {
   const [state, setState] = useState(EMPTY);
+  const request = useRef(0); // nur die Antwort der jüngsten Abfrage übernehmen
+  const busy = useRef(false);
 
-  const load = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true, error: null }));
+  // silent: Hintergrundabgleich ohne Ladeanzeige; bei einem Fehler bleiben die angezeigten Werte stehen.
+  const load = useCallback(async (options) => {
+    const silent = options?.silent === true;
+    if (silent && busy.current) return;
+    const current = ++request.current;
+    busy.current = true;
+    if (!silent) setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const since = new Date(Date.now() - SERIES_HOURS * HOUR).toISOString();
 
@@ -58,6 +65,7 @@ export default function useD21Data(requestedBuildingID = '') {
         pages += 1;
       }
 
+      if (current !== request.current) return;
       const selected = buildings.find(b => b.id === requestedBuildingID) || buildings.find(b => b.id === localStorage.getItem('d21-selected-building')) || buildings[0] || null;
       const belongs = row => row.building_id === selected?.id;
       const thresholds = { ...DEFAULT_THRESHOLDS };
@@ -96,13 +104,24 @@ export default function useD21Data(requestedBuildingID = '') {
         counts: { demo: demoCount, real: scopedSeries.length - demoCount },
       });
     } catch (error) {
-      setState((s) => ({ ...s, loading: false, error: error.message || 'Daten konnten nicht geladen werden.' }));
+      if (current === request.current && !silent) setState((s) => ({ ...s, loading: false, error: error.message || 'Daten konnten nicht geladen werden.' }));
+    } finally {
+      if (current === request.current) busy.current = false;
     }
   }, [requestedBuildingID]);
 
   useEffect(() => {
     load();
+    return () => { request.current += 1; busy.current = false; };
   }, [load]);
+
+  useEffect(() => {
+    if (!refreshMs) return undefined;
+    const refresh = () => { if (!document.hidden) load({ silent: true }); };
+    const timer = setInterval(refresh, refreshMs);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [load, refreshMs]);
 
   return { ...state, reload: load };
 }

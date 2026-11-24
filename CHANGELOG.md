@@ -1,5 +1,10 @@
 # Änderungsverlauf
 
+## 24. November 2026 – Sensorwerte im Dashboard aktuell halten
+
+- Die Kommandozentrale lädt Messwerte jede Minute und bei Rückkehr zum Browsertab im Hintergrund nach. Bei einem vorübergehenden Fehler bleiben die letzten Werte sichtbar. „Stand“ nennt den neuesten statt den ältesten Messwert.
+- Das Modell-Widget öffnet Raum-Popups wieder per Klick. Seit #209 erschienen sie nur nach Klick, Klicks waren im Dashboard aber abgeschaltet. Bauteile lassen sich dort weiterhin nicht auswählen.
+
 ## 17. November 2026 – Smart Home direkt im Webmodell
 
 - „Smart Home“ bzw. „Räume & Geräte“ öffnet eine gemeinsame Raumkarte mit Temperatur, Luftfeuchte, CO₂, Einzelmesswerten und Lampen. Auswahl per Klick auf die Raumgeometrie oder über die Raumliste, auch ohne Raumkörper.
