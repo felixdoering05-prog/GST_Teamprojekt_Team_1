@@ -17,6 +17,8 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 
 | RADAR-010 | Haupt- und Unterzähler getrennt ausweisen | Sensorik und SwiftUI | Jetzt testen | Doppelzählung und unklare Summen erkennen | 60–90 min plus 20 min VoiceOver, geschätzt | HA Core Apache-2.0; Apple-SDK proprietär; eigener Test | [Bericht](berichte/2026-11-23-0855.md) | Noch keine Umsetzung beauftragt |
 
+| RADAR-011 | BIMCraft 0.12 vor Upgrade vergleichen | Plan zu IFC und BIM | Beobachten | Export- und Formatkompatibilität klären | 2–4 h geschätzt | MIT/Apache laut Repository; Binärumfang ungeprüft | [Bericht](berichte/2026-11-24-0901.md) | Keine Upgrade-Freigabe |
+
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
 Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
