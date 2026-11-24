@@ -1,8 +1,8 @@
 const express = require('express');
 const { widgetCatalog } = require('./widget-catalog');
 
-const columns = 'presentation_mode, theme, font_scale, dashboard_layout, language, revision';
-const defaults = { presentation_mode: false, theme: 'system', font_scale: 100, dashboard_layout: null, language: null, revision: 0 };
+const columns = 'presentation_mode, theme, font_scale, dashboard_layout, revision';
+const defaults = { presentation_mode: false, theme: 'system', font_scale: 100, dashboard_layout: null, revision: 0 };
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 const responseFor = (req, value) => req.query.view === 'appearance' ? value
   : { presentation_mode: value.presentation_mode, revision: value.revision };
@@ -14,8 +14,7 @@ async function initUIPreferences(db) {
   await db.query(`ALTER TABLE app_ui_preferences
     ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light','dark','system')),
     ADD COLUMN IF NOT EXISTS font_scale INTEGER NOT NULL DEFAULT 100 CHECK (font_scale IN (90,100,115,130)),
-    ADD COLUMN IF NOT EXISTS dashboard_layout JSONB,
-    ADD COLUMN IF NOT EXISTS language TEXT CHECK (language IN ('de','en'))`);
+    ADD COLUMN IF NOT EXISTS dashboard_layout JSONB`);
 }
 
 function validLayout(layout) {
@@ -39,7 +38,6 @@ const validators = {
   theme: value => ['light', 'dark', 'system'].includes(value),
   font_scale: value => [90, 100, 115, 130].includes(value),
   dashboard_layout: validLayout,
-  language: value => ['de', 'en'].includes(value),
 };
 
 function uiPreferencesRouter(db, requireAccount) {
@@ -69,12 +67,12 @@ function uiPreferencesRouter(db, requireAccount) {
         return res.status(409).json({ error: 'Einstellung inzwischen geändert. Bitte neu laden.' });
       }
       const value = { ...current, ...fields };
-      const { rows } = await client.query(`INSERT INTO app_ui_preferences(user_id,presentation_mode,theme,font_scale,dashboard_layout,language)
-        VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id) DO UPDATE
+      const { rows } = await client.query(`INSERT INTO app_ui_preferences(user_id,presentation_mode,theme,font_scale,dashboard_layout)
+        VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id) DO UPDATE
         SET presentation_mode=EXCLUDED.presentation_mode, theme=EXCLUDED.theme,
-          font_scale=EXCLUDED.font_scale, dashboard_layout=EXCLUDED.dashboard_layout, language=EXCLUDED.language,
+          font_scale=EXCLUDED.font_scale, dashboard_layout=EXCLUDED.dashboard_layout,
           revision=app_ui_preferences.revision+1 RETURNING ${columns}`,
-      [req.account.id, value.presentation_mode, value.theme, value.font_scale, JSON.stringify(value.dashboard_layout), value.language]);
+      [req.account.id, value.presentation_mode, value.theme, value.font_scale, JSON.stringify(value.dashboard_layout)]);
       await client.query('COMMIT');
       res.json(responseFor(req, rows[0]));
     } catch (error) {
