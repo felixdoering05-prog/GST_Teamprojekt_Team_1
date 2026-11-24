@@ -323,9 +323,12 @@ struct BuildingDetailView: View {
                 Menu {
                     Button("Gebäudeverwaltung", systemImage: "slider.horizontal.3") { managing = true }
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
-                    Button("Dateien", systemImage: "folder") { open("Dateien") }
-                    Button("Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
-                    Button("Wartung", systemImage: "wrench.and.screwdriver") { open("Wartung") }
+                    Button("Dokumente", systemImage: "folder") { open("Dateien") }
+                    Button("Issues und Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
+                    Menu("Betrieb", systemImage: "wrench.and.screwdriver") {
+                        Button("Technische Anlagen", systemImage: "gearshape.2") { open("Technische Anlagen") }
+                        Button("Wartungen", systemImage: "calendar") { open("Wartung") }
+                    }
                     Button("Automationen", systemImage: "bell.and.waves.left.and.right") { open("Automationen") }
                     if isOwner {
                         Divider()
@@ -347,6 +350,7 @@ struct BuildingDetailView: View {
         case "Dateien": BuildingFilesView(building: building, model: model)
         case "Mängel": BuildingIssuesView(building: building, account: model, open: open)
         case "Wartung": BuildingMaintenanceView(building: building, account: model)
+        case "Technische Anlagen": BuildingTechnicalAssetsView(building: building, account: model)
         case "Automationen": BuildingAutomationsView(building: building, account: model)
         case "3D": BuildingModelView(building: building, account: model)
         case "Geräte": BuildingDevicesView(building: building, account: model)
@@ -355,7 +359,8 @@ struct BuildingDetailView: View {
         case "Sprache": BuildingVoiceView(building: building, account: model)
         case "Team": NativeBuildingTeamView(building: building, account: model)
         case "Chat": BuildingChatView(building: building, account: model)
-        case "Sensorik", "Energie", "Analyse": TelemetryDashboardView(account: model, building: building, initialArea: section)
+        case "Energie": PassportEnergyView(account: model, building: building)
+        case "Sensorik", "Analyse": TelemetryDashboardView(account: model, building: building, initialArea: section)
         // Aktuellen Stand aus der Gebäudeliste verwenden (z. B. neu hochgeladenes IFC-Modell), nicht den Stand beim Öffnen.
         default: BuildingCockpit(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open)
         }

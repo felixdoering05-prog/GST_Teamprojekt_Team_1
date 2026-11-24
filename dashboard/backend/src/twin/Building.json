@@ -34,6 +34,11 @@
       "type": "string",
       "description": "Hauptnutzung"
     },
+    "usable_area_m2": { "type": "number" },
+    "owner_name": { "type": "string" },
+    "contact_name": { "type": "string" },
+    "contact_email": { "type": "string" },
+    "lifecycle_phase": { "type": "string", "enum": ["", "planung", "bau", "inbetriebnahme", "betrieb", "umbau", "rueckbau"] },
     "description": {
       "type": "string",
       "description": "Beschreibung"

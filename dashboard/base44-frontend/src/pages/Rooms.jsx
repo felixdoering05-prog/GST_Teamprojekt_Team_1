@@ -22,8 +22,7 @@ import SharedBuildingStructure from '@/components/rooms/SharedBuildingStructure'
 import DeleteBuildingButton from '@/components/rooms/DeleteBuildingButton';
 import { documentKey } from '@/components/rooms/buildingFilesModel';
 import BuildingGroups from '@/components/rooms/BuildingGroups';
-
-const buildingsKey = ['account-buildings'];
+import { rememberBuilding, useBuildingSelection } from '@/hooks/useBuildingSelection';
 
 export default function Rooms() {
   const cache = useQueryClient();
@@ -31,23 +30,23 @@ export default function Rooms() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [teamBuildingId, setTeamBuildingId] = useState(null);
   const { toast } = useToast();
-  const buildings = useQuery({
-    queryKey: buildingsKey,
-    queryFn: () => request('/buildings'),
-    refetchOnWindowFocus: true,
-  });
+  const selection = useBuildingSelection();
+  const buildings = selection.query;
+  const buildingsKey = ['account-buildings', selection.team];
   const teams = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
   const activeTeam = (teams.data || []).find(team => String(team.id) === localStorage.getItem('d21-selected-team')) || (teams.data || []).find(team => team.is_owner) || teams.data?.[0];
   const [groupCreateOpen, setGroupCreateOpen] = useState(false);
   const requestedId = params.get('building');
-  const selected = buildings.data?.find(building => String(building.id) === requestedId);
+  const rememberedId = localStorage.getItem('d21-selected-building');
+  const selectedId = requestedId || (params.get('all') !== '1' && params.get('start') !== '1' ? rememberedId : null);
+  const selected = buildings.data?.find(building => String(building.id) === selectedId);
   const start = params.get('start') === '1';
   const requestedSection = params.get('section');
   const section = ['overview', 'gallery', 'models', 'rooms'].includes(requestedSection) ? requestedSection : 'overview';
   const refreshBuildings = () => cache.invalidateQueries({ queryKey: buildingsKey });
 
   function openBuilding(building, guided = false, nextSection = 'overview') {
-    localStorage.setItem('d21-selected-building', building.id);
+    rememberBuilding(building.id);
     setParams({ building: String(building.id), ...(guided ? { start: '1' } : {}), ...(nextSection !== 'overview' ? { section: nextSection } : {}) });
   }
 
@@ -67,7 +66,7 @@ export default function Rooms() {
       localStorage.removeItem('d21-selected-building');
     }
     setTeamBuildingId(null);
-    setParams({}, { replace: true });
+    setParams({ all: '1' }, { replace: true });
     refreshBuildings();
   }
 
@@ -77,7 +76,7 @@ export default function Rooms() {
     if (localStorage.getItem('d21-selected-building') === String(building.id)) localStorage.removeItem('d21-selected-building');
     setTeamBuildingId(null);
     setSetupOpen(false);
-    setParams({}, { replace: true });
+    setParams({ all: '1' }, { replace: true });
     cache.removeQueries({ queryKey: documentKey(building.id) });
     cache.invalidateQueries();
     toast({ title: 'Gebäude gelöscht', description: `„${building.name}“ wurde entfernt.` });
@@ -89,7 +88,7 @@ export default function Rooms() {
         <>
           <PageHeader title={selected.name} description={selected.address || (selected.is_owner ? 'Gebäudemappe' : 'Geteiltes Gebäude')}>
             <DeleteBuildingButton key={selected.id} building={selected} onDeleted={deletedBuilding} />
-            <Button variant="ghost" size="sm" onClick={() => setParams({})}>
+            <Button variant="ghost" size="sm" onClick={() => setParams({ all: '1' })}>
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Zur Gebäudeliste
             </Button>
             <Button variant="outline" size="sm" onClick={() => setTeamBuildingId(selected.id)}>
@@ -108,7 +107,7 @@ export default function Rooms() {
               </select>
             </label>
           )}
-          <BuildingWorkspace key={selected.id} building={selected} section={section}
+          <BuildingWorkspace key={selected.id} building={selected} section={section} onSaved={refreshBuildings}
             onSection={nextSection => setParams({ building: String(selected.id), ...(nextSection !== 'overview' ? { section: nextSection } : {}) }, { replace: true })}
             onSetup={() => setSetupOpen(true)} onTeam={() => setTeamBuildingId(selected.id)}
             structure={selected.is_owner
@@ -118,7 +117,7 @@ export default function Rooms() {
             <BuildingTeam key={selected.id} building={selected} onClose={() => setTeamBuildingId(null)} onLeave={leaveBuilding} />
           )}
         </>
-      ) : (
+      ) : selectedId && buildings.isPending ? <p role="status">Gebäude wird geladen …</p> : (
         <>
           <PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
             <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>

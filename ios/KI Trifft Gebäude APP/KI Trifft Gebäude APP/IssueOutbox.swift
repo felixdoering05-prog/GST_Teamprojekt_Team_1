@@ -10,6 +10,7 @@ struct PendingIssue: Codable, Identifiable {
     let priority: IssuePriority?
     let location: IssueLocation?
     let jpeg: Data?
+    var source: String? = nil
     var serverID: Int? = nil
     var failure: String? = nil
 }
@@ -105,7 +106,7 @@ extension AccountModel {
                 if serverID == nil {
                     let created = try await reportIssue(buildingID: draft.buildingID, title: draft.title,
                         description: draft.description, room: draft.room, priority: draft.priority,
-                        location: draft.location, requestKey: draft.id)
+                        location: draft.location, requestKey: draft.id, source: draft.source)
                     report = created
                     serverID = created.id
                     try updatePendingIssue(draft.id, scope: scope) { item in

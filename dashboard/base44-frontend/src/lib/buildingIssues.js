@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { request } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 
-export const issueStatus = { open: 'Offen', in_progress: 'In Arbeit', done: 'Erledigt' };
+export const issueStatus = { open: 'Offen', assigned: 'Zugewiesen', in_progress: 'In Arbeit', done: 'Erledigt' };
+export const issueSource = { operator: 'Betreiber', tenant: 'Mieter', bim: 'BIM', energy: 'Energie', alarm: 'Alarm' };
 export const issuePriority = { urgent: 'Dringend', high: 'Hoch', normal: 'Normal', low: 'Niedrig' };
 export const priorityLabel = value => issuePriority[value] || 'Nicht festgelegt';
 export const issuePath = (building, id) => `/buildings/${building}/issues/${id}`;

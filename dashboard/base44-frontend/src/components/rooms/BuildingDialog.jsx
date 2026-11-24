@@ -5,6 +5,12 @@ import { SelectField, TextAreaField, TextField } from '@/components/Field';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 
+export const lifecyclePhases = [
+  { value: '', label: 'Nicht eingetragen' }, { value: 'planung', label: 'Planung' },
+  { value: 'bau', label: 'Bau' }, { value: 'inbetriebnahme', label: 'Inbetriebnahme' },
+  { value: 'betrieb', label: 'Betrieb' }, { value: 'umbau', label: 'Umbau' }, { value: 'rueckbau', label: 'Rückbau' },
+];
+
 const EMPTY = {
   name: '',
   code: '',
@@ -18,6 +24,11 @@ const EMPTY = {
   gross_area_m2: '',
   floors_count: '',
   usage_type: '',
+  usable_area_m2: '',
+  owner_name: '',
+  contact_name: '',
+  contact_email: '',
+  lifecycle_phase: '',
   description: '',
   bim_model_ref: '',
   bim_status: 'vorbereitet',
@@ -45,6 +56,11 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
             gross_area_m2: building.gross_area_m2 ?? '',
             floors_count: building.floors_count ?? '',
             usage_type: building.usage_type || '',
+            usable_area_m2: building.usable_area_m2 ?? '',
+            owner_name: building.owner_name || '',
+            contact_name: building.contact_name || '',
+            contact_email: building.contact_email || '',
+            lifecycle_phase: building.lifecycle_phase || '',
             description: building.description || '',
             bim_model_ref: building.bim_model_ref || '',
             bim_status: building.bim_status || 'vorbereitet',
@@ -86,6 +102,11 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
         gross_area_m2: form.gross_area_m2 === '' ? null : Number(form.gross_area_m2),
         floors_count: form.floors_count === '' ? null : Number(form.floors_count),
         usage_type: form.usage_type.trim(),
+        usable_area_m2: form.usable_area_m2 === '' ? null : Number(form.usable_area_m2),
+        owner_name: form.owner_name.trim(),
+        contact_name: form.contact_name.trim(),
+        contact_email: form.contact_email.trim(),
+        lifecycle_phase: form.lifecycle_phase,
         description: form.description,
         bim_model_ref: form.bim_model_ref.trim(),
         bim_status: form.bim_status,
@@ -125,6 +146,11 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
           <TextField label="Bruttogrundfläche in m²" type="number" step="0.1" value={form.gross_area_m2} onChange={set('gross_area_m2')} />
           <TextField label="Anzahl Geschosse" type="number" value={form.floors_count} onChange={set('floors_count')} />
           <TextField label="Hauptnutzung" value={form.usage_type} onChange={set('usage_type')} placeholder="z. B. Hochschulgebäude" />
+          <TextField label="Nutzfläche in m²" aria-label="Nutzfläche in m²" type="number" min="0" step="0.1" value={form.usable_area_m2} onChange={set('usable_area_m2')} />
+          <SelectField label="Lebenszyklusphase" aria-label="Lebenszyklusphase" value={form.lifecycle_phase} onChange={set('lifecycle_phase')} options={lifecyclePhases} />
+          <TextField label="Kunde / Eigentümer" aria-label="Kunde / Eigentümer" value={form.owner_name} onChange={set('owner_name')} maxLength={200} />
+          <TextField label="Ansprechpartner" aria-label="Ansprechpartner" value={form.contact_name} onChange={set('contact_name')} maxLength={200} />
+          <TextField label="Kontakt-E-Mail" aria-label="Kontakt-E-Mail" type="email" value={form.contact_email} onChange={set('contact_email')} maxLength={254} />
           <TextField
             label="Verweis Revit-/IFC-Modell"
             className="sm:col-span-2"

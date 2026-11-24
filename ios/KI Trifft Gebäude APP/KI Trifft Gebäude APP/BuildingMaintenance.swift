@@ -6,10 +6,191 @@ struct MaintenanceItem: Decodable, Identifiable, Equatable {
     let id: Int; let title: String; let category: String; let interval_months: Int?
     let last_done: String?; let next_due: String?; let warranty_until: String?; let notes: String
     let revision: Int; let status: String; let can_edit: Bool
+    let asset_id: Int?; let priority: String?; let work_status: String?
 }
-struct MaintenanceList: Decodable { struct Summary: Decodable { let overdue: Int; let soon: Int; let total: Int }; let items: [MaintenanceItem]; let summary: Summary }
+struct MaintenanceList: Decodable { struct Summary: Decodable { let overdue: Int; let soon: Int; let total: Int }; let items: [MaintenanceItem]; let summary: Summary; let can_edit: Bool? }
+private struct MaintenanceEvent: Decodable, Identifiable {
+    var id: Int { revision }
+    let revision: Int; let action: String; let performed_on: String?; let created_at: String; let actor: String?
+}
 struct MaintenanceTemplate: Decodable, Identifiable { var id: String { title }; let title: String; let category: String; let interval_months: Int; let notes: String }
 private struct MaintenanceTemplates: Decodable { let templates: [MaintenanceTemplate] }
+
+struct TechnicalAsset: Decodable, Identifiable {
+    let id: Int
+    let name: String
+    let system: String
+    let location: String
+    let status: String
+    let planned_maintenance: String?
+    let next_maintenance: String?
+    let data_quality: Int?
+    let notes: String
+    let revision: Int
+}
+struct TechnicalAssetList: Decodable { let items: [TechnicalAsset]; let can_edit: Bool }
+
+private enum TechnicalStatus {
+    static let labels = [("in_betrieb", "In Betrieb"), ("wartung", "Wartung"), ("stoerung", "Störung")]
+    static func label(_ value: String) -> String { labels.first { $0.0 == value }?.1 ?? value }
+}
+
+struct BuildingTechnicalAssetsView: View {
+    let building: Building
+    @ObservedObject var account: AccountModel
+    @State private var list: TechnicalAssetList?
+    @State private var problem: String?
+    @State private var search = ""
+    @State private var filter = ""
+    @State private var adding = false
+
+    var body: some View {
+        List {
+            if let list {
+                Section {
+                    Picker("Status", selection: $filter) {
+                        Text("Alle Status").tag("")
+                        ForEach(TechnicalStatus.labels, id: \.0) { Text($0.1).tag($0.0) }
+                    }
+                }
+                let rows = list.items.filter { row in
+                    (filter.isEmpty || row.status == filter) && (search.isEmpty || [row.name, row.system, row.location].joined(separator: " ").localizedCaseInsensitiveContains(search))
+                }
+                Section("Anlagen") {
+                    if rows.isEmpty { Text("Keine Anlagen in dieser Auswahl.").foregroundStyle(.secondary) }
+                    ForEach(rows) { asset in
+                        NavigationLink {
+                            TechnicalAssetDetail(building: building, account: account, initial: asset, canEdit: list.can_edit, saved: load)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(asset.name).font(.headline)
+                                Text("\(asset.system) · \(asset.location) · \(TechnicalStatus.label(asset.status))").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } else if problem == nil { ProgressView("Anlagen werden geladen …") }
+            if let problem { Text(problem).foregroundStyle(.orange) }
+        }
+        .navigationTitle("Technische Anlagen").searchable(text: $search, prompt: "Anlagen suchen")
+        .refreshable { await load() }.task(id: building.id) { await load() }
+        .toolbar {
+            if list?.can_edit == true {
+                ToolbarItem(placement: .topBarTrailing) { Button("Anlage anlegen", systemImage: "plus") { adding = true } }
+            }
+        }
+        .sheet(isPresented: $adding) { TechnicalAssetEditor(building: building, account: account, asset: nil) { _ in await load() } }
+    }
+
+    private func load() async {
+        do { list = try await account.request("buildings/\(building.id)/assets"); problem = nil }
+        catch { problem = error.localizedDescription }
+    }
+}
+
+private struct TechnicalAssetDetail: View {
+    let building: Building
+    @ObservedObject var account: AccountModel
+    let canEdit: Bool
+    let saved: () async -> Void
+    @State private var asset: TechnicalAsset
+    @State private var editing = false
+
+    init(building: Building, account: AccountModel, initial: TechnicalAsset, canEdit: Bool, saved: @escaping () async -> Void) {
+        self.building = building
+        self.account = account
+        self.canEdit = canEdit
+        self.saved = saved
+        _asset = State(initialValue: initial)
+    }
+
+    var body: some View {
+        List {
+            Section("Anlagendaten") {
+                LabeledContent("Gebäude", value: building.name)
+                LabeledContent("System", value: asset.system)
+                LabeledContent("Standort", value: asset.location)
+                LabeledContent("Status", value: TechnicalStatus.label(asset.status))
+                LabeledContent("Nächste Wartung", value: showDay(asset.next_maintenance ?? asset.planned_maintenance))
+                if let quality = asset.data_quality { LabeledContent("Datenqualität", value: "\(quality) %") }
+                if !asset.notes.isEmpty { Text(asset.notes) }
+            }
+            Section {
+                NavigationLink("Zugehörige Wartungen") {
+                    BuildingMaintenanceView(building: building, account: account, selectedAssetID: asset.id)
+                }
+            }
+        }
+        .navigationTitle(asset.name)
+        .toolbar { if canEdit { ToolbarItem(placement: .topBarTrailing) { Button("Bearbeiten") { editing = true } } } }
+        .sheet(isPresented: $editing) {
+            TechnicalAssetEditor(building: building, account: account, asset: asset) { row in
+                asset = row
+                await saved()
+            }
+        }
+    }
+}
+
+private struct TechnicalAssetEditor: View {
+    let building: Building
+    @ObservedObject var account: AccountModel
+    let asset: TechnicalAsset?
+    let saved: (TechnicalAsset) async -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var system = ""
+    @State private var location = ""
+    @State private var status = "in_betrieb"
+    @State private var quality = ""
+    @State private var notes = ""
+    @State private var planned = Date()
+    @State private var hasDate = false
+    @State private var saving = false
+    @State private var problem: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Anlagenname", text: $name)
+                TextField("System", text: $system)
+                TextField("Standort", text: $location)
+                Picker("Anlagenstatus", selection: $status) { ForEach(TechnicalStatus.labels, id: \.0) { Text($0.1).tag($0.0) } }
+                Toggle("Vorgesehene Wartung", isOn: $hasDate)
+                if hasDate { DatePicker("Termin", selection: $planned, displayedComponents: .date) }
+                TextField("Datenqualität in %", text: $quality).keyboardType(.numberPad)
+                TextField("Notizen", text: $notes, axis: .vertical)
+                if let problem { Text(problem).foregroundStyle(.orange) }
+            }
+            .navigationTitle(asset == nil ? "Anlage anlegen" : "Anlage bearbeiten")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(saving) }
+                ToolbarItem(placement: .confirmationAction) { Button("Speichern") { Task { await save() } }.disabled(saving || [name, system, location].contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty })) }
+            }
+            .onAppear {
+                guard let asset else { return }
+                name = asset.name; system = asset.system; location = asset.location; status = asset.status; notes = asset.notes
+                quality = asset.data_quality.map(String.init) ?? ""
+                if let value = parseDay(asset.planned_maintenance) { planned = value; hasDate = true }
+            }
+        }
+    }
+
+    private func save() async {
+        saving = true; defer { saving = false }
+        if !quality.isEmpty && Int(quality) == nil { problem = "Datenqualität als ganze Zahl eingeben."; return }
+        var body: [String: Any] = ["name": name, "system": system, "location": location, "status": status, "notes": notes,
+                                   "planned_maintenance": hasDate ? isoDay.string(from: planned) : NSNull(),
+                                   "data_quality": Int(quality) as Any? ?? NSNull()]
+        if let asset { body["revision"] = asset.revision }
+        do {
+            let suffix = asset.map { "/\($0.id)" } ?? ""
+            let row: TechnicalAsset = try await account.request("buildings/\(building.id)/assets\(suffix)", method: asset == nil ? "POST" : "PATCH", body: body)
+            await saved(row)
+            dismiss()
+        } catch { problem = error.localizedDescription }
+    }
+}
 
 enum MaintenanceCategory {
     static let all: [(String, String, String)] = [
@@ -56,31 +237,40 @@ enum MaintenanceReminders {
 struct BuildingMaintenanceView: View {
     let building: Building
     @ObservedObject var account: AccountModel
+    var selectedAssetID: Int? = nil
     @State private var list: MaintenanceList?
+    @State private var assets: [TechnicalAsset] = []
+    @State private var selectedHistory: MaintenanceItem?
     @State private var problem: String?
     @State private var editing: MaintenanceItem?
     @State private var adding = false
     @State private var busy: Int?
     @State private var reminders = MaintenanceReminders.enabled
+    private var canEdit: Bool { list?.can_edit ?? (list != nil && building.is_owner != false) }
     var body: some View {
         List {
             if let list {
-                Section { header(list.summary) }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
-                group("Überfällig", list.items.filter { $0.status == "ueberfaellig" }, tint: .red)
-                group("In den nächsten 4 Wochen", list.items.filter { $0.status == "bald" }, tint: .orange)
-                group("Geplant", list.items.filter { $0.status == "ok" }, tint: .green)
-                group("Ohne Termin", list.items.filter { $0.status == "ohne_termin" }, tint: .gray)
-                if list.items.isEmpty {
+                let scoped = list.items.filter { selectedAssetID == nil || $0.asset_id == selectedAssetID }
+                let active = scoped.filter { $0.work_status != "completed" }
+                let summary = MaintenanceList.Summary(overdue: active.filter { $0.status == "ueberfaellig" }.count,
+                    soon: active.filter { $0.status == "bald" }.count, total: scoped.count)
+                Section { header(summary) }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+                group("Überfällig", active.filter { $0.status == "ueberfaellig" }, tint: .red)
+                group("In den nächsten 4 Wochen", active.filter { $0.status == "bald" }, tint: .orange)
+                group("Geplant", active.filter { $0.status == "ok" }, tint: .green)
+                group("Ohne Termin", active.filter { $0.status == "ohne_termin" }, tint: .gray)
+                group("Erledigt", scoped.filter { $0.work_status == "completed" }, tint: .green)
+                if scoped.isEmpty {
                     ContentUnavailableView { Label("Noch kein Wartungsplan", systemImage: "wrench.and.screwdriver") } description: {
                         Text("Lege Heizungswartung, Rauchmelder, Dachrinne & Co. an. Nala erinnert dich, wenn etwas fällig wird.")
-                    } actions: { Button("Ersten Eintrag anlegen") { adding = true }.buttonStyle(.borderedProminent) }
+                    } actions: { if canEdit { Button("Ersten Eintrag anlegen") { adding = true }.buttonStyle(.borderedProminent) } }
                 }
             } else if problem == nil { ProgressView().frame(maxWidth: .infinity) }
             if let problem { Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
         }
-        .navigationTitle("Wartung")
+        .navigationTitle("Wartungen")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Wartung hinzufügen") }
+            if canEdit { ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Wartung hinzufügen") } }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { Task { await toggleReminders() } } label: { Image(systemName: reminders ? "bell.badge.fill" : "bell.slash") }
                     .accessibilityLabel(reminders ? "Erinnerungen aus" : "Erinnerungen an")
@@ -88,8 +278,14 @@ struct BuildingMaintenanceView: View {
         }
         .refreshable { await load() }
         .task(id: building.id) { await load() }
-        .sheet(isPresented: $adding) { MaintenanceEditor(account: account, building: building, item: nil) { await load() } }
-        .sheet(item: $editing) { item in MaintenanceEditor(account: account, building: building, item: item) { await load() } }
+        .sheet(isPresented: $adding) { MaintenanceEditor(account: account, building: building, item: nil, assets: assets, assetSelection: selectedAssetID) { await load() } }
+        .sheet(item: $editing) { item in MaintenanceEditor(account: account, building: building, item: item, assets: assets) { await load() } }
+        .sheet(item: $selectedHistory) { item in
+            NavigationStack {
+                MaintenanceHistoryView(building: building, item: item, account: account)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { selectedHistory = nil } } }
+            }
+        }
     }
     private func header(_ s: MaintenanceList.Summary) -> some View {
         HStack(spacing: 12) {
@@ -116,20 +312,25 @@ struct BuildingMaintenanceView: View {
             }
             Spacer(minLength: 0)
             if busy == item.id { ProgressView() }
-            else if item.interval_months != nil || item.next_due != nil {
-                Button { Task { await markDone(item) } } label: { Image(systemName: "checkmark.circle").font(.title3) }
-                    .buttonStyle(.borderless).accessibilityLabel("\(item.title) als erledigt markieren")
-            }
+            else { Menu {
+                Button("Wartungshistorie") { selectedHistory = item }
+                if canEdit && item.can_edit { Button("Bearbeiten") { editing = item } }
+                if canEdit && (item.work_status == nil || item.work_status == "planned") { Button("Starten") { Task { await change(item, action: "start") } } }
+                if canEdit && item.work_status != "completed" { Button("Erledigen") { Task { await change(item, action: "done") } } }
+            } label: { Image(systemName: "ellipsis.circle").font(.title3) }.buttonStyle(.borderless) }
         }
         .contentShape(Rectangle())
-        .onTapGesture { if item.can_edit { editing = item } }
+        .onTapGesture { selectedHistory = item }
         .swipeActions(edge: .trailing) {
-            if item.can_edit { Button("Löschen", role: .destructive) { Task { await delete(item) } } }
-            Button("Erledigt") { Task { await markDone(item) } }.tint(.green)
+            if canEdit && item.can_edit { Button("Löschen", role: .destructive) { Task { await delete(item) } } }
+            if canEdit && item.work_status != "completed" { Button("Erledigt") { Task { await change(item, action: "done") } }.tint(.green) }
         }
     }
     private func detail(_ item: MaintenanceItem) -> String {
         var parts: [String] = []
+        if let asset = assets.first(where: { $0.id == item.asset_id }) { parts.append(asset.name) }
+        if item.work_status == "in_progress" { parts.append("In Bearbeitung") }
+        if item.work_status == "completed" { parts.append("Erledigt") }
         if item.next_due != nil { parts.append("Fällig \(showDay(item.next_due))") }
         if let m = item.interval_months { parts.append(m % 12 == 0 ? (m == 12 ? "jährlich" : "alle \(m / 12) Jahre") : "alle \(m) Monate") }
         if item.last_done != nil { parts.append("zuletzt \(showDay(item.last_done))") }
@@ -137,12 +338,17 @@ struct BuildingMaintenanceView: View {
         return parts.joined(separator: " · ")
     }
     private func load() async {
-        do { let value: MaintenanceList = try await account.request("buildings/\(building.id)/maintenance"); list = value; problem = nil; await MaintenanceReminders.schedule(value.items, building: building) }
+        do {
+            let value: MaintenanceList = try await account.request("buildings/\(building.id)/maintenance")
+            let catalog: TechnicalAssetList? = try? await account.request("buildings/\(building.id)/assets")
+            list = value; assets = catalog?.items ?? []; problem = nil
+            await MaintenanceReminders.schedule(value.items, building: building)
+        }
         catch { problem = error.localizedDescription }
     }
-    private func markDone(_ item: MaintenanceItem) async {
+    private func change(_ item: MaintenanceItem, action: String) async {
         busy = item.id; defer { busy = nil }
-        do { let _: MaintenanceItem = try await account.request("maintenance/\(item.id)/done", method: "POST", body: ["revision": item.revision]); await load() }
+        do { let _: MaintenanceItem = try await account.request("maintenance/\(item.id)/\(action)", method: "POST", body: ["revision": item.revision]); await load() }
         catch { problem = error.localizedDescription }
     }
     private func delete(_ item: MaintenanceItem) async {
@@ -155,10 +361,40 @@ struct BuildingMaintenanceView: View {
     }
 }
 
+private struct MaintenanceHistoryView: View {
+    let building: Building
+    let item: MaintenanceItem
+    let account: AccountModel
+    @State private var events: [MaintenanceEvent]?
+    @State private var problem: String?
+    var body: some View {
+        List {
+            Section { LabeledContent("Aufgabe", value: item.title); LabeledContent("Fällig", value: showDay(item.next_due)) }
+            if let events {
+                ForEach(events) { row in
+                    VStack(alignment: .leading) {
+                        Text(row.action == "started" ? "Gestartet" : "Erledigt").font(.headline)
+                        Text(showDay(row.performed_on ?? String(row.created_at.prefix(10))) + (row.actor.map { " · " + $0 } ?? "")).font(.caption)
+                    }
+                }
+                if events.isEmpty { Text(item.last_done.map { "Letzte Erledigung " + showDay($0) } ?? "Noch keine Einträge.") }
+            } else if let problem { Text(problem).foregroundStyle(.orange) }
+            else { ProgressView("Historie wird geladen …") }
+        }
+        .navigationTitle("Wartungshistorie")
+        .task {
+            do { events = try await account.request("buildings/\(building.id)/maintenance/\(item.id)/history") }
+            catch { problem = error.localizedDescription }
+        }
+    }
+}
+
 struct MaintenanceEditor: View {
     @ObservedObject var account: AccountModel
     let building: Building
     let item: MaintenanceItem?
+    var assets: [TechnicalAsset] = []
+    var assetSelection: Int? = nil
     let saved: () async -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
@@ -172,6 +408,8 @@ struct MaintenanceEditor: View {
     @State private var hasWarranty = false
     @State private var warranty = Date()
     @State private var notes = ""
+    @State private var assetID: Int?
+    @State private var priority = "normal"
     @State private var templates: [MaintenanceTemplate] = []
     @State private var saving = false
     @State private var problem: String?
@@ -188,6 +426,11 @@ struct MaintenanceEditor: View {
                 Section("Was") {
                     TextField("z. B. Heizungswartung", text: $title)
                     Picker("Bereich", selection: $category) { ForEach(MaintenanceCategory.all, id: \.0) { Label($0.1, systemImage: $0.2).tag($0.0) } }
+                    if !assets.isEmpty { Picker("Anlage", selection: $assetID) {
+                        Text("Ohne Anlage").tag(nil as Int?)
+                        ForEach(assets) { Text($0.name).tag(Optional($0.id)) }
+                    } }
+                    Picker("Priorität", selection: $priority) { Text("Niedrig").tag("low"); Text("Mittel").tag("normal"); Text("Hoch").tag("high") }
                 }
                 Section("Wann") {
                     Toggle("Wiederkehrend", isOn: $repeats)
@@ -214,6 +457,8 @@ struct MaintenanceEditor: View {
         }
     }
     private func load() {
+        assetID = item?.asset_id ?? assetSelection
+        priority = item?.priority ?? "normal"
         if let item {
             title = item.title; category = item.category; notes = item.notes
             repeats = item.interval_months != nil; interval = item.interval_months ?? 12
@@ -230,6 +475,8 @@ struct MaintenanceEditor: View {
         var body: [String: Any] = ["title": title.trimmingCharacters(in: .whitespaces), "category": category, "notes": notes,
                                    "interval_months": repeats ? interval : NSNull(), "last_done": hasLast ? isoDay.string(from: last) : NSNull(),
                                    "warranty_until": hasWarranty ? isoDay.string(from: warranty) : NSNull()]
+        if !assets.isEmpty { body["asset_id"] = assetID as Any? ?? NSNull() }
+        body["priority"] = priority
         if hasDue { body["next_due"] = isoDay.string(from: due) }
         else if repeats && hasLast, let next = Calendar.current.date(byAdding: .month, value: interval, to: last) { body["next_due"] = isoDay.string(from: next) }
         else { body["next_due"] = NSNull() }

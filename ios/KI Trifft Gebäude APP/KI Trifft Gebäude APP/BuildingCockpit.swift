@@ -1,6 +1,54 @@
 import SwiftUI
 import Charts
 
+private struct BuildingPassportFacts: View {
+    private struct Profile: Decodable {
+        let code: String?
+        let usage_type: String?
+        let year_built: Int?
+        let usable_area_m2: Double?
+        let gross_area_m2: Double?
+        let floors_count: Int?
+        let description: String?
+        let owner_name: String?
+        let contact_name: String?
+        let contact_email: String?
+        let lifecycle_phase: String?
+    }
+    private struct Result: Decodable { let items: [Profile] }
+    let building: Building
+    let account: AccountModel
+    @State private var profile: Profile?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Gebäudestammdaten").font(.headline)
+            LabeledContent("Projekt", value: building.name)
+            LabeledContent("Gebäude-ID", value: profile?.code.flatMap { $0.isEmpty ? nil : $0 } ?? String(building.id))
+            if !building.address.isEmpty { LabeledContent("Standort", value: building.address) }
+            if let profile {
+                if let kind = profile.usage_type, !kind.isEmpty { LabeledContent("Gebäudetyp", value: kind) }
+                if let year = profile.year_built { LabeledContent("Baujahr", value: String(year)) }
+                if let floorCount = profile.floors_count { LabeledContent("Geschosse", value: String(floorCount)) }
+                if let area = profile.usable_area_m2 { LabeledContent("Nutzfläche", value: "\(area.formatted()) m²") }
+                if let grossArea = profile.gross_area_m2 { LabeledContent("Bruttogrundfläche", value: "\(grossArea.formatted()) m²") }
+                if let owner = profile.owner_name, !owner.isEmpty { LabeledContent("Kunde / Eigentümer", value: owner) }
+                if let contact = profile.contact_name, !contact.isEmpty { LabeledContent("Ansprechpartner", value: contact) }
+                if let email = profile.contact_email, !email.isEmpty { LabeledContent("Kontakt", value: email) }
+                if let phase = profile.lifecycle_phase, !phase.isEmpty {
+                    let labels = ["planung": "Planung", "bau": "Bau", "inbetriebnahme": "Inbetriebnahme", "betrieb": "Betrieb", "umbau": "Umbau", "rueckbau": "Rückbau"]
+                    LabeledContent("Lebenszyklus", value: labels[phase] ?? phase)
+                }
+                if let description = profile.description, !description.isEmpty { Text(description).foregroundStyle(.secondary) }
+            }
+        }.font(.subheadline).padding(18).d21Card(cornerRadius: 22)
+            .task(id: building.id) {
+                let result: Result? = try? await account.request("twin/Building/filter", method: "POST", body: ["filter": ["id": String(building.id)], "options": ["limit": 1]])
+                profile = result?.items.first
+            }
+    }
+}
+
 struct BuildingCockpit: View {
     let building: Building
     @ObservedObject var account: AccountModel
@@ -42,6 +90,7 @@ struct BuildingCockpit: View {
                         }.padding(14).d21Card(cornerRadius: 22)
                     }.buttonStyle(BuildingTileButtonStyle()).foregroundStyle(.primary)
                 }
+                BuildingPassportFacts(building: building, account: account)
                 HStack {
                     Text("Auf einen Blick").font(.title3.bold())
                     Spacer()
@@ -94,7 +143,7 @@ struct BuildingCockpit: View {
                     HStack(spacing: 14) {
                         toolIcon("exclamationmark.bubble", color: .red)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Mängel").font(.subheadline.weight(.semibold))
+                            Text("Issues und Mängel").font(.subheadline.weight(.semibold))
                             Text(issueSummary).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
@@ -119,11 +168,12 @@ struct BuildingCockpit: View {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     tool("Geräte", symbol: "lightbulb", area: "Geräte", color: .orange)
                     tool("Nala", symbol: "sparkles", area: "KI", color: d21Accent)
-                    tool("Pläne & Dateien", symbol: "folder", area: "Dateien", color: .blue)
+                    tool("Dokumente", symbol: "folder", area: "Dateien", color: .blue)
                     tool("Heatmap", symbol: "thermometer.sun", area: "Heatmap", color: .pink)
                     tool("Energie", symbol: "bolt", area: "Energie", color: .yellow)
                     tool("Sensoren", symbol: "sensor", area: "Sensorik", color: .indigo)
-                    tool("Wartung", symbol: "wrench.and.screwdriver", area: "Wartung", color: .teal)
+                    tool("Technische Anlagen", symbol: "gearshape.2", area: "Technische Anlagen", color: .teal)
+                    tool("Wartungen", symbol: "wrench.and.screwdriver", area: "Wartung", color: .teal)
                     tool("Automationen", symbol: "bell.and.waves.left.and.right", area: "Automationen", color: .mint)
                 }
             }.padding(20)

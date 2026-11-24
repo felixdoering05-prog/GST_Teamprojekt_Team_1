@@ -54,3 +54,31 @@ test('Nala reads the maintenance plan as a tool',async()=>{
  assert.equal(result.count,1);assert.equal(result.items[0].title,'Heizungswartung');assert.equal(result.items[0].next_due,'2027-11-17');
  assert.equal((await runTool(db,{user:stranger.user.id,building:building.id},'maintenance',{})).error,'Kein Zugriff auf dieses Gebäude.');
 });
+
+test('technical assets retain their own building, linked schedule, and maintenance history',async()=>{
+ const assetPath='/buildings/'+building.id+'/assets';
+ const fields={name:'Lüftungsgerät',system:'Lüftung',location:'Technikzentrale',status:'in_betrieb',data_quality:0};
+ const asset=await request(assetPath,'POST',fields,owner.token);
+ assert.equal(asset.status,201,JSON.stringify(asset.data));
+ assert.equal((await request(assetPath,'GET',undefined,stranger.token)).status,404);
+ const outside=(await request('/buildings','POST',{name:'Anderes Gebäude'},owner.token)).data;
+ assert.equal((await request('/buildings/'+outside.id+'/maintenance','POST',{title:'Wartung',asset_id:asset.data.id},owner.token)).status,400);
+ const saved=await request(assetPath+'/'+asset.data.id,'PATCH',{...fields,status:'wartung',revision:0},owner.token);
+ assert.equal(saved.data.status,'wartung');
+ assert.equal((await request(assetPath+'/'+asset.data.id,'PATCH',{...fields,revision:0},owner.token)).status,409);
+ const task=(await request(base(),'POST',{title:'Filterwechsel',asset_id:asset.data.id,next_due:'2026-12-10',priority:'high'},owner.token)).data;
+ assert.equal(task.asset_id,asset.data.id);
+ const catalog=(await request(assetPath,'GET',undefined,owner.token)).data;
+ assert.equal(catalog.items[0].next_maintenance,'2026-12-10');
+ assert.equal(catalog.items[0].data_quality,0);
+ const path='/maintenance/'+task.id;
+ const start=await request(path+'/start','POST',{revision:0},owner.token);
+ assert.equal(start.data.work_status,'in_progress');
+ const complete=await request(path+'/done','POST',{date:'2026-11-24',revision:1},owner.token);
+ assert.equal(complete.data.work_status,'completed');
+ assert.equal((await request(path+'/done','POST',{revision:1},owner.token)).status,409);
+ const history=(await request(base()+'/'+task.id+'/history','GET',undefined,owner.token)).data;
+ assert.deepEqual(history.map(x=>x.action),['completed','started']);
+ assert.equal(history[0].performed_on,'2026-11-24');
+ assert.equal((await request('/buildings/'+outside.id+'/maintenance/'+task.id+'/history','GET',undefined,owner.token)).status,404);
+});

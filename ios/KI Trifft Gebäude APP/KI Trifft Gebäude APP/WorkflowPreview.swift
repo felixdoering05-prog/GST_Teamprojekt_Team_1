@@ -199,6 +199,23 @@ final class WorkflowPreviewProtocol: URLProtocol {
                 WorkflowPreview.devices[index]["revision"] = (WorkflowPreview.devices[index]["revision"] as? Int ?? 0) + 1; result = WorkflowPreview.devices[index]
             } else { let id = Int(path.split(separator: "/").dropLast(1).last ?? "901") ?? 901; result = WorkflowPreview.devices.filter { $0["building_id"] as? Int == id } }
         }
+        else if path.contains("/energy-consumption?") {
+            let components = URLComponents(string: path)
+            let medium = components?.queryItems?.first { $0.name == "medium" }?.value ?? ""
+            let entries: [(String, String, String, Double?, Double?)] = [
+                ("strom", "Strom", "kWh", 42_800, 42_100), ("waerme", "Wärme / Heizung", "kWh", 217, nil),
+                ("warmwasser", "Warmwasser", "m³", nil, nil), ("kaltwasser", "Kaltwasser", "m³", nil, nil),
+                ("wasser", "Wasser gesamt", "m³", 0.118, nil),
+            ]
+            let summaries: [[String: Any]] = entries.filter { medium.isEmpty || $0.0 == medium }.map { entry in
+                var points: [[String: Any]] = []
+                if let previous = entry.4 { points.append(["month": "2027-06", "value": previous]) }
+                if let current = entry.3 { points.append(["month": "2027-07", "value": current]) }
+                let series: [[String: Any]] = [["unit": entry.2, "current": entry.3 as Any? ?? NSNull(), "previous": entry.4 as Any? ?? NSNull(), "points": points]]
+                return ["medium": entry.0, "label": entry.1, "series": series, "meter_count": 0]
+            }
+            result = ["units": [], "summaries": summaries, "ranges": [:], "source": "demo", "readings": [], "reading_count": 0]
+        }
         else if path.hasSuffix("/energy-overview") {
             let days = (0..<30).map { i -> [String:Any] in let d = Calendar.current.date(byAdding: .day, value: i - 29, to: .now)!; let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return ["day": f.string(from: d), "kwh": i == 29 ? 4.2 : 7.5 + Double((i * 7) % 5) - (i % 6 == 0 ? 2.5 : 0)] }
             result = ["meters":[["entity_id":"sensor.zaehler","name":"Hauszähler","room":NSNull(),"today_kwh":4.2,"last7_kwh":56.4],["entity_id":"sensor.wallbox","name":"Wallbox","room":"Garage","today_kwh":0,"last7_kwh":21.0]],

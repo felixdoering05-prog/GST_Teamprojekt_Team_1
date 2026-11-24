@@ -67,3 +67,312 @@ struct HAEnergySection: View {
     private func date(_ s: String) -> Date? { let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"; return f.date(from: s) }
     private func load() async { do { data = try await account.request("buildings/\(building.id)/energy-overview"); problem = nil } catch { problem = error.localizedDescription } }
 }
+
+private struct PassportEnergySnapshot: Decodable {
+    struct Range: Decodable {
+        let from: String
+        let to: String
+        var label: String { "\(passportDate(from)) – \(passportDate(to))" }
+    }
+
+    struct Ranges: Decodable {
+        let current: Range?
+        let previous: Range?
+    }
+
+    struct UsageUnit: Decodable, Identifiable {
+        let id: String
+        let name: String
+    }
+
+    struct Reading: Decodable, Identifiable {
+        let id: String
+        let medium: String
+        let value: Double?
+        let unit: String
+        let unit_id: String?
+        let unit_name: String?
+        let meter_code: String?
+        let meter_name: String?
+        let meter_reading: Double?
+        let reading_date: String?
+        let period_start: String?
+        let period_end: String?
+        let cost_eur: Double?
+        let capture_method: String?
+        let source: String
+        let note: String?
+
+        var sourceLabel: String {
+            let labels = ["manual": "Manuell", "csv": "CSV-Import", "building_pass": "Gebäudepass in ChatGPT Sites"]
+            let label = labels[capture_method ?? ""] ?? (note == "Importierter Ablesewert" ? "CSV-Import" : "Nala-Bestand")
+            return source == "demo" ? "\(label) · Demo" : label
+        }
+    }
+
+    struct Series: Decodable, Identifiable {
+        struct Point: Decodable, Identifiable {
+            let month: String
+            let value: Double?
+            var id: String { month }
+        }
+        var id: String { unit }
+        let unit: String
+        let current: Double?
+        let previous: Double?
+        let points: [Point]
+    }
+
+    struct Summary: Decodable, Identifiable {
+        var id: String { medium }
+        let medium: String
+        let label: String
+        let series: [Series]
+        let cost_eur: Double?
+        let meter_count: Int
+        let meters: [Reading]?
+    }
+
+    struct Reference: Decodable {
+        struct Metric: Decodable, Identifiable {
+            var id: String { label }
+            let label: String
+            let value: Double
+            let unit: String
+            let note: String
+        }
+        let month: String
+        let metrics: [Metric]
+        let hints: [String]
+    }
+
+    let units: [UsageUnit]
+    let summaries: [Summary]
+    let ranges: Ranges
+    let source: String
+    let readings: [Reading]
+    let reading_count: Int
+    let reference: Reference?
+}
+
+private func passportDate(_ value: String?, format: String = "dd.MM.yyyy") -> String {
+    guard let value else { return "–" }
+    let input = DateFormatter()
+    input.locale = Locale(identifier: "en_US_POSIX")
+    input.timeZone = TimeZone(identifier: "Europe/Berlin")
+    input.dateFormat = "yyyy-MM-dd"
+    let date = value.count == 10 ? input.date(from: value) : MeasurementTime.parse(value)
+    guard let date else { return "–" }
+    input.locale = Locale(identifier: "de_DE")
+    input.dateFormat = format
+    return input.string(from: date)
+}
+
+private func passportQuantity(_ value: Double?, _ unit: String) -> String {
+    value.map { $0.formatted(.number.precision(.fractionLength(0...3))) + (unit.isEmpty ? "" : " " + unit) } ?? "Keine Daten"
+}
+
+private func passportCost(_ value: Double?) -> String {
+    value.map { $0.formatted(.currency(code: "EUR")) } ?? "Keine Daten"
+}
+
+struct PassportEnergyView: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    @State private var selectedBuilding: Building?
+
+    var body: some View {
+        let current = selectedBuilding ?? building
+        List {
+            if account.buildings.count > 1 {
+                Section {
+                    Picker("Gebäude", selection: Binding(
+                        get: { current.id },
+                        set: { id in selectedBuilding = account.buildings.first { $0.id == id } }
+                    )) {
+                        ForEach(account.buildings) { Text($0.name).tag($0.id) }
+                    }
+                }
+            }
+            PassportEnergySections(account: account, building: current).id(current.id)
+        }
+        .navigationTitle("Energie")
+    }
+}
+
+struct PassportEnergySections: View {
+    @ObservedObject var account: AccountModel
+    let building: Building
+    var medium: String? = nil
+    @State private var snapshot: PassportEnergySnapshot?
+    @State private var unit = ""
+    @State private var months = "12"
+    @State private var source = ""
+    @State private var offset = 0
+    @State private var error: String?
+    @State private var reload = 0
+
+    init(account: AccountModel, building: Building, medium: String? = nil, unit: String = "", months: String = "12", source: String = "") {
+        self.account = account
+        self.building = building
+        self.medium = medium
+        _unit = State(initialValue: unit)
+        _months = State(initialValue: months)
+        _source = State(initialValue: source)
+    }
+
+    private var path: String {
+        var components = URLComponents()
+        components.path = "energy-consumption"
+        components.queryItems = [
+            URLQueryItem(name: "building", value: String(building.id)),
+            URLQueryItem(name: "months", value: months),
+            URLQueryItem(name: "unit", value: unit),
+            URLQueryItem(name: "source", value: source),
+            URLQueryItem(name: "medium", value: medium ?? ""),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+        return components.string ?? "energy-consumption"
+    }
+
+    var body: some View {
+        Group {
+            Section("Verbrauchsfilter") {
+                LabeledContent("Gebäude", value: building.name)
+                Picker("Zeitraum", selection: $months) {
+                    Text("1 Kalendermonat").tag("1")
+                    Text("3 Kalendermonate").tag("3")
+                    Text("12 Kalendermonate").tag("12")
+                    Text("Gesamte Historie").tag("all")
+                }.onChange(of: months) { offset = 0 }
+                Picker("Nutzungseinheit", selection: $unit) {
+                    Text("Alle Nutzungseinheiten").tag("")
+                    ForEach(snapshot?.units ?? []) { Text($0.name).tag($0.id) }
+                }.onChange(of: unit) { offset = 0 }
+                Picker("Datenbestand", selection: $source) {
+                    Text("Automatisch").tag("")
+                    Text("Echte Daten").tag("real")
+                    Text("Demo-Daten").tag("demo")
+                }.onChange(of: source) { unit = ""; offset = 0 }
+            }
+            if let error {
+                Section {
+                    Label(error, systemImage: "exclamationmark.icloud").foregroundStyle(.orange)
+                    Button("Erneut laden") { reload += 1 }
+                }
+            } else if let snapshot {
+                Section {
+                    if let range = snapshot.ranges.current { LabeledContent("Zeitraum", value: range.label) }
+                    if let previous = snapshot.ranges.previous { LabeledContent("Vorzeitraum", value: previous.label) }
+                    if snapshot.source == "demo" { Label("Demo-Daten", systemImage: "testtube.2").foregroundStyle(.orange) }
+                }
+                if medium == nil { overview(snapshot) }
+                else if let summary = snapshot.summaries.first { details(summary, snapshot: snapshot) }
+            } else {
+                Section { ProgressView("Verbrauchsdaten werden geladen …") }
+            }
+        }
+        .task(id: "\(path)#\(reload)") {
+            error = nil
+            do {
+                let result: PassportEnergySnapshot = try await account.request(path)
+                guard !Task.isCancelled else { return }
+                snapshot = result
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    @ViewBuilder private func overview(_ data: PassportEnergySnapshot) -> some View {
+        Section("Verbrauchsarten") {
+            ForEach(data.summaries) { summary in
+                NavigationLink {
+                    List {
+                        PassportEnergySections(account: account, building: building, medium: summary.medium, unit: unit, months: months, source: source)
+                        if summary.medium == "strom" { HAEnergySection(account: account, building: building) }
+                    }.navigationTitle(summary.label).navigationBarTitleDisplayMode(.inline)
+                } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(summary.label).font(.headline)
+                        ForEach(summary.series) { series in
+                            Text(passportQuantity(series.current, series.unit)).font(.title3.monospacedDigit())
+                        }
+                        Text("Kosten \(passportCost(summary.cost_eur)) · \(summary.meter_count) Zähler")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(.vertical, 4)
+                }
+            }
+        }
+        if let reference = data.reference {
+            Section("Kennzahlen aus dem Gebäudepass") {
+                Text("ChatGPT Sites · Demo · \(passportDate(reference.month + "-01", format: "MMMM yyyy"))").font(.caption).foregroundStyle(.secondary)
+                ForEach(reference.metrics) { metric in
+                    VStack(alignment: .leading, spacing: 3) {
+                        LabeledContent(metric.label, value: passportQuantity(metric.value, metric.unit))
+                        Text(metric.note).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                DisclosureGroup("Betriebliche Hinweise") {
+                    ForEach(reference.hints, id: \.self) { Text($0).font(.caption) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func details(_ summary: PassportEnergySnapshot.Summary, snapshot: PassportEnergySnapshot) -> some View {
+        ForEach(summary.series) { series in
+            Section(summary.medium == "warmwasser" && series.unit == "kWh" ? "Energie zur Warmwasserbereitung" : "Verbrauchsentwicklung · \(series.unit)") {
+                LabeledContent("Verbrauch", value: passportQuantity(series.current, series.unit))
+                LabeledContent("Vorzeitraum", value: passportQuantity(series.previous, series.unit))
+                if let current = series.current, let previous = series.previous {
+                    let difference = current - previous
+                    let percentage = previous == 0 ? "" : " (\((difference / previous).formatted(.percent.precision(.fractionLength(1)))))"
+                    LabeledContent("Änderung", value: passportQuantity(difference, series.unit) + percentage)
+                }
+                if series.points.contains(where: { $0.value != nil }) {
+                    Chart(series.points) { point in
+                        if let value = point.value {
+                            BarMark(x: .value("Monat", point.month), y: .value(series.unit, value)).foregroundStyle(d21Accent)
+                        }
+                    }.chartXScale(domain: series.points.map(\.month))
+                        .frame(height: 160).accessibilityLabel("Monatlicher Verbrauch in \(series.unit)")
+                }
+            }
+        }
+        Section("Kosten") {
+            LabeledContent("Im Zeitraum", value: passportCost(summary.cost_eur))
+        }
+        Section("Zähler") {
+            LabeledContent("Zähler im Zeitraum", value: String(summary.meter_count))
+            ForEach(summary.meters ?? []) { row in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(row.meter_name ?? row.meter_code ?? "–").font(.headline)
+                    Text("Zählerstand \(passportQuantity(row.meter_reading, row.unit)) · \(passportDate(row.reading_date))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        Section("Verbrauchshistorie") {
+            if snapshot.readings.isEmpty { Text("Für diese Filter liegen keine Verbrauchswerte vor.").foregroundStyle(.secondary) }
+            ForEach(snapshot.readings) { row in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(passportQuantity(row.value, row.unit)).font(.headline)
+                    Text([building.name, row.unit_name ?? row.unit_id, row.meter_name ?? row.meter_code].compactMap { $0 }.joined(separator: " · "))
+                    Text("Zählerstand \(passportQuantity(row.meter_reading, row.unit))")
+                    Text("Ablesedatum \(passportDate(row.reading_date))")
+                    Text("Verbrauchszeitraum \(passportDate(row.period_start)) – \(passportDate(row.period_end))")
+                    Text("Kosten \(passportCost(row.cost_eur)) · \(row.sourceLabel)")
+                }.font(.caption)
+            }
+            if snapshot.reading_count > 50 {
+                HStack {
+                    Button("Zurück") { offset = max(0, offset - 50) }.disabled(offset == 0)
+                    Spacer()
+                    Button("Weiter") { offset += 50 }.disabled(offset + 50 >= snapshot.reading_count)
+                }.buttonStyle(.borderless)
+            }
+        }
+    }
+}

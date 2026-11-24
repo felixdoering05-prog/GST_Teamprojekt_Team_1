@@ -18,6 +18,7 @@ struct BuildingFilesView: View {
     @State private var fileError: String?
     @State private var success: String?
     @State private var search = ""
+    @State private var category = ""
     @State private var renameTarget: BuildingDocument?
     @State private var renameName = ""
     @State private var deleteTarget: BuildingDocument?
@@ -26,7 +27,18 @@ struct BuildingFilesView: View {
         _flow = StateObject(wrappedValue: BuildingWorkflowModel(account: model, building: building))
     }
     private var locked: Bool { flow.busy || preparing || fileAction }
-    private var filtered: [BuildingDocument] { documents.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
+    private let categories = [("allgemein", "Allgemein"), ("tga", "TGA"), ("elektro", "Elektro"), ("bim", "BIM"), ("brandschutz", "Brandschutz"), ("wartung", "Wartung"), ("bilder", "Bilder und Scans"), ("plaene", "Pläne")]
+    private func categoryKey(_ row: BuildingDocument) -> String {
+        if let category = row.category { return category }
+        if row.mime_type == "application/x-step" { return "bim" }
+        if row.mime_type.hasPrefix("image/") { return "bilder" }
+        return ["application/acad", "application/dxf"].contains(row.mime_type) ? "plaene" : "allgemein"
+    }
+    private func categoryLabel(_ row: BuildingDocument) -> String { categories.first { $0.0 == categoryKey(row) }?.1 ?? categoryKey(row) }
+    private var filtered: [BuildingDocument] {
+        documents.filter { row in (category.isEmpty || categoryKey(row) == category) &&
+            (search.isEmpty || [row.name, categoryLabel(row), row.version_label ?? ""].joined(separator: " ").localizedCaseInsensitiveContains(search)) }
+    }
     private var acceptedTypes: [UTType] { [.pdf, .image, UTType(filenameExtension: "ifc") ?? UTType(importedAs: "org.buildingsmart.ifc"), UTType(filenameExtension: "dwg") ?? UTType(importedAs: "com.autodesk.dwg"), UTType(filenameExtension: "dxf") ?? UTType(importedAs: "com.autodesk.dxf")] }
     private func reload() async {
         loading = true; defer { loading = false }
@@ -61,14 +73,18 @@ struct BuildingFilesView: View {
             if loading { Section { ProgressView("Dateien werden geladen …") } }
             else if documents.isEmpty { Section { ContentUnavailableView("Deine Mappe wartet auf die erste Datei", systemImage: "folder", description: Text("Füge ein Foto oder einen Plan hinzu. Du kannst jederzeit später weitermachen.")) } }
             else if filtered.isEmpty { Section { Text("Keine Datei mit diesem Namen gefunden.").foregroundStyle(.secondary) } }
-            fileSection("Fotos", items: filtered.filter { $0.mime_type.hasPrefix("image/") })
-            fileSection("IFC-Modelle auf dem Server", items: filtered.filter { $0.mime_type == "application/x-step" })
-            fileSection("Pläne & Dokumente", items: filtered.filter { !$0.mime_type.hasPrefix("image/") && $0.mime_type != "application/x-step" })
+            if !documents.isEmpty {
+                Section { Picker("Kategorie", selection: $category) {
+                    Text("Alle Kategorien").tag("")
+                    ForEach(categories, id: \.0) { Text($0.1).tag($0.0) }
+                } }
+                ForEach(categories, id: \.0) { entry in fileSection(entry.1, items: filtered.filter { categoryKey($0) == entry.0 }) }
+            }
             Section {
                 Text("IFC-Modelle öffnen sich in 3D. Bilder und PDFs öffnen sich als Vorschau. DWG-Pläne kannst du über Teilen in einer passenden CAD-App öffnen.").font(.footnote).foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("Gebäudemappe").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Dokumente").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Dateien suchen")
         .task { await reload(); flow.clearCompletedQueue() }
         .refreshable { if !locked { await reload() } }
@@ -147,6 +163,10 @@ struct BuildingFilesView: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(document.name).foregroundStyle(.primary)
                                     Text(ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file)).font(.caption).foregroundStyle(.secondary)
+                                    if let version = document.version_label { Text("Version \(version)").font(.caption).foregroundStyle(.secondary) }
+                                    if let status = document.review_status {
+                                        Text(["draft": "Entwurf", "in_review": "In Prüfung", "approved": "Freigegeben"][status] ?? status).font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
                                 Spacer(minLength: 0)
                             }.contentShape(Rectangle())

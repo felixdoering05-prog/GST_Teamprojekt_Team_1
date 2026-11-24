@@ -34,8 +34,13 @@ async function initDocuments(db) {
   content BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
  await db.query('CREATE INDEX IF NOT EXISTS app_documents_building_idx ON app_documents(building_id)');
  await db.query('ALTER TABLE app_documents ADD COLUMN IF NOT EXISTS upload_key TEXT');
+ await db.query(`ALTER TABLE app_documents ADD COLUMN IF NOT EXISTS category TEXT,
+   ADD COLUMN IF NOT EXISTS version_label TEXT, ADD COLUMN IF NOT EXISTS review_status TEXT`);
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_documents_upload_key_idx ON app_documents(building_id,upload_key) WHERE upload_key IS NOT NULL');
 }
+const METADATA = 'id,building_id,name,mime_type,size,created_at,category,version_label,review_status';
+const DOCUMENT_CATEGORIES = ['allgemein','tga','elektro','bim','brandschutz','wartung','bilder','plaene'];
+const REVIEW_STATUSES = ['draft','in_review','approved'];
 function documentRouter(db,requireAccount) {
  const router=express.Router();
  router.use(requireAccount);
@@ -47,7 +52,7 @@ function documentRouter(db,requireAccount) {
  };
  router.get('/buildings/:buildingId/documents',wrap(async(req,res)=>{
   if(!await owned(req,res))return;
-  res.json((await db.query('SELECT id,building_id,name,mime_type,size,created_at FROM app_documents WHERE building_id=$1 ORDER BY id DESC',[req.params.buildingId])).rows);
+  res.json((await db.query(`SELECT ${METADATA} FROM app_documents WHERE building_id=$1 ORDER BY id DESC`,[req.params.buildingId])).rows);
  }));
  // Authenticate before buffering. Files are sent as raw bytes, never as base64 JSON.
  router.post('/buildings/:buildingId/documents',express.raw({type:'application/octet-stream',limit:MAX_FILE}),wrap(async(req,res)=>{
@@ -60,6 +65,8 @@ function documentRouter(db,requireAccount) {
   if(!mime)return res.status(415).json({error:'Erlaubt sind PDF, JPG, PNG, WebP, DWG, DXF und unkomprimierte IFC2x3-/IFC4-Dateien mit passender Dateikennung.'});
   if(mime==='application/x-step' && req.body.length>MAX_IFC)return res.status(413).json({error:'Maximal 20 MB pro IFC-Modell. Bitte einen kleineren Ausschnitt exportieren.'});
   const uploadKey=req.get('X-Upload-ID')||null;
+  const category=req.get('X-Document-Category')||null;
+  if(category&&!DOCUMENT_CATEGORIES.includes(category))return res.status(400).json({error:'Ungültige Dokumentenkategorie.'});
   if(uploadKey&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(uploadKey))return res.status(400).json({error:'Ungültige Upload-Kennung.'});
   const client=await db.connect();
   try {
@@ -79,7 +86,9 @@ function documentRouter(db,requireAccount) {
    const usage=(await client.query('SELECT COALESCE(SUM(d.size),0) AS total FROM app_documents d JOIN app_buildings b ON b.id=d.building_id WHERE b.user_id=$1',[building.user_id])).rows[0];
    const storage=(await accountLimits(client,building.user_id)).values.storage_mb;
    if(storage!==null&&Number(usage.total)+req.body.length>storage*1024*1024){await client.query('ROLLBACK');return res.status(413).json({error:`Speicherlimit erreicht: maximal ${storage} MB pro Konto.`});}
-   const doc=(await client.query('INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,building_id,name,mime_type,size,created_at',[req.params.buildingId,name,mime,req.body.length,req.body,uploadKey])).rows[0];
+   const doc=(await client.query(`INSERT INTO app_documents(building_id,name,mime_type,size,content,upload_key,category,version_label,review_status)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${METADATA}`,
+   [req.params.buildingId,name,mime,req.body.length,req.body,uploadKey,category,category?'1.0':null,category?'draft':null])).rows[0];
    const conversion=await enqueueUpload(client,building,req.account.id,doc);
    await notifyBuilding(client,building.id,req.account.id,'file',`${req.account.name.split(' ')[0]} hat „${name}“ hochgeladen.`);
    await client.query('COMMIT');res.status(201).json(conversion?{...doc,plan_conversion:conversion}:doc);
@@ -100,9 +109,18 @@ function documentRouter(db,requireAccount) {
    if(!doc){await client.query('ROLLBACK');return res.status(404).json({error:'Datei nicht gefunden.'});}
    const extensions={'application/pdf':['.pdf'],'image/jpeg':['.jpg','.jpeg'],'image/png':['.png'],'image/webp':['.webp'],'application/acad':['.dwg'],'application/dxf':['.dxf'],'application/x-step':['.ifc']};
    if(!extensions[doc.mime_type]?.includes(path.extname(name).toLowerCase())){await client.query('ROLLBACK');return res.status(400).json({error:'Die passende Dateiendung muss erhalten bleiben.'});}
-   const updated=(await client.query('UPDATE app_documents SET name=$1 WHERE id=$2 RETURNING id,building_id,name,mime_type,size,created_at',[name,doc.id])).rows[0];
+   const updated=(await client.query(`UPDATE app_documents SET name=$1 WHERE id=$2 RETURNING ${METADATA}`,[name,doc.id])).rows[0];
    await client.query('COMMIT');res.json(updated);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }));
+ router.patch('/documents/:documentId/metadata',wrap(async(req,res)=>{
+  const body=req.body??{}, {category,version_label:version,review_status:status}=body;
+  if(!DOCUMENT_CATEGORIES.includes(category)||!REVIEW_STATUSES.includes(status)||typeof version!=='string'||!version.trim()||version.length>30)
+   return res.status(400).json({error:'Kategorie, Versionsbezeichnung und Freigabestand prüfen.'});
+  const updated=(await db.query(`UPDATE app_documents SET category=$2,version_label=$3,review_status=$4 WHERE id=$1 AND building_id=$5 RETURNING ${METADATA}`,
+   [req.params.documentId,category,version.trim(),status,req.buildingAccess?.building_id])).rows[0];
+  if(!updated)return res.status(404).json({error:'Datei nicht gefunden.'});
+  res.json(updated);
  }));
  router.delete('/documents/:documentId',wrap(async(req,res)=>{
   const client=await db.connect();

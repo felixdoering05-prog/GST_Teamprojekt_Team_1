@@ -15,7 +15,14 @@
         "strom",
         "waerme",
         "kaltwasser",
-        "warmwasser"
+        "warmwasser",
+        "wasser",
+        "gas",
+        "pv_erzeugung",
+        "netzbezug",
+        "eigenverbrauch",
+        "einspeisung",
+        "co2"
       ],
       "description": "Energieart"
     },
@@ -45,13 +52,19 @@
     },
     "note": {
       "type": "string"
-    }
+    },
+    "meter_name": { "type": "string" },
+    "meter_reading": { "type": "number" },
+    "meter_level": { "type": "string", "enum": ["main", "sub"] },
+    "unit_id": { "type": "string" },
+    "unit_name": { "type": "string" },
+    "reading_date": { "type": "string" },
+    "cost_eur": { "type": "number" },
+    "capture_method": { "type": "string", "enum": ["manual", "csv", "building_pass"] }
   },
   "required": [
     "medium",
     "value",
-    "period_start",
-    "period_end",
     "source"
   ]
 }
