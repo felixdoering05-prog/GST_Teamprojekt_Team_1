@@ -22,6 +22,10 @@ import HeatMap from './pages/HeatMap';
 import Energy from './pages/Energy';
 import Analysis from './pages/Analysis';
 import Alerts from './pages/Alerts';
+import Documents from './pages/Documents';
+import Operations from './pages/Operations';
+import BuildingIssues from './components/BuildingIssues';
+import PageHeader from './components/PageHeader';
 import DataSettings from './pages/DataSettings';
 import BuildingAssistant from './pages/BuildingAssistant';
 import TeamAccess from './pages/TeamAccess';
@@ -65,12 +69,16 @@ const AuthenticatedApp = () => {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/gebaeude" element={<Rooms />} />
+          <Route path="/dokumente" element={<Documents />} />
+          <Route path="/betrieb/technische-anlagen" element={<Operations mode="assets" />} />
+          <Route path="/betrieb/wartungen" element={<Operations mode="maintenance" />} />
           <Route path="/sensorik" element={<Sensors />} />
           <Route path="/bim-viewer" element={<BimViewer />} />
           <Route path="/heat-map" element={<HeatMap />} />
-          <Route path="/energie" element={<Energy />} />
+          <Route path="/energie/:medium?" element={<Energy />} />
           <Route path="/analyse" element={<Analysis />} />
           <Route path="/meldungen" element={<Alerts />} />
+          <Route path="/issues" element={<div className="space-y-5"><PageHeader title="Issues und Mängel" /><BuildingIssues editable /></div>} />
           <Route path="/daten" element={<DataSettings />} />
           <Route path="/assistent" element={<BuildingAssistant />} />
           <Route path="/teams" element={<Teams />} />

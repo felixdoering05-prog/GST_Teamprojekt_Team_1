@@ -75,7 +75,7 @@ function teamScopeMiddleware(db){
    if(!idOK(raw))return res.status(400).json({error:'Ungültige Team-Auswahl.'});
    const team=await accessibleTeam(db,Number(raw),req.account.id);
    if(!team)return res.status(404).json({error:'Team nicht gefunden.'});
-   req.teamScope={id:team.id,owner_id:team.owner_id,is_owner:team.is_owner,buildingIDs:team.buildings.map(row=>Number(row.id))};
+   req.teamScope={id:team.id,owner_id:team.owner_id,is_owner:team.is_owner,is_default:team.is_default,buildingIDs:team.buildings.map(row=>Number(row.id))};
    next();
   }catch(error){next(error);}
  };

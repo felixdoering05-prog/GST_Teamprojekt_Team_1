@@ -60,3 +60,64 @@ test('missing counter intervals stay unknown, measured zero stays zero; multiple
  assert.equal(r.meters.find(m=>m.entity_id==='zero').today_kwh,0);
  assert.equal(r.base_load_w,null);
 });
+
+test('building pass overview preserves Nala history, deduplicates retries and compares like units',async()=>{
+ const create=(data)=>request('/twin/EnergyReading/create','POST',{data},owner.token);
+ const legacy={building_id:String(building.id),meter_code:'WW-17',medium:'warmwasser',unit:'l',value:1200,
+  period_start:'2026-10-01T00:00:00+02:00',period_end:'2026-10-31T23:59:00+01:00',source:'real'};
+ const original=await create(legacy);assert.equal(original.status,200,JSON.stringify(original.data));
+ const duplicate=await create({...legacy,unit:'m³',value:1.2,period_start:'2026-09-30T22:00:00Z',reading_date:'2026-11-01',cost_eur:0});
+ assert.equal(duplicate.data.id,original.data.id);assert.equal(duplicate.data.duplicate,true);
+ assert.equal((await create({...legacy,value:1400})).status,409);
+ const current={...legacy,unit:'m³',value:1.8,unit_id:'1-og',unit_name:'1. OG',meter_reading:18,reading_date:'2026-11-24',
+  period_start:'2026-11-01',period_end:'2026-11-23',cost_eur:12.5,capture_method:'manual'};
+ assert.equal((await create(current)).status,200);
+ assert.equal((await create({...current,unit:'kWh',value:42,meter_reading:null,cost_eur:null})).status,200);
+ assert.equal((await create({...current,medium:'kaltwasser',reading_date:'2026-02-30'})).status,400);
+ const path=`/energy-consumption?building=${building.id}&months=1&end=2026-11`;
+ const overview=await request(path,'GET',undefined,owner.token);
+ assert.equal(overview.status,200,JSON.stringify(overview.data));
+ assert.deepEqual(overview.data.media,['strom','waerme','warmwasser','kaltwasser']);
+ const warm=overview.data.summaries.find(row=>row.medium==='warmwasser');
+ assert.deepEqual(warm.series.map(({unit,current,previous})=>[unit,current,previous]),[['m³',1.8,1.2],['kWh',42,null]]);
+ assert.equal(warm.cost_eur,12.5);assert.equal(overview.data.reading_count,2);
+ assert.deepEqual(overview.data.units,[{id:'1-og',name:'1. OG'}]);
+ const detail=await request(path+'&unit=1-og&medium=warmwasser','GET',undefined,owner.token);
+ assert.equal(detail.data.summaries.length,1);
+ assert.equal(detail.data.readings.find(r=>r.unit==='m³').meter_reading,18);
+ assert.equal(detail.data.summaries[0].series[0].previous,null);
+ assert.equal((await request(path,'GET',undefined,stranger.token)).status,404);
+ assert.equal((await request('/energy-consumption','GET',undefined,stranger.token)).data.reading_count,0);
+});
+
+test('imports the published Sites building pass months, metrics and unit values exactly once',async()=>{
+ const importDemo=()=>request('/twin-functions/seedPassportEnergy','POST',{},owner.token);
+ const imported=await importDemo();assert.equal(imported.status,200,JSON.stringify(imported.data));
+ assert.equal(imported.data.readings_created,18);assert.equal(imported.data.reference_month,'2027-07');
+ const repeated=await importDemo();assert.deepEqual(repeated.data,{building_id:imported.data.building_id,reference_month:'2027-07',readings_created:0});
+ const path=`/energy-consumption?building=${imported.data.building_id}`;
+ const data=(await request(path,'GET',undefined,owner.token)).data;
+ assert.equal(data.source,'demo');assert.equal(data.reading_count,18);assert.equal(data.end,'2027-07');
+ assert.equal(data.reference.version,6);assert.equal(data.reference.metrics.find(row=>row.label==='Wärmepumpen-COP').value,3.72);
+ assert.deepEqual(data.units,[{id:'demo-unit',name:'Wohnung 2.04'}]);
+ for(const medium of ['warmwasser','kaltwasser']){
+  const empty=(await request(path+'&medium='+medium,'GET',undefined,owner.token)).data;
+  assert.equal(empty.reading_count,0);
+  assert.equal(empty.summaries[0].series[0].unit,'m³');
+  assert.equal(empty.summaries[0].series[0].current,null);
+  assert.equal(empty.summaries[0].cost_eur,null);
+ }
+ const power=(await request(path+'&medium=strom','GET',undefined,owner.token)).data;
+ const unit=(await request(path+'&medium=strom&unit='+encodeURIComponent(data.units[0].id),'GET',undefined,owner.token)).data;
+ assert.equal(power.reading_count,13);assert.equal(unit.reading_count,1);
+ assert.equal(unit.summaries[0].series[0].current,84);
+ const series=power.summaries[0].series[0];
+ assert.equal(series.points.length,12);
+ assert.deepEqual(series.points[0],{month:'2026-08', value:33200});
+ assert.deepEqual(series.points.at(-1),{month:'2027-07',value:42800});
+ const july=(await request(path+'&months=1&medium=strom','GET',undefined,owner.token)).data.summaries[0].series[0];
+ assert.deepEqual([july.current,july.previous],[42800,42100]);
+ const water=(await request(path+'&medium=wasser&unit=demo-unit','GET',undefined,owner.token)).data;
+ assert.equal(water.readings[0].value,0.118);assert.equal(water.readings[0].unit,'m³');
+ assert.equal(water.readings[0].reading_date,undefined);assert.equal(water.readings[0].meter_reading,null);
+});

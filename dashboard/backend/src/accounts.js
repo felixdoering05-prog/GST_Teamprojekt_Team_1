@@ -15,6 +15,7 @@ const {initMapViews,mapViewRouter}=require('./map-view');
 const {equipmentRouter}=require('./equipment');
 const {initIssues,issuesRouter}=require('./issues');
 const {initMaintenance,maintenanceRouter}=require('./maintenance');
+const {initTechnicalAssets,technicalAssetsRouter}=require('./technical-assets');
 const {initAutomations,automationsRouter}=require('./automations');
 const {energyRouter}=require('./energy');
 const {initHomeAssistant,homeAssistantRouter}=require('./home-assistant');
@@ -78,6 +79,7 @@ async function initAccounts(db) {
  await initHomeAssistant(db);
  await initMapViews(db);
  await initIssues(db);
+ await initTechnicalAssets(db);
  await initMaintenance(db);
  await initAutomations(db);
  await initBuildingWeather(db);
@@ -209,6 +211,7 @@ function accountRouter(db,options={}) {
  router.use(uiPreferencesRouter(db,requireAccount));
  router.use(issuesRouter(db,requireAccount,options.campus));
  router.use(maintenanceRouter(db,requireAccount));
+ router.use(technicalAssetsRouter(db));
  router.use(automationsRouter(db,requireAccount));
  router.use(energyRouter(db,requireAccount));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));

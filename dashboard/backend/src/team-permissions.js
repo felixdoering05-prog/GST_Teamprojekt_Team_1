@@ -72,7 +72,7 @@ function moduleForBuildingPath(parts) {
   // The invitation endpoint validates the signed-in account and a pending invitation itself.
   if (['members','roles','team','team-access','invitation'].includes(area)) return null;
   if (area === 'documents') return 'documents';
-  if (area === 'maintenance') return 'maintenance';
+  if (area === 'maintenance' || area === 'assets') return 'maintenance';
   if (area === 'plan-conversion') return 'settings';
   if (area === 'structure') return 'structure';
   if (['telemetry','sensor-devices','devices','sensors'].includes(area)) return 'sensors';

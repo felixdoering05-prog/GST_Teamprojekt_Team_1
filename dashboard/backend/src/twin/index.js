@@ -4,6 +4,9 @@ const {randomUUID} = require('node:crypto');
 const seed = require('./seed');
 const {runThresholdCheck} = require('./thresholdRules');
 const {buildingAccess,can} = require('../team-permissions');
+const {dayOf,normalizeReading,readingIdentity,recordKey,comparableReadings} = require('../energy-records');
+const {seedPassportEnergy} = require('../passport-energy-demo');
+const {ensureDefaultTeam} = require('../teams');
 const names = ['Building','Floor','Room','Sensor','Measurement','EnergyReading','Alert','ThresholdConfig'];
 const schemas = Object.fromEntries(names.map(name => [name,require(`./${name}.json`)]));
 const refs = {building_id:'Building',floor_id:'Floor',room_id:'Room',sensor_id:'Sensor'};
@@ -36,6 +39,14 @@ function validate(entity,input,partial=false) {
  }
  if(!partial)for(const [key,field] of Object.entries(schema.properties))if(result[key]===undefined&&field.default!==undefined)result[key]=field.default;
  if(!partial)for(const key of schema.required)if(result[key]===undefined||result[key]===null||result[key]==='')fail(`Pflichtfeld: ${key}`);
+ if(entity==='EnergyReading'&&!partial){
+  if(!result.reading_date&&!result.period_start)fail('Ablesedatum oder Verbrauchsbeginn erforderlich.');
+  if(result.reading_date&&!dayOf(result.reading_date))fail('Ungültiges Ablesedatum.');
+  if(result.period_end&&(!result.period_start||Date.parse(result.period_end)<Date.parse(result.period_start)))fail('Ungültiger Verbrauchszeitraum.');
+  const normalized=normalizeReading(result);
+  if(['kaltwasser','wasser'].includes(result.medium)&&normalized.unit!=='m³')fail('Wasser wird als Volumen erfasst.');
+  if(result.medium==='warmwasser'&&!['m³','kWh'].includes(normalized.unit))fail('Warmwasser benötigt eine Volumen- oder Energieeinheit.');
+ }
  if(entity==='Building') {
   if((result.name?.length||0)>200||(result.address?.length||0)>500)fail('Gebäudename maximal 200 Zeichen, Adresse maximal 500 Zeichen.');
   const hasLatitude=result.latitude!==undefined&&result.latitude!==null, hasLongitude=result.longitude!==undefined&&result.longitude!==null;
@@ -114,13 +125,41 @@ function service(db,userId,scope={}) {
   if(parents.sensor_id&&data.room_id&&parents.sensor_id.room_id!==data.room_id)fail('Sensor gehört zu einem anderen Raum.');
   if(entity==='Measurement'&&parents.sensor_id&&parents.sensor_id.metric!==data.metric)fail('Messgröße passt nicht zum Sensor.');
  }
+ async function duplicateEnergyRecord(entity,data,owner,id){
+  if(entity!=='EnergyReading')return null;
+  // Different team members can submit records to the same owner's building.
+  if(data.building_id)await db.query('SELECT id FROM app_buildings WHERE id=$1 FOR UPDATE',[data.building_id]);
+  const candidates=(await db.query(`SELECT id,data,created_at FROM app_twin_records
+    WHERE user_id=$1 AND entity=$2 AND data->>'medium'=$3 AND (data->>'building_id') IS NOT DISTINCT FROM $4
+    ORDER BY created_at,id`,[owner,entity,data.medium,data.building_id||null])).rows;
+  const key=recordKey(data);
+  const same=candidates.find(row=>row.id!==id&&recordKey(row.data)===key&&
+    comparableReadings(normalizeReading(row.data),normalizeReading(data)));
+  if(!same&&data.meter_code){
+   const identity=readingIdentity(data);
+   if(candidates.some(row=>row.id!==id&&readingIdentity(row.data)===identity))fail('Für diesen Zähler und Zeitraum liegen bereits abweichende Werte vor.',409);
+  }
+  return same;
+ }
  async function create(entity,input) {
   const data=validate(entity,input);await references(entity,data);
   const storageOwner=ownerForData(entity,data);
+  const existing=await duplicateEnergyRecord(entity,data,storageOwner);
+  if(existing){
+   const saved={...existing.data};
+   // Only fill missing metadata on retry. Keep the original measurement and identifier.
+   for(const field of ['meter_name','meter_level','unit_name','reading_date','cost_eur','capture_method']){
+    if(saved[field]==null&&data[field]!=null)saved[field]=data[field];
+   }
+   if(saved.meter_reading==null&&data.meter_reading!=null&&saved.unit===data.unit)saved.meter_reading=data.meter_reading;
+   if(JSON.stringify(saved)!==JSON.stringify(existing.data))await db.query('UPDATE app_twin_records SET data=$1,updated_at=now() WHERE id=$2',[JSON.stringify(saved),existing.id]);
+   return {...saved,id:existing.id,created_date:new Date(existing.created_at).toISOString(),duplicate:true};
+  }
   const count=Number((await db.query('SELECT COUNT(*) AS count FROM app_twin_records WHERE user_id=$1',[storageOwner])).rows[0].count)+Number((await db.query('SELECT COUNT(*) AS count FROM app_buildings WHERE user_id=$1',[storageOwner])).rows[0].count);
   if(count>=MAX_ROWS)fail('Prototyp-Limit von 20.000 Datensätzen pro Konto erreicht.',413);
   if(entity==='Building') {
-   const row=(await db.query('INSERT INTO app_buildings(user_id,name,address,twin_data) VALUES($1,$2,$3,$4) RETURNING id',[userId,data.name,data.address||'',JSON.stringify(data)])).rows[0];
+   const row=(await db.query('INSERT INTO app_buildings(user_id,name,address,twin_data,team_id) VALUES($1,$2,$3,$4,$5) RETURNING id',[userId,data.name,data.address||'',JSON.stringify(data),scope.teamID??null])).rows[0];
+   buildingIDs?.add(String(row.id));
    await syncBuildingLocation(db,row.id,data);return {...data,id:String(row.id),created_date:new Date().toISOString()};
   }
   const id=randomUUID();await db.query('INSERT INTO app_twin_records(id,user_id,entity,data) VALUES($1,$2,$3,$4)',[id,storageOwner,entity,JSON.stringify(data)]);return { ...data, id, created_date:new Date().toISOString() };
@@ -131,6 +170,7 @@ function service(db,userId,scope={}) {
   const data=validate(entity,{...original,...patch});await references(entity,data);
   const storageOwnerID=await storageOwner(entity,id);
   if(entity!=='Building'&&original.building_id!=null&&data.building_id!=null&&ownerForData(entity,data)!==storageOwnerID)fail('Datensätze können nicht zwischen Gebäudeeigentümern verschoben werden.',403);
+  if(await duplicateEnergyRecord(entity,data,storageOwnerID,id))fail('Dieser Datensatz ist bereits vorhanden.',409);
   if(entity==='Building'){await db.query('UPDATE app_buildings SET name=$1,address=$2,twin_data=$3 WHERE id=$4 AND user_id=$5',[data.name,data.address||'',JSON.stringify(data),id,storageOwnerID]);await syncBuildingLocation(db,id,data);}
   else await db.query('UPDATE app_twin_records SET data=$1,updated_at=now() WHERE id=$2 AND user_id=$3 AND entity=$4',[JSON.stringify(data),id,storageOwnerID,entity]);
   return get(entity,id);
@@ -256,13 +296,19 @@ function twinRouter(db,requireAccount) {
   res.json(await transaction(db,req.account.id,async client=>{const scope=await scopedStorage(client,'edit');await authorizeMutation(client,scope);return execute(client,scope);}));
  }));
  router.post('/twin-functions/:name',wrap(async(req,res)=>{
-  if(!['seedDemoData','runThresholdCheck'].includes(req.params.name))fail('Unbekannte Funktion.',404);
+  if(!['seedDemoData','seedPassportEnergy','runThresholdCheck'].includes(req.params.name))fail('Unbekannte Funktion.',404);
   const members=(await db.query("SELECT 1 FROM app_building_members WHERE user_id=$1 AND status='accepted' LIMIT 1",[req.account.id])).rows;
   const owned=(await db.query('SELECT 1 FROM app_buildings WHERE user_id=$1 LIMIT 1',[req.account.id])).rows;
   if(members.length&&!owned.length)fail('Diese kontoübergreifende Funktion steht für Gebäudemitglieder nicht zur Verfügung.',403);
   const result=await transaction(db,req.account.id,async client=>{
    const api=service(client,req.account.id);
    if(req.params.name==='seedDemoData')return seed(api);
+   if(req.params.name==='seedPassportEnergy'){
+    if(req.teamScope&&!req.teamScope.is_owner)fail('Nur die Teamleitung kann ein Demo-Gebäude anlegen.',403);
+    const teamID=req.teamScope?.id??(await ensureDefaultTeam(client,req.account.id)).id;
+    const buildings=(await client.query('SELECT id FROM app_buildings WHERE team_id=$1 AND user_id=$2',[teamID,req.account.id])).rows;
+    return seedPassportEnergy(service(client,req.account.id,{teamID,buildingIDs:buildings.map(row=>row.id)}));
+   }
    const sinceHours=Math.min(72,Math.max(1,Number(req.body?.sinceHours)||4));
    const r=await runThresholdCheck(api,{sinceHours});
    return {checked:r.checkedSensors,sensors_total:r.sensorsTotal,created:r.created,resolved:r.resolved,violations:r.violations,window_hours:r.windowHours,message:`${r.violations.length} Grenzwertüberschreitungen, ${r.created} neue Meldungen.`};

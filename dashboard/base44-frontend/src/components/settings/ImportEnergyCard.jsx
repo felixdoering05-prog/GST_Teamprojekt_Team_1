@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { base44 } from '@/api/base44Client';
 import { buildCsv, downloadText, parseCsv, parseNumber, readFileAsText } from '@/lib/csv';
+import { ENERGY_MEDIA, energyKey } from '@/lib/energy';
 
 const normalize = (key) => String(key || '').toLowerCase().replace(/[\s_\-.]/g, '');
 
@@ -11,15 +12,19 @@ const MEDIUM_ALIASES = {
   strom: 'strom',
   stromverbrauch: 'strom',
   elektrisch: 'strom',
+  electricity: 'strom',
   waerme: 'waerme',
   warme: 'waerme',
   heizung: 'waerme',
+  heat: 'waerme',
+  wärme: 'waerme',
   kaltwasser: 'kaltwasser',
   warmwasser: 'warmwasser',
-  wasser: 'kaltwasser',
+  wasser: 'wasser',
+  wassergesamt: 'wasser',
+  coldwater: 'kaltwasser',
+  hotwater: 'warmwasser',
 };
-
-const UNIT_BY_MEDIUM = { strom: 'kWh', waerme: 'kWh', kaltwasser: 'm³', warmwasser: 'm³' };
 
 function buildGetter(headers) {
   const map = {};
@@ -47,19 +52,29 @@ export default function ImportEnergyCard({ building, onImported }) {
     return rows.map((row, index) => {
       const meterCode = get(row, ['meter_code', 'zaehler', 'zähler', 'zaehlernummer', 'meter']);
       const mediumRaw = get(row, ['medium', 'energieart', 'art', 'energietraeger']);
-      const medium = MEDIUM_ALIASES[normalize(mediumRaw)] || '';
+      const medium = MEDIUM_ALIASES[normalize(mediumRaw)] || (Object.hasOwn(ENERGY_MEDIA, mediumRaw) ? mediumRaw : '');
       const value = parseNumber(get(row, ['value', 'verbrauch', 'wert', 'menge']));
-      const unit = get(row, ['unit', 'einheit']) || UNIT_BY_MEDIUM[medium] || '';
+      const unit = get(row, ['unit', 'einheit']) || ENERGY_MEDIA[medium]?.[1] || '';
       const startRaw = get(row, ['period_start', 'von', 'start', 'beginn']);
       const endRaw = get(row, ['period_end', 'bis', 'ende']);
       const start = startRaw ? new Date(startRaw) : null;
       const end = endRaw ? new Date(endRaw) : null;
+      const dateRaw = get(row, ['reading_date', 'ablesedatum']);
+      const unitName = get(row, ['unit_name', 'nutzungseinheit']);
+      const readingRaw = get(row, ['meter_reading', 'zaehlerstand', 'zählerstand']);
+      const costRaw = get(row, ['cost_eur', 'kosten']);
+      const meterReading = parseNumber(readingRaw);
+      const cost = parseNumber(costRaw);
 
       const reasons = [];
       if (!meterCode) reasons.push('Zählerkennung fehlt');
       if (!medium) reasons.push('Energieart unbekannt');
       if (value === null) reasons.push('Verbrauch fehlt oder ist keine Zahl');
-      if (!start || Number.isNaN(start.getTime())) reasons.push('Start des Zeitraums fehlt');
+      if ((startRaw && !Number.isFinite(start?.getTime())) || (!startRaw && !dateRaw)) reasons.push('Verbrauchsbeginn oder Ablesedatum fehlt');
+      if (dateRaw && !Number.isFinite(Date.parse(dateRaw))) reasons.push('Ablesedatum ungültig');
+      if (endRaw && (!start || !Number.isFinite(end?.getTime()) || end < start)) reasons.push('Verbrauchsende ungültig');
+      if (readingRaw && meterReading === null) reasons.push('Zählerstand ungültig');
+      if (costRaw && cost === null) reasons.push('Kosten ungültig');
 
       return {
         index: index + 2,
@@ -67,6 +82,12 @@ export default function ImportEnergyCard({ building, onImported }) {
         medium,
         value,
         unit,
+        unit_id: get(row, ['unit_id']) || (unitName ? energyKey(unitName) : null),
+        unit_name: unitName || null,
+        meter_name: get(row, ['meter_name', 'zählername', 'zaehlername']) || null,
+        meter_reading: meterReading,
+        reading_date: dateRaw || null,
+        cost_eur: cost,
         period_start: start && !Number.isNaN(start.getTime()) ? start.toISOString() : null,
         period_end: end && !Number.isNaN(end.getTime()) ? end.toISOString() : start && !Number.isNaN(start.getTime()) ? new Date(start.getTime() + 24 * 3600 * 1000 - 1000).toISOString() : null,
         valid: reasons.length === 0,
@@ -103,23 +124,17 @@ export default function ImportEnergyCard({ building, onImported }) {
     }
     setBusy(true);
     try {
-      const payload = valid.map((row) => ({
-          building_id: building ? building.id : null,
-          meter_code: row.meter_code,
-          medium: row.medium,
-          value: row.value,
-          unit: row.unit,
-          period_start: row.period_start,
-          period_end: row.period_end,
-          source: 'real',
-          note: 'Importierter Ablesewert',
-        }));
+      const payload = valid.map(({ index: _index, valid: _valid, reason: _reason, ...row }) => ({
+        ...row, building_id: building ? building.id : null, source: 'real', capture_method: 'csv',
+      }));
+      let duplicates = 0;
       for (let i = 0; i < payload.length; i += 200) {
-        await base44.entities.EnergyReading.bulkCreate(payload.slice(i, i + 200));
+        const result = await base44.entities.EnergyReading.bulkCreate(payload.slice(i, i + 200));
+        duplicates += result.filter((row) => row.duplicate).length;
       }
       toast({
         title: 'Import abgeschlossen',
-        description: `${valid.length} Verbrauchswerte als echte Daten gespeichert, ${prepared.length - valid.length} Zeile(n) übersprungen.`,
+        description: `${valid.length - duplicates} neu, ${duplicates} bereits vorhanden, ${prepared.length - valid.length} fehlerhaft.`,
       });
       setPrepared(null);
       setFileName('');
@@ -140,6 +155,10 @@ export default function ImportEnergyCard({ building, onImported }) {
         { key: 'unit', label: 'unit' },
         { key: 'period_start', label: 'period_start' },
         { key: 'period_end', label: 'period_end' },
+        { key: 'reading_date', label: 'reading_date' },
+        { key: 'unit_name', label: 'unit_name' },
+        { key: 'meter_reading', label: 'meter_reading' },
+        { key: 'cost_eur', label: 'cost_eur' },
       ],
       [
         { meter_code: 'STROM-HAUS', medium: 'strom', value: '482.6', unit: 'kWh', period_start: '2026-10-26T00:00:00', period_end: '2026-10-26T23:59:59' },
@@ -160,8 +179,8 @@ export default function ImportEnergyCard({ building, onImported }) {
           <h3 className="font-heading text-sm font-semibold text-foreground">Verbrauchsdaten importieren (CSV)</h3>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Für die Energieansicht. Erforderliche Spalten: <span className="tabular">meter_code</span>,{' '}
-            <span className="tabular">medium</span> (strom, waerme, kaltwasser, warmwasser), <span className="tabular">value</span>,{' '}
-            <span className="tabular">period_start</span> und <span className="tabular">period_end</span>.
+            <span className="tabular">medium</span>, <span className="tabular">value</span> und ein Verbrauchsbeginn oder Ablesedatum.
+            Zählerstand, Kosten und Nutzungseinheit können ergänzt werden.
           </p>
         </div>
       </div>

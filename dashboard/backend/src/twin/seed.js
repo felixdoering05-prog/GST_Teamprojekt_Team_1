@@ -1,7 +1,7 @@
 const {DEMO_BUILDING,DEMO_FLOORS,DEMO_ROOMS,METRIC_SUFFIX,buildDemoEnergyReadings,demoMeasurementSeries}=require('./demoDataset');
 const {METRIC_META,runThresholdCheck}=require('./thresholdRules');
 module.exports=async function seed(base44){
-    const existing = await base44.entities.Building.filter({ source: 'demo' }, { limit: 1 });
+    const existing = await base44.entities.Building.filter({ source: 'demo', code: DEMO_BUILDING.code }, { limit: 1 });
     if ((existing.items || []).length) {
       return ({ created: false, message: 'Der Demo-Datensatz ist bereits vorhanden.' });
     }

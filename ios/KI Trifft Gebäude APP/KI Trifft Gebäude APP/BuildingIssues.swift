@@ -2,6 +2,58 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
+private struct EditIssueDetails: View {
+    let issue: BuildingIssue
+    let building: Building
+    let account: AccountModel
+    let saved: (BuildingIssue) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var room = ""
+    @State private var details = ""
+    @State private var source = ""
+    @State private var priority: IssuePriority?
+    @State private var busy = false
+    @State private var problem: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Titel", text: $title)
+                TextField("Ort / Raum", text: $room)
+                TextField("Beschreibung", text: $details, axis: .vertical)
+                Picker("Quelle", selection: $source) {
+                    Text("Nicht hinterlegt").tag("")
+                    ForEach(IssueOrigin.labels, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                Picker("Priorität", selection: $priority) {
+                    Text("Nicht festgelegt").tag(IssuePriority?.none)
+                    ForEach(IssuePriority.allCases) { Text($0.title).tag(Optional($0)) }
+                }
+                if let problem { Text(problem).foregroundStyle(.orange) }
+            }
+            .navigationTitle("Mangel bearbeiten")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .confirmationAction) { Button("Speichern") { Task { await save() } }.disabled(busy || title.trimmingCharacters(in: .whitespaces).isEmpty) }
+            }
+            .onAppear { title = issue.title; room = issue.room; details = issue.description; source = issue.source ?? ""; priority = issue.priority }
+        }
+    }
+
+    private func save() async {
+        busy = true; defer { busy = false }
+        var body: [String: Any] = ["title": title, "room": room, "description": details, "revision": issue.revision]
+        if !source.isEmpty { body["source"] = source }
+        if let priority { body["priority"] = priority.rawValue }
+        do {
+            let row: BuildingIssue = try await account.request("buildings/\(building.id)/issues/\(issue.id)", method: "PATCH", body: body)
+            saved(row)
+            dismiss()
+        } catch { problem = error.localizedDescription }
+    }
+}
+
 // Mängelmelder: defects per building with photo, room and an optional position in the IFC model.
 // The position comes from "Wo bin ich?" (LiDAR locator) or from a tap in the 3D model and is stored in
 // model coordinates, so the defect appears as a marker in the 3D viewer.
@@ -23,6 +75,8 @@ struct BuildingIssue: Decodable, Identifiable, Equatable {
     let can_edit: Bool
     let revision: Int
     let created_at: String
+    var source: String? = nil
+    var can_update_status: Bool? = nil
     var state: IssueState { IssueState(rawValue: status) ?? .open }
     var createdDate: Date? {
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -31,11 +85,16 @@ struct BuildingIssue: Decodable, Identifiable, Equatable {
 }
 
 enum IssueState: String, CaseIterable, Identifiable {
-    case open, in_progress, done
+    case open, assigned, in_progress, done
     var id: String { rawValue }
-    var title: String { switch self { case .open: "Offen"; case .in_progress: "In Arbeit"; case .done: "Erledigt" } }
-    var symbol: String { switch self { case .open: "exclamationmark.circle.fill"; case .in_progress: "hammer.circle.fill"; case .done: "checkmark.circle.fill" } }
-    var color: Color { switch self { case .open: .red; case .in_progress: .orange; case .done: .green } }
+    var title: String { switch self { case .open: "Offen"; case .assigned: "Zugewiesen"; case .in_progress: "In Arbeit"; case .done: "Erledigt" } }
+    var symbol: String { switch self { case .open: "exclamationmark.circle.fill"; case .assigned: "person.crop.circle.badge.checkmark"; case .in_progress: "hammer.circle.fill"; case .done: "checkmark.circle.fill" } }
+    var color: Color { switch self { case .open: .red; case .assigned: .blue; case .in_progress: .orange; case .done: .green } }
+}
+
+private enum IssueOrigin {
+    static let labels = [("operator", "Betreiber"), ("tenant", "Mieter"), ("bim", "BIM"), ("energy", "Energie"), ("alarm", "Alarm")]
+    static func label(_ key: String) -> String { labels.first { $0.0 == key }?.1 ?? key }
 }
 
 /// Where a defect is; prefilled from the room locator or the 3D model.
@@ -59,9 +118,10 @@ struct IssueLocation: Codable, Equatable {
 
 extension AccountModel {
     func issues(buildingID: Int) async throws -> [BuildingIssue] { try await request("buildings/\(buildingID)/issues") }
-    func reportIssue(buildingID: Int, title: String, description: String, room: String, priority: IssuePriority?, location: IssueLocation?, requestKey: UUID) async throws -> BuildingIssue {
+    func reportIssue(buildingID: Int, title: String, description: String, room: String, priority: IssuePriority?, location: IssueLocation?, requestKey: UUID, source: String? = nil) async throws -> BuildingIssue {
         var body: [String: Any] = ["title": title, "description": description, "room": room, "request_key": requestKey.uuidString.lowercased()]
         if let priority { body["priority"] = priority.rawValue }
+        if let source { body["source"] = source }
         if let location {
             body["document_id"] = location.documentID
             if let space = location.spaceID { body["space_id"] = space }
@@ -267,6 +327,7 @@ struct IssueReportSheet: View {
     @State private var busy = false
     @State private var problem: String?
     @State private var priority: IssuePriority?
+    @State private var source = "operator"
     @State private var queuedID: UUID?
     private var pending: PendingIssue? { account.pendingIssues.first { $0.id == queuedID } }
     private struct ModelRoom: Decodable, Identifiable { let id: Int; let name: String }
@@ -285,6 +346,7 @@ struct IssueReportSheet: View {
                         Text("Nicht festgelegt").tag(IssuePriority?.none)
                         ForEach(IssuePriority.allCases) { Text($0.title).tag(Optional($0)) }
                     }
+                    Picker("Quelle", selection: $source) { ForEach(IssueOrigin.labels, id: \.0) { Text($0.1).tag($0.0) } }
                 } header: { Text("Mangel") }
                 Section {
                     if let place, place.point != nil {
@@ -370,7 +432,7 @@ struct IssueReportSheet: View {
                 throw APIError(status: 400, message: "Das Foto konnte nicht verkleinert werden.")
             }
             let draft = PendingIssue(id: UUID(), buildingID: building.id, title: summary, description: description,
-                room: room, priority: priority, location: position, jpeg: jpeg)
+                room: room, priority: priority, location: position, jpeg: jpeg, source: source)
             try account.enqueueIssue(draft)
             queuedID = draft.id
             let synced = await account.syncIssueOutbox()
@@ -416,6 +478,7 @@ struct IssueDetailSheet: View {
     @State private var busy = false
     @State private var problem: String?
     @State private var confirmDelete = false
+    @State private var editing = false
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -430,6 +493,7 @@ struct IssueDetailSheet: View {
                         Label(issue.state.title, systemImage: issue.state.symbol).font(.caption.weight(.bold)).foregroundStyle(issue.state.color)
                         Text(issue.title).font(.title2.bold())
                         if let priority = issue.priority { Label(priority.title, systemImage: "flag").font(.subheadline) }
+                        if let source = issue.source { Label(IssueOrigin.label(source), systemImage: "tray").font(.subheadline).foregroundStyle(.secondary) }
                         if !issue.room.isEmpty { Label(issue.room, systemImage: "door.left.hand.open").font(.subheadline).foregroundStyle(.secondary) }
                         HStack(spacing: 4) {
                             Text("Gemeldet von \(issue.reporter)")
@@ -439,13 +503,13 @@ struct IssueDetailSheet: View {
                     if !issue.description.isEmpty { Text(issue.description).font(.body) }
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Status").font(.headline)
-                        HStack(spacing: 8) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                             ForEach(IssueState.allCases) { state in
                                 Button { Task { await set(state) } } label: {
                                     Label(state.title, systemImage: state.symbol).font(.caption.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 40)
                                         .background(issue.state == state ? state.color.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                         .foregroundStyle(issue.state == state ? state.color : .primary)
-                                }.buttonStyle(.plain).disabled(busy).accessibilityAddTraits(issue.state == state ? .isSelected : [])
+                                }.buttonStyle(.plain).disabled(busy || issue.can_update_status == false).accessibilityAddTraits(issue.state == state ? .isSelected : [])
                             }
                         }
                     }
@@ -455,6 +519,7 @@ struct IssueDetailSheet: View {
                     }
                     if let problem { Label(problem, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange) }
                     if issue.can_edit {
+                        if issue.can_update_status != false { Button("Angaben bearbeiten", systemImage: "pencil") { editing = true }.disabled(busy) }
                         Button("Mangel löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }.disabled(busy)
                     }
                 }.padding(20)
@@ -462,6 +527,12 @@ struct IssueDetailSheet: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Mangel").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .sheet(isPresented: $editing) {
+                EditIssueDetails(issue: issue, building: building, account: account) { updated in
+                    issue = updated
+                    changed(updated)
+                }
+            }
             .confirmationDialog("Mangel endgültig löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Löschen", role: .destructive) { Task { await remove() } }
             } message: { Text("Meldung und Foto werden für alle Mitglieder entfernt.") }

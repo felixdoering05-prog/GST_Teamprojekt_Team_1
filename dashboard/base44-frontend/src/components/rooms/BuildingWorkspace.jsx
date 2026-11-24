@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/api/base44Client';
 import BuildingFiles from './BuildingFiles';
+import BuildingProfile from './BuildingProfile';
 import PlanConversionPanel from './PlanConversionPanel';
 import { documentKey, isImage, isModel } from './buildingFilesModel';
 
-export default function BuildingWorkspace({ building, section, onSection, onSetup, onTeam, structure }) {
+export default function BuildingWorkspace({ building, section, onSection, onSetup, onTeam, onSaved, structure }) {
   const cache = useQueryClient();
   const query = useQuery({ queryKey: documentKey(building.id), queryFn: () => request(`/buildings/${building.id}/documents`) });
   const files = query.data ?? [], images = files.filter(isImage), models = files.filter(isModel);
@@ -21,6 +22,12 @@ export default function BuildingWorkspace({ building, section, onSection, onSetu
         <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
         <div className="relative flex flex-wrap items-center gap-5"><span className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-primary/10 text-primary"><Building2 className="h-10 w-10" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-widest text-primary">Deine Gebäudemappe</p><h2 className="mt-2 break-words font-heading text-2xl font-semibold sm:text-3xl">{building.name}</h2><p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4 shrink-0" />{building.address || 'Adresse kannst du später ergänzen'}</p></div><div className="flex flex-wrap gap-2">{model && <Button asChild><Link to={`/bim-viewer?model=${model}`}><FileBox className="mr-2 h-4 w-4" />In 3D öffnen</Link></Button>}{building.is_owner && <Button variant="outline" onClick={onSetup}><Plus className="mr-2 h-4 w-4" />Einrichtung fortsetzen</Button>}</div></div>
       </section>
+      <BuildingProfile building={building} onSaved={onSaved} />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" asChild><Link to={'/dokumente?building=' + building.id}>Dokumente</Link></Button>
+        <Button variant="outline" asChild><Link to={'/betrieb/technische-anlagen?building=' + building.id}>Technische Anlagen</Link></Button>
+        <Button variant="outline" asChild><Link to={'/betrieb/wartungen?building=' + building.id}>Wartungen</Link></Button>
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">{[
         { title: 'Bildergalerie', detail: query.isSuccess ? `${images.length} Bilder und Scans` : 'Bilder deines Gebäudes', icon: Images, target: 'gallery' },
         { title: 'Pläne & 3D', detail: model ? 'IFC-Modell vorhanden' : 'Pläne hochladen oder Modell erstellen', icon: FileBox, target: 'models' },

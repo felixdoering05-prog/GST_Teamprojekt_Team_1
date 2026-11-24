@@ -1,5 +1,6 @@
 const express=require('express');
 const {accessibleBuilding}=require('./collaboration');
+const {getPassportEnergy}=require('./passport-energy');
 // Energie-Übersicht aus Home Assistant: Tagesverbrauch aus kWh-Zählern (nur positive Zuwächse, Zählerrücksetzungen
 // werden übersprungen), aktuelle Leistung und nächtliche Grundlast aus W-Sensoren, dazu einfache Hinweise.
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -57,6 +58,10 @@ async function energyOverview(db,building,now=new Date()){
 }
 function energyRouter(db,requireAccount){
  const r=express.Router();
+ r.get('/energy-consumption',requireAccount,wrap(async(req,res)=>{
+  res.set('Cache-Control','private, no-store');
+  return getPassportEnergy(db,req,res);
+ }));
  r.get('/buildings/:energyBuilding/energy-overview',requireAccount,wrap(async(req,res)=>{
   res.set('Cache-Control','private, no-store');
   if(!/^[1-9]\d{0,9}$/.test(req.params.energyBuilding))return res.status(400).json({error:'Ungültiges Gebäude.'});

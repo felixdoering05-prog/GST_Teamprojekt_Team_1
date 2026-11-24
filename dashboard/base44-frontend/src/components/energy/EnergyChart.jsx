@@ -1,26 +1,19 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { formatAmount, formatEnergyMonth } from '@/lib/energy';
 
-export default function EnergyChart({ data = [], unit }) {
+export default function EnergyChart({ points, unit, compact = false }) {
+  if (!points.length) return compact ? null : <p className="py-12 text-center text-sm text-muted-foreground">Für diesen Zeitraum liegen keine Verbrauchswerte vor.</p>;
   return (
-    <div className="h-[260px] w-full">
-      {data.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-          Für diesen Zeitraum liegen keine Verbrauchswerte vor.
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} width={54} />
-            <Tooltip
-              contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-              formatter={(value, _name, item) => [`${value} ${unit}`, item?.payload?.meter || 'Verbrauch']}
-            />
-            <Bar dataKey="value" name="Verbrauch" fill="#0891b2" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
+    <div className={compact ? 'mt-3 h-16 min-w-0' : 'mt-4 h-64 min-w-0'} role="img" aria-label={`Monatlicher Verbrauch in ${unit}`}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={points} margin={compact ? { top: 5, right: 6, bottom: 4, left: 6 } : { top: 8, right: 12, bottom: 4, left: 4 }}>
+          {!compact && <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />}
+          <XAxis dataKey="month" tickFormatter={formatEnergyMonth} tick={{ fontSize: 11 }} tickLine={false} hide={compact} />
+          <YAxis tick={{ fontSize: 11 }} tickLine={false} hide={compact} />
+          <Tooltip labelFormatter={formatEnergyMonth} formatter={(value) => [formatAmount(value, unit), 'Verbrauch']} />
+          <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={52} isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

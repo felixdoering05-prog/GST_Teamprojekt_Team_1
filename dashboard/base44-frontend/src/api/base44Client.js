@@ -35,7 +35,7 @@ export const base44={
 };
 
 /** Binary upload with byte progress and an idempotency key for safe retries. */
-export function uploadFile(buildingID, file, uploadID, onProgress) {
+export function uploadFile(buildingID, file, uploadID, onProgress, category) {
  return new Promise((resolve,reject)=>{
   const xhr=new XMLHttpRequest();
   xhr.open('POST',`/api/v1/buildings/${buildingID}/documents`);
@@ -45,6 +45,7 @@ export function uploadFile(buildingID, file, uploadID, onProgress) {
   xhr.setRequestHeader('Content-Type','application/octet-stream');
   xhr.setRequestHeader('X-File-Name',encodeURIComponent(file.name));
   xhr.setRequestHeader('X-Upload-ID',uploadID);
+  if(category)xhr.setRequestHeader('X-Document-Category',category);
   xhr.upload.onprogress=event=>{if(event.lengthComputable)onProgress(event.loaded/event.total)};
   xhr.onerror=()=>reject(new Error('Keine Verbindung. Deine Dateiauswahl bleibt für einen neuen Versuch erhalten.'));
   xhr.ontimeout=()=>reject(new Error('Die Verbindung hat zu lange gebraucht. Bitte erneut versuchen.'));
