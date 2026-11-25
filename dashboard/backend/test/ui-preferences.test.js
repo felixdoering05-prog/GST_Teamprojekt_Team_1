@@ -34,7 +34,7 @@ test('migrates legacy preferences, validates layouts and keeps changes per accou
   });
   return { status: response.status, data: response.status === 401 ? null : await response.json() };
  }
- const defaults = { presentation_mode: false, revision: 0, theme: 'system', font_scale: 100, dashboard_layout: null, language: null };
+ const defaults = { presentation_mode: false, revision: 0, theme: 'system', font_scale: 100, dashboard_layout: null, language: null, ruview_enabled: false };
  assert.deepEqual((await call(1)).data, { ...defaults, presentation_mode: true, revision: 7 });
  assert.deepEqual((await call(2)).data, defaults);
  assert.equal((await call(0)).status, 401);

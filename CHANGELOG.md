@@ -1,5 +1,11 @@
 # Änderungsverlauf
 
+## 25. November 2026 – WLAN-Präsenz mit RuView (experimentell)
+
+- Neuer Schalter unter **Daten & Einstellungen → WLAN-Präsenz (RuView)**, standardmäßig aus. Nur eingeschaltet nimmt der Server Präsenzdaten an und die Sensorik zeigt sie.
+- ESP32-S3-Knoten mit RuView-Firmware senden im Heimnetz an eine neue Brücke (`sensorik/ruview-bridge`). Sie meldet alle 10 Sekunden je Knoten Anwesenheit, Bewegung, Personenzahl, Atemfrequenz und Signalqualität; CSI-Rohdaten verlassen das Heimnetz nicht.
+- Sensorik zeigt je Knoten eine Karte mit Raumnamen; Werte älter als 60 Sekunden gelten als veraltet. Verlauf wird nach 24 Stunden gelöscht, Sperren einer Brücke löscht ihre Werte. Schätzwerte, kein Medizinprodukt.
+
 ## 24. November 2026 – Sensorwerte im Dashboard aktuell halten
 
 - Die Kommandozentrale lädt Messwerte jede Minute und bei Rückkehr zum Browsertab im Hintergrund nach. Bei einem vorübergehenden Fehler bleiben die letzten Werte sichtbar. „Stand“ nennt den neuesten statt den ältesten Messwert.
