@@ -40,3 +40,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md).
 
 RADAR-003: [25.11.2026 · Ergänzender Null-/Nullwertvergleich in der Energie-Zählerliste](berichte/2026-11-25-0903.md), kein neuer Eintrag.
+
+[25.11.2026 17:04 · Serverbetrieb und Auth: keine neue Empfehlung](berichte/2026-11-25-1704.md).
