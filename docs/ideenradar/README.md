@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [25.11.2026 09:03 · Energiekacheln bei großer Schrift](berichte/2026-11-25-0903.md)
+
 - [24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md)
 
 - [24.11.2026 09:01 · BIMCraft-Versionsvergleich](berichte/2026-11-24-0901.md)
