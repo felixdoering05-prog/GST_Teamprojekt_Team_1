@@ -19,6 +19,8 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 
 | RADAR-011 | BIMCraft 0.12 vor Upgrade vergleichen | Plan zu IFC und BIM | Beobachten | Export- und Formatkompatibilität klären | 2–4 h geschätzt | MIT/Apache laut Repository; Binärumfang ungeprüft | [Bericht](berichte/2026-11-24-0901.md) | Keine Upgrade-Freigabe |
 
+| RADAR-012 | Energiekacheln bei großer Schrift prüfen | SwiftUI/UX | Jetzt testen | Lesbare Werte, Einheiten und Zeiträume | 30–45 min geschätzt | Apple-SDK proprietär | [Bericht](berichte/2026-11-25-0903.md) | Keine Umsetzung beauftragt |
+
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
 Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
@@ -36,3 +38,5 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [23.11.2026 17:11 · APNs und Hochschulserver: keine neue Empfehlung](berichte/2026-11-23-1711.md).
 
 [24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md).
+
+RADAR-003: [25.11.2026 · Ergänzender Null-/Nullwertvergleich in der Energie-Zählerliste](berichte/2026-11-25-0903.md), kein neuer Eintrag.
