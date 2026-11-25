@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, Plus, Users, Wifi, Wind } from 'lucide-react';
+import { Activity, DoorOpen, Plus, Users, Wifi, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -11,30 +11,51 @@ const timeLabel = iso => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-di
 // Bewegungsenergie der Firmware ist unskaliert; grobe Stufen reichen für die Anzeige.
 const motionLabel = value => value < 0.05 ? 'ruhig' : value < 0.5 ? 'leicht' : value < 2 ? 'mittel' : 'stark';
 
-function NodeCard({ node, buildingID, onRenamed }) {
+const OWN_NAME = '__eigener_name__';
+const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm';
+
+function NodeCard({ node, rooms, buildingID, onRenamed }) {
   const [editing, setEditing] = useState(false);
-  const [room, setRoom] = useState(node.room || '');
+  // Auswahl: ein Raum des Gebäudes (id), OWN_NAME für Freitext oder '' für „kein Raum“.
+  const [choice, setChoice] = useState(node.room_id || (node.room ? OWN_NAME : ''));
+  const [room, setRoom] = useState(node.room_id ? '' : node.room || '');
   const [error, setError] = useState('');
   const present = node.presence && !node.stale;
+  const freeText = !rooms.length || choice === OWN_NAME;
+
+  function startEditing() {
+    setChoice(node.room_id || (node.room ? OWN_NAME : rooms[0]?.id || ''));
+    setRoom(node.room_id ? '' : node.room || '');
+    setEditing(true);
+  }
 
   async function saveRoom(event) {
     event.preventDefault();
+    const body = freeText ? { room: room.trim() || null } : { room_id: choice || null };
     try {
-      await request(`/buildings/${buildingID}/ruview/${node.bridge_id}/nodes/${node.node_id}`, { method: 'PUT', body: { room: room.trim() || null } });
+      await request(`/buildings/${buildingID}/ruview/${node.bridge_id}/nodes/${node.node_id}`, { method: 'PUT', body });
       setEditing(false); setError(''); onRenamed();
     } catch (failure) { setError(failure.message); }
   }
 
   return <article className="surface space-y-3 p-4" aria-label={`Knoten ${node.node_id}`}>
     <div className="flex items-start justify-between gap-2">
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-xs text-muted-foreground">ESP32 · Knoten {node.node_id}</p>
         {editing
-          ? <form className="mt-1 flex gap-2" onSubmit={saveRoom}>
-              <Input autoFocus value={room} maxLength={80} onChange={event => setRoom(event.target.value)} placeholder="z. B. Wohnzimmer" aria-label="Raumname" />
-              <Button size="sm" type="submit">Speichern</Button>
+          ? <form className="mt-1 space-y-2" onSubmit={saveRoom}>
+              {rooms.length > 0 && <select autoFocus className={selectClass} value={choice} onChange={event => setChoice(event.target.value)} aria-label="Raum des Gebäudes">
+                {rooms.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                <option value={OWN_NAME}>Eigener Name …</option>
+                <option value="">Kein Raum</option>
+              </select>}
+              {freeText && <Input autoFocus={!rooms.length} value={room} maxLength={80} onChange={event => setRoom(event.target.value)} placeholder="z. B. Wohnzimmer" aria-label="Raumname" />}
+              <div className="flex gap-2">
+                <Button size="sm" type="submit">Speichern</Button>
+                <Button size="sm" type="button" variant="ghost" onClick={() => setEditing(false)}>Abbrechen</Button>
+              </div>
             </form>
-          : <button type="button" className="text-left text-base font-semibold hover:underline" onClick={() => setEditing(true)}>
+          : <button type="button" className="text-left text-base font-semibold hover:underline" onClick={startEditing}>
               {node.room || 'Raum festlegen'}
             </button>}
         {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
@@ -52,6 +73,20 @@ function NodeCard({ node, buildingID, onRenamed }) {
       <Wifi className="h-3 w-3" />{node.rssi ?? '–'} dBm · {node.pps ?? '–'} Messungen/s · Stand {timeLabel(node.updated_at)}
     </p>
   </article>;
+}
+
+// Grobe Übersicht: Wer ist ungefähr in welchem Raum? Nur Knoten mit zugeordnetem Raum zählen.
+function RoomOverview({ occupancy }) {
+  if (!occupancy?.length) return null;
+  return <div className="flex flex-wrap gap-2" aria-label="Personen je Raum">
+    {occupancy.map(room => <div key={room.room_id || room.room}
+      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${room.stale ? 'border-border text-muted-foreground' : room.presence ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-border'}`}>
+      <DoorOpen className="h-4 w-4" />
+      <span className="font-medium">{room.room}</span>
+      <span>{room.stale ? 'veraltet' : room.presence ? `≈ ${room.persons} ${room.persons === 1 ? 'Person' : 'Personen'}` : 'leer'}</span>
+      {room.nodes > 1 && <span className="text-xs text-muted-foreground">· {room.nodes} Knoten</span>}
+    </div>)}
+  </div>;
 }
 
 function BuildingPresence({ building }) {
@@ -91,9 +126,10 @@ function BuildingPresence({ building }) {
   return <div className="space-y-3">
     <h3 className="font-semibold">{building.name}</h3>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <RoomOverview occupancy={state.occupancy} />
     {state.nodes.length
       ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {state.nodes.map(node => <NodeCard key={`${node.bridge_id}-${node.node_id}`} node={node} buildingID={building.id} onRenamed={load} />)}
+          {state.nodes.map(node => <NodeCard key={`${node.bridge_id}-${node.node_id}`} node={node} rooms={state.rooms || []} buildingID={building.id} onRenamed={load} />)}
         </div>
       : <p className="text-sm text-muted-foreground">Noch keine Werte. Sobald die Brücke läuft, erscheinen die ESP32-Knoten hier.</p>}
 

@@ -18,7 +18,7 @@ Die Werte sind Schätzungen: kein Medizinprodukt, kein Ersatz für Rauch-, Sturz
    node sensorik/ruview-bridge/ruview-bridge.js --token-file ~/.nala-ruview-bridge
    ```
    Probelauf ohne Senden: `--dry-run`. Gleichzeitig die RuView-Terminalansicht nutzen: `--forward 5006` und `npx @ruvnet/ruview esp32 --watch` auf Port 5006 lauschen lassen.
-6. In **Sensorik** erscheinen die Knoten. Ein Klick auf **Raum festlegen** gibt ihnen einen Raumnamen.
+6. In **Sensorik** erscheinen die Knoten. Ein Klick auf **Raum festlegen** ordnet sie einem Raum des Gebäudes zu (oder einem eigenen Namen). Darüber steht dann je Raum, wie viele Personen ungefähr anwesend sind. Mehrere Knoten im selben Raum werden nicht addiert, sondern es zählt der höchste Wert.
 
 ## Was übertragen wird
 
@@ -29,7 +29,8 @@ Je Knoten alle 10 Sekunden: `node_id`, `presence` (Mehrheit der Vitalpakete im I
 - `POST /app-api/v1/ruview-input`, Kopfzeile `X-Ruview-Bridge`, höchstens 8 Knoten, höchstens eine Meldung alle 5 Sekunden.
 - `GET /api/v1/buildings/:id/ruview` – aktueller Stand; älter als 60 s = veraltet.
 - `GET /api/v1/buildings/:id/ruview/:bridge/nodes/:node/history?hours=1..24` – Verlauf.
-- `PUT /api/v1/buildings/:id/ruview/:bridge/nodes/:node` – Raumname.
+- `PUT /api/v1/buildings/:id/ruview/:bridge/nodes/:node` – `{room_id}` (Raum des Gebäudes) oder `{room}` (Freitext); `null` hebt die Zuordnung auf.
+- `GET …/ruview` liefert zusätzlich `rooms` (Räume des Gebäudes) und `occupancy` (geschätzte Personen je Raum).
 - `POST/DELETE /api/v1/buildings/:id/ruview-bridges[/:bridge]` – anlegen/sperren (Sperren löscht alle Werte der Brücke).
 - Höchstens 3 Brücken pro Gebäude. Schlüssel nur gehasht gespeichert. Verlauf wird nach 24 Stunden gelöscht.
 
