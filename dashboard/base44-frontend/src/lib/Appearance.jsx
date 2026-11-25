@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { rememberLanguage, storedLanguage } from '@/lib/i18n';
 
 const AppearanceContext = createContext(null);
-const defaults = { theme: 'system', font_scale: 100, dashboard_layout: null, language: null, revision: 0 };
+const defaults = { theme: 'system', font_scale: 100, dashboard_layout: null, language: null, ruview_enabled: false, revision: 0 };
 const storageKey = id => `titan-fs:appearance:${id}`;
 const route = '/profile/ui?view=appearance';
 const patchPreferences = (fields, revision) => request(route, { method: 'PATCH', body: { ...fields, revision } });

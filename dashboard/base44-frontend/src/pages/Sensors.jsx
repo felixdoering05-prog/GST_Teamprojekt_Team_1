@@ -10,6 +10,7 @@ import RoomSeriesChart from '@/components/sensors/RoomSeriesChart';
 import SensorTable from '@/components/sensors/SensorTable';
 import SensorDialog from '@/components/sensors/SensorDialog';
 import AlertList from '@/components/dashboard/AlertList';
+import RuViewPanel from '@/components/sensors/RuViewPanel';
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
@@ -101,6 +102,7 @@ export default function Sensors() {
           description="Sensoren messen genau eine Messgröße und werden einem Raum zugeordnet. Anschließend können Messwerte per CSV importiert werden."
           children={<Button onClick={() => setSensorState({ open: true, sensor: null })}>Sensor anlegen</Button>}
         />
+        <div className="mt-5"><RuViewPanel buildings={scope.readable('sensors')} /></div>
         <SensorDialog open={sensorState.open} onOpenChange={(open) => setSensorState((s) => ({ ...s, open }))} sensor={sensorState.sensor} rooms={data.rooms} onSaved={data.reload} />
       </div>
     );
@@ -122,6 +124,8 @@ export default function Sensors() {
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Sensor anlegen
         </Button>
       </PageHeader>
+
+      <RuViewPanel buildings={scope.readable('sensors')} />
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Sensoren aktiv" value={`${activeSensors}`} hint={`von ${data.sensors.length} Sensoren`} icon={Cpu} tone="primary" />

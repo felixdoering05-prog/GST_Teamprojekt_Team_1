@@ -5,6 +5,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import AppearanceCard from '@/components/settings/AppearanceCard';
 import TeamContactCard from '@/components/settings/TeamContactCard';
 import AISettingsCard from '@/components/settings/AISettingsCard';
+import RuViewSettingsCard from '@/components/settings/RuViewSettingsCard';
 import DemoDataCard from '@/components/settings/DemoDataCard';
 import ImportMeasurementsCard from '@/components/settings/ImportMeasurementsCard';
 import ImportEnergyCard from '@/components/settings/ImportEnergyCard';
@@ -108,6 +109,8 @@ export default function DataSettings() {
       <TeamContactCard />
 
       <AISettingsCard />
+
+      <RuViewSettingsCard />
 
       <DemoDataCard counts={counts} onSeed={seed} onRemove={() => setConfirmOpen(true)} onRefresh={refreshAll} busy={busy} />
 

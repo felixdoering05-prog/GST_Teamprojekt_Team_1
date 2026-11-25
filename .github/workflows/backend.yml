@@ -51,6 +51,8 @@ jobs:
           echo "PLAN_PYTHON=$RUNNER_TEMP/plan-venv/bin/python" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm test
+      - name: RuView-Brücke (WLAN-Präsenz)
+        run: node --test ../../sensorik/ruview-bridge/ruview-bridge.test.js
 
   python:
     name: Backend (Python-Tests)

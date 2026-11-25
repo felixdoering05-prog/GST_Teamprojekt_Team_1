@@ -1,4 +1,5 @@
 const {initSensorDevices,sensorDevicesRouter}=require('./sensor-devices');
+const {initRuView,ruviewRouter}=require('./ruview');
 const {initSensorPlacement,sensorPlacementRouter}=require('./sensor-placement');
 const {initIFCAnalysis,ifcAnalysisRouter}=require('./ifc-analysis');
 const {serviceStatusRouter}=require('./service-status');
@@ -86,7 +87,7 @@ async function initAccounts(db) {
  await initTelemetry(db);await initSensorDevices(db);await initSensorPlacement(db);await initHAImport(db);
  await initVoice(db);
  await initAIPreferences(db);
- await initUIPreferences(db);
+ await initUIPreferences(db);await initRuView(db);
  await initLiveVoice(db);
  await initPlanConversion(db);
  await db.query('DELETE FROM app_sessions WHERE expires_at <= $1', [new Date()]);
@@ -186,7 +187,7 @@ function accountRouter(db,options={}) {
  // Every building-scoped API below is authenticated and checked against the member's role.
  // Device ingestion is authenticated by its per-device token in sensorDevicesRouter.
  router.use((req,res,next)=>{
-  const tokenAuthenticated=req.path==='/sensor-input'||req.path==='/ha-client'||req.path==='/ha-bridge'||req.path.startsWith('/ha-bridge/');
+  const tokenAuthenticated=req.path==='/sensor-input'||req.path==='/ruview-input'||req.path==='/ha-client'||req.path==='/ha-bridge'||req.path.startsWith('/ha-bridge/');
   return tokenAuthenticated?next():requireAccount(req,res,()=>applyTeamScope(req,res,next));
  });
  router.use(teamsRouter(db,requireAccount));
@@ -197,6 +198,7 @@ function accountRouter(db,options={}) {
  router.use(ifcAnalysisRouter(db,requireAccount));
  router.use(serviceStatusRouter(db,requireAccount));
  router.use(sensorDevicesRouter(db,requireAccount));
+ router.use(ruviewRouter(db,requireAccount));
  router.use(sensorPlacementRouter(db,requireAccount));
  router.use(bridgeRouter(db));
  router.use(haImportRouter(db,requireAccount));
