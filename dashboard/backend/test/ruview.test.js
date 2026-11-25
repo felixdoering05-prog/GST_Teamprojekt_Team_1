@@ -88,6 +88,43 @@ test('owner names a node room', async () => {
   assert.equal((await request(`/buildings/${building.id}/ruview/${bridge.id}/nodes/1`, 'PUT', { room: 'x' }, other.token)).status, 404);
 });
 
+test('nodes link to real building rooms and rooms show estimated people', async () => {
+  await db.query(`INSERT INTO app_twin_records(id,user_id,entity,data) VALUES
+    ('room-kitchen',$1,'Room',$2),('room-demo',$1,'Room',$3),('room-foreign',$1,'Room',$4)`,
+  [owner.user.id, JSON.stringify({ name: 'Küche', building_id: String(building.id), source: 'real' }),
+    JSON.stringify({ name: 'Demo', building_id: String(building.id), source: 'demo' }),
+    JSON.stringify({ name: 'Fremd', building_id: '999999' })]);
+  const path = `/buildings/${building.id}/ruview/${bridge.id}/nodes/2`;
+  assert.equal((await request(path, 'PUT', { room_id: 'room-foreign' }, owner.token)).status, 400);
+  assert.equal((await request(path, 'PUT', { room_id: 'room-demo' }, owner.token)).status, 400);
+  assert.equal((await request(path, 'PUT', { room_id: 'room-kitchen', room: 'x' }, owner.token)).status, 400);
+  const linked = await request(path, 'PUT', { room_id: 'room-kitchen' }, owner.token);
+  assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  assert.equal(linked.data.room_id, 'room-kitchen');
+  assert.equal(linked.data.room, 'Küche');
+  const state = (await request(`/buildings/${building.id}/ruview`, 'GET', null, owner.token)).data;
+  assert.deepEqual(state.rooms, [{ id: 'room-kitchen', name: 'Küche' }]);
+  const kitchen = state.occupancy.find(room => room.room_id === 'room-kitchen');
+  assert.equal(kitchen.presence, false);
+  const living = state.occupancy.find(room => room.room === 'Wohnzimmer');
+  assert.equal(living.presence, true);
+  assert.equal(living.persons, 1);
+  const cleared = await request(path, 'PUT', { room_id: null }, owner.token);
+  assert.equal(cleared.data.room, null);
+});
+
+test('room occupancy takes the max of fresh nodes per room', () => {
+  const { roomOccupancy } = require('../src/ruview');
+  const now = new Date().toISOString();
+  const result = roomOccupancy([
+    { room_id: 'a', room: 'Bad', presence: true, persons: 1, stale: false, updated_at: now },
+    { room_id: 'a', room: 'Bad', presence: true, persons: 2, stale: false, updated_at: now },
+    { room_id: null, room: 'Flur', presence: true, persons: 3, stale: true, updated_at: now },
+    { room_id: null, room: null, presence: true, persons: 1, stale: false, updated_at: now },
+  ]);
+  assert.deepEqual(result.map(r => [r.room, r.presence, r.persons, r.stale]), [['Bad', true, 2, false], ['Flur', false, 0, true]]);
+});
+
 test('switching the setting off stops storage and hides data', async () => {
   const prefs = (await request('/profile/ui?view=appearance', 'GET', null, owner.token)).data;
   await request('/profile/ui?view=appearance', 'PATCH', { ruview_enabled: false, revision: prefs.revision }, owner.token);

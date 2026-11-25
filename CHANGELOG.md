@@ -1,5 +1,10 @@
 # Änderungsverlauf
 
+## 25. November 2026 – WLAN-Präsenz: Knoten Räumen zuordnen
+
+- Ein ESP32-Knoten lässt sich unter **Sensorik → WLAN-Präsenz** einem Raum des Gebäudes zuordnen (Auswahlliste der Räume aus dem Gebäudemodell) oder weiterhin frei benennen.
+- Neue Übersicht über den Knoten: je Raum „≈ n Personen“, „leer“ oder „veraltet“. Mehrere Knoten im selben Raum zählen nicht doppelt; es gilt die höchste Personenzahl der aktuellen Knoten. Schätzwerte.
+
 ## 25. November 2026 – WLAN-Präsenz mit RuView (experimentell)
 
 - Neuer Schalter unter **Daten & Einstellungen → WLAN-Präsenz (RuView)**, standardmäßig aus. Nur eingeschaltet nimmt der Server Präsenzdaten an und die Sensorik zeigt sie.

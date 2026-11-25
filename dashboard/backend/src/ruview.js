@@ -54,6 +54,35 @@ async function initRuView(db) {
     persons INTEGER NOT NULL,
     breathing_bpm REAL)`);
   await db.query('CREATE INDEX IF NOT EXISTS app_ruview_samples_idx ON app_ruview_samples(bridge_id,node_id,at)');
+  // Zuordnung zu einem echten Raum des Gebäudes (Twin-Datensatz „Room“); room_label bleibt als Freitext-Rückfall.
+  await db.query('ALTER TABLE app_ruview_nodes ADD COLUMN IF NOT EXISTS room_id TEXT');
+}
+
+// Räume des Gebäudes (ohne Demo-Räume), wie bei Automationen und Home-Assistant-Zuordnung.
+async function buildingRooms(db, building) {
+  return (await db.query(`SELECT id,COALESCE(NULLIF(data->>'name',''),data->>'room_code','Raum') AS name FROM app_twin_records
+    WHERE user_id=$1 AND entity='Room' AND data->>'building_id'=$2 AND data->>'source' IS DISTINCT FROM 'demo'
+    ORDER BY lower(COALESCE(data->>'name',data->>'room_code','')),id LIMIT 500`, [building.user_id, String(building.id)])).rows;
+}
+
+// Personen je Raum grob schätzen: Ein Raum gilt als belegt, wenn ein aktueller Knoten dort Anwesenheit meldet.
+// Mehrere Knoten im selben Raum sehen dieselben Personen, daher zählt das Maximum, nicht die Summe.
+function roomOccupancy(nodes) {
+  const rooms = new Map();
+  for (const node of nodes) {
+    if (!node.room) continue;
+    const key = node.room_id ? 'id:' + node.room_id : 'label:' + node.room.toLowerCase();
+    const entry = rooms.get(key) || { room_id: node.room_id, room: node.room, nodes: 0, fresh: 0, presence: false, persons: 0, updated_at: null };
+    entry.nodes += 1;
+    if (!node.stale) {
+      entry.fresh += 1;
+      if (node.presence) { entry.presence = true; entry.persons = Math.max(entry.persons, node.persons || 1); }
+      if (!entry.updated_at || node.updated_at > entry.updated_at) entry.updated_at = node.updated_at;
+    }
+    rooms.set(key, entry);
+  }
+  return [...rooms.values()].map(({ fresh, ...room }) => ({ ...room, stale: fresh === 0 }))
+    .sort((a, b) => a.room.localeCompare(b.room, 'de'));
 }
 
 async function ownerEnabled(db, userID) {
@@ -76,10 +105,12 @@ function validNode(node) {
 }
 
 const publicBridge = row => ({ id: row.id, label: row.label, last_at: row.last_at ? new Date(row.last_at).toISOString() : null });
-function publicNode(row, now = Date.now()) {
+function publicNode(row, now = Date.now(), roomNames = new Map()) {
   const updated = new Date(row.updated_at);
+  const linked = row.room_id && roomNames.has(row.room_id) ? row.room_id : null;
   return {
-    bridge_id: row.bridge_id, node_id: row.node_id, room: row.room_label || null,
+    bridge_id: row.bridge_id, node_id: row.node_id, room_id: linked,
+    room: linked ? roomNames.get(linked) : row.room_label || null,
     presence: row.presence, motion: Number(row.motion), persons: row.persons,
     breathing_bpm: row.breathing_bpm === null ? null : Number(row.breathing_bpm),
     rssi: row.rssi, pps: row.pps === null ? null : Number(row.pps),
@@ -133,7 +164,11 @@ function ruviewRouter(db, requireAccount) {
     const bridges = (await db.query('SELECT * FROM app_ruview_bridges WHERE building_id=$1 AND revoked=false ORDER BY created_at,id', [building.id])).rows;
     const nodes = (await db.query(`SELECT n.* FROM app_ruview_nodes n JOIN app_ruview_bridges b ON b.id=n.bridge_id
       WHERE b.building_id=$1 AND b.revoked=false ORDER BY n.bridge_id,n.node_id`, [building.id])).rows;
-    res.json({ enabled: true, stale_after_seconds: STALE_MS / 1000, bridges: bridges.map(publicBridge), nodes: nodes.map(row => publicNode(row)) });
+    const rooms = await buildingRooms(db, building);
+    const roomNames = new Map(rooms.map(room => [room.id, room.name]));
+    const now = Date.now(), publicNodes = nodes.map(row => publicNode(row, now, roomNames));
+    res.json({ enabled: true, stale_after_seconds: STALE_MS / 1000, bridges: bridges.map(publicBridge), nodes: publicNodes,
+      rooms: rooms.map(room => ({ id: room.id, name: room.name })), occupancy: roomOccupancy(publicNodes) });
   }));
 
   // Verlauf eines Knotens (höchstens 24 h, für Diagramme).
@@ -150,20 +185,30 @@ function ruviewRouter(db, requireAccount) {
       persons: row.persons, breathing_bpm: row.breathing_bpm === null ? null : Number(row.breathing_bpm) })));
   }));
 
-  // Raumname für einen Knoten setzen.
+  // Knoten einem Raum zuordnen: room_id (Raum des Gebäudes) oder room (Freitext). null hebt die Zuordnung auf.
   r.put('/buildings/:building/ruview/:bridge/nodes/:node', requireAccount, noStore, wrap(async (req, res) => {
     const body = req.body || {};
-    if (!validBuilding(req.params.building) || !/^\d{1,3}$/.test(req.params.node)
-      || Object.keys(body).some(key => key !== 'room') || !(body.room === null || (typeof body.room === 'string' && body.room.length <= 80))) {
-      return res.status(400).json({ error: 'Ungültiger Raumname.' });
+    const keys = Object.keys(body);
+    const validRoomID = body.room_id === null || (typeof body.room_id === 'string' && body.room_id.length > 0 && body.room_id.length <= 100);
+    const validLabel = body.room === null || (typeof body.room === 'string' && body.room.length <= 80);
+    if (!validBuilding(req.params.building) || !/^\d{1,3}$/.test(req.params.node) || keys.length !== 1
+      || !(keys[0] === 'room' ? validLabel : keys[0] === 'room_id' && validRoomID)) {
+      return res.status(400).json({ error: 'Ungültiger Raum.' });
     }
     const building = await accessibleBuilding(db, req.params.building, req.account.id);
     if (!building || !can(req.buildingAccess, 'sensors', 'edit')) return res.status(404).json({ error: 'Nicht gefunden.' });
-    const result = await db.query(`UPDATE app_ruview_nodes n SET room_label=$4 FROM app_ruview_bridges b
+    const rooms = await buildingRooms(db, building);
+    const roomNames = new Map(rooms.map(room => [room.id, room.name]));
+    let roomID = null, label = null;
+    if (keys[0] === 'room_id' && body.room_id) {
+      if (!roomNames.has(body.room_id)) return res.status(400).json({ error: 'Raum gehört nicht zu diesem Gebäude.' });
+      roomID = body.room_id; label = roomNames.get(roomID);
+    } else if (keys[0] === 'room' && body.room) label = body.room.trim() || null;
+    const result = await db.query(`UPDATE app_ruview_nodes n SET room_label=$4,room_id=$5 FROM app_ruview_bridges b
       WHERE b.id=n.bridge_id AND b.building_id=$1 AND b.id=$2 AND n.node_id=$3 AND b.revoked=false RETURNING n.*`,
-    [building.id, req.params.bridge, Number(req.params.node), body.room ? body.room.trim() || null : null]);
+    [building.id, req.params.bridge, Number(req.params.node), label, roomID]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Knoten nicht gefunden.' });
-    res.json(publicNode(result.rows[0]));
+    res.json(publicNode(result.rows[0], Date.now(), roomNames));
   }));
 
   // Brücke sperren. Gespeicherte Werte dieser Brücke werden mit gelöscht.
@@ -219,4 +264,4 @@ function ruviewRouter(db, requireAccount) {
   return r;
 }
 
-module.exports = { initRuView, ruviewRouter, validNode, STALE_MS };
+module.exports = { initRuView, ruviewRouter, validNode, roomOccupancy, STALE_MS };
