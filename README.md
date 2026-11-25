@@ -40,7 +40,7 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 24. November 2026, abends (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 25. November 2026, abends (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
@@ -57,6 +57,8 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 **Geplante Abgabe:** 5. Februar 2027.
 
 **Web-Update 23.11.:** [#247](../../pull/247) und [#248](../../pull/248) sind gemergt: Teamlogo, direkt verschiebbare und konfigurierbare Widgets, scrollbare Widgetlisten und Gebäudegruppenverwaltung. Laut PRs Build, Lint und 44 Viewer-Tests erfolgreich; #247 meldet weiterhin Typecheck-Fehler. [#249](../../pull/249) (Widgethöhen und einklappbare Teamlisten) wurde am 24.11. gemergt; die Größenoption „Lang“, interne Scrollbereiche und einklappbare Listen sind enthalten. Laut PR Lint, Build und 44 Viewer-Tests erfolgreich. Kein produktiver Funktionstest nachgewiesen.
+
+**Web-Update 25.11.:** Teambezogene Gebäude- und Gruppenfilter ([#269](../../pull/269)) sind im Hauptbranch enthalten. Neu ist die experimentelle WLAN-Präsenz mit RuView: standardmäßig deaktiviert, ESP32-S3-Brücke, Raumzuordnung und geschätzte Belegung; veraltete Werte werden gekennzeichnet. Siehe [Changelog](CHANGELOG.md) und [Brückendokumentation](sensorik/ruview-bridge/README.md). Hardwarevalidierung, Datenschutzfreigabe und produktive Rechteprüfung sind nicht nachgewiesen; keine medizinische oder sicherheitskritische Nutzung. Vor einem Pilotbetrieb Freigaben, Datenminimierung und Löschfristen prüfen.
 
 ### 🎯 Aktuelle Prioritäten
 
