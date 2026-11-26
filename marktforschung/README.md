@@ -1,5 +1,20 @@
 # Marktforschung – KI trifft Gebäude
 
+## 26.11.2026, 19:00 MEZ – Energiemanagement: evcc und HEMSight
+
+Neu im geprüften Vergleich, keine bestätigte heutige Markteinführung. Anbieter-/Projektquellen, Abruf 26.11.2026:
+
+| Angebot / Zielgruppe | Funktionen laut Projekt | Preis / Lizenz |
+| --- | --- | --- |
+| [evcc](https://docs.evcc.io/) – Haushalte, PV-/Wallbox-Betreiber, Integratoren | PV-Überschussladen, dynamische Tarife, Speicherkoordination, Lastmanagement, Home Assistant, REST/MQTT und MCP für KI-Assistenten; lokaler Betrieb | Selbsthosting möglich; konkrete Sponsorbedingungen und Preise nicht in dieser Quelle bestätigt |
+| [HEMSight](https://hemsight.de/en/) – Smart-Home-/PV-Haushalte | Prognosebasierte Planung für PV, Speicher, Wallbox und Verbraucher; lokale Docker-/HA-Installation, Freigaben und Rücklesung vor Schaltaktionen | Laut Anbieter kostenlos, frühe Beta; konkrete Lizenzbedingungen und Hardwarekosten nicht bestätigt |
+
+**Nala-Abgleich:** [PR #291](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/291) direkt als gemergt geprüft: Strom-/Wasseransichten, HA-Livewerte, PV-Plan/3D, Speicherstand, rechnerische Notstromreserve, Tarife, Abrechnung und CSV. Laut PR 56 Viewer-, 33 Backend-, acht HA- und zwei lokale Browsertests (synthetische Werte); nicht selbst ausgeführt. Haupt-README auf main weiterhin 20.11.; IFC, Gemini, ElevenLabs und private HA-Anbindung dokumentiert. Echte D21-Daten, produktive Revit-Synchronisation und automatische tarifoptimierte Speichersteuerung nicht nachgewiesen. Bei beiden Energieangeboten nativer IFC-/Revit-Viewer und BIM-Sprachkontext nicht aus den geprüften Quellen belegt.
+
+**Chance:** BIM-gebundene Energie- und Anlagenübersicht mit nachvollziehbarer Datenherkunft; evcc als mögliche Integrationsschicht prüfen. **Risiko:** PV-Flüsse, Tarife, lokale Steuerung und KI-Schnittstellen sind keine exklusiven Funktionen; Visualisierung ist keine Optimierung. **Test:** identische 24h-Messreihe mit Netzbezug/Einspeisung, Speicherstand, Tarifwechsel und fehlenden Werten; Kostenrechnung gegen Referenz prüfen. Keine Einsparung oder USP nachgewiesen.
+
+---
+
 **Beginn:** 13. November 2026 · **Pflege:** zweimal täglich (09:00 und 19:00 Uhr, Europe/Berlin).
 
 Dieser Ordner dokumentiert nachvollziehbar, welche bestehenden Produkte mit unserem Projekt **KI trifft Gebäude** konkurrieren oder ähnliche Funktionen anbieten. Neue Erkenntnisse werden mit Datum, Quellen und Abgrenzung zum tatsächlich implementierten Projektstand festgehalten.
