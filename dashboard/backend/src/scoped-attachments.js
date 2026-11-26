@@ -40,7 +40,7 @@ function attachmentRoutes(router, db, requireAccount, kind, path, authorize) {
     try {
       const row=(await db.query(`SELECT bytes FROM ${table} WHERE parent_id=$1 AND id=$2`,[req.params.parentID,req.params.fileID])).rows[0];
       if(!row)return res.sendStatus(404);
-      res.set({'Content-Type':'application/octet-stream','Content-Disposition':'attachment','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).send(row.bytes);
+      res.set({'Content-Type':'application/octet-stream','Content-Disposition':'attachment','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).send(Buffer.from(row.bytes));
     } catch(error) { next(error); }
   });
 }
