@@ -1,98 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ArrowDown, Box, Layers, RefreshCw, Thermometer } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { request } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from './IFCModelFrame';
 import { floorLevel, roomNumber, roomReadings } from '@/lib/roomHeat';
+import { readingStatus } from '@/lib/roomAlerts';
+import { RoomReading } from './RoomModelPreview';
 import { ROOM_HEAT_STOPS, ROOM_NO_DATA, roomHeatColor } from '../../../ifc-viewer/room-heat-colors.js';
 
 const degrees = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const measuredAt = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 const selectClass = 'min-h-11 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const low = ROOM_HEAT_STOPS[0].value, high = ROOM_HEAT_STOPS.at(-1).value;
 const scalePosition = value => (value - low) / (high - low) * 100;
 
-export default function RoomHeatMap() {
-  const [data, setData] = useState({ buildings: [], loading: true, error: '' });
-  const [selected, setSelected] = useState('');
-  const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    Promise.allSettled([request('/buildings'), request('/campus/d21')]).then(([buildings, campus]) => {
-      if (!active) return;
-      const rows = buildings.status === 'fulfilled' ? buildings.value.map(building => ({
-        id: String(building.id), buildingID: String(building.id), name: building.name,
-        model: building.model_document_id ? { id: building.model_document_id, name: building.name } : null,
-      })) : [];
-      if (campus.status === 'fulfilled') {
-        const metadata = campus.value;
-        const id = metadata.building_id == null ? 'campus-d21' : String(metadata.building_id);
-        const index = rows.findIndex(row => row.id === id);
-        const entry = {
-          id, buildingID: metadata.building_id, name: rows[index]?.name || 'D21 · Hochschule Darmstadt',
-          model: { id: metadata.id, name: metadata.name, campus: true },
-        };
-        if (index >= 0) rows.splice(index, 1);
-        rows.unshift(entry);
-      }
-      setData({ buildings: rows, loading: false, error: buildings.status === 'rejected' ? buildings.reason.message : '' });
-      setSelected(current => rows.some(row => row.id === current) ? current : (rows.find(row => row.model) || rows[0])?.id || '');
-    });
-    return () => { active = false; };
-  }, [retry]);
-
-  const building = data.buildings.find(row => row.id === selected);
-  return <>
-    <section className="surface px-4 py-4 sm:px-5" aria-label="Gebäude auswählen">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-full sm:max-w-xs">
-          <label className="mb-1.5 block text-xs font-semibold" htmlFor="heat-building">Gebäude</label>
-          <select className={selectClass} id="heat-building" value={selected} onChange={event => setSelected(event.target.value)} disabled={!data.buildings.length}>
-            {!data.buildings.length && <option value="">{data.loading ? 'Gebäude werden geladen …' : 'Keine Gebäude verfügbar'}</option>}
-            {data.buildings.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
-          </select>
-        </div>
-      </div>
-      {data.error && <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 text-sm text-destructive">
-        <span>{data.error}</span>
-        <Button size="sm" variant="outline" onClick={() => setRetry(value => value + 1)}>Erneut laden</Button>
-      </div>}
-      {!data.loading && !data.error && !building && <p className="mt-3 text-sm text-muted-foreground">Lege unter <Link className="underline" to="/gebaeude">Gebäude</Link> ein Gebäude mit IFC-Modell an.</p>}
-      {building && !building.model && <p className="mt-3 text-sm text-muted-foreground">Für dieses Gebäude ist kein IFC-Modell verfügbar. Modelle findest du in der <Link className="underline" to="/gebaeude">Gebäudemappe</Link>.</p>}
-    </section>
-    {building?.model && <BuildingRoomHeat key={`${building.id}-${building.model.id}`} building={building} />}
-  </>;
-}
-
-function BuildingRoomHeat({ building }) {
+export default function RoomHeatMap({ building, document, measurements }) {
   const [model, setModel] = useState({ floors: null, floorId: null, plan: null, roomId: null, error: '' });
-  const [measurements, setMeasurements] = useState({ data: null, error: '', loading: Boolean(building.buildingID) });
-  const [readingRevision, setReadingRevision] = useState(0);
   const [modelRevision, setModelRevision] = useState(0);
-  const { campus } = building.model;
+  const { campus } = document;
   const floor = model.floors?.find(item => item.id === model.floorId);
   const plan = model.plan?.floorId === model.floorId ? model.plan.plan : null;
   const readingByRoom = useMemo(() => roomReadings(floor, measurements.data, campus), [floor, measurements.data, campus]);
+  const currentReadings = useMemo(() => Object.fromEntries(Object.entries(readingByRoom)
+    .filter(([, reading]) => readingStatus(reading) === 'current')), [readingByRoom]);
   const selectedRoom = plan?.rooms.find(room => room.id === model.roomId);
   const selectedLabel = selectedRoom && (roomNumber(selectedRoom.number, floor.name, campus) || String(plan.rooms.indexOf(selectedRoom) + 1).padStart(2, '0'));
   const roomHeat = useMemo(() => floor ? {
     floorId: floor.id, roomId: model.roomId,
     roomLabel: selectedLabel,
-    values: Object.fromEntries(Object.entries(readingByRoom).map(([id, reading]) => [id, reading.value])),
-  } : null, [floor, model.roomId, readingByRoom, selectedLabel]);
-
-  useEffect(() => {
-    if (!building.buildingID) return;
-    let active = true;
-    request(`/buildings/${encodeURIComponent(building.buildingID)}/telemetry/room-temperatures`).then(data => {
-      if (active) setMeasurements({ data, error: '', loading: false });
-    }).catch(error => {
-      if (active) setMeasurements(current => ({ ...current, error: error.message, loading: false }));
-    });
-    return () => { active = false; };
-  }, [building.buildingID, readingRevision]);
+    values: Object.fromEntries(Object.entries(currentReadings).map(([id, reading]) => [id, reading.value])),
+  } : null, [floor, model.roomId, currentReadings, selectedLabel]);
 
   const receive = useCallback(event => {
     setModel(current => {
@@ -115,10 +50,6 @@ function BuildingRoomHeat({ building }) {
   }, []);
 
   const selectedReading = readingByRoom[model.roomId];
-  const refresh = () => {
-    setMeasurements(current => ({ ...current, loading: true, error: '' }));
-    setReadingRevision(value => value + 1);
-  };
 
   return <>
     <section className="surface overflow-hidden" aria-labelledby="room-heat-3d">
@@ -136,7 +67,7 @@ function BuildingRoomHeat({ building }) {
           </select>
         </div>
       </div>
-      <IFCModelFrame key={modelRevision} document={building.model} roomHeat={roomHeat} onRoomHeatMessage={receive} />
+      <IFCModelFrame key={modelRevision} document={document} roomHeat={roomHeat} onRoomHeatMessage={receive} />
       {model.error && <div className="border-t border-border px-4 py-3">
         <Button size="sm" variant="outline" onClick={() => {
           setModel({ floors: null, floorId: null, plan: null, roomId: null, error: '' });
@@ -152,14 +83,14 @@ function BuildingRoomHeat({ building }) {
               {ROOM_HEAT_STOPS.map(({ value }) => <span key={value} className="absolute" style={{ left: `${scalePosition(value)}%`, transform: `translateX(-${scalePosition(value)}%)` }}>{value === low ? '≤' : value === high ? '≥' : ''}{value}°</span>)}
             </div>
           </div>
-          {building.buildingID && <Button variant="outline" size="sm" className="gap-2" onClick={refresh} disabled={measurements.loading}><RefreshCw className="h-3.5 w-3.5" />Messwerte aktualisieren</Button>}
+          {measurements.isEnabled && <Button variant="outline" size="sm" className="gap-2" onClick={() => measurements.refetch()} disabled={measurements.isFetching}><RefreshCw className="h-3.5 w-3.5" />Messwerte aktualisieren</Button>}
           {plan && <a className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-primary underline underline-offset-4" href="#heat-floor-plan">Zum 2D-Grundriss<ArrowDown className="h-3.5 w-3.5" /></a>}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-slate-400" style={{ background: ROOM_NO_DATA }} />Kein zugeordneter Messwert</span>
-          {measurements.loading ? <span role="status">Raumtemperaturen werden geladen …</span> : floor && <span>{Object.keys(readingByRoom).length} von {floor.rooms.length} Räumen mit Messwert</span>}
-          {!building.buildingID && <span>Für dieses Modell fehlt die Verknüpfung zu einem Messdaten-Gebäude.</span>}
-          {measurements.error && <span role="alert" className="text-destructive">{measurements.error}{measurements.data && ' Letzter erfolgreicher Abruf wird angezeigt.'}</span>}
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-slate-400" style={{ background: ROOM_NO_DATA }} />Kein aktueller Messwert</span>
+          {measurements.isLoading ? <span role="status">Raumtemperaturen werden geladen …</span> : floor && <span>{Object.keys(currentReadings).length} von {floor.rooms.length} Räumen mit aktuellem Messwert</span>}
+          {!measurements.isEnabled && <span>Für dieses Konto sind keine Messwerte freigegeben.</span>}
+          {measurements.error && <span role="alert" className="text-destructive">{measurements.error.message}</span>}
         </div>
       </div>
     </section>
@@ -174,7 +105,7 @@ function BuildingRoomHeat({ building }) {
           <path d={plan.walls} fill="none" stroke="#81909e" strokeWidth=".07" aria-hidden="true" />
           {plan.rooms.map((room, index) => {
             const number = roomNumber(room.number, floor.name, campus) || String(index + 1).padStart(2, '0');
-            const reading = readingByRoom[room.id];
+            const reading = currentReadings[room.id];
             const selected = model.roomId === room.id;
             const toggle = () => setModel(current => ({ ...current, roomId: selected ? null : room.id }));
             return <g key={room.id} role="button" tabIndex={0} aria-pressed={selected}
@@ -192,7 +123,7 @@ function BuildingRoomHeat({ building }) {
       {plan && !plan.rooms.length && <p className="px-4 py-3 text-xs text-muted-foreground sm:px-5">Für dieses Geschoss enthält das IFC keine darstellbaren Raumflächen.</p>}
       {selectedRoom && <div role="status" className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-4 py-3 text-sm sm:px-5">
         <strong>Raum {selectedLabel}</strong>
-        {selectedReading ? <><span className="font-semibold tabular-nums">{degrees.format(selectedReading.value)} °C</span><span className="text-xs text-muted-foreground">Gemessen am {measuredAt.format(new Date(selectedReading.measured_at))} Uhr</span></> : <span className="text-muted-foreground">Kein zugeordneter Messwert</span>}
+        <RoomReading reading={selectedReading} />
       </div>}
     </section>
   </>;

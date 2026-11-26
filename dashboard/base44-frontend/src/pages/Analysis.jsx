@@ -7,12 +7,16 @@ import FindingCard from '@/components/analysis/FindingCard';
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
-import { base44 } from '@/api/base44Client';
 import useD21Data from '@/hooks/useD21Data';
+import { buildingScopeHeaders, useBuildingScope } from '@/hooks/useBuildingScope';
+import { request } from '@/api/base44Client';
 import { analyseRoom, analysisSummary } from '@/lib/analysis';
 
 export default function Analysis() {
-  const data = useD21Data();
+  const scope = useBuildingScope();
+  const buildings = scope.readable('analysis');
+  const editableBuildings = buildings.filter(building => building.is_owner);
+  const data = useD21Data('', { buildingIDs: buildings.map(building => building.id).join(',') });
   const { toast } = useToast();
   const [severity, setSeverity] = useState('all');
   const [onlyIssues, setOnlyIssues] = useState(true);
@@ -46,8 +50,9 @@ export default function Analysis() {
   const runCheck = async () => {
     setRunning(true);
     try {
-      const response = await base44.functions.invoke('runThresholdCheck', { sinceHours: 4 });
-      const payload = response?.data || {};
+      const payload = await request('/twin-functions/runThresholdCheck', {
+        method: 'POST', body: { sinceHours: 4 }, headers: buildingScopeHeaders(editableBuildings),
+      });
       toast({ title: 'Prüflauf abgeschlossen', description: payload.message || 'Prüflauf wurde ausgeführt.' });
       await data.reload();
     } catch (e) {
@@ -87,9 +92,9 @@ export default function Analysis() {
         <Button variant="outline" size="sm" onClick={data.reload}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Neu berechnen
         </Button>
-        <Button size="sm" onClick={runCheck} disabled={running}>
+        {editableBuildings.length > 0 && <Button size="sm" onClick={runCheck} disabled={running}>
           <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> {running ? 'Prüflauf läuft …' : 'Meldungen erzeugen'}
-        </Button>
+        </Button>}
       </PageHeader>
 
       <div className="surface flex flex-wrap items-start gap-4 border-l-4 border-l-cyan-500 p-5">

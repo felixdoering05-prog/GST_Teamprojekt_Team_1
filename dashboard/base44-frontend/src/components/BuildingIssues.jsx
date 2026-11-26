@@ -2,7 +2,7 @@ import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, MapPin } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { request } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatDateTime } from '@/lib/dates';
@@ -10,7 +10,9 @@ import { issuePath, issuePriority, issueStatus, issueSource, priorityLabel } fro
 import { SelectField, TextAreaField, TextField } from '@/components/Field';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import IFCModelFrame from '@/components/bim/IFCModelFrame';
+import { RoomDetailsLink, RoomModelPreview, RoomReading } from '@/components/bim/RoomModelPreview';
+import { useRoomEvidence } from '@/hooks/useRoomEvidence';
+import { resolveBuildingRoom, roomModelFocus } from '@/lib/roomLocation';
 
 const limitedId = value => /^[1-9]\d{0,9}$/.test(value || '') && Number(value) <= 2147483647;
 const priorityTone = { urgent: 'text-destructive', high: 'text-warning', normal: 'text-primary', low: 'text-muted-foreground' };
@@ -28,13 +30,14 @@ function IssueFields({ issue = {}, includePriority = false }) {
   </>;
 }
 
-function CreateIssue({ buildings, activeBuilding, close, created }) {
+function CreateIssue({ buildings, close, created }) {
   const [requestKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function submit(event) {
     event.preventDefault();
     const { building, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
+    if (!building) return;
     setBusy(true); setError('');
     try {
       const row = await request('/buildings/' + building + '/issues', { method: 'POST', body: { ...fields, request_key: requestKey, reuse_existing: true } });
@@ -44,9 +47,9 @@ function CreateIssue({ buildings, activeBuilding, close, created }) {
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}>
     <DialogContent className="max-h-[90dvh] overflow-y-auto">
-      <DialogTitle>Mangel erfassen</DialogTitle><DialogDescription>Der Vorgang erscheint auch unter Meldungen.</DialogDescription>
+      <DialogTitle>Mangel erfassen</DialogTitle><DialogDescription>Das Gebäude legt fest, wer Zugriff auf den Mangel hat.</DialogDescription>
       <form onSubmit={submit} className="space-y-3">
-        <SelectField label="Gebäude" aria-label="Gebäude" name="building" defaultValue={String(activeBuilding.id)}
+        <SelectField label="Gebäude" aria-label="Gebäude" name="building" required placeholder="Gebäude auswählen …" defaultValue={buildings.length === 1 ? String(buildings[0].id) : ''}
           options={buildings.map(row => ({ value: String(row.id), label: row.name }))} />
         <IssueFields includePriority />
         {error && <p role="alert" className="text-destructive">{error}</p>}
@@ -92,29 +95,24 @@ function History({ entries }) {
 
 function IssueDetails({ issue, path, refresh }) {
   const [spatial, setSpatial] = useState(null);
-  const [previewRequested, setPreviewRequested] = useState(false);
-  const [focusVersion, setFocusVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const modelID = issue.location_model ?? issue.document_id;
   const campus = modelID === 'campus-d21';
   const hasLocation = Boolean(issue.point || issue.space_id || issue.element_id || issue.room?.trim());
+  const { structure, temperatures } = useRoomEvidence(issue.building_id);
+  const locationData = structure.data || temperatures.data;
+  const room = resolveBuildingRoom(locationData, {
+    globalId: spatial?.globalId, label: issue.room, building: issue.building_name,
+  });
+  const floor = locationData?.floors.find(row => row.id === room?.floor_id);
+  const reading = temperatures.data?.rooms.find(row => row.id === room?.id)?.reading;
   const focus = useMemo(() => ({
+    ...(room ? roomModelFocus(room, floor) : {}),
     id: issue.id, point: issue.point, spaceID: issue.space_id, elementID: issue.element_id,
-    location: issue.room, building: issue.building_name,
-  }), [issue.id, issue.point, issue.space_id, issue.element_id, issue.room, issue.building_name]);
-
-  let locationMessage = '';
-  if (!hasLocation) locationMessage = 'Position nicht hinterlegt.';
-  else if (!modelID) locationMessage = 'Für diese Ortsangabe ist kein IFC-Modell hinterlegt.';
-  else if (spatial && !spatial.point) {
-    if (spatial.roomHighlighted) locationMessage = 'Der Meldungsraum ist hervorgehoben. Ein genauer Punkt ist nicht verfügbar.';
-    else if (spatial.floor) locationMessage = 'Das Geschoss wird angezeigt. Der Meldungsraum lässt sich im Modell nicht eindeutig darstellen.';
-    else if (spatial.room) locationMessage = 'Für diesen Raum enthält das Modell keine darstellbare Geometrie.';
-    else if (issue.point) locationMessage = 'Der gespeicherte Punkt lässt sich in diesem Modell nicht darstellen.';
-    else if (!spatial.element) locationMessage = 'Die Ortsangabe lässt sich keinem Raum oder Geschoss eindeutig zuordnen.';
-  }
+    ...(!room ? { location: issue.room } : {}), building: issue.building_name,
+  }), [room, floor, issue.id, issue.point, issue.space_id, issue.element_id, issue.room, issue.building_name]);
 
   async function update(fields) {
     setError('');
@@ -133,13 +131,17 @@ function IssueDetails({ issue, path, refresh }) {
         <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
           <div><dt className="text-muted-foreground">Gebäude</dt><dd className="break-words">{issue.building_name}</dd></div>
           <div><dt className="text-muted-foreground">Standort</dt><dd className="break-words">{issue.building_address || 'Nicht hinterlegt'}</dd></div>
-          <div><dt className="text-muted-foreground">Geschoss</dt><dd>{spatial?.floor || 'Nicht hinterlegt'}</dd></div>
+          <div><dt className="text-muted-foreground">Geschoss</dt><dd>{spatial?.floor || floor?.name || 'Nicht hinterlegt'}</dd></div>
           <div><dt className="text-muted-foreground">Raum</dt><dd className="break-words">{spatial?.room || issue.room || (issue.space_id ? `IFC-Raum #${issue.space_id}` : 'Nicht hinterlegt')}</dd></div>
           <div><dt className="text-muted-foreground">Bauteil</dt><dd className="break-words">{spatial?.element || (issue.element_id ? `IFC-Element #${issue.element_id}` : 'Nicht hinterlegt')}</dd></div>
           <div><dt className="text-muted-foreground">Erfasst</dt><dd>{issue.reporter} · {formatDateTime(issue.created_at)}</dd></div>
           <div><dt className="text-muted-foreground">Quelle</dt><dd>{issueSource[issue.source] || 'Nicht hinterlegt'}</dd></div>
           <div><dt className="text-muted-foreground">Zuletzt geändert</dt><dd>{formatDateTime(issue.updated_at)}</dd></div>
         </dl>
+        {room && <div className="space-y-2 text-sm">
+          <p><span className="text-muted-foreground">Letzter Temperaturmesswert · </span><RoomReading reading={reading} /></p>
+          <RoomDetailsLink buildingID={issue.building_id} room={room} />
+        </div>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">Status
             <select className="titan-select" aria-label="Status" disabled={saving || !issue.can_update_status} value={issue.status} onChange={e => update({ status: e.target.value })}>
@@ -167,18 +169,13 @@ function IssueDetails({ issue, path, refresh }) {
         <History entries={issue.history} />
       </div>
       <section className="space-y-3 self-start rounded-xl border bg-card p-3 sm:p-4" aria-label="Gebäudeposition">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="font-semibold">Gebäudeposition</h4>
-          {modelID && <Button variant="outline" size="sm" onClick={() => { setPreviewRequested(true); setFocusVersion(value => value + 1); }}>
-            <MapPin className="h-4 w-4" /> Im Gebäude anzeigen
-          </Button>}
-        </div>
-        {locationMessage && <p role="status" className="text-sm text-muted-foreground">{locationMessage}</p>}
-        {modelID && (hasLocation || previewRequested) && <IFCModelFrame key={modelID}
-          document={{ id: modelID, name: issue.building_name, campus }} presentation="bim"
-          issueFocus={hasLocation ? focus : undefined} focusVersion={focusVersion} onIssueLocation={setSpatial} readOnly />}
+        <h4 className="font-semibold">Gebäudeposition</h4>
+        {issue.room && <p className="text-sm">Hinterlegter Ort · {issue.room}</p>}
+        {!hasLocation && <p className="text-sm text-muted-foreground">Position nicht hinterlegt.</p>}
+        <RoomModelPreview document={modelID ? { id: modelID, name: issue.building_name, campus } : null}
+          focus={hasLocation ? focus : undefined} location={spatial} onLocation={setSpatial} />
         {modelID && <Link className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          to={`/bim-viewer?model=${modelID}`}>Modellbibliothek öffnen <ArrowUpRight className="h-4 w-4" /></Link>}
+          to={`/bim-viewer?building=${issue.building_id}&model=${modelID}`}>Modellbibliothek öffnen <ArrowUpRight className="h-4 w-4" /></Link>}
       </section>
     </div>
   </>;
@@ -208,12 +205,12 @@ function IssueDialog({ building, id, close, restoreFocus }) {
   </Dialog>;
 }
 
-export default function BuildingIssues({ editable = false }) {
+export default function BuildingIssues() {
   const { user } = useAuth();
   const cache = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [buildingFilter, setBuildingFilter] = useState('all');
-  const [filter, setFilter] = useState('all');
+  const initialFilter = params.get('status') || '';
+  const [filter, setFilter] = useState(Object.hasOwn(issueStatus, initialFilter) || initialFilter === 'active' ? initialFilter : 'all');
   const [limit, setLimit] = useState(25);
   const [adding, setAdding] = useState(false);
   const trigger = useRef(null);
@@ -221,17 +218,12 @@ export default function BuildingIssues({ editable = false }) {
   const scope = useBuildingScope();
   const authorizedBuildings = scope.readable('issues');
   const headers = buildingScopeHeaders(authorizedBuildings);
-  const selectedBuilding = authorizedBuildings.length === 1 ? String(authorizedBuildings[0].id) : authorizedBuildings.some(building => String(building.id) === buildingFilter) ? buildingFilter : 'all';
-  const activeBuilding = authorizedBuildings.find(row => String(row.id) === selectedBuilding) ||
-    authorizedBuildings.find(row => String(row.id) === localStorage.getItem('d21-selected-building')) || authorizedBuildings[0];
-  const access = useQuery({ queryKey: ['building-team-access', String(activeBuilding?.id)], enabled: editable && !!activeBuilding,
-    queryFn: () => request('/buildings/' + activeBuilding.id + '/team-access'), retry: false });
-  const mayCreate = access.data?.is_owner || access.data?.actor_role?.permissions?.issues === 'edit';
+  const options = scope.building ? scope.readable('issues', { team: true }) : authorizedBuildings;
+  const editBuildings = authorizedBuildings.filter(row => scope.can(row.id, 'issues', 'edit'));
   const query = useInfiniteQuery({
-    queryKey: ['building-issue-pages', user.id, headers['X-D21-Buildings'], selectedBuilding, filter],
+    queryKey: ['building-issue-pages', user.id, scope.team?.id, headers['X-D21-Buildings'], filter],
     queryFn: ({ pageParam }) => {
       const filters = new URLSearchParams();
-      if (selectedBuilding !== 'all') filters.set('building_id', selectedBuilding);
       if (filter !== 'all') filters.set('status', filter);
       if (pageParam) filters.set('before', pageParam);
       return request(`/issues?${filters}`, { headers });
@@ -242,8 +234,15 @@ export default function BuildingIssues({ editable = false }) {
     gcTime: 0,
   });
   const matching = query.data?.pages.flatMap(page => page.issues) || [];
-  const building = params.get('building');
   const id = params.get('issue');
+  const building = params.get('building') || params.get('building_id') || (authorizedBuildings.length === 1 ? String(authorizedBuildings[0].id) : null);
+
+  function showIssue(issue, replace) {
+    const next = new URLSearchParams(params);
+    next.set('building', issue.building_id);
+    next.set('issue', issue.id);
+    setParams(next, { replace, preventScrollReset: true });
+  }
 
   function close() {
     const next = new URLSearchParams(params);
@@ -253,16 +252,16 @@ export default function BuildingIssues({ editable = false }) {
 
   return <section className="surface min-w-0 space-y-4 p-4 sm:p-5" aria-labelledby="building-issues">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 id="building-issues" tabIndex={-1} ref={heading} className="text-xl font-semibold">{editable ? 'Mängelregister' : 'Gebäudemeldungen'}</h2>
+      <h2 id="building-issues" tabIndex={-1} ref={heading} className="text-xl font-semibold">Mängelregister</h2>
       <div className="flex flex-wrap gap-2">
-        {editable && mayCreate && <Button onClick={() => setAdding(true)}>Mangel erfassen</Button>}
-        <select className="titan-select w-auto max-w-full" aria-label="Gebäude filtern" value={selectedBuilding}
-          onChange={event => { setBuildingFilter(event.target.value); setLimit(25); }}>
-          {authorizedBuildings.length !== 1 && <option value="all">Alle Gebäude</option>}
-          {authorizedBuildings.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
+        {editBuildings.length > 0 && <Button onClick={() => setAdding(true)}>Mangel erfassen</Button>}
+        <select className="titan-select w-auto max-w-full" aria-label="Gebäude filtern" value={scope.building?.id ?? ''}
+          onChange={event => scope.choose(event.target.value ? 'building:' + event.target.value : 'all')}>
+          <option value="">{scope.value.startsWith('group:') ? scope.label : 'Alle Gebäude'}</option>
+          {options.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
         </select>
         <select className="titan-select w-auto" aria-label="Meldungsstatus filtern" value={filter} onChange={event => { setFilter(event.target.value); setLimit(25); }}>
-          <option value="all">Alle Status</option><option value="active">Aktive Vorgänge</option><option value="assigned">Zugewiesen</option><option value="in_progress">In Arbeit</option><option value="done">Erledigt</option>
+          <option value="all">Alle Status</option><option value="active">Aktive Vorgänge</option>{Object.entries(issueStatus).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
     </div>
@@ -272,7 +271,7 @@ export default function BuildingIssues({ editable = false }) {
         : matching.length ? <ul className="divide-y">
           {matching.slice(0, limit).map(issue => <li key={issue.id}>
             <button type="button" className="grid w-full gap-2 rounded-lg px-2 py-3 text-left hover:bg-muted focus-visible:outline-ring sm:grid-cols-[minmax(0,1fr)_auto]"
-              onClick={event => { trigger.current = event.currentTarget; setParams({ building: issue.building_id, issue: issue.id }, { replace: true, preventScrollReset: true }); }}>
+              onClick={event => { trigger.current = event.currentTarget; showIssue(issue, false); }}>
               <span className="min-w-0"><span className="block break-words font-semibold">{issue.title}</span>
                 <span className="block break-words text-sm text-muted-foreground">{[issue.building_name, issue.room, issueSource[issue.source], formatDateTime(issue.created_at)].filter(Boolean).join(' · ')}</span></span>
               <span className="flex flex-wrap items-center gap-x-2 text-sm"><span>{issueStatus[issue.status]}</span>
@@ -290,11 +289,11 @@ export default function BuildingIssues({ editable = false }) {
       }}>Mehr anzeigen</Button>}
     {authorizedBuildings.some(row => String(row.id) === building) && limitedId(id) && <IssueDialog key={`${building}/${id}`} building={building} id={id} close={close}
       restoreFocus={() => (trigger.current?.isConnected ? trigger.current : heading.current)?.focus()} />}
-    {adding && activeBuilding && <CreateIssue buildings={authorizedBuildings} activeBuilding={activeBuilding} close={() => setAdding(false)} created={row => {
+    {adding && <CreateIssue buildings={editBuildings} close={() => setAdding(false)} created={row => {
       setAdding(false);
       cache.invalidateQueries({ queryKey: ['building-issue-pages', user.id] });
       cache.invalidateQueries({ queryKey: ['building-issues', user.id] });
-      setParams({ building: row.building_id, issue: row.id });
+      showIssue(row, false);
     }} />}
   </section>;
 }

@@ -7,6 +7,8 @@ import { request } from '@/api/base44Client';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
 import DashboardModel from './DashboardModel';
 import { widgetTitles } from './WidgetBoard';
+import { buildingScopeHeaders, useBuildingScope } from '@/hooks/useBuildingScope';
+import { useBuildingModels } from '@/hooks/useBuildingModels';
 
 function Widget({ title, children, link }) {
   return <section className="glass-card flex h-full min-h-0 min-w-0 flex-col space-y-3 overflow-hidden p-4 sm:p-5">
@@ -45,7 +47,10 @@ export function IssueWidget({ id, filter = 'all' }) {
 
 export function useWidgetBuildings() {
   const { user } = useAuth();
-  return useQuery({ queryKey: ['widget-buildings', user?.id], queryFn: () => request('/buildings'), gcTime: 0, refetchOnWindowFocus: true });
+  const scope = useBuildingScope();
+  const headers = buildingScopeHeaders(scope.readable('buildings'));
+  return useQuery({ queryKey: ['widget-buildings', user?.id, scope.team?.id, headers['X-D21-Buildings']],
+    queryFn: () => request('/buildings', { headers }), gcTime: 0, refetchOnWindowFocus: true });
 }
 
 export function BuildingsWidget({ buildings }) {
@@ -59,14 +64,18 @@ export function BuildingsWidget({ buildings }) {
   </Widget>;
 }
 
-export function ModelWidget({ buildingID, buildings }) {
-  if (!buildingID) return <DashboardModel />;
-  const building = buildings.isError ? null : buildings.data?.find(item => item.id === buildingID);
+export function ModelWidget({ buildingID }) {
+  const scope = useBuildingScope();
+  const buildings = scope.readable('bim');
+  const building = buildingID ? buildings.find(item => String(item.id) === String(buildingID))
+    : buildings.length === 1 ? buildings[0] : null;
+  const { models, loading, error } = useBuildingModels(building ? [building] : []);
+  const model = models[0];
+  if (model?.campus) return <DashboardModel document={model} />;
   return <Widget title={building?.name || 'BIM-Modell'} link="/bim-viewer">
-    {building?.model_document_id ? <IFCModelFrame key={building.model_document_id}
-      document={{ id: building.model_document_id, name: building.name }} presentation="dashboard" />
-      : <p role="status" className="text-sm text-muted-foreground">{buildings.isPending
-        ? 'Modell wird gesucht …' : 'Für dieses Gebäude ist kein zugängliches IFC-Modell verfügbar.'}</p>}
+    {model ? <IFCModelFrame key={model.id} document={model} presentation="dashboard" />
+      : <p role="status" className="text-sm text-muted-foreground">{loading ? 'Modell wird gesucht …' : error ? error.message
+        : building || scope.building ? 'Für dieses Gebäude ist kein Modell hinterlegt.' : 'Wähle ein Gebäude für die Modellvorschau aus.'}</p>}
   </Widget>;
 }
 

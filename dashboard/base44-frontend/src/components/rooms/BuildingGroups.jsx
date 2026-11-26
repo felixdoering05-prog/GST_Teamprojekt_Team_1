@@ -22,7 +22,7 @@ function BuildingCard({ building, onOpen }) {
   </button>;
 }
 
-export default function BuildingGroups({ buildings = [], onOpenBuilding, createOpen = false, onCloseCreate }) {
+export default function BuildingGroups({ buildings = [], groupID, onOpenBuilding, createOpen = false, onCloseCreate }) {
   const cache = useQueryClient();
   const [name, setName] = useState('');
   const [newBuildings, setNewBuildings] = useState([]);
@@ -60,7 +60,7 @@ export default function BuildingGroups({ buildings = [], onOpenBuilding, createO
     return draft.name.trim() !== group.name || before !== after;
   };
   const buildingById = new Map(buildings.map(building => [String(building.id), building]));
-  const groupsWithBuildings = (groups.data || []).map(group => ({
+  const groupsWithBuildings = (groups.data || []).filter(group => !groupID || String(group.id) === groupID).map(group => ({
     ...group,
     visibleBuildings: group.buildings.map(building => buildingById.get(String(building.id))).filter(Boolean),
   }));

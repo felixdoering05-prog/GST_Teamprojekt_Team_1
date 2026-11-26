@@ -10,7 +10,7 @@ const STATUS_STYLE = {
   defekt: 'bg-red-50 text-red-700 ring-red-600/20',
 };
 
-export default function SensorTable({ sensors, rooms, latest, onEdit, onDelete, emptyText = 'Keine Sensoren vorhanden.' }) {
+export default function SensorTable({ sensors, rooms, latest, onEdit, onDelete, canEdit, emptyText = 'Keine Sensoren vorhanden.' }) {
   if (!sensors.length) {
     return <p className="px-5 py-8 text-center text-sm text-muted-foreground">{emptyText}</p>;
   }
@@ -60,14 +60,14 @@ export default function SensorTable({ sensors, rooms, latest, onEdit, onDelete, 
                 </td>
                 <td className="px-3 py-3 text-xs text-muted-foreground">{sensor.position_note || '–'}</td>
                 <td className="px-5 py-3">
-                  <div className="flex justify-end gap-1">
+                  {canEdit(sensor) && <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => onEdit(sensor)} aria-label="Sensor bearbeiten">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => onDelete(sensor)} aria-label="Sensor löschen">
                       <Trash2 className="h-3.5 w-3.5 text-red-600" />
                     </Button>
-                  </div>
+                  </div>}
                 </td>
               </tr>
             );

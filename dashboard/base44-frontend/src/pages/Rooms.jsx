@@ -22,7 +22,13 @@ import SharedBuildingStructure from '@/components/rooms/SharedBuildingStructure'
 import DeleteBuildingButton from '@/components/rooms/DeleteBuildingButton';
 import { documentKey } from '@/components/rooms/buildingFilesModel';
 import BuildingGroups from '@/components/rooms/BuildingGroups';
-import { rememberBuilding, useBuildingSelection } from '@/hooks/useBuildingSelection';
+import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
+import RoomDetailPanel from '@/components/bim/RoomDetailPanel';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { useBuildingSelection } from '@/hooks/useBuildingSelection';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
+import { readingsForRoom, roomSeries } from '@/lib/roomMetrics';
+import { METRIC_KEYS } from '@/lib/metrics';
 
 export default function Rooms() {
   const cache = useQueryClient();
@@ -30,53 +36,53 @@ export default function Rooms() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [teamBuildingId, setTeamBuildingId] = useState(null);
   const { toast } = useToast();
-  const selection = useBuildingSelection();
-  const buildings = selection.query;
-  const buildingsKey = ['account-buildings', selection.team];
-  const teams = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
-  const activeTeam = (teams.data || []).find(team => String(team.id) === localStorage.getItem('d21-selected-team')) || (teams.data || []).find(team => team.is_owner) || teams.data?.[0];
+  const scope = useBuildingScope();
+  const selection = useBuildingSelection('buildings');
+  const activeTeam = scope.team;
+  const buildingsKey = ['account-buildings', activeTeam?.id];
+  const buildings = useQuery({ queryKey: buildingsKey, queryFn: () => request('/buildings') });
   const [groupCreateOpen, setGroupCreateOpen] = useState(false);
-  const requestedId = params.get('building');
-  const rememberedId = localStorage.getItem('d21-selected-building');
-  const selectedId = requestedId || (params.get('all') !== '1' && params.get('start') !== '1' ? rememberedId : null);
-  const selected = buildings.data?.find(building => String(building.id) === selectedId);
   const start = params.get('start') === '1';
+  const selectedId = params.get('all') !== '1' && !start ? scope.building?.id : null;
+  const selected = buildings.data?.find(building => building.id === selectedId);
+  const readableIDs = new Set(scope.readable('buildings').map(row => row.id));
+  const roomID = params.get('room');
   const requestedSection = params.get('section');
   const section = ['overview', 'gallery', 'models', 'rooms'].includes(requestedSection) ? requestedSection : 'overview';
-  const refreshBuildings = () => cache.invalidateQueries({ queryKey: buildingsKey });
+  const refreshBuildings = () => Promise.all([
+    cache.invalidateQueries({ queryKey: buildingsKey }),
+    cache.invalidateQueries({ queryKey: ['teams'] }),
+    cache.invalidateQueries({ queryKey: ['building-navigation', String(activeTeam?.id)] }),
+  ]);
 
-  function openBuilding(building, guided = false, nextSection = 'overview') {
-    rememberBuilding(building.id);
-    setParams({ building: String(building.id), ...(guided ? { start: '1' } : {}), ...(nextSection !== 'overview' ? { section: nextSection } : {}) });
+  function openBuilding(building, nextSection = 'overview') {
+    const next = nextSection === 'overview' ? {} : { section: nextSection };
+    scope.chooseBuilding(building.id, { search: new URLSearchParams(next), replace: false });
   }
 
-  function created(building, options = {}) {
+  async function created(building, options = {}) {
     cache.setQueryData(buildingsKey, rows => [
       ...(rows ?? []).filter(row => row.id !== building.id), { ...building, ...(rows ?? []).find(row => row.id === building.id), is_owner: true },
     ]);
     setSetupOpen(false);
-    openBuilding(building, false, options.section ?? 'overview');
-    refreshBuildings();
+    await refreshBuildings();
+    openBuilding(building, options.section);
   }
 
   function leaveBuilding() {
     if (!selected) return;
     cache.setQueryData(buildingsKey, rows => (rows ?? []).filter(row => row.id !== selected.id));
-    if (localStorage.getItem('d21-selected-building') === String(selected.id)) {
-      localStorage.removeItem('d21-selected-building');
-    }
     setTeamBuildingId(null);
-    setParams({ all: '1' }, { replace: true });
+    scope.choose('all');
     refreshBuildings();
   }
 
   async function deletedBuilding(building) {
     await cache.cancelQueries({ queryKey: buildingsKey });
     cache.setQueryData(buildingsKey, rows => (rows ?? []).filter(row => row.id !== building.id));
-    if (localStorage.getItem('d21-selected-building') === String(building.id)) localStorage.removeItem('d21-selected-building');
     setTeamBuildingId(null);
     setSetupOpen(false);
-    setParams({ all: '1' }, { replace: true });
+    scope.choose('all');
     cache.removeQueries({ queryKey: documentKey(building.id) });
     cache.invalidateQueries();
     toast({ title: 'Gebäude gelöscht', description: `„${building.name}“ wurde entfernt.` });
@@ -95,24 +101,19 @@ export default function Rooms() {
               <Users className="mr-1.5 h-4 w-4" aria-hidden="true" /> {selected.is_owner ? 'Gebäude teilen' : 'Gebäudeteam'}
             </Button>
           </PageHeader>
-          {buildings.data.length > 1 && (
-            <label className="flex flex-wrap items-center gap-3 text-sm">
-              Gebäude wechseln
-              <select className="max-w-full rounded-md border bg-background px-3 py-2" value={selected.id}
-                onChange={event => {
-                  const building = buildings.data.find(row => String(row.id) === event.target.value);
-                  if (building) openBuilding(building);
-                }}>
-                {buildings.data.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
-              </select>
-            </label>
-          )}
+          {selection.buildings.length > 1 && <BuildingSectionSelect selection={selection} />}
           <BuildingWorkspace key={selected.id} building={selected} section={section} onSaved={refreshBuildings}
-            onSection={nextSection => setParams({ building: String(selected.id), ...(nextSection !== 'overview' ? { section: nextSection } : {}) }, { replace: true })}
+            onSection={nextSection => setParams(nextSection === 'overview' ? {} : { section: nextSection }, { replace: true })}
             onSetup={() => setSetupOpen(true)} onTeam={() => setTeamBuildingId(selected.id)}
             structure={selected.is_owner
               ? <OwnedBuilding key={selected.id} buildingId={String(selected.id)} onSaved={refreshBuildings} />
               : <SharedBuildingStructure key={selected.id} buildingId={selected.id} />} />
+          {roomID && <RoomDetails key={roomID} building={selected} roomID={roomID} close={() => {
+            const next = new URLSearchParams(params);
+            next.delete('room');
+            next.delete('building');
+            setParams(next, { replace: true, preventScrollReset: true });
+          }} />}
           {teamBuildingId === selected.id && (
             <BuildingTeam key={selected.id} building={selected} onClose={() => setTeamBuildingId(null)} onLeave={leaveBuilding} />
           )}
@@ -120,7 +121,7 @@ export default function Rooms() {
       ) : selectedId && buildings.isPending ? <p role="status">Gebäude wird geladen …</p> : (
         <>
           <PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
-            <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>
+            {activeTeam?.is_owner && <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>}
             {activeTeam?.can_manage_groups && <Button variant="outline" onClick={() => setGroupCreateOpen(open => !open)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäudegruppe erstellen</Button>}
           </PageHeader>
           <details className="surface space-y-4 p-5" open={start || undefined}>
@@ -134,13 +135,33 @@ export default function Rooms() {
               <Button variant="outline" size="sm" onClick={() => buildings.refetch()}>Erneut versuchen</Button>
             </div>
           )}
-          {requestedId && buildings.isSuccess && <p role="status" className="text-sm text-muted-foreground">Dieses Gebäude ist für dein Konto nicht verfügbar.</p>}
-          <BuildingGroups buildings={buildings.data || []} onOpenBuilding={building => openBuilding(building)} createOpen={groupCreateOpen} onCloseCreate={() => setGroupCreateOpen(false)} />
+          <BuildingGroups buildings={(buildings.data || []).filter(row => readableIDs.has(row.id) || (params.get('all') === '1' && scope.can(row.id, 'buildings')))}
+            groupID={params.get('all') !== '1' && scope.value.startsWith('group:') ? scope.value.slice(6) : null}
+            onOpenBuilding={building => openBuilding(building)} createOpen={groupCreateOpen} onCloseCreate={() => setGroupCreateOpen(false)} />
         </>
       )}
       {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} />}
     </div>
   );
+}
+
+function RoomDetails({ building, roomID, close }) {
+  const scope = useBuildingScope();
+  const allowed = scope.can(building.id, 'structure');
+  const data = useD21Data(String(building.id), { buildingIDs: allowed ? String(building.id) : '' });
+  const room = data.rooms.find(row => String(row.id) === roomID);
+  const readings = room ? readingsForRoom(room, data.sensors, data.latest, data.thresholds) : {};
+  const pointsByMetric = room ? Object.fromEntries(METRIC_KEYS.map(metric => [metric, roomSeries(room, data.sensors, data.series, metric)])) : {};
+  return <Dialog open onOpenChange={open => { if (!open) close(); }}>
+    <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto">
+      <DialogTitle>Raumdetail</DialogTitle>
+      <DialogDescription>{building.name}</DialogDescription>
+      {data.loading && allowed ? <p role="status">Raum wird geladen …</p> : room
+        ? <RoomDetailPanel room={room} floorLabel={data.floors.find(floor => floor.id === room.floor_id)?.name}
+            readings={readings} sensors={data.sensors} pointsByMetric={pointsByMetric} thresholds={data.thresholds} />
+        : <p role="status">{data.error || 'Dieser Raum ist für dein Konto nicht verfügbar.'}</p>}
+    </DialogContent>
+  </Dialog>;
 }
 
 function OwnedBuilding({ buildingId, onSaved }) {

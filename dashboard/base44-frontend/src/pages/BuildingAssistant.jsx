@@ -1,102 +1,100 @@
-import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { MessageSquareText, Send, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MessageSquareText, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import EmptyState from '@/components/EmptyState';
-import { SelectField } from '@/components/Field';
+import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
 import { Button } from '@/components/ui/button';
-import { base44, request } from '@/api/base44Client';
+import { request } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
+import { useBuildingSelection } from '@/hooks/useBuildingSelection';
 
 export default function BuildingAssistant() {
-  const [buildings, setBuildings] = useState(null);
-  const [buildingId, setBuildingId] = useState('');
+  const selection = useBuildingSelection('assistant');
+  const [params, setParams] = useSearchParams();
+  const roomID = params.get('room');
+  const building = selection.building;
+  return <div className="space-y-5">
+    <PageHeader title="Gebäude-Assistent" description={building?.name || 'Wähle ein Gebäude für deine Frage aus.'} />
+    <BuildingSectionSelect selection={selection} />
+    {building && <BuildingChat key={building.id + '/' + (roomID ?? '')} building={building} roomID={roomID}
+      clearRoom={() => {
+        const next = new URLSearchParams(params);
+        next.delete('room');
+        setParams(next, { replace: true });
+      }} />}
+  </div>;
+}
+
+function BuildingChat({ building, roomID, clearRoom }) {
+  const scope = useBuildingScope();
+  const { user } = useAuth();
+  const cache = useQueryClient();
   const [question, setQuestion] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [context, setContext] = useState(null);
-  const [entries, setEntries] = useState([]);
-  const [error, setError] = useState('');
+  const path = '/buildings/' + building.id + '/assistant';
+  const historyKey = ['assistant-history', user.id, building.id];
+  const mutationKey = ['assistant-question', user.id, building.id];
+  const context = useQuery({
+    queryKey: ['assistant-context', user.id, building.id, roomID],
+    queryFn: () => request(path + (roomID ? '?' + new URLSearchParams({ room_id: roomID }) : '')),
+    retry: false,
+  });
+  const history = useQuery({ queryKey: historyKey, queryFn: () => request(path + '/history'), retry: false });
+  const busy = useIsMutating({ mutationKey }) > 0;
+  const room = context.data?.context?.room;
+  const mayAsk = scope.can(building.id, 'assistant', 'edit');
+  const send = useMutation({
+    mutationKey,
+    mutationFn: text => request(path, {
+      method: 'POST',
+      headers: { 'X-Request-ID': crypto.randomUUID() },
+      body: { question: text, context_hash: context.data.context_hash, chat: true, ...(roomID ? { room_id: roomID } : {}) },
+    }),
+    onSuccess: () => cache.invalidateQueries({ queryKey: historyKey }),
+    onError: error => { if (error.status === 409) context.refetch(); },
+  });
+  const canSend = mayAsk && context.data?.enabled && !busy && question.trim() && (!roomID || room?.id === roomID);
+  const entries = history.data ?? [];
 
-  useEffect(() => {
-    base44.entities.Building.list('-created_date', 500)
-      .then((list) => {
-        setBuildings(list || []);
-        setBuildingId((list || [])[0]?.id || '');
-      })
-      .catch((e) => {
-        setBuildings([]);
-        setError(e.message || 'Gebäude konnten nicht geladen werden.');
-      });
-  }, []);
+  return <>
+    <section className="surface space-y-3 p-4 sm:p-5">
+      <div className="flex items-start gap-3 rounded-xl bg-primary/10 p-4 text-sm">
+        <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+        <p>Der Assistent verwendet den freigegebenen Kontext von {building.name}.</p>
+      </div>
+      {roomID && <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span>{room ? [room.floor, room.code, room.name].filter(Boolean).join(' · ') : 'Raumbezug'}</span>
+        <Button size="sm" variant="ghost" onClick={clearRoom}>Frage zum ganzen Gebäude</Button>
+      </div>}
+      {context.error && <p role="alert" className="text-sm text-destructive">{context.error.message}</p>}
+      {context.data?.notice && <p className="text-xs text-muted-foreground">{context.data.notice}</p>}
+      {context.data && !context.data.account_enabled && <Link to="/daten" className="text-sm font-medium text-primary underline">KI in den Einstellungen aktivieren</Link>}
+      {context.data?.account_enabled && !context.data.enabled && <p className="text-sm text-muted-foreground">Der Assistent ist derzeit nicht verfügbar.</p>}
+    </section>
 
-  useEffect(() => {
-    if (!buildingId) { setContext(null); return; }
-    let cancelled = false;
-    setContext(null);
-    request(`/buildings/${encodeURIComponent(buildingId)}/assistant`)
-      .then((data) => { if (!cancelled) setContext(data); })
-      .catch((e) => { if (!cancelled) setError(e.message || 'Gebäudekontext konnte nicht geladen werden.'); });
-    return () => { cancelled = true; };
-  }, [buildingId]);
-
-  const send = async (event) => {
-    event.preventDefault();
-    const text = question.trim();
-    if (!text || !context?.enabled || busy || !buildingId) return;
-    setBusy(true); setError('');
-    try {
-      const result = await request(`/buildings/${encodeURIComponent(buildingId)}/assistant`, {
-        method: 'POST',
-        headers: { 'X-Request-ID': crypto.randomUUID() },
-        body: { question: text, context_hash: context.context_hash, chat: true },
-      });
-      setEntries((current) => [...current, { question: text, ...result }]);
-      setQuestion('');
-    } catch (e) {
-      setError(e.message || 'Die Anfrage konnte nicht verarbeitet werden.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (buildings === null) return <div className="flex min-h-[50vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" /></div>;
-
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Gebäude-Assistent" description="Fragen zu freigegebenen Gebäudedaten stellen. Die Anfrage läuft über den D21-Server." />
-      {!buildings.length ? (
-        <EmptyState icon={MessageSquareText} title="Kein Gebäude vorhanden" description="Legen Sie zuerst unter „Gebäude & Räume“ ein Gebäude an." />
-      ) : (
-        <>
-          <section className="surface space-y-4 p-4 sm:p-5">
-            <SelectField label="Gebäude" value={buildingId} onChange={(e) => { setBuildingId(e.target.value); setEntries([]); }} options={buildings.map((b) => ({ value: b.id, label: b.name }))} />
-            <div className="flex items-start gap-3 rounded-xl bg-cyan-50 p-4 text-sm text-cyan-950">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
-              <p>Der Server verwendet nur den angezeigten Gebäudekontext. Antworten sind KI-generiert und müssen fachlich geprüft werden. Der Browser erhält keinen KI-API-Schlüssel.</p>
-            </div>
-            {context && !context.enabled ? <p className="text-sm text-amber-700">Der Assistent ist derzeit nicht verfügbar. Prüfe deine KI-Einstellungen.</p> : null}
-            {context?.notice ? <p className="text-xs text-muted-foreground">{context.notice}</p> : null}
-            {context && !context.account_enabled ? <Link to="/daten" className="text-sm font-medium text-primary underline">KI einmal für mein Konto aktivieren → Einstellungen</Link> : null}
-          </section>
-
-          <section className="surface overflow-hidden">
-            <div className="border-b border-border px-4 py-3"><h2 className="font-heading text-sm font-semibold">Frage zum Gebäude</h2></div>
-            <div className="max-h-[480px] min-h-[120px] space-y-3 overflow-y-auto p-4">
-              {!entries.length ? <p className="text-sm text-muted-foreground">Zum Beispiel: „Fasse die vorhandenen Messwerte und offenen Meldungen zusammen.“</p> : null}
-              {entries.map((item, i) => <article key={i} className="space-y-2 rounded-xl border border-border p-4">
-                <p className="text-sm font-medium">Du: {item.question}</p>
-                <p className="whitespace-pre-line text-sm">{item.answer}</p>
-                {item.notice ? <p className="flex gap-2 text-xs text-amber-800"><TriangleAlert className="h-4 w-4 shrink-0" />{item.notice}</p> : null}
-                <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Sparkles className="h-3 w-3" /> KI-Antwort · {item.model}</p>
-              </article>)}
-            </div>
-            <form onSubmit={send} className="flex gap-2 border-t border-border p-4">
-              <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={2000} placeholder="Frage zum Gebäude …" className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 text-sm" />
-              <Button type="submit" disabled={busy || !context?.enabled || !question.trim()}>{busy ? 'Bitte warten …' : <><Send className="mr-2 h-4 w-4" />Senden</>}</Button>
-            </form>
-          </section>
-        </>
-      )}
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-    </div>
-  );
+    <section className="surface overflow-hidden">
+      <h2 className="border-b border-border px-4 py-3 font-heading text-sm font-semibold">{room ? 'Frage zum Raum' : 'Frage zum Gebäude'}</h2>
+      <div className="max-h-[480px] min-h-[120px] space-y-3 overflow-y-auto p-4">
+        {history.isPending && <p role="status" className="text-sm text-muted-foreground">Chatverlauf wird geladen …</p>}
+        {history.isError && <p role="alert" className="text-sm text-destructive">{history.error.message}</p>}
+        {history.isSuccess && !entries.length && <p className="flex items-center gap-2 text-sm text-muted-foreground"><MessageSquareText className="h-4 w-4" />Noch keine Fragen zu diesem Gebäude.</p>}
+        {entries.map(item => <article key={item.id} className="space-y-2 rounded-xl border border-border p-4">
+          <p className="text-sm font-medium">Du: {item.question}</p>
+          <p className="whitespace-pre-line break-words text-sm">{item.answer}</p>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="h-3 w-3" /> KI-Antwort</p>
+        </article>)}
+      </div>
+      {mayAsk && <form className="flex flex-wrap gap-2 border-t border-border p-4" onSubmit={event => {
+        event.preventDefault();
+        if (canSend) send.mutate(question.trim(), { onSuccess: () => setQuestion('') });
+      }}>
+        <input aria-label={room ? 'Frage zum Raum' : 'Frage zum Gebäude'} value={question} onChange={event => setQuestion(event.target.value)}
+          maxLength={2000} placeholder={room ? 'Frage zum Raum …' : 'Frage zum Gebäude …'}
+          className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 text-sm" />
+        <Button type="submit" disabled={!canSend}>{busy ? 'Bitte warten …' : <><Send className="mr-2 h-4 w-4" />Senden</>}</Button>
+      </form>}
+      {send.error && <p role="alert" className="px-4 pb-4 text-sm text-destructive">{send.error.message}</p>}
+    </section>
+  </>;
 }

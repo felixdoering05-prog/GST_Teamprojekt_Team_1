@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { request } from '@/api/base44Client';
 import GroupAccessPanel from '@/components/teams/GroupAccessPanel';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
+import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EmptyState from '@/components/EmptyState';
@@ -221,17 +223,16 @@ function RoleEditor({ initial, busy, onCancel, onSave }) {
 
 export default function TeamAccess() {
   const cache = useQueryClient();
-  const [buildingId, setBuildingId] = useState('');
+  const scope = useBuildingScope();
   const [inviteUser, setInviteUser] = useState('');
   const [inviteRole, setInviteRole] = useState('');
   const [editing, setEditing] = useState(null);
   const [removal, setRemoval] = useState(null);
   const [dragged, setDragged] = useState(null);
 
-  const buildings = useQuery({ queryKey: buildingListKey, queryFn: () => request('/buildings'), refetchOnWindowFocus: true });
-  const preferredBuildingId = buildingId || localStorage.getItem('d21-selected-building') || '';
-  const selectedId = String(buildings.data?.find(row => String(row.id) === String(preferredBuildingId))?.id || buildings.data?.[0]?.id || '');
-  const selected = buildings.data?.find((row) => String(row.id) === selectedId);
+  const selected = scope.buildings.length === 1 ? scope.buildings[0] : null;
+  const selectedId = String(selected?.id ?? '');
+  const buildings = scope.building ? scope.team.buildings : scope.buildings;
 
   const team = useQuery({
     queryKey: teamKey(selectedId),
@@ -280,7 +281,7 @@ export default function TeamAccess() {
     },
   });
 
-  const error = buildings.error || team.error || contacts.error || mutation.error;
+  const error = team.error || contacts.error || mutation.error;
 
   function saveRole(value) {
     const base = `/buildings/${selectedId}/team-access/roles`;
@@ -316,29 +317,8 @@ export default function TeamAccess() {
       <PageHeader
         title="Rechte"
         description="Gebäudebezogene Rollen, Teammitglieder und Berechtigungen verwalten."
-      >
-        {buildings.data?.length > 0 && (
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <span className="text-muted-foreground">Gebäude:</span>
-            <select
-              className="max-w-64 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              value={selectedId}
-              onChange={(e) => {
-                setBuildingId(e.target.value);
-                localStorage.setItem('d21-selected-building', e.target.value);
-                window.dispatchEvent(new Event('d21-building-change'));
-                setEditing(null);
-              }}
-            >
-              {buildings.data.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </PageHeader>
+      />
+      {buildings.length > 0 && <BuildingSectionSelect selection={{ building: selected, buildings, choose: scope.chooseBuilding }} />}
 
       {error && (
         <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive shadow-sm">
@@ -346,9 +326,9 @@ export default function TeamAccess() {
         </p>
       )}
 
-      {buildings.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
+      {selected && team.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäuderechte werden geladen …</p>}
 
-      {!buildings.isPending && !buildings.data?.length && (
+      {!buildings.length && (
         <EmptyState
           icon={Users}
           title="Kein Gebäude verfügbar"

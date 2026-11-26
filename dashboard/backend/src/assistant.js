@@ -8,7 +8,8 @@ const express=require('express');
 const {readFileSync}=require('node:fs');
 const {createHash}=require('node:crypto');
 const {accessibleBuilding}=require('./collaboration');
-const {analysisContext}=require('./telemetry');
+const {buildingAccess,can}=require('./team-permissions');
+const {analysisContext,roomTemperatures}=require('./telemetry');
 const {aiEnabled,disabledMessage}=require('./ai-preferences');
 const {initAssistantTools,toolDeclarations,toolInstruction,runTool,LABELS,MAX_ROUNDS,MAX_CALLS_PER_ROUND}=require('./assistant-tools');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
@@ -31,6 +32,7 @@ async function initAssistant(db){
  building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,
  document_id INTEGER REFERENCES app_documents(id) ON DELETE SET NULL,request_key TEXT NOT NULL,
  question TEXT NOT NULL,answer TEXT NOT NULL,command JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),UNIQUE(user_id,request_key))`);
+ await db.query('ALTER TABLE app_ai_conversations ADD COLUMN IF NOT EXISTS room_id TEXT');
  await db.query('CREATE INDEX IF NOT EXISTS app_ai_conversation_idx ON app_ai_conversations(user_id,building_id,id)');
  await initAssistantTools(db);
 }
@@ -48,6 +50,24 @@ async function contextFor(db,building,documentID){
  }
 
  return {...await ifcContext(db,building.id,documentID||null),weather:await cachedWeather(db,building.id),...(model?{model}:{}),building:{name:building.name,address:building.address},files:{count:Number(totals.count),bytes:Number(totals.bytes),latest:docs,shown:docs.length},limitations:['Keine Fotos, PDF-Pläne oder IFC-Geometrie gelesen.','IFC-Zahlen sind Einträge je Modell, keine geometrisch geprüften Zimmer.','Raumliste, Flächen, Messwerte, Wetter und Geräte liest der Assistent bei Bedarf über lesende Werkzeuge nach; er schaltet und ändert dabei nichts.','Kein Zugriff auf Teamchat, Kontakte oder andere Gebäude.']};
+}
+async function assistantRoom(db,building,accountID,roomID){
+ if(roomID===undefined)return undefined;
+ if(typeof roomID!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(roomID))throw Object.assign(Error('Ungültige Raum-ID.'),{status:400});
+ const access=await buildingAccess(db,building.id,accountID);
+ if(!can(access,'structure'))throw Object.assign(Error('Für diesen Raum fehlen die Leserechte.'),{status:403});
+ const room=(await db.query(`SELECT r.id,r.data->>'room_code' AS code,r.data->>'name' AS name,
+   r.data->>'ifc_global_id' AS ifc_global_id,f.data->>'name' AS floor
+   FROM app_twin_records r LEFT JOIN app_twin_records f ON f.id=r.data->>'floor_id'
+   AND f.user_id=r.user_id AND f.entity='Floor' AND f.data->>'building_id'=$2
+   WHERE r.user_id=$1 AND r.data->>'building_id'=$2 AND r.entity='Room' AND r.id=$3`,
+ [building.user_id,String(building.id),roomID])).rows[0];
+ if(!room)throw Object.assign(Error('Raum in diesem Gebäude nicht gefunden.'),{status:404});
+ if(can(access,'sensors')){
+  const telemetry=await roomTemperatures(db,building);
+  room.latest_temperature=telemetry.rooms.find(row=>row.id===roomID)?.reading??null;
+ }
+ return room;
 }
 async function reserve(db,user,building,key,hash,model){
  const c=await db.connect();
@@ -80,13 +100,15 @@ function assistantRouter(db,requireAccount,options={}){
   const building=await accessibleBuilding(db,req.params.buildingId,req.account.id);if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   if(req.query.document_id!==undefined&&(!/^[1-9]\d*$/.test(String(req.query.document_id))||Number(req.query.document_id)>2147483647))return res.status(400).json({error:'Ungültige Modell-ID.'});
   if(req.query.mode==='measurement-analysis'&&!['real','demo'].includes(req.query.source))return res.status(400).json({error:'Bitte eine Datenquelle auswählen.'});
-  const context=req.query.mode==='ifc-command'?commandContext:req.query.mode==='measurement-analysis'?await analysisContext(db,building,req.query.source):await contextFor(db,building,req.query.document_id);
+  if(req.query.room_id!==undefined&&['ifc-command','measurement-analysis'].includes(req.query.mode))return res.status(400).json({error:'Raumbezug ist im Gebäudechat verfügbar.'});
+  const room=await assistantRoom(db,building,req.account.id,req.query.room_id);
+  const context=req.query.mode==='ifc-command'?commandContext:req.query.mode==='measurement-analysis'?await analysisContext(db,building,req.query.source):{...await contextFor(db,building,req.query.document_id),...(room?{room}:{})};
   const account_enabled=await aiEnabled(db,req.account.id);
   res.json({enabled:ready()&&account_enabled,account_enabled,model,notice:req.query.mode==='measurement-analysis'?ANALYSIS_NOTICE:NOTICE,context,context_hash:contextHash(context),limits:{per_account_24h:20,project_24h:100}});
  }));
  r.get('/buildings/:buildingId/assistant/history',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return res.status(404).json({error:'Gebäude nicht gefunden.'});
-  const rows=(await db.query('SELECT id,document_id,question,answer,command,created_at FROM app_ai_conversations WHERE user_id=$1 AND building_id=$2 ORDER BY id DESC LIMIT 100',[req.account.id,req.params.buildingId])).rows.reverse();
+  const rows=(await db.query('SELECT id,document_id,room_id,question,answer,command,created_at FROM app_ai_conversations WHERE user_id=$1 AND building_id=$2 ORDER BY id DESC LIMIT 100',[req.account.id,req.params.buildingId])).rows.reverse();
   res.set('Cache-Control','private, no-store').json(rows);
  }));
  const problem=(res,code,processing=false)=>{
@@ -103,12 +125,14 @@ function assistantRouter(db,requireAccount,options={}){
   const commandMode=req.body?.mode==='ifc-command',chat=req.body?.chat===true;
   const analysisMode=req.body?.mode==='measurement-analysis';
   if(analysisMode&&(!['real','demo'].includes(req.body.source)||chat||req.body.document_id!==undefined))return res.status(400).json({error:'Messwertanalyse benötigt eine getrennte Quelle, ohne Chat oder IFC-Auswahl.'});
+  if(req.body?.room_id!==undefined&&(!chat||analysisMode||commandMode))return res.status(400).json({error:'Raumbezug ist im Gebäudechat verfügbar.'});
+  const room=await assistantRoom(db,building,req.account.id,req.body?.room_id);
   const readIDs=req.body?.document_read_ids;
   if(readIDs!==undefined&&(!Array.isArray(readIDs)||readIDs.length>1||readIDs.some(id=>!Number.isInteger(id)||id<1||id>2147483647)||req.body.document_content_consent!==true))return problem(res,400);
   const documentReadIDs=readIDs||[];
   const documentID=req.body?.document_id;
   if(documentID!==undefined&&(!Number.isInteger(documentID)||!(await db.query("SELECT id FROM app_documents WHERE id=$1 AND building_id=$2 AND mime_type='application/x-step'",[documentID,building.id])).rows.length))return res.status(400).json({error:'Bitte ein IFC-Modell dieses Gebäudes auswählen.'});
-  const context=commandMode?commandContext:analysisMode?await analysisContext(db,building,req.body.source):await contextFor(db,building,documentID);
+  const context=commandMode?commandContext:analysisMode?await analysisContext(db,building,req.body.source):{...await contextFor(db,building,documentID),...(room?{room}:{})};
   if(req.body?.context_hash!==contextHash(context))return res.status(409).json({error:'Die Gebäudedaten haben sich geändert. Bitte den Gebäudestand aktualisieren und erneut prüfen.'});
   if(analysisMode&&!context.metrics.some(m=>m.count>0))return res.status(422).json({error:'Für diese Quelle fehlen auswertbare Messwerte. Bitte zuerst Daten importieren.'});
   const state=await reserve(db,req.account.id,building.id,key,createHash('sha256').update(question+'\n'+req.body.context_hash+'\ndocument-read:'+JSON.stringify(documentReadIDs)+(chat?'\nchat:'+String(documentID||''):'' )).digest('hex'),model);
@@ -120,7 +144,7 @@ function assistantRouter(db,requireAccount,options={}){
    if(chat){
     const c=await db.connect();try{await c.query('BEGIN');
      if(!await accessibleBuilding(c,building.id,req.account.id,true)){await c.query('ROLLBACK');return res.status(404).json({error:'Gebäude nicht gefunden.'});}
-     await c.query('INSERT INTO app_ai_conversations(user_id,building_id,document_id,request_key,question,answer,command) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id,request_key) DO NOTHING',[req.account.id,building.id,documentID||null,key,question,answer,command?JSON.stringify(command):null]);
+     await c.query('INSERT INTO app_ai_conversations(user_id,building_id,document_id,room_id,request_key,question,answer,command) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(user_id,request_key) DO NOTHING',[req.account.id,building.id,documentID||null,room?.id??null,key,question,answer,command?JSON.stringify(command):null]);
      await c.query('DELETE FROM app_ai_conversations WHERE user_id=$1 AND building_id=$2 AND id NOT IN(SELECT id FROM app_ai_conversations WHERE user_id=$1 AND building_id=$2 ORDER BY id DESC LIMIT 100)',[req.account.id,building.id]);
      await c.query('COMMIT');
     }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
@@ -153,6 +177,7 @@ function assistantRouter(db,requireAccount,options={}){
     payload.generationConfig={maxOutputTokens:1200,temperature:0,responseMimeType:'application/json',responseJsonSchema:{type:'object',required:['answer','light_actions'],properties:{answer:{type:'string'},light_actions:{type:'array',maxItems:5,items:{type:'object',required:['key','on'],properties:{key:{type:'string'},on:{type:'boolean'},rgb:{type:'array',items:{type:'integer'},minItems:3,maxItems:3},brightness:{type:'integer'}}}}}}};
    }
    if(commandMode){payload.systemInstruction={parts:[{text:commandInstruction}]};payload.generationConfig={maxOutputTokens:900,temperature:0,responseMimeType:'application/json',responseJsonSchema:commandSchema};}
+   if(room)payload.systemInstruction.parts[0].text+=' Der aktuelle Raum steht in building_context.room. Beziehe „dieser Raum“ auf diese Raum-ID. Verwende bei Temperaturfragen latest_temperature, wenn vorhanden. Nenne Quelle und Zeitpunkt. Bei anderen Messwerten muss die Raum-ID übereinstimmen.';
    // Read-only server tools for building questions; model commands and the measurement analysis stay tool-free.
    const useTools=!commandMode&&!analysisMode&&options.tools!==false,usedTools=new Set();
    if(useTools){payload.tools=[{functionDeclarations:toolDeclarations}];payload.systemInstruction.parts[0].text+=toolInstruction;}
@@ -201,6 +226,10 @@ function assistantRouter(db,requireAccount,options={}){
    await db.query("UPDATE app_ai_requests SET status='failed',error_code=$2,finished_at=now() WHERE id=$1",[state.id,code]);problem(res,code);
   }
  }));
+ r.use((error,req,res,next)=>{
+  if([400,403,404].includes(error.status))return res.status(error.status).json({error:error.message});
+  next(error);
+ });
  return r;
 }
 module.exports={initAssistant,assistantRouter,contextFor};

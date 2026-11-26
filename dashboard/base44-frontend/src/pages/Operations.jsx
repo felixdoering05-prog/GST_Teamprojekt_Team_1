@@ -198,7 +198,7 @@ export default function Operations({ mode }) {
   const [params] = useSearchParams();
   const buildings = scope.readable('maintenance');
   return <div className="space-y-5">
-    <PageHeader title={mode === 'assets' ? 'Technische Anlagen' : 'Wartungen'} />
+    <PageHeader title={mode === 'assets' ? 'Technische Anlagen' : 'Wartungen'} description={scope.label} />
     {buildings.map(building => {
       const detail = params.get('building') === String(building.id);
       const asset = detail ? params.get('asset') : null;

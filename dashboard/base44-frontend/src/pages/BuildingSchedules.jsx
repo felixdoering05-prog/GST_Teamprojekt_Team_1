@@ -39,7 +39,7 @@ export default function BuildingSchedules(){
     refetchOnWindowFocus: true,
   })) });
   const editableBuildings = buildings.filter((_, index) => scheduleQueries[index].data?.can_edit);
-  const selected = editableBuildings.find(row => String(row.id) === buildingId) || editableBuildings[0];
+  const selected = editableBuildings.find(row => String(row.id) === buildingId) || (editableBuildings.length === 1 ? editableBuildings[0] : null);
   const selectedId = String(selected?.id || '');
   const selectedSchedule = scheduleQueries[buildings.indexOf(selected)]?.data;
   const pending = scheduleQueries.some(query => query.isPending);
@@ -53,6 +53,7 @@ export default function BuildingSchedules(){
   const error = mutation.error || scheduleQueries.find(query => query.isError)?.error;
   function submit(event){
     event.preventDefault();
+    if (!selectedId) return;
     const body={title:title.trim(),details:details.trim(),starts_at:new Date(startsAt).toISOString(),ends_at:endsAt?new Date(endsAt).toISOString():null,kind,interval_days:kind==='maintenance'&&intervalDays?Number(intervalDays):null,reminder_days:kind==='maintenance'&&reminderDays!==''?Number(reminderDays):null,room_id:kind==='maintenance'&&roomID?roomID:null,sensor_id:kind==='maintenance'&&sensorID?sensorID:null};
     mutation.mutate({path:`/buildings/${selectedId}/schedules${editing?`/${editing.id}`:''}`,method:editing?'PATCH':'POST',body});
   }
@@ -70,17 +71,18 @@ export default function BuildingSchedules(){
   const monthDays=useMemo(()=>{const first=new Date(month.getFullYear(),month.getMonth(),1);const offset=(first.getDay()+6)%7;const count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();return Array.from({length:Math.ceil((offset+count)/7)*7},(_,index)=>{const number=index-offset+1;return number<1||number>count?null:new Date(month.getFullYear(),month.getMonth(),number);});},[month]);
   const keyDate=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   return <div className="space-y-5">
-    <PageHeader title="Kalender" description="Termine und Wartungen für Gebäude planen und koordinieren.">
-      {selected&&!formOpen&&!editing&&<Button onClick={()=>setFormOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true"/>Eintrag anlegen</Button>}
+    <PageHeader title="Kalender" description={scope.label}>
+      {editableBuildings.length > 0&&!formOpen&&!editing&&<Button onClick={()=>{setBuildingId('');setFormOpen(true);}}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true"/>Eintrag anlegen</Button>}
     </PageHeader>
     {error&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error.message}</p>}
     {buildings.length > 0 && <>
-      {selected&&(formOpen||editing)&&<form onSubmit={submit} className="surface grid gap-4 p-5 md:grid-cols-2">
-        <div className="flex items-center gap-3 md:col-span-2"><CalendarClock className="h-5 w-5 text-primary"/><div><h2 className="font-heading font-semibold">{editing?'Eintrag bearbeiten':'Termin oder Wartung planen'}</h2><p className="text-xs text-muted-foreground">Der Eintrag ist nur für Mitglieder mit Kalender-Zugriff in {selected.name} sichtbar.</p></div></div>
+      {(formOpen||editing)&&<form onSubmit={submit} className="surface grid gap-4 p-5 md:grid-cols-2">
+        <div className="flex items-center gap-3 md:col-span-2"><CalendarClock className="h-5 w-5 text-primary"/><div><h2 className="font-heading font-semibold">{editing?'Eintrag bearbeiten':'Termin oder Wartung planen'}</h2>{selected && <p className="text-xs text-muted-foreground">Der Eintrag ist für Mitglieder mit Kalender-Zugriff in {selected.name} sichtbar.</p>}</div></div>
         {editableBuildings.length > 1 && !editing && <label className="grid gap-1 text-xs font-medium">
           Gebäude
-          <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={selectedId}
+          <select required className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={selectedId}
             onChange={event => { setBuildingId(event.target.value); setRoomID(''); setSensorID(''); }}>
+            <option value="">Gebäude auswählen …</option>
             {editableBuildings.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
           </select>
         </label>}
@@ -95,7 +97,7 @@ export default function BuildingSchedules(){
           <label className="grid gap-1 text-xs font-medium">Sensor zuordnen<select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={sensorID} onChange={event=>setSensorID(event.target.value)}><option value="">Kein Sensor</option>{(selectedSchedule?.sensors||[]).map(sensor=><option key={sensor.id} value={sensor.id}>{sensor.name}</option>)}</select></label>
         </>}
         <label className="grid gap-1 text-xs font-medium md:col-span-2">Details<textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm" value={details} onChange={event=>setDetails(event.target.value)} maxLength={2000} placeholder="Ort, Vorbereitung oder Abstimmung …"/></label>
-        <div className="flex justify-end gap-2 md:col-span-2"><Button type="button" variant="outline" onClick={cancelEdit} disabled={mutation.isPending}>Abbrechen</Button><Button type="submit" disabled={mutation.isPending||!title.trim()}><Plus className="h-4 w-4"/>{mutation.isPending?'Speichert …':editing?'Änderungen speichern':'Eintrag anlegen'}</Button></div>
+        <div className="flex justify-end gap-2 md:col-span-2"><Button type="button" variant="outline" onClick={cancelEdit} disabled={mutation.isPending}>Abbrechen</Button><Button type="submit" disabled={mutation.isPending||!title.trim()||!selectedId}><Plus className="h-4 w-4"/>{mutation.isPending?'Speichert …':editing?'Änderungen speichern':'Eintrag anlegen'}</Button></div>
       </form>}
       <section className="surface space-y-4 p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-heading font-semibold">Kalender · {new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(month)}</h2><div className="flex gap-2"><Button size="sm" variant="outline" onClick={()=>setMonth(value=>new Date(value.getFullYear(),value.getMonth()-1,1))} aria-label="Vorheriger Monat">‹</Button><Button size="sm" variant="outline" onClick={()=>setMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1))}>Heute</Button><Button size="sm" variant="outline" onClick={()=>setMonth(value=>new Date(value.getFullYear(),value.getMonth()+1,1))} aria-label="Nächster Monat">›</Button></div></div>
         <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-border bg-border">{['Mo','Di','Mi','Do','Fr','Sa','So'].map(day=><div key={day} className="bg-muted px-2 py-2 text-center text-xs font-semibold">{day}</div>)}{monthDays.map((day,index)=><div key={index} className={`min-h-24 bg-background p-1.5 ${day?'':'opacity-40'}`}>{day&&<><span className={`text-sm font-semibold ${keyDate(day)===keyDate(new Date())?'rounded-full bg-primary px-2 py-1 text-primary-foreground':'text-muted-foreground'}`}>{day.getDate()}</span><div className="mt-1 space-y-1">{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).slice(0,2).map(item=><button key={item.occurrenceKey||item.id} type="button" onClick={()=>item.canEdit&&edit(item.original)} className={`block w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${item.kind==='maintenance'?'bg-amber-500/15 text-amber-800':'bg-primary/10 text-primary'}`} title={item.title}>{item.isReminder?'Erinnerung · ':item.kind==='maintenance'?'Wartung · ':''}{item.title}</button>)}{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).length>2&&<span className="text-[10px] text-muted-foreground">+{calendarItems.filter(item=>keyDate(item.occurrence)===keyDate(day)).length-2} weitere</span>}</div></>}</div>)}</div>

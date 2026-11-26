@@ -389,10 +389,10 @@ async function haTelemetry(db,building,limit=500){
   measurements:rows.slice(0,limit).map(p=>{const t=new Date(p.measured_at).toISOString();return {id:id(p.entity_id)+':'+t,sensor_id:id(p.entity_id),sensor_code:code(p.entity_id),metric:p.metric,value:Number(p.value),unit:METRICS[p.metric].unit,measured_at:t,source:'real',quality:'ok'};})};
 }
 async function haRoomTemperatures(db,building){
- return (await db.query(`SELECT DISTINCT ON (x.room_id) x.room_id,s.value,s.measured_at FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric='temperature'
+ return (await db.query(`SELECT DISTINCT ON (x.room_id) x.room_id,s.value,s.measured_at,e.entity_id FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric='temperature'
   LEFT JOIN app_ha_devices d ON d.link_id=l.id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=l.id AND da.area_id=d.area_id
   CROSS JOIN LATERAL (SELECT COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id) x
-  JOIN app_ha_samples s ON s.link_id=l.id AND s.entity_id=e.entity_id WHERE l.building_id=$1 AND x.room_id IS NOT NULL ORDER BY x.room_id,s.measured_at DESC`,[building.id])).rows.map(r=>({room_id:r.room_id,value:Number(r.value),measured_at:new Date(r.measured_at).toISOString()}));
+  JOIN app_ha_samples s ON s.link_id=l.id AND s.entity_id=e.entity_id WHERE l.building_id=$1 AND x.room_id IS NOT NULL ORDER BY x.room_id,s.measured_at DESC`,[building.id])).rows.map(r=>({room_id:r.room_id,value:Number(r.value),sensor_code:r.entity_id,measured_at:new Date(r.measured_at).toISOString()}));
 }
 
 

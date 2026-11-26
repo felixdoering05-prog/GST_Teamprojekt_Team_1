@@ -105,7 +105,7 @@ function collaborationRouter(db,requireAccount){
   res.set('Cache-Control','private, no-store');
   const rows=(await db.query(`
    SELECT r.id,r.entity,r.data->>'name' AS name,r.data->'level' AS level,
-          r.data->>'room_code' AS room_code,r.data->>'floor_id' AS floor_id
+          r.data->>'room_code' AS room_code,r.data->>'floor_id' AS floor_id,r.data->>'ifc_global_id' AS ifc_global_id
    FROM app_buildings b
    LEFT JOIN app_twin_records r ON r.user_id=b.user_id
      AND r.entity IN ('Floor','Room') AND r.data->>'building_id'=b.id::text
@@ -115,7 +115,7 @@ function collaborationRouter(db,requireAccount){
   const floors=[],rooms=[];
   for(const row of rows){
    if(row.entity==='Floor')floors.push({id:row.id,name:row.name,level:row.level});
-   if(row.entity==='Room')rooms.push({id:row.id,name:row.name,room_code:row.room_code,floor_id:row.floor_id});
+   if(row.entity==='Room')rooms.push({id:row.id,name:row.name,room_code:row.room_code,floor_id:row.floor_id,...(row.ifc_global_id?{ifc_global_id:row.ifc_global_id}:{})});
   }
   res.json({floors,rooms});
  }));

@@ -100,6 +100,8 @@ test('room heat returns the latest valid real temperature for each accessible ro
  const result=await request(member,endpoint);
  assert.equal(result.status,200);
  assert.deepEqual(result.data.floors,[{id:floor.id,name:'EG',level:0}]);
- assert.deepEqual(result.data.rooms.find(item=>item.id===room.id).reading,{value:22,measured_at:'2026-11-03T13:30:00.000Z'});
+ assert.deepEqual(result.data.rooms.find(item=>item.id===room.id).reading,{
+  value:22,unit:'°C',source:'real',provider:'sensor',sensor_code:'HEAT',measured_at:'2026-11-03T13:30:00.000Z',
+ });
  assert.equal(result.data.rooms.find(item=>item.id===empty.id).reading,null);
 });

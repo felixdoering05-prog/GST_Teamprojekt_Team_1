@@ -4,7 +4,7 @@ import BuildingFiles from '@/components/rooms/BuildingFiles';
 import { useBuildingSelection } from '@/hooks/useBuildingSelection';
 
 export default function Documents() {
-  const selection = useBuildingSelection();
+  const selection = useBuildingSelection('documents');
   return <div className="space-y-5">
     <PageHeader title="Dokumente" description="Gebäudeunterlagen nach Kategorie, Version und Freigabestand." />
     <BuildingSectionSelect selection={selection} />

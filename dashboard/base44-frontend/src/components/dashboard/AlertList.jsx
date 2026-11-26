@@ -15,7 +15,7 @@ export function AlertRow({ alert, actions, showSource = true }) {
   const resolved = alert.status === 'erledigt';
 
   return (
-    <li className={cn('flex gap-3 px-4 py-3.5 sm:px-5', resolved && 'opacity-70')}>
+    <li className={cn('flex flex-wrap gap-3 px-4 py-3.5 sm:flex-nowrap sm:px-5', resolved && 'opacity-70')}>
       <span className={cn('mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg', resolved ? 'bg-emerald-50 text-emerald-600' : s.wrap)}>
         {resolved ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
       </span>
@@ -31,7 +31,7 @@ export function AlertRow({ alert, actions, showSource = true }) {
           {alert.triggered_at ? ` · ${relativeTime(alert.triggered_at)}` : ''}
         </p>
       </div>
-      {actions ? <div className="flex shrink-0 items-start gap-1">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap items-start gap-1 sm:w-auto sm:max-w-[50%] sm:shrink-0">{actions}</div> : null}
     </li>
   );
 }

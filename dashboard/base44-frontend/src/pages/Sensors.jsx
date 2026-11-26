@@ -1,5 +1,5 @@
-import { useBuildingScope } from '@/hooks/useBuildingScope';
-import { useEffect, useState } from 'react';
+import { buildingScopeHeaders, useBuildingScope } from '@/hooks/useBuildingScope';
+import { useState } from 'react';
 import { Cpu, Plus, Radio, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -21,7 +21,10 @@ import { readingsForRoom, roomSeries } from '@/lib/roomMetrics';
 
 export default function Sensors() {
   const scope = useBuildingScope();
-  const buildingIDs = scope.readable('sensors').map(row => row.id).join(',');
+  const buildings = scope.readable('sensors');
+  const editableBuildings = buildings.filter(row => scope.can(row.id, 'sensors', 'edit'));
+  const checkBuildings = buildings.filter(row => row.is_owner);
+  const buildingIDs = buildings.map(row => row.id).join(',');
   const data = useD21Data('', { buildingIDs });
   const { toast } = useToast();
   const [roomFilter, setRoomFilter] = useState('all');
@@ -30,10 +33,6 @@ export default function Sensors() {
   const [confirmState, setConfirmState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [running, setRunning] = useState(false);
-
-  useEffect(() => {
-    if (roomFilter === 'all' && data.rooms.length) setRoomFilter(data.rooms[0].id);
-  }, [data.rooms, roomFilter]);
 
   const selectedRoom = data.rooms.find((r) => r.id === roomFilter) || null;
   const roomSensors = selectedRoom ? data.sensors.filter((s) => s.room_id === selectedRoom.id) : data.sensors;
@@ -49,7 +48,7 @@ export default function Sensors() {
     setRunning(true);
     try {
       const payload = await request('/twin-functions/runThresholdCheck', {
-        method: 'POST', body: { sinceHours: 4 }, headers: { 'X-D21-Buildings': buildingIDs || 'none' },
+        method: 'POST', body: { sinceHours: 4 }, headers: buildingScopeHeaders(checkBuildings),
       });
       toast({ title: 'Prüflauf abgeschlossen', description: payload.message || 'Prüflauf wurde ausgeführt.' });
       await data.reload();
@@ -95,15 +94,15 @@ export default function Sensors() {
   if (!data.sensors.length) {
     return (
       <div>
-        <PageHeader title="Sensorik" description="Temperatur, CO₂ und Luftfeuchtigkeit je Raum." />
+        <PageHeader title="Sensorik" description={scope.label} />
         <EmptyState
           icon={Radio}
           title="Noch keine Sensoren angelegt"
           description="Sensoren messen genau eine Messgröße und werden einem Raum zugeordnet. Anschließend können Messwerte per CSV importiert werden."
-          children={<Button onClick={() => setSensorState({ open: true, sensor: null })}>Sensor anlegen</Button>}
+          children={editableBuildings.length > 0 && <Button onClick={() => setSensorState({ open: true, sensor: null })}>Sensor anlegen</Button>}
         />
         <div className="mt-5"><RuViewPanel buildings={scope.readable('sensors')} /></div>
-        <SensorDialog open={sensorState.open} onOpenChange={(open) => setSensorState((s) => ({ ...s, open }))} sensor={sensorState.sensor} rooms={data.rooms} onSaved={data.reload} />
+        <SensorDialog open={sensorState.open} onOpenChange={(open) => setSensorState((s) => ({ ...s, open }))} sensor={sensorState.sensor} buildings={editableBuildings} rooms={data.rooms} onSaved={data.reload} />
       </div>
     );
   }
@@ -112,17 +111,17 @@ export default function Sensors() {
     <div className="space-y-5">
       <PageHeader
         title="Sensorik"
-        description="Messwerte je Raum für Temperatur, CO₂ und Luftfeuchtigkeit – bewertet nach den hinterlegten Grenzwerten."
+        description={scope.label}
       >
         <Button variant="outline" size="sm" onClick={data.reload}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Aktualisieren
         </Button>
-        <Button variant="outline" size="sm" onClick={runCheck} disabled={running}>
+        {checkBuildings.length > 0 && <Button variant="outline" size="sm" onClick={runCheck} disabled={running}>
           <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> {running ? 'Prüflauf läuft …' : 'Prüflauf starten'}
-        </Button>
-        <Button size="sm" onClick={() => setSensorState({ open: true, sensor: null })}>
+        </Button>}
+        {editableBuildings.length > 0 && <Button size="sm" onClick={() => setSensorState({ open: true, sensor: null })}>
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Sensor anlegen
-        </Button>
+        </Button>}
       </PageHeader>
 
       <RuViewPanel buildings={scope.readable('sensors')} />
@@ -209,6 +208,7 @@ export default function Sensors() {
           latest={data.latest}
           onEdit={(sensor) => setSensorState({ open: true, sensor })}
           onDelete={requestDelete}
+          canEdit={sensor => scope.can(sensor.building_id, 'sensors', 'edit')}
           emptyText="Für diesen Raum sind keine Sensoren angelegt."
         />
       </section>
@@ -217,6 +217,7 @@ export default function Sensors() {
         open={sensorState.open}
         onOpenChange={(open) => setSensorState((s) => ({ ...s, open }))}
         sensor={sensorState.sensor}
+        buildings={editableBuildings}
         rooms={data.rooms}
         onSaved={data.reload}
       />

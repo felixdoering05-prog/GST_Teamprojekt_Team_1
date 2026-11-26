@@ -28,24 +28,31 @@ const EMPTY = {
  * die Messwerte der letzten 24 Stunden.
  */
 export default function useD21Data(requestedBuildingID = '', { refreshMs = 0, buildingIDs } = {}) {
-  const [state, setState] = useState(EMPTY);
-  const request = useRef(0); // nur die Antwort der jüngsten Abfrage übernehmen
+  const key = JSON.stringify([requestedBuildingID, buildingIDs]);
+  const [state, setState] = useState({ ...EMPTY, key });
+  const sequence = useRef(0);
   const busy = useRef(false);
 
   // silent: Hintergrundabgleich ohne Ladeanzeige; bei einem Fehler bleiben die angezeigten Werte stehen.
   const load = useCallback(async (options) => {
     const silent = options?.silent === true;
     if (silent && busy.current) return;
-    const current = ++request.current;
+    const current = ++sequence.current;
     busy.current = true;
-    if (!silent) setState((s) => ({ ...s, loading: true, error: null }));
+    if (!silent) setState(s => ({ ...(s.key === key ? s : EMPTY), key, loading: true, error: null }));
+    if (buildingIDs === '') {
+      setState({ ...EMPTY, key, loading: false });
+      busy.current = false;
+      return;
+    }
     try {
       const since = new Date(Date.now() - SERIES_HOURS * HOUR).toISOString();
 
-      const scoped = buildingIDs !== undefined;
-      const ids = new Set(scoped ? buildingIDs.split(',').filter(Boolean) : []);
+      const explicit = buildingIDs ?? (requestedBuildingID || undefined);
+      const scoped = explicit !== undefined;
+      const ids = new Set(scoped ? String(explicit).split(',').filter(Boolean) : []);
       const read = (entity, action, body) => request('/twin/' + entity + '/' + action, {
-        method: 'POST', body, headers: scoped ? { 'X-D21-Buildings': buildingIDs || 'none' } : {},
+        method: 'POST', body, headers: scoped ? { 'X-D21-Buildings': String(explicit) } : {},
       });
       const list = (entity, sort, limit) => read(entity, 'list', { sort, limit });
       const filter = (entity, filter, options) => read(entity, 'filter', { filter, options });
@@ -72,9 +79,11 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0, bu
         pages += 1;
       }
 
-      if (current !== request.current) return;
-      const selected = buildings.find(b => b.id === requestedBuildingID) || buildings.find(b => b.id === localStorage.getItem('d21-selected-building')) || buildings[0] || null;
-      const belongs = row => scoped ? ids.has(String(row.building_id)) : row.building_id === selected?.id;
+      if (current !== sequence.current) return;
+      const available = scoped ? buildings.filter(row => ids.has(String(row.id))) : buildings;
+      const selected = requestedBuildingID ? available.find(row => String(row.id) === String(requestedBuildingID))
+        : available.length === 1 || !scoped ? available[0] : null;
+      const belongs = row => scoped ? ids.has(String(row.building_id)) : String(row.building_id) === String(selected?.id);
       const thresholds = { ...DEFAULT_THRESHOLDS };
       (thresholdRows || []).forEach((row) => {
         if (!row || !row.metric) return;
@@ -87,39 +96,40 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0, bu
       });
 
       const latest = {};
-      series.filter(belongs).forEach((m) => {
+      const scopedSeries = series.filter(belongs);
+      scopedSeries.forEach((m) => {
         if (!m.sensor_id) return;
         const current = latest[m.sensor_id];
         if (!current || new Date(m.measured_at) >= new Date(current.measured_at)) latest[m.sensor_id] = m;
       });
 
-      const scopedSeries = series.filter(belongs);
       const demoCount = scopedSeries.filter((m) => m.source !== 'real').length;
 
       setState({
+        key,
         loading: false,
         error: null,
         building: selected,
-        buildings,
+        buildings: available,
         floors: floors.filter(belongs),
         rooms: rooms.filter(belongs),
         sensors: sensors.filter(belongs),
         thresholds,
         alerts: (alertPage.items || []).filter(belongs),
-        series: series.filter(belongs),
+        series: scopedSeries,
         latest,
         counts: { demo: demoCount, real: scopedSeries.length - demoCount },
       });
     } catch (error) {
-      if (current === request.current && !silent) setState((s) => ({ ...s, loading: false, error: error.message || 'Daten konnten nicht geladen werden.' }));
+      if (current === sequence.current && !silent) setState(s => ({ ...s, loading: false, error: error.message || 'Daten konnten nicht geladen werden.' }));
     } finally {
-      if (current === request.current) busy.current = false;
+      if (current === sequence.current) busy.current = false;
     }
-  }, [requestedBuildingID, buildingIDs]);
+  }, [requestedBuildingID, buildingIDs, key]);
 
   useEffect(() => {
     load();
-    return () => { request.current += 1; busy.current = false; };
+    return () => { sequence.current += 1; busy.current = false; };
   }, [load]);
 
   useEffect(() => {
@@ -130,5 +140,5 @@ export default function useD21Data(requestedBuildingID = '', { refreshMs = 0, bu
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [load, refreshMs]);
 
-  return { ...state, reload: load };
+  return { ...(state.key === key ? state : EMPTY), reload: load };
 }

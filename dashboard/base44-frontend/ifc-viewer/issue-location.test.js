@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchIssueRoom, resolveIssueLocation } from './issue-location.js';
+import { matchIssueRoom, modelRoomMatch, resolveIssueLocation } from './issue-location.js';
 
 const ground = { id: 7, name: 'Erdgeschoss', base: 0, top: 3 };
 const upstairs = { id: 11, name: 'Obergeschoss 1', base: 3, top: 6 };
@@ -58,4 +58,17 @@ test('ambiguous and unknown rooms only select an explicitly verified floor', () 
 test('a floor lookup leaves the exact point empty', () => {
  assert.deepEqual(resolveIssueLocation({ focus: { id: 5 }, floors, assignments, textFloor: upstairs }),
   { floor: upstairs, room: null, element: null, point: null });
+});
+
+test('the shared preview respects stored model references and never guesses a different GlobalId', () => {
+ const rooms = new Map([
+  [20, { ...roomAreas.get(20), globalId: 'room-model-a' }],
+  [21, { ...roomAreas.get(21), globalId: 'room-model-b' }],
+ ]);
+ const input = { floors, assignments, rooms };
+ assert.deepEqual(modelRoomMatch({ ...input, focus: { spaceID: 21, globalId: 'room-model-a' } }), { spaceID: 21 });
+ assert.deepEqual(modelRoomMatch({ ...input, focus: { globalId: 'room-model-a' } }), { spaceID: 20 });
+ assert.deepEqual(modelRoomMatch({
+  ...input, focus: { globalId: 'unknown', location: 'EG · Technik', floor: 'EG' },
+ }), { floor: ground });
 });
