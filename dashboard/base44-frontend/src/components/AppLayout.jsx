@@ -53,13 +53,13 @@ const NAV_GROUPS = [
       { path: '/betrieb/technische-anlagen', label: 'Technische Anlagen', icon: Boxes, module: 'maintenance', hint: 'Anlagen und zugehörige Wartungen im Gebäude' },
       { path: '/betrieb/wartungen', label: 'Wartungen', icon: CalendarClock, module: 'maintenance', hint: 'Fälligkeiten, Bearbeitung und Wartungshistorie' },
       { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Gebäudemängel und Sensorwarnungen' },
-      { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
+      { path: '/kalender', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
     ],
   },
   {
     label: 'Team & Einstellungen',
     items: [
-      { path: '/teams', label: 'Dein Team', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
+      { path: '/teams', label: 'Teams', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
       { path: '/rechte', label: 'Rechte', icon: ShieldCheck, module: 'teamRights', hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
       { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und persönliche Einstellungen' },
     ],
@@ -188,9 +188,9 @@ function TeamSwitcher({teams,teamID,onChange,wide=false}){
 }
 
 function ScopeSwitcher({ scope, onChange }) {
-  return <label className="grid min-w-0 gap-1 text-xs font-medium">
-    Aktives Gebäude oder Gebäudegruppe
-    <select className="min-h-10 w-full truncate rounded-xl border border-border bg-background px-3 py-2"
+  return <label className="relative block min-w-0">
+    <Building2 aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+    <select aria-label="Gebäude oder Gebäudegruppe auswählen" className="min-h-10 w-full cursor-pointer truncate rounded-lg border border-input bg-background py-2 pl-9 pr-4 text-sm font-medium focus-visible:outline-primary"
       value={scope.value} title={scope.label}
       onChange={event => { scope.choose(event.target.value); onChange?.(); }}>
       <option value="all">Alle Gebäude</option>
@@ -316,7 +316,7 @@ export default function AppLayout() {
     ['/betrieb/technische-anlagen', showContent('maintenance', 'assets')],
     ['/betrieb/wartungen', showContent('maintenance', 'maintenance')],
     ['/meldungen', showContent('issues', 'issues', 'alerts')],
-    ['/zeitplanung', showContent('schedule', 'schedule')],
+    ['/kalender', showContent('schedule', 'schedule')],
   ].filter(([, visible]) => !visible).map(([path]) => path));
   permissions.teamRights = !!(activeTeam?.is_owner || activeTeam?.can_manage_groups);
   // The building overview remains the entry point for creating the first building.
