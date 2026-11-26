@@ -40,7 +40,7 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 ## 🚀 Projektstand
 
-**Dokumentationsstand: 25. November 2026, abends (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
+**Dokumentationsstand: 26. November 2026, abends (gemergte PRs und Quellcode; kein Geräte- oder Produktionstest).** Für den tagesaktuellen Code- und Freigabestatus gelten die [Pull Requests](../../pulls) und der [Changelog](CHANGELOG.md).
 
 | Thema | Nachgewiesener Stand / Grenze |
 | :--- | :--- |
@@ -60,6 +60,8 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 
 **Web-Update 25.11.:** Teambezogene Gebäude- und Gruppenfilter ([#269](../../pull/269)) sind im Hauptbranch enthalten. Neu ist die experimentelle WLAN-Präsenz mit RuView: standardmäßig deaktiviert, ESP32-S3-Brücke, Raumzuordnung und geschätzte Belegung; veraltete Werte werden gekennzeichnet. Siehe [Changelog](CHANGELOG.md) und [Brückendokumentation](sensorik/ruview-bridge/README.md). Hardwarevalidierung, Datenschutzfreigabe und produktive Rechteprüfung sind nicht nachgewiesen; keine medizinische oder sicherheitskritische Nutzung. Vor einem Pilotbetrieb Freigaben, Datenminimierung und Löschfristen prüfen.
 
+**Web-Update 26.11.:** [#273](../../pull/273) vereinheitlicht Gebäudeauswahl, Meldungen, IFC-Raumfokus und raumbezogenen KI-Kontext. [#274](../../pull/274) ergänzt Raum-QR-Codes und Fotomeldungen; physischer Smartphone-Scan steht aus. [#275](../../pull/275) ergänzt Wartungsdokumente, IFC-Anlagenverknüpfung und Anlagentrends; #261, #265 und #266 sind geschlossen. Historische Wartungsüberfälligkeit bleibt mangels historischer Statusdaten eingeschränkt. [#289](../../pull/289) ergänzt geschützte Gruppen-/Kalenderanhänge, Wiederholungen, Prioritäten und Raum-/Geschosszuordnung. [#290](../../pull/290) und [#291](../../pull/291) erweitern Strom-/Wasseransichten um Verbrauch, PV, Speicher, Tarife, Abrechnung und CSV-Export. Laut #291 bestanden 56 Viewer-, 33 betroffene Backend- und acht Home-Assistant-Tests sowie lokale Browsertests mit synthetischen Daten. Kein produktiver D21-Messnachweis oder eigener Testlauf. Die iPhone-Angleichung ist in #276–#288 geplant, nicht als umgesetzt nachgewiesen.
+
 ### 🎯 Aktuelle Prioritäten
 
 1. **P1 · [#243](../../issues/243)** – nach Kalender-Entfernung/Wiederherstellung Produktivmigration, Backups, Terminbestand und Regressionstests nachweisbar prüfen; kein Datenverlust behauptet.
@@ -72,11 +74,13 @@ Am Beispiel des Hochschulgebäudes **D21** entwickeln wir einen Prototyp, der Ge
 8. **P2 · [#189](../../issues/189)** – ESP32-Hardwaretest und reale Sensorübertragung dokumentieren; implementierte Serverbasis ersetzt keinen Hardwaretest.
 9. **P2 · Review** – Ideenradar (#220), Landingpage (#221), Marktforschung (#223) und Wartung/Automationen (#225) sind integriert. README-Pflege (#222) und Energie/Dokumente (#226) sind mit Integrationskorrekturen enthalten. Die Dateifreigabe ist serverseitig vorbereitet; eine Auswahl und Freigabeoberfläche in den Apps fehlt noch. Die erweiterte Marktforschung ([#245](../../pull/245)) und das Ideenradar ([#232](../../pull/232)) wurden am 23.11. gemergt. Der aktuelle Status steht in der [Pull-Request-Liste](../../pulls).
 
+Weitere Prioritäten (26.11.): P1 iPhone-Gebäudeauswahl [#288](../../issues/288) als Grundlage der mobilen Angleichung; P2 Gebäudeübersicht #264, Abnahme der Energie-/Kalendererweiterungen #258/#267 (Umfang noch offen); P3 SAP #260 und E-Mail #263 nach Anforderungsklärung. Projektboard nicht direkt verifiziert.
+
 [Alle Issues](../../issues) · [Offene Pull Requests](../../pulls) · [Aufgabenübersicht](docs/aufgabenplan.md)
 
 ### 🗒️ Protokolle und Review
 
-**Abgleich 24.11.:** Für den geplanten Termin vom 23.11. fehlt weiterhin ein bestätigtes Protokoll; [#246](../../issues/246) deckt die Verifikation ab. 14 offene Issues laut GitHub-Suche; keine weiteren fachlichen Abschlüsse nachgewiesen.
+**Abgleich 24.11.:** Für den geplanten Termin vom 23.11. fehlt weiterhin ein bestätigtes Protokoll; [#246](../../issues/246) deckt die Verifikation ab. Am 26.11. direkt geprüft: #196 und #246 sind seit 24.11. geschlossen, das Protokollverzeichnis weist jedoch weiterhin den Entwurf vom 10.11. und keinen Eintrag zum 23.11. aus. Freigabe bzw. Durchführung/Absage bleiben fachlich zu belegen.
 
 **Abgleich 20.11.:** Der Teamtermin vom 10.11. bleibt laut Protokollverzeichnis ein Entwurf ([#196](../../issues/196)). Für weitere mögliche Teamtermine liegen hier keine freigegebenen Sitzungsnachweise vor; fehlende Anwesenheiten oder Beschlüsse werden nicht ergänzt. Der historische [Aufgabenplan](docs/aufgabenplan.md) ist ein Planungsvorschlag und nicht automatisch der aktuelle Erledigt-Status. Projektboard-Status und Hardware-/TestFlight-Abnahme sind gesondert zu verifizieren.
 
