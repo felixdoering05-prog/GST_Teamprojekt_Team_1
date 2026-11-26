@@ -2,24 +2,33 @@ import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Droplet, Flame, Gauge, Plus, Zap } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronDown, Droplet, Droplets, Flame, Gauge, LayoutGrid, Plus, SlidersHorizontal, Zap } from 'lucide-react';
 import { base44, request } from '@/api/base44Client';
 import PageHeader from '@/components/PageHeader';
 import { SelectField, TextField } from '@/components/Field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import EnergyChart from '@/components/energy/EnergyChart';
+import EnergyDashboard from '@/components/energy/EnergyDashboard';
 import ReadingDialog from '@/components/energy/ReadingDialog';
 import { ENERGY_MEDIA, formatAmount, formatCost, formatEnergyDate, formatEnergyMonth, formatPeriod, readingSource } from '@/lib/energy';
 
 const ALL = { value: '', label: 'Alle' };
 const PAGE_SIZE = 50;
 const PERIODS = [
-  { value: '1', label: '1 Kalendermonat' }, { value: '3', label: '3 Kalendermonate' },
-  { value: '12', label: '12 Kalendermonate' }, { value: 'all', label: 'Gesamte Historie' },
+  { value: '1', label: '1 Monat' }, { value: '3', label: '3 Monate' },
+  { value: '12', label: '12 Monate' }, { value: 'all', label: 'Gesamte Historie' },
 ];
-const ICONS = { strom: Zap, waerme: Flame, warmwasser: Droplet, kaltwasser: Droplet };
-const dayRange = (range) => range ? formatPeriod(range.from, range.to) : 'Gesamte Historie';
+const ICONS = { strom: Zap, waerme: Flame, wasser: Droplets, warmwasser: Droplet, kaltwasser: Droplet };
+const MEDIA_GROUPS = {
+  strom: ['strom', 'netzbezug', 'pv_erzeugung', 'eigenverbrauch', 'einspeisung'],
+  wasser: ['wasser', 'kaltwasser', 'warmwasser'],
+};
+const NAVIGATION = [
+  { medium: 'strom', label: 'Strom', icon: Zap },
+  { medium: 'wasser', label: 'Wasser', icon: Droplets },
+  { medium: 'alle', label: 'Alle', name: 'Alle Verbrauchsarten', icon: LayoutGrid },
+];
 const mediumOption = (value) => ({ value, label: ENERGY_MEDIA[value][0] });
 
 function Comparison({ series }) {
@@ -61,7 +70,7 @@ function ConsumptionCard({ summary, to, showChart }) {
         </div>
         <div className="text-sm"><dt className="text-xs text-muted-foreground">Vergleich</dt><dd><Comparison series={series} /></dd></div>
       </dl>
-      {showChart && <EnergyChart points={series.points} unit={series.unit} compact />}
+      {showChart && <EnergyChart series={[series]} compact />}
       <Button className="mt-4 justify-between px-0" variant="link" asChild>
         <Link to={to} aria-label={summary.label + ' im Detail'}>Details <ArrowRight className="h-4 w-4" aria-hidden /></Link>
       </Button>
@@ -73,7 +82,7 @@ function ReadingHistory({ data, offset, onOffset, buildingName, detail }) {
   const columns = ['Verbrauchsart', 'Gebäude / Nutzungseinheit', 'Zähler', 'Zählerstand', 'Ablesedatum', 'Verbrauchszeitraum', 'Verbrauch', 'Kosten', 'Datenquelle'];
   return (
     <section className="surface overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <h3 className="font-heading font-semibold">Verbrauchshistorie</h3>
         <p className="text-sm text-muted-foreground">{data.reading_count} Datensätze</p>
       </div>
@@ -128,7 +137,7 @@ function SitesReference({ reference, electricity }) {
           <dd className="text-sm text-muted-foreground">{metric.note}</dd>
         </div>)}
       </dl>
-      {electricity && <div><h4 className="font-heading text-sm font-semibold">Monatlicher Stromverbrauch</h4><EnergyChart points={electricity.points} unit={electricity.unit} /></div>}
+      {electricity && <div><h4 className="font-heading text-sm font-semibold">Monatlicher Stromverbrauch</h4><EnergyChart series={[electricity]} /></div>}
       <details className="text-sm">
         <summary className="cursor-pointer font-medium">Betriebliche Hinweise aus dem Demo-Bestand</summary>
         <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">{reference.hints.map((hint) => <li key={hint}>{hint}</li>)}</ul>
@@ -137,45 +146,17 @@ function SitesReference({ reference, electricity }) {
   );
 }
 
-function EnergyDetails({ summary, buildingName }) {
-  return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="surface p-5"><p className="text-sm text-muted-foreground">Kosten im Zeitraum</p><p className="text-xl font-semibold">{formatCost(summary.cost_eur)}</p></div>
-        <div className="surface p-5"><p className="text-sm text-muted-foreground">Zähler im Zeitraum</p><p className="text-xl font-semibold">{summary.meter_count}</p></div>
-        <div className="surface p-5"><p className="text-sm text-muted-foreground">Letztes Ablesedatum</p><p className="text-xl font-semibold">{formatEnergyDate(summary.latest?.reading_date)}</p></div>
-      </div>
-      {summary.meters.length > 0 && (
-        <section className="surface p-5">
-          <h3 className="font-heading font-semibold">Zähler und letzte Ablesungen</h3>
-          <ul className="mt-2 divide-y divide-border">
-            {summary.meters.map((row) => <li key={row.id} className="flex flex-wrap justify-between gap-x-5 gap-y-1 py-2 text-sm"><span><strong>{row.meter_name || row.meter_code}</strong> · {buildingName(row.building_id)}{(row.unit_name || row.unit_id) && ' · ' + (row.unit_name || row.unit_id)}</span><span className="tabular-nums">{formatAmount(row.meter_reading, row.unit)} · {formatEnergyDate(row.reading_date)}</span></li>)}
-          </ul>
-        </section>
-      )}
-      {summary.series.map((series) => (
-        <section key={series.unit} className="surface min-w-0 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-heading font-semibold">{summary.medium === 'warmwasser' && series.unit === 'kWh' ? 'Energie zur Warmwasserbereitung' : 'Verbrauchsentwicklung'}<span className="ml-2 text-sm font-normal text-muted-foreground">{series.unit}</span></h3>
-              <p className="mt-1 text-xl font-semibold tabular-nums">{formatAmount(series.current, series.unit)}</p>
-            </div>
-            <div className="text-sm"><p className="text-xs text-muted-foreground">Vergleich zum Vorzeitraum</p><Comparison series={series} /></div>
-          </div>
-          <EnergyChart points={series.points} unit={series.unit} />
-        </section>
-      ))}
-    </>
-  );
-}
-
 export default function Energy() {
-  const { medium = '' } = useParams();
+  const { medium: pathMedium = 'strom' } = useParams();
+  const medium = pathMedium === 'alle' ? '' : pathMedium;
+  const family = Object.keys(MEDIA_GROUPS).find((key) => MEDIA_GROUPS[key].includes(medium)) || '';
+  const groupedHistory = Boolean(family) && family === medium;
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const cache = useQueryClient();
   const [dialog, setDialog] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const { toast } = useToast();
   const selection = useBuildingScope();
   const buildings = selection.readable('energy');
@@ -187,7 +168,10 @@ export default function Energy() {
   const end = params.get('end') || '';
   const offset = Number(params.get('offset')) || 0;
   const validMedium = !medium || Object.hasOwn(ENERGY_MEDIA, medium);
-  const queryParams = new URLSearchParams({ building, unit, months, source, medium, offset: String(offset), ...(end ? { end } : {}) });
+  const queryParams = new URLSearchParams({
+    building, unit, months, source, medium: groupedHistory ? '' : medium, offset: String(offset),
+    ...(family ? { group: family } : {}), ...(end ? { end } : {}),
+  });
 
   const energy = useQuery({
     queryKey: ['energy-consumption', selection.team?.id, headers['X-D21-Buildings'], queryParams.toString()],
@@ -210,7 +194,7 @@ export default function Energy() {
   const urlFor = (key) => {
     const next = new URLSearchParams(params);
     next.delete('offset');
-    return { pathname: '/energie' + (key ? '/' + key : ''), search: next.toString() };
+    return { pathname: '/energie/' + (key || 'alle'), search: next.toString() };
   };
   const importHistory = async () => {
     setImporting(true);
@@ -219,6 +203,7 @@ export default function Energy() {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['teams'] }),
         cache.invalidateQueries({ queryKey: ['building-navigation', String(selection.team?.id)] }),
+        cache.invalidateQueries({ queryKey: ['energy-consumption'] }),
       ]);
       update({ building: result.building_id, unit: '', source: 'demo', months: '12', end: result.reference_month });
       toast({ title: 'Gebäudepass-Demo verfügbar', description: result.readings_created ? 'Monatswerte und Kennzahlen aus ChatGPT Sites wurden übernommen.' : 'Die Historie war bereits vorhanden.' });
@@ -236,13 +221,13 @@ export default function Energy() {
     if (row.unit_id) next.set('unit', row.unit_id);
     else next.delete('unit');
     if (months !== 'all') next.set('end', (row.period_end || row.period_start || row.reading_date).slice(0, 7));
-    navigate({ pathname: medium ? '/energie/' + row.medium : '/energie', search: next.toString() });
-    energy.refetch();
+    navigate({ pathname: '/energie/' + (medium ? row.medium : 'alle'), search: next.toString() });
+    void cache.invalidateQueries({ queryKey: ['energy-consumption'] });
   };
 
   const buildingName = (id) => data?.buildings.find((row) => row.id === id)?.name || 'Ohne Gebäudezuordnung';
   const editableBuildings = data?.buildings.filter((row) => row.can_edit) || [];
-  const visibleMedia = [...new Set([...(data?.media || Object.keys(ENERGY_MEDIA).slice(0, 4)), ...(validMedium && medium ? [medium] : [])])];
+  const visibleMedia = [...new Set(['strom', 'wasser', ...(data?.media || Object.keys(ENERGY_MEDIA).slice(0, 4)), ...(validMedium && medium ? [medium] : [])])];
   const group = selection.value.startsWith('group:');
   const options = selection.building ? selection.readable('energy', { team: true }) : buildings;
   const buildingOptions = [
@@ -250,23 +235,41 @@ export default function Energy() {
     ...options.map(row => ({ value: String(row.id), label: row.name })),
   ];
 
-  const title = validMedium && medium ? ENERGY_MEDIA[medium][0] : 'Energie';
   return (
     <div className="space-y-5">
-      {medium && <Link to={urlFor('')} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden /> Energieübersicht</Link>}
-      <PageHeader title={title} description="Verbräuche, Zählerstände und Kosten nach Gebäude und Nutzungseinheit.">
-        {canImport && !medium && <Button variant="outline" size="sm" disabled={importing} onClick={importHistory}>{importing ? 'Import läuft …' : 'Gebäudepass-Demo übernehmen'}</Button>}
-        {editableBuildings.length > 0 && <Button size="sm" onClick={() => setDialog(true)}><Plus className="mr-2 h-4 w-4" aria-hidden /> Ablesung erfassen</Button>}
+      <PageHeader title="Energie" description={selection.label}>
+        {canImport && <Button variant="outline" size="sm" disabled={importing} onClick={importHistory}>{importing ? 'Import läuft …' : 'Gebäudepass-Demo übernehmen'}</Button>}
+        {editableBuildings.length > 0 && <Button size="sm" onClick={() => setDialog(true)}><Plus aria-hidden /> Ablesung erfassen</Button>}
       </PageHeader>
 
-      <div className="surface grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Verbrauchsfilter">
+      <div className="energy-controls">
+        <nav className="energy-navigation" aria-label="Energieübersicht">
+          {NAVIGATION.map(({ medium: key, label, name, icon: Icon }) => (
+            <Link key={key} to={urlFor(key)} data-medium={key} aria-label={name} aria-current={key === (family || 'alle') ? 'page' : undefined}>
+              <Icon size={17} aria-hidden />{label}
+            </Link>
+          ))}
+        </nav>
+        <div className="energy-control-actions">
+          <div className="energy-select">
+            <CalendarDays size={16} aria-hidden />
+            <select aria-label="Zeitraum" value={months} onChange={(e) => update({ months: e.target.value })}>
+              {PERIODS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <ChevronDown size={14} aria-hidden />
+          </div>
+          <Button variant="outline" className="h-10 rounded-xl" aria-expanded={showFilters} aria-controls="energy-filters" onClick={() => setShowFilters((value) => !value)}>
+            <SlidersHorizontal aria-hidden /> Filter
+          </Button>
+        </div>
+      </div>
+      <div className={showFilters ? 'surface grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5' : 'hidden'} id="energy-filters" aria-label="Verbrauchsfilter">
         <SelectField label="Gebäude" aria-label="Gebäude" value={selection.building ? building : ''} options={buildingOptions}
           onChange={event => selection.choose(event.target.value ? 'building:' + event.target.value : 'all')} />
         <SelectField label="Nutzungseinheit" aria-label="Nutzungseinheit" value={unit} options={[{ ...ALL, label: 'Alle Nutzungseinheiten' }, ...(data?.units || []).map((row) => ({ value: row.id, label: row.name }))]} onChange={(e) => update({ unit: e.target.value })} />
-        <SelectField label="Verbrauchsart" aria-label="Verbrauchsart" value={medium} options={[{ ...ALL, label: 'Alle Verbrauchsarten' }, ...visibleMedia.map(mediumOption)]} onChange={(e) => { setDialog(false); navigate(urlFor(e.target.value)); }} />
-        <SelectField label="Zeitraum" aria-label="Zeitraum" value={months} options={PERIODS} onChange={(e) => update({ months: e.target.value })} />
+        <SelectField label="Verbrauchsart" aria-label="Verbrauchsart" value={medium} options={[{ ...ALL, label: 'Alle Verbrauchsarten' }, ...visibleMedia.map(mediumOption)]} onChange={(e) => navigate(urlFor(e.target.value))} />
         <TextField label="Endmonat" aria-label="Endmonat" type="month" disabled={months === 'all'} value={end || data?.end || ''} onChange={(e) => update({ end: e.target.value })} />
-        <SelectField label="Datenbestand" aria-label="Datenbestand" value={source || data?.source || 'real'} options={[{ value: 'real', label: 'Echte Daten' }, { value: 'demo', label: 'Demo-Daten' }]} onChange={(e) => update({ source: e.target.value, unit: '' })} />
+        <SelectField label="Datenbestand" aria-label="Datenbestand" value={source} options={[{ value: '', label: 'Automatisch' }, { value: 'real', label: 'Echte Daten' }, { value: 'demo', label: 'Demo-Daten' }]} onChange={(e) => update({ source: e.target.value, unit: '' })} />
       </div>
 
       {!validMedium && <p className="surface p-5">Diese Verbrauchsart ist unbekannt.</p>}
@@ -274,16 +277,24 @@ export default function Energy() {
       {energy.isError && <div className="surface flex flex-wrap items-center justify-between gap-2 p-5" role="alert"><p>{energy.error.message}</p><Button size="sm" variant="outline" onClick={() => energy.refetch()}>Erneut laden</Button></div>}
       {data && (
         <>
-          <p className="px-1 text-sm text-muted-foreground">{dayRange(data.ranges.current)}{data.ranges.previous && ' · Vorzeitraum ' + dayRange(data.ranges.previous)}</p>
-          {medium ? (data.summaries[0] && <EnergyDetails summary={data.summaries[0]} buildingName={buildingName} />) : (
+          {medium ? (
+            data.summaries.some((item) => item.medium === medium) &&
+            <EnergyDashboard data={data} medium={medium} family={family} urlFor={urlFor} buildingName={buildingName} />
+          ) : (
             <>
+              <p className="px-1 text-sm text-muted-foreground">
+                {data.ranges.current ? formatPeriod(data.ranges.current.from, data.ranges.current.to) : 'Gesamte Historie'}
+                {data.ranges.previous && ' · Vorzeitraum ' + formatPeriod(data.ranges.previous.from, data.ranges.previous.to)}
+                {data.source === 'demo' && ' · Demo-Daten'}
+              </p>
               <section aria-label="Verbrauchsarten" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {data.summaries.map((summary) => <ConsumptionCard key={summary.medium} summary={summary} to={urlFor(summary.medium)} showChart={!data.reference || summary.medium !== 'strom'} />)}
               </section>
               {data.reference && <SitesReference reference={data.reference} electricity={data.summaries.find((summary) => summary.medium === 'strom')?.series[0]} />}
             </>
           )}
-          <ReadingHistory data={data} offset={offset} onOffset={(value) => update({ offset: value ? String(value) : '' })} buildingName={buildingName} detail={Boolean(medium)} />
+          <ReadingHistory data={data} offset={offset} onOffset={(value) => update({ offset: value ? String(value) : '' })}
+            buildingName={buildingName} detail={Boolean(medium) && !groupedHistory} />
         </>
       )}
       {dialog && <ReadingDialog buildings={editableBuildings} selectedBuilding={building} selectedMedium={medium} onClose={() => setDialog(false)} onSaved={showSavedReading} />}
