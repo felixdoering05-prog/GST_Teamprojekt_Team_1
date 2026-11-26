@@ -7,7 +7,7 @@ import { IfcAPI, IFCSITE, IFCSPACE, IFCWALL, IFCWALLSTANDARDCASE, IFCWALLELEMENT
 import { ElementAppearance } from './interactions.js';
 import { mountCommands } from './commands.js';
 import { exampleIFC } from './example.js';
-import { matchIssueRoom, resolveIssueLocation } from './issue-location.js';
+import { modelRoomMatch, resolveIssueLocation } from './issue-location.js';
 import { readStoreys, floorCut } from './storeys.js';
 import { addSurroundings } from './surroundings.js';
 import { addCampusMap } from './campus-map.js';
@@ -555,6 +555,7 @@ async function open() {
   document.querySelector('#home-mode').onclick = () => mode(true);
   roomEffects = new THREE.Group(); scene.add(roomEffects);
   const roomBases = new Map();
+  const roomFloorBounds = new Map();
   if (isBim) {
     roomEffects.position.copy(root.position);
     roomEffects.rotation.copy(root.rotation);
@@ -597,6 +598,8 @@ async function open() {
         if (isBim && floorID !== undefined) {
           const bounds = new THREE.Box3().setFromObject(effect);
           boundsByMesh.set(effect, bounds);
+          if (!roomFloorBounds.has(floorID)) roomFloorBounds.set(floorID, new THREE.Box3());
+          roomFloorBounds.get(floorID).union(bounds);
           const base = bounds.min.y;
           if (!roomBases.has(floorID)) roomBases.set(floorID, []);
           roomBases.get(floorID).push(base);
@@ -607,7 +610,7 @@ async function open() {
     if (readOnly) {
       const code = names.join(' · ');
       const roomName = /^\d+(?:[.-]\d+)*$/.test(code) ? `Raum ${code}` : code || `IFC-Raum #${id}`;
-      roomsByID.set(id, { name: roomName, aliases: names, meshes });
+      roomsByID.set(id, { name: roomName, aliases: names, globalId: text(line.GlobalId), meshes });
     }
     heatRoomSpaces.push({ globalId: text(line.GlobalId), name: label.textContent, storeyID: spatial.assignments.get(id), floorIndex: storeys.findIndex(floor => floor.id === spatial.assignments.get(id)), floorCount: storeys.length, meshes: heatMeshes });
     const toggle = document.createElement('button');
@@ -672,7 +675,9 @@ async function open() {
   document.querySelector('#viewer-room-count').textContent = formatCount(spaceIDs.size());
   document.querySelector('#viewer-summary').hidden = isHeat || isDashboard;
   if (isBim) {
-    const floors = bimStoreys(storeys, roomBases, isCampus);
+    const roomOnlyStoreys = spatial.storeys.filter(floor => !floorBounds.has(floor.id) && roomFloorBounds.has(floor.id))
+      .map(floor => ({ ...floor, base: roomFloorBounds.get(floor.id).min.y, top: roomFloorBounds.get(floor.id).max.y }));
+    const floors = bimStoreys([...storeys, ...roomOnlyStoreys], roomBases, isCampus);
     const floorSelect = document.querySelector('#bim-floor');
     const explodeButton = document.querySelector('#explode');
     const campusButton = document.querySelector('#campus-fit');
@@ -778,13 +783,11 @@ async function open() {
           ? new THREE.Vector3(rawPoint.x, rawPoint.y, rawPoint.z) : null;
         point = point && modelRegion.containsPoint(point) ? root.localToWorld(point) : null;
         const element = appearance.elements.get(focus.elementID);
-        const textMatch = !focus.spaceID && !focus.elementID && !focus.point && focus.location
-          ? matchIssueRoom({ location: focus.location, building: focus.building, floors, assignments: spatial.assignments, rooms: roomsByID })
-          : null;
-        const spaceID = focus.spaceID ?? textMatch?.spaceID;
+        const match = modelRoomMatch({ focus, floors, assignments: spatial.assignments, rooms: roomsByID });
+        const spaceID = match?.spaceID;
         const room = roomsByID.get(spaceID);
         locatedIssue = resolveIssueLocation({ focus: { ...focus, spaceID }, floors, assignments: spatial.assignments,
-          room, element, point, textFloor: textMatch?.floor });
+          room, element, point, textFloor: match?.floor });
         if (!locatedIssue) return;
         selectedFloor = locatedIssue.floor?.id ?? null;
         exploded = false;
@@ -797,7 +800,7 @@ async function open() {
         for (const mesh of issueMeshes) roomBounds.union(boundsByMesh.get(mesh) || new THREE.Box3().setFromObject(mesh));
         roomLabelPosition = roomBounds.isEmpty() ? null : roomBounds.getCenter(new THREE.Vector3());
         issueMarker.dataset.kind = point ? 'point' : 'room';
-        issueMarker.textContent = room ? `#${focus.id} · ${room.name}` : `#${focus.id}`;
+        issueMarker.textContent = focus.id ? [`#${focus.id}`, room?.name].filter(Boolean).join(' · ') : room?.name || focus.label;
         const target = new THREE.Box3();
         if (point) {
           const radius = Math.max(1.5, Math.min(6, span * .055));
@@ -812,6 +815,7 @@ async function open() {
         window.parent.postMessage({ type: 'd21-issue-location', location: {
           floor: locatedIssue.floor?.name,
           room: room?.name,
+          globalId: room?.globalId,
           roomHighlighted: Boolean(roomLabelPosition),
           element: element ? text(line?.Name) || `IFC-Element #${focus.elementID}` : null,
           point: Boolean(point),

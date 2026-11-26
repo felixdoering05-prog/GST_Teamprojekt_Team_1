@@ -45,8 +45,19 @@ export function matchIssueRoom({ location, building, floors, assignments, rooms 
   return { floor, spaceID: matches.length === 1 ? matches[0][0] : undefined };
 }
 
+export function modelRoomMatch({ focus, floors, assignments, rooms }) {
+  if (focus.spaceID || focus.elementID || focus.point) return { spaceID: focus.spaceID };
+  if (focus.globalId) {
+    const matches = [...rooms].filter(([, room]) => room.globalId === focus.globalId);
+    if (matches.length === 1) return { spaceID: matches[0][0] };
+    const floorMatch = floors.filter(floor => focus.floor && floorKey(floor.name) === floorKey(focus.floor));
+    return { floor: floorMatch.length === 1 ? floorMatch[0] : null };
+  }
+  return focus.location ? matchIssueRoom({ ...focus, floors, assignments, rooms }) : null;
+}
+
 export function resolveIssueLocation({ focus, floors, assignments, room, element, point, textFloor }) {
-  if (!focus || !Number.isInteger(focus.id) || focus.id <= 0) return null;
+  if (!focus || (!(Number.isInteger(focus.id) && focus.id > 0) && !focus.label)) return null;
   const referencedFloor = (room ? assignments.get(focus.spaceID) : undefined) ?? (element ? assignments.get(focus.elementID) : undefined);
   let floor = floors.find(item => item.id === referencedFloor);
   if (!floor && point) {

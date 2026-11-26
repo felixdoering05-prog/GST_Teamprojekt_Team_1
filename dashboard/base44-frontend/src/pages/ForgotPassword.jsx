@@ -1,6 +1,5 @@
 import {useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
-import {KeyRound} from 'lucide-react';
 import AuthLayout from '@/components/AuthLayout';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -12,7 +11,7 @@ export default function ForgotPassword(){
  useEffect(()=>{request('/auth/password-reset/status').then(r=>setEnabled(r.enabled)).catch(e=>{setEnabled(false);setError(e.message)})},[]);
  async function send(e){e.preventDefault();setError('');setBusy(true);try{const r=await request('/auth/password-reset/request',{method:'POST',body:{email}});setMessage(r.message);setStep(2)}catch(e){setError(e.message)}finally{setBusy(false)}}
  async function confirm(e){e.preventDefault();setError('');if(password!==repeat){setError('Die Passwörter stimmen nicht überein.');return}setBusy(true);try{const r=await request('/auth/password-reset/confirm',{method:'POST',body:{email,code,password}});setMessage(r.message);setPassword('');setRepeat('');setCode('');setStep(3)}catch(e){setError(e.message)}finally{setBusy(false)}}
- return <AuthLayout icon={KeyRound} title="Passwort zurücksetzen" subtitle="Für dein persönliches Projektkonto. Der gemeinsame Website-Zugang bleibt unverändert." footer={<Link className="text-primary" to="/login">Zur Anmeldung</Link>}>
+ return <AuthLayout title="Passwort zurücksetzen" subtitle="Für dein persönliches Projektkonto. Der gemeinsame Website-Zugang bleibt unverändert." footer={<Link className="text-primary" to="/login">Zur Anmeldung</Link>}>
   {enabled===null?<p>Mailversand wird geprüft …</p>:enabled===false?<p role="status" className="rounded-lg bg-slate-100 p-4 text-sm">Der E-Mail-Versand ist noch nicht eingerichtet. Bitte melde dich beim Projektteam. Es wurde keine E-Mail verschickt.</p>:<>
    {message&&<p role="status" className="mb-4 text-sm">{message}</p>}
    {step===1&&<form onSubmit={send} className="space-y-4"><Label htmlFor="reset-email">E-Mail deines Kontos</Label><Input id="reset-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/><Button className="w-full" disabled={busy}>{busy?'Wird angefordert …':'Code per E-Mail anfordern'}</Button><Button variant="link" type="button" onClick={()=>setStep(2)}>Ich habe bereits einen Code</Button></form>}

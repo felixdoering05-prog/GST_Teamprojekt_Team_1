@@ -56,19 +56,23 @@ async function analysisContext(db,building,source){
 }
 async function roomTemperatures(db, building) {
  const params = [building.user_id, String(building.id)];
- const [rooms, floors, readings] = await Promise.all([
-  db.query(`SELECT id, data->>'room_code' AS room_code, data->>'floor_id' AS floor_id,
+ const [rooms, floors, readings, thresholds] = await Promise.all([
+  db.query(`SELECT id, data->>'name' AS name, data->>'room_code' AS room_code, data->>'floor_id' AS floor_id,
    data->>'ifc_global_id' AS ifc_global_id FROM app_twin_records
    WHERE user_id=$1 AND data->>'building_id'=$2 AND entity='Room' AND data->>'source' IS DISTINCT FROM 'demo'`, params),
   db.query(`SELECT id, data->>'name' AS name, data->'level' AS level FROM app_twin_records
    WHERE user_id=$1 AND data->>'building_id'=$2 AND entity='Floor'`, params),
-  db.query(`SELECT s.data->>'room_id' AS room_id, m.id, m.data->'value' AS value, m.data->>'measured_at' AS measured_at
+  db.query(`SELECT s.data->>'room_id' AS room_id, s.data->>'sensor_code' AS sensor_code,
+   m.id, m.data->'value' AS value, m.data->>'measured_at' AS measured_at
    FROM app_twin_records s JOIN app_twin_records m ON m.user_id=s.user_id AND m.data->>'sensor_id'=s.id
    WHERE s.user_id=$1 AND s.data->>'building_id'=$2 AND s.entity='Sensor'
     AND s.data->>'metric'='temperature' AND s.data->>'source' IS DISTINCT FROM 'demo'
+    AND COALESCE(s.data->>'status','aktiv')='aktiv'
     AND s.data->>'room_id' IS NOT NULL AND m.entity='Measurement' AND m.data->>'building_id'=$2
     AND m.data->>'metric'='temperature' AND m.data->>'source'='real'
+    AND lower(replace(COALESCE(m.data->>'unit',s.data->>'unit','°C'),' ','')) IN ('°c','c','celsius')
     AND COALESCE(m.data->>'quality','ok')='ok'`, params),
+  db.query("SELECT data FROM app_twin_records WHERE user_id=$1 AND entity='ThresholdConfig' ORDER BY created_at,id LIMIT 100",[building.user_id]),
  ]);
  const latest = new Map();
  for (const reading of readings.rows) {
@@ -76,16 +80,19 @@ async function roomTemperatures(db, building) {
   if (!Number.isFinite(time) || !Number.isFinite(reading.value)) continue;
   const previous = latest.get(reading.room_id);
   if (!previous || time > previous.time || (time === previous.time && reading.id > previous.id)) {
-   latest.set(reading.room_id, { time, id: reading.id, value: reading.value });
+   latest.set(reading.room_id, { time, id: reading.id, value: reading.value, sensor_code: reading.sensor_code, provider: 'sensor' });
   }
  }
  for (const reading of await haRoomTemperatures(db, building)) {
   const time = Date.parse(reading.measured_at), previous = latest.get(reading.room_id);
-  if (!previous || time > previous.time) latest.set(reading.room_id, { time, id: 'ha', value: reading.value });
+  if (Number.isFinite(time) && (!previous || time > previous.time)) latest.set(reading.room_id, {
+   time, id: 'ha', value: reading.value, sensor_code: reading.sensor_code, provider: 'home-assistant',
+  });
  }
- return { floors: floors.rows, rooms: rooms.rows.map(room => {
+ return { floors: floors.rows, thresholds: mergeThresholds(thresholds.rows.map(row=>row.data)), rooms: rooms.rows.map(room => {
   const reading = latest.get(room.id);
-  return { ...room, reading: reading ? { value: reading.value, measured_at: new Date(reading.time).toISOString() } : null };
+  return { ...room, reading: reading ? { value: reading.value, unit:'°C', source:'real', sensor_code:reading.sensor_code,
+   provider:reading.provider, measured_at: new Date(reading.time).toISOString() } : null };
  }) };
 }
 function telemetryRouter(db,requireAccount){
@@ -186,4 +193,4 @@ function telemetryRouter(db,requireAccount){
  }));
  r.use((e,req,res,next)=>e.status?res.status(e.status).json({error:e.message}):next(e));return r;
 }
-module.exports={initTelemetry,telemetryRouter,telemetrySnapshot,analysisContext};
+module.exports={initTelemetry,telemetryRouter,telemetrySnapshot,analysisContext,roomTemperatures};

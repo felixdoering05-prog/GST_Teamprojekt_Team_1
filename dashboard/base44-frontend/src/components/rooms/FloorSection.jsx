@@ -4,6 +4,8 @@ import StatusChip from '@/components/StatusChip';
 import SourceBadge from '@/components/SourceBadge';
 import { formatNumber, metric } from '@/lib/metrics';
 import { readingsForRoom, statusForRoom } from '@/lib/roomMetrics';
+import { Link } from 'react-router-dom';
+import { roomDetailLink } from '@/lib/roomLocation';
 
 export default function FloorSection({ floor, rooms, sensors, latest, thresholds, onEditFloor, onDeleteFloor, onAddRoom, onEditRoom, onDeleteRoom }) {
   const floorRooms = rooms.filter((r) => r.floor_id === floor.id).sort((a, b) => String(a.room_code).localeCompare(String(b.room_code), 'de'));
@@ -67,7 +69,7 @@ export default function FloorSection({ floor, rooms, sensors, latest, thresholds
                 return (
                   <tr key={room.id} className="align-top transition-colors hover:bg-slate-50/60">
                     <td className="tabular px-5 py-3 font-medium text-foreground">{room.room_code}</td>
-                    <td className="px-3 py-3 text-foreground">{room.name}</td>
+                    <td className="px-3 py-3"><Link className="font-medium text-primary underline" to={roomDetailLink(room.building_id, room.id)}>{room.name}</Link></td>
                     <td className="px-3 py-3 text-muted-foreground">{room.usage || '–'}</td>
                     <td className="tabular px-3 py-3 text-muted-foreground">{room.area_m2 ? `${room.area_m2} m²` : '–'}</td>
                     <td className="px-3 py-3">

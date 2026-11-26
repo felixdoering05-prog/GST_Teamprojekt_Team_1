@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Layers } from 'lucide-react';
 import { request } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { roomDetailLink } from '@/lib/roomLocation';
 
 export default function SharedBuildingStructure({ buildingId }) {
   const structure = useQuery({
@@ -38,7 +40,7 @@ export default function SharedBuildingStructure({ buildingId }) {
               {group.rooms.length ? (
                 <ul className="mt-2 space-y-1 break-words text-sm text-muted-foreground">
                   {group.rooms.sort((a, b) => a.room_code.localeCompare(b.room_code, 'de', { numeric: true }))
-                    .map(room => <li key={room.id}>{room.room_code} · {room.name}</li>)}
+                    .map(room => <li key={room.id}><Link className="text-primary underline" to={roomDetailLink(buildingId, room.id)}>{room.room_code} · {room.name}</Link></li>)}
                 </ul>
               ) : <p className="mt-2 text-sm text-muted-foreground">Keine Räume hinterlegt.</p>}
             </div>

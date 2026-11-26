@@ -1,6 +1,8 @@
 import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
-import { useEffect, useState } from 'react';
-import { BellRing, Check, CheckCircle2, RefreshCw, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { BellRing, Check, CheckCircle2, MapPin, RefreshCw, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import BuildingIssues from '@/components/BuildingIssues';
@@ -11,6 +13,12 @@ import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
 import { base44, request } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { useRoomEvidence } from '@/hooks/useRoomEvidence';
+import { alertReading } from '@/lib/roomAlerts';
+import { resolveBuildingRoom } from '@/lib/roomLocation';
+import { RoomFocusDialog } from '@/components/bim/RoomModelPreview';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 const TABS = [
   { key: 'offen', label: 'Offen' },
@@ -20,45 +28,80 @@ const TABS = [
 ];
 
 export default function Alerts() {
+  const [params, setParams] = useSearchParams();
   const scope = useBuildingScope();
+  const warnings = !params.has('issue') && (params.has('alert') || params.get('ansicht') === 'sensorwarnungen');
+
+  function choose(view) {
+    const next = new URLSearchParams(params);
+    next.set('ansicht', view);
+    next.delete('issue');
+    next.delete('alert');
+    setParams(next, { preventScrollReset: true });
+  }
+
+  return <div className="space-y-5">
+    <PageHeader title="Meldungen" description={scope.label} />
+    <nav className="flex flex-wrap gap-2" aria-label="Meldungsarten">
+      <Button variant={warnings ? 'outline' : 'default'} aria-pressed={!warnings} onClick={() => choose('maengel')}>Mängel</Button>
+      <Button variant={warnings ? 'default' : 'outline'} aria-pressed={warnings} onClick={() => choose('sensorwarnungen')}>Sensorwarnungen</Button>
+    </nav>
+    {warnings ? <SensorAlerts /> : <BuildingIssues />}
+  </div>;
+}
+
+function SensorAlerts() {
+  const scope = useBuildingScope();
+  const { user } = useAuth();
+  const cache = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const buildings = scope.readable('issues');
   const headers = buildingScopeHeaders(buildings);
+  const owners = buildings.filter(building => building.is_owner);
   const { toast } = useToast();
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('offen');
   const [severity, setSeverity] = useState('all');
-  const [email, setEmail] = useState('');
   const [confirmState, setConfirmState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [running, setRunning] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    try {
+  const query = useQuery({
+    queryKey: ['sensor-warnings', scope.team?.id, headers['X-D21-Buildings']],
+    queryFn: async () => {
       const rows = await request('/twin/Alert/list', { method: 'POST', body: { sort: '-triggered_at', limit: 500 }, headers });
       const ids = new Set(buildings.map(row => String(row.id)));
-      setAlerts(rows.filter(row => ids.has(String(row.building_id))));
-    } catch (error) {
-      toast({ title: 'Meldungen konnten nicht geladen werden', description: error.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    base44.auth
-      .me()
-      .then((user) => setEmail(user?.email || ''))
-      .catch(() => setEmail(''));
-  }, []);
+      return rows.filter(row => ids.has(String(row.building_id)));
+    },
+  });
+  const alerts = query.data ?? [];
+  const alertID = params.get('alert');
+  const buildingID = params.get('building') || params.get('building_id') || (buildings.length === 1 ? String(buildings[0].id) : null);
+  const alertBuilding = buildings.find(building => String(building.id) === buildingID);
+  function showAlert(alert) {
+    const next = new URLSearchParams(params);
+    next.set('ansicht', 'sensorwarnungen');
+    next.set('building', alert.building_id);
+    next.set('alert', alert.id);
+    setParams(next, { preventScrollReset: true });
+  }
+  function closeAlert() {
+    const next = new URLSearchParams(params);
+    next.set('ansicht', 'sensorwarnungen');
+    next.delete('building');
+    next.delete('alert');
+    setParams(next, { replace: true, preventScrollReset: true });
+  }
+  const load = () => Promise.all([
+    cache.invalidateQueries({ queryKey: ['sensor-warnings'] }),
+    cache.invalidateQueries({ queryKey: ['sensor-warning'] }),
+    cache.invalidateQueries({ queryKey: ['active-room-warnings'] }),
+  ]);
 
   const setStatus = async (alert, status) => {
     try {
       const payload = { status };
       if (status === 'quittiert') {
-        payload.acknowledged_by = email;
+        payload.acknowledged_by = user.email;
         payload.acknowledged_at = new Date().toISOString();
       }
       if (status === 'erledigt') {
@@ -91,7 +134,7 @@ export default function Alerts() {
     setRunning(true);
     try {
       const payload = await request('/twin-functions/runThresholdCheck', {
-        method: 'POST', body: { sinceHours: 4 }, headers: headers,
+        method: 'POST', body: { sinceHours: 4 }, headers: buildingScopeHeaders(owners),
       });
       toast({ title: 'Prüflauf abgeschlossen', description: payload.message || 'Prüflauf wurde ausgeführt.' });
       await load();
@@ -113,18 +156,13 @@ export default function Alerts() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Meldungen"
-        description="Gebäudemeldungen und Sensorwarnungen."
-      />
-      <BuildingIssues />
       <PageHeader title="Sensorwarnungen" description="Grenzwertüberschreitungen und technische Warnungen aus dem regelbasierten Prüflauf.">
         <Button variant="outline" size="sm" onClick={load}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Aktualisieren
         </Button>
-        <Button size="sm" onClick={runCheck} disabled={running}>
+        {owners.length > 0 && <Button size="sm" onClick={runCheck} disabled={running}>
           <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> {running ? 'Prüflauf läuft …' : 'Prüflauf starten'}
-        </Button>
+        </Button>}
       </PageHeader>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -171,7 +209,7 @@ export default function Alerts() {
         </div>
       </section>
 
-      {loading ? (
+      {query.isError ? <p role="alert" className="text-sm text-destructive">{query.error.message}</p> : query.isPending ? (
         <div className="flex min-h-[30vh] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
         </div>
@@ -190,17 +228,18 @@ export default function Alerts() {
                 alert={alert}
                 actions={
                   <>
-                    {alert.status === 'offen' ? (
+                    <Button size="sm" variant="outline" onClick={() => showAlert(alert)}><MapPin className="h-4 w-4" /> Details</Button>
+                    {scope.can(alert.building_id, 'issues', 'edit') && alert.status === 'offen' ? (
                       <Button size="sm" variant="outline" onClick={() => setStatus(alert, 'quittiert')}>
                         Quittieren
                       </Button>
                     ) : null}
-                    {alert.status !== 'erledigt' ? (
+                    {scope.can(alert.building_id, 'issues', 'edit') && alert.status !== 'erledigt' ? (
                       <Button size="sm" variant="ghost" onClick={() => setStatus(alert, 'erledigt')} aria-label="Als erledigt markieren">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                       </Button>
                     ) : null}
-                    <Button
+                    {scope.can(alert.building_id, 'issues', 'edit') && <Button
                       size="sm"
                       variant="ghost"
                       aria-label="Meldung löschen"
@@ -213,7 +252,7 @@ export default function Alerts() {
                       }
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
+                    </Button>}
                   </>
                 }
               />
@@ -221,6 +260,8 @@ export default function Alerts() {
           </ul>
         </section>
       )}
+
+      {alertID && alertBuilding && <AlertDetails key={buildingID + '/' + alertID} id={alertID} building={alertBuilding} close={closeAlert} />}
 
       <ConfirmDialog
         open={Boolean(confirmState)}
@@ -232,4 +273,31 @@ export default function Alerts() {
       />
     </div>
   );
+}
+
+function AlertDetails({ id, building, close }) {
+  const alert = useQuery({
+    queryKey: ['sensor-warning', building.id, id],
+    queryFn: async () => {
+      const result = await request('/twin/Alert/filter', { method: 'POST', headers: buildingScopeHeaders([building]),
+        body: { filter: { id, building_id: String(building.id) }, options: { limit: 1 } } });
+      const row = result.items.find(item => String(item.building_id) === String(building.id));
+      if (!row) throw new Error('Diese Sensorwarnung ist nicht verfügbar.');
+      return row;
+    },
+    retry: false,
+  });
+  const { structure, temperatures } = useRoomEvidence(building.id);
+  const locations = structure.data || temperatures.data;
+  const room = alert.data && resolveBuildingRoom(locations, { roomID: alert.data.room_id, label: alert.data.room_label });
+  const floor = locations?.floors.find(item => item.id === room?.floor_id);
+  if (!alert.data) return <Dialog open onOpenChange={open => { if (!open) close(); }}>
+    <DialogContent><DialogTitle>Sensorwarnung</DialogTitle>
+      <DialogDescription>{alert.error?.message || 'Warnung wird geladen …'}</DialogDescription>
+    </DialogContent>
+  </Dialog>;
+  return <RoomFocusDialog building={building} room={room} floor={floor} label={alert.data.room_label}
+    heading={alert.data.title || 'Sensorwarnung'} reading={alertReading(alert.data)} close={close} showModel={false}>
+    <p className="text-sm">{alert.data.message}</p>
+  </RoomFocusDialog>;
 }

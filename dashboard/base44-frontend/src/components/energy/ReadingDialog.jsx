@@ -8,7 +8,7 @@ import { ENERGY_MEDIA, energyKey } from '@/lib/energy';
 
 export default function ReadingDialog({ buildings, selectedBuilding, selectedMedium, onClose, onSaved }) {
   const { toast } = useToast();
-  const [building, setBuilding] = useState(buildings.find((row) => row.id === selectedBuilding)?.id || buildings[0]?.id || '');
+  const [building, setBuilding] = useState(buildings.find((row) => row.id === selectedBuilding)?.id || (buildings.length === 1 ? buildings[0].id : ''));
   const [medium, setMedium] = useState(selectedMedium || 'strom');
   const [unit, setUnit] = useState(ENERGY_MEDIA[selectedMedium || 'strom'][1]);
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,7 @@ export default function ReadingDialog({ buildings, selectedBuilding, selectedMed
       <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogHeader><DialogTitle>Ablesung erfassen</DialogTitle><DialogDescription>Verbrauch und Zählerstand je Ablesung.</DialogDescription></DialogHeader>
         <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-          <SelectField label="Gebäude" aria-label="Gebäude" required value={building} options={buildings.map((row) => ({ value: row.id, label: row.name }))} onChange={(e) => setBuilding(e.target.value)} />
+          <SelectField label="Gebäude" aria-label="Gebäude" required value={building} placeholder="Gebäude auswählen …" options={buildings.map((row) => ({ value: row.id, label: row.name }))} onChange={(e) => setBuilding(e.target.value)} />
           <TextField label="Nutzungseinheit" aria-label="Nutzungseinheit" name="unit_name" />
           <SelectField label="Verbrauchsart" aria-label="Verbrauchsart" value={medium} options={Object.entries(ENERGY_MEDIA).map(([value, [label]]) => ({ value, label }))} onChange={(e) => { setMedium(e.target.value); setUnit(ENERGY_MEDIA[e.target.value][1]); }} />
           <SelectField label="Einheit" aria-label="Einheit" value={unit} options={[...new Set([ENERGY_MEDIA[medium][1], ...(medium === 'warmwasser' || medium === 'gas' ? ['kWh', 'm³'] : [])])].map((value) => ({ value, label: value }))} onChange={(e) => setUnit(e.target.value)} />

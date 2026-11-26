@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { request, base44 } from '@/api/base44Client';
+import { canUseBuilding, clearBuildingParameters, linkedBuildingTeam, resolveBuildingScope } from '@/lib/buildingScope';
+import ProjectLogo from './ProjectLogo';
 
 const NAV_GROUPS = [
   {
@@ -49,8 +51,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/betrieb/technische-anlagen', label: 'Technische Anlagen', icon: Boxes, module: 'maintenance', hint: 'Anlagen und zugehörige Wartungen im Gebäude' },
       { path: '/betrieb/wartungen', label: 'Wartungen', icon: CalendarClock, module: 'maintenance', hint: 'Fälligkeiten, Bearbeitung und Wartungshistorie' },
-      { path: '/issues', label: 'Issues und Mängel', icon: MessageSquareText, module: 'issues', hint: 'Gebäudemängel erfassen und bearbeiten' },
-      { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Mobile Gebäudemeldungen und Sensorwarnungen' },
+      { path: '/meldungen', label: 'Meldungen', icon: BellRing, module: 'issues', hint: 'Gebäudemängel und Sensorwarnungen' },
       { path: '/zeitplanung', label: 'Kalender', icon: CalendarClock, module: 'schedule', hint: 'Gebäudebezogene Termine, Wartungen und Aufgaben koordinieren' },
     ],
   },
@@ -59,7 +60,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/teams', label: 'Dein Team', icon: Users, hint: 'Teammitglieder, Einladungen, Titel und Gebäudegruppen verwalten' },
       { path: '/rechte', label: 'Rechte', icon: ShieldCheck, module: 'teamRights', hint: 'Mitglieder, Rollen und Berechtigungen verwalten' },
-      { path: '/daten', label: 'Daten & Einstellungen', icon: Database, module: 'settings', hint: 'Datenimport, Export und Konfiguration' },
+      { path: '/daten', label: 'Daten & Einstellungen', icon: Database, hint: 'Datenimport, Export und persönliche Einstellungen' },
     ],
   },
 ];
@@ -123,33 +124,20 @@ function SidebarBody({ onNavigate, scope, activeTeam, teams, teamID, onTeam }) {
 
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
-      <div className={`flex pb-6 pt-7 px-5 ${activeTeam?.has_logo ? 'flex-col items-center gap-2' : 'items-center gap-3'}`}>
-        {!activeTeam?.has_logo && <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl"><Boxes className="h-[18px] w-[18px]" /></span>}
-        <div className={`${activeTeam?.has_logo ? 'flex items-center justify-center gap-3' : 'min-w-0'}`}>
-          {activeTeam?.has_logo && <span className="shell-brand-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl"><Boxes className="h-[18px] w-[18px]" /></span>}
+      <div className={`flex px-5 pb-5 pt-6 ${activeTeam?.has_logo ? 'flex-col items-center gap-2' : 'items-center'}`}>
+        <div className="flex min-w-0 items-center gap-3">
+          <ProjectLogo className="h-10 w-10" />
           <div className="min-w-0">
             <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Nala Solutions</p>
             {!activeTeam?.has_logo && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>}
           </div>
         </div>
-        {activeTeam?.has_logo && <TeamLogo id={activeTeam.id} name={activeTeam.name} />}
+        {activeTeam?.has_logo && <TeamLogo key={activeTeam.id} id={activeTeam.id} name={activeTeam.name} />}
       </div>
 
       {activeTeam && <div className="space-y-3 px-5 pb-4">
         <TeamSwitcher wide teams={teams} teamID={teamID} onChange={onTeam} />
-        <label className="grid gap-1 text-xs font-medium">
-          Gebäude oder Gebäudegruppe
-          <select className="w-full rounded-xl border border-border bg-background px-3 py-2"
-            value={scope.value} onChange={event => { scope.choose(event.target.value); onNavigate?.(); }}>
-            <option value="all">Alle Gebäude</option>
-            <optgroup label="Gebäudegruppen">
-              {scope.groups.map(group => <option key={group.id} value={'group:' + group.id}>{group.name}</option>)}
-            </optgroup>
-            <optgroup label="Gebäude">
-              {activeTeam.buildings.map(building => <option key={building.id} value={'building:' + building.id}>{building.name}</option>)}
-            </optgroup>
-          </select>
-        </label>
+        <ScopeSwitcher scope={scope} onChange={onNavigate} />
       </div>}
       <div className="shell-divider mx-5 mb-2 h-px" />
       <div className="sidebar-scroll flex-1 overflow-y-auto pb-5 pt-5">
@@ -176,7 +164,19 @@ function SidebarBody({ onNavigate, scope, activeTeam, teams, teamID, onTeam }) {
   );
 }
 
-function TeamLogo({id,name}){const [src,setSrc]=useState('');useEffect(()=>{let active=true,objectURL='';request('/teams/'+id+'/logo',{raw:true}).then(blob=>{objectURL=URL.createObjectURL(blob);if(active)setSrc(objectURL)}).catch(()=>{});return()=>{active=false;if(objectURL)URL.revokeObjectURL(objectURL)}},[id]);return src?<div className="-mx-5 flex h-24 w-[calc(100%+2.5rem)] items-center justify-center"><img src={src} alt={'Logo '+name} className="h-full max-w-full object-contain object-center"/></div>:null;}
+function TeamLogo({ id, name }) {
+  const [src, setSrc] = useState('');
+  const logo = useQuery({ queryKey: ['team-logo', id], queryFn: () => request('/teams/' + id + '/logo', { raw: true }), retry: false });
+  useEffect(() => {
+    if (!logo.data) return;
+    const url = URL.createObjectURL(logo.data);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logo.data]);
+  return src ? <div className="-mx-5 flex h-24 w-[calc(100%+2.5rem)] items-center justify-center">
+    <img src={src} alt={'Logo ' + name} className="h-full max-w-full object-contain object-center" />
+  </div> : null;
+}
 function hexHsl(hex){const n=parseInt(String(hex||'#596b3d').slice(1),16),r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0,s=0,l=(max+min)/2;if(d){s=d/(1-Math.abs(2*l-1));switch(max){case r:h=((g-b)/d)%6;break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h*=60;if(h<0)h+=360;}return Math.round(h)+' '+Math.round(s*100)+'% '+Math.round(l*100)+'%';}
 
 function TeamSwitcher({teams,teamID,onChange,wide=false}){
@@ -186,20 +186,47 @@ function TeamSwitcher({teams,teamID,onChange,wide=false}){
   return <select aria-label="Team auswählen" className={`${width} rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium`} value={teamID} onChange={event=>onChange(event.target.value)}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select>;
 }
 
+function ScopeSwitcher({ scope, onChange }) {
+  return <label className="grid min-w-0 gap-1 text-xs font-medium">
+    Aktives Gebäude oder Gebäudegruppe
+    <select className="min-h-10 w-full truncate rounded-xl border border-border bg-background px-3 py-2"
+      value={scope.value} title={scope.label}
+      onChange={event => { scope.choose(event.target.value); onChange?.(); }}>
+      <option value="all">Alle Gebäude</option>
+      {scope.groups.length > 0 && <optgroup label="Gebäudegruppen">
+        {scope.groups.map(group => <option key={group.id} value={'group:' + group.id}>{group.name}</option>)}
+      </optgroup>}
+      <optgroup label="Gebäude">
+        {scope.team.buildings.map(building => <option key={building.id} value={'building:' + building.id}>{building.name}</option>)}
+      </optgroup>
+    </select>
+  </label>;
+}
+
+const scopeStorageKey = teamID => 'd21-building-scope:' + teamID;
+
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const current = ALL_NAV.find((n) => (n.end ? n.path === location.pathname : location.pathname.startsWith(n.path))) || ALL_NAV[0];
+  const route = location.pathname.replace(/\/+$/, '') || '/';
+  const pathname = route === '/issues' ? '/meldungen' : route;
+  const current = ALL_NAV.find(n => n.path === pathname || (!n.end && pathname.startsWith(n.path + '/'))) || ALL_NAV[0];
+  const params = new URLSearchParams(location.search);
+  const linkedID = current.module ? params.get('building') ?? (current.module === 'issues' ? params.get('building_id') : null) : null;
   const [teamID, setTeamID] = useState(() => localStorage.getItem('d21-selected-team') || '');
-  const [selection, setSelection] = useState(() => localStorage.getItem('d21-building-scope:' + teamID) || 'all');
+  const [selection, setSelection] = useState(() => localStorage.getItem(scopeStorageKey(teamID)) || 'all');
   const teamQuery = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
   const teams = teamQuery.data || [];
   const activeTeam = teams.find(row => String(row.id) === teamID);
   function chooseTeam(id) {
     localStorage.setItem('d21-selected-team', id);
     setTeamID(id);
-    setSelection(localStorage.getItem('d21-building-scope:' + id) || 'all');
+    setSelection(localStorage.getItem(scopeStorageKey(id)) || 'all');
+  }
+  function changeTeam(id) {
+    chooseTeam(id);
+    navigate({ pathname: location.pathname, search: clearBuildingParameters(location.search).toString() }, { replace: true });
   }
   useEffect(() => {
     if (teamQuery.isSuccess && !activeTeam && teams.length) chooseTeam(String(teams[0].id));
@@ -215,34 +242,54 @@ export default function AppLayout() {
     }
   }, [activeTeam]);
 
+  const linkedTeam = linkedBuildingTeam(teams, activeTeam, linkedID);
+  const linkedTeamID = linkedTeam ? String(linkedTeam.id) : '';
+  const navigation = useQuery({
+    queryKey: ['building-navigation', teamID],
+    queryFn: () => request('/teams/' + teamID + '/building-navigation'),
+    enabled: !!activeTeam,
+  });
+  const otherNavigation = useQuery({
+    queryKey: ['building-navigation', linkedTeamID],
+    queryFn: () => request('/teams/' + linkedTeamID + '/building-navigation'),
+    enabled: !!linkedTeamID && linkedTeamID !== teamID,
+  });
+  const linkedNavigation = linkedTeamID === teamID ? navigation : otherNavigation;
+  const linkedAccess = linkedNavigation.data?.find(row => String(row.id) === linkedID);
+  const linkedAllowed = !!linkedAccess && (current.module === 'teamRights'
+    ? (linkedTeam.is_owner || linkedTeam.can_manage_groups)
+    : canUseBuilding(linkedAccess, current.module));
+  const linkedValue = linkedAllowed ? 'building:' + linkedID : null;
+  useEffect(() => {
+    if (!linkedValue) return;
+    if (linkedTeamID !== teamID) {
+      localStorage.setItem('d21-selected-team', linkedTeamID);
+      setTeamID(linkedTeamID);
+    }
+    localStorage.setItem(scopeStorageKey(linkedTeamID), linkedValue);
+    setSelection(linkedValue);
+  }, [linkedTeamID, linkedValue, teamID]);
+
   const groupQuery = useQuery({
     queryKey: ['building-groups', teamID],
     queryFn: () => request('/teams/' + teamID + '/groups'),
     enabled: !!activeTeam,
   });
   const groups = (groupQuery.data || []).filter(group => group.buildings.length);
-  const group = groups.find(row => selection === 'group:' + row.id);
-  const single = activeTeam?.buildings.find(row => selection === 'building:' + row.id);
-  const value = single || group ? selection : 'all';
-  const buildings = single ? [single] : group ? group.buildings : activeTeam?.buildings || [];
-  const navigation = useQuery({
-    queryKey: ['building-navigation', teamID],
-    queryFn: () => request('/teams/' + teamID + '/building-navigation'),
-    enabled: !!activeTeam,
-  });
+  const resolved = resolveBuildingScope(activeTeam, groups, linkedTeamID === teamID && linkedValue ? linkedValue : selection);
   const accessByBuilding = new Map((navigation.data || []).map(row => [String(row.id), row]));
-  function readable(module) {
-    return buildings.filter(building => {
-      const access = accessByBuilding.get(String(building.id));
-      const level = access?.permissions?.[module];
-      return access?.is_owner || level === 'read' || level === 'edit';
-    });
+  function can(buildingID, module, action) {
+    return canUseBuilding(accessByBuilding.get(String(buildingID)), module, action);
+  }
+  function readable(module, { team = false } = {}) {
+    const buildings = team ? activeTeam?.buildings ?? [] : resolved.buildings;
+    return buildings.filter(building => can(building.id, module));
   }
   function showContent(module, ...categories) {
     return readable(module).some(building => {
       const access = accessByBuilding.get(String(building.id));
       return access.is_owner || access.permissions[module] === 'edit'
-        || categories.some(category => access.content[category]);
+        || categories.some(category => access.content?.[category]);
     });
   }
   const permissions = Object.fromEntries(ALL_NAV.filter(item => item.module).map(item =>
@@ -252,30 +299,35 @@ export default function AppLayout() {
     ['/energie', showContent('energy', 'energy')],
     ['/betrieb/technische-anlagen', showContent('maintenance', 'assets')],
     ['/betrieb/wartungen', showContent('maintenance', 'maintenance')],
-    ['/issues', showContent('issues', 'issues')],
     ['/meldungen', showContent('issues', 'issues', 'alerts')],
     ['/zeitplanung', showContent('schedule', 'schedule')],
   ].filter(([, visible]) => !visible).map(([path]) => path));
   permissions.teamRights = !!(activeTeam?.is_owner || activeTeam?.can_manage_groups);
   // The building overview remains the entry point for creating the first building.
   if (activeTeam?.is_owner && !activeTeam.buildings.length) permissions.buildings = 'read';
-  const ready = teamQuery.isSuccess && (!teams.length || !!activeTeam)
-    && (!selection.startsWith('group:') || !groupQuery.isPending || !activeTeam)
+  const resolvingLink = linkedID && linkedTeam && (linkedNavigation.isPending || (linkedAllowed && linkedTeamID !== teamID));
+  const missingLink = linkedID && !resolvingLink && !linkedAllowed;
+  const ready = !resolvingLink && teamQuery.isSuccess && (!teams.length || !!activeTeam)
+    && (linkedValue || !selection.startsWith('group:') || !groupQuery.isPending || !activeTeam)
     && (!activeTeam || !navigation.isPending);
-  const scopeError = navigation.error || (selection.startsWith('group:') ? groupQuery.error : null);
+  const scopeError = navigation.error || (linkedID && linkedTeam ? linkedNavigation.error : null)
+    || (!linkedValue && selection.startsWith('group:') ? groupQuery.error : null);
+  function choose(next, { search, replace = true } = {}) {
+    localStorage.setItem(scopeStorageKey(teamID), next);
+    setSelection(next);
+    const nextParams = search ?? clearBuildingParameters(location.search);
+    navigate({ pathname: location.pathname, search: nextParams.toString() }, { replace, preventScrollReset: true });
+  }
   const scope = {
-    value, groups, readable, permissions, hiddenPaths,
-    choose(next) {
-      localStorage.setItem('d21-building-scope:' + teamID, next);
-      setSelection(next);
-      const params = new URLSearchParams(location.search);
-      for (const key of ['building', 'unit', 'offset', 'issue', 'asset', 'task']) params.delete(key);
-      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-    },
+    ...resolved, team: activeTeam, groups, readable, can, permissions, hiddenPaths, choose,
+    chooseBuilding: (id, options) => choose('building:' + id, options),
   };
   const forbidden = current.module === 'teamRights' ? !permissions.teamRights
-    : hiddenPaths.has(current.path) || (current.module && permissions[current.module] === 'none');
+    : current.module && permissions[current.module] === 'none';
   const fallback = ALL_NAV.find(item => !item.module || permissions[item.module] === 'read');
+  const workspaceKey = current.module
+    ? [teamID, scope.value, ...scope.buildings.map(building => building.id)].join('/')
+    : teamID;
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
@@ -288,7 +340,7 @@ export default function AppLayout() {
     <div className="glass-app min-h-screen">
       <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Zum Inhalt springen</a>
       <aside className="shell-sidebar fixed z-40 hidden lg:block">
-        <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.assign(location.pathname);}}/>
+        <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={changeTeam} />
       </aside>
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -299,13 +351,13 @@ export default function AppLayout() {
             <Dialog.Close aria-label="Menü schließen" className="shell-icon-button absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="h-4 w-4" />
             </Dialog.Close>
-            <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={id=>{chooseTeam(id);window.location.assign(location.pathname);}} onNavigate={() => setOpen(false)} />
+            <SidebarBody scope={scope} activeTeam={activeTeam} teams={teams} teamID={teamID} onTeam={changeTeam} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
 
       <div className="shell-workspace">
         <header className="shell-header sticky top-0 z-30 px-4 pb-3 pt-4 sm:px-6 lg:hidden">
-          <div className="shell-header-inner mx-auto flex max-w-[1600px] items-center gap-3 px-3 py-2 sm:px-4">
+          <div className="shell-header-inner mx-auto flex max-w-[1600px] items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
             <Dialog.Trigger
               type="button"
               aria-label="Menü öffnen"
@@ -313,20 +365,26 @@ export default function AppLayout() {
             >
               <Menu className="h-4 w-4" />
             </Dialog.Trigger>
+            <ProjectLogo alt="Nala Solutions" className="h-8 w-8" />
             <div className="min-w-0 flex-1">
               <h1 className="truncate font-heading text-sm font-semibold text-foreground sm:text-base">{current.label}</h1>
               <p className="hidden truncate text-[10px] text-muted-foreground sm:block">{current.hint}</p>
             </div>
 
-            <TeamSwitcher teams={teams} teamID={teamID} onChange={id=>{chooseTeam(id);window.location.assign(location.pathname);}}/>
+            <TeamSwitcher teams={teams} teamID={teamID} onChange={changeTeam} />
           </div>
+          {current.module && activeTeam && <div className="shell-header-inner mx-auto mt-2 max-w-[1600px] px-3 py-2 sm:px-4"><ScopeSwitcher scope={scope} /></div>}
         </header>
 
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 pb-7 pt-2 focus:outline-none sm:px-6 sm:pb-9 lg:px-7 lg:pt-7">
           {(teamQuery.isError || scopeError) ? <p role="alert">{(teamQuery.error || scopeError).message}</p>
             : !ready ? <p role="status">Gebäudezugriff wird geladen …</p>
+            : missingLink ? <div role="alert" className="surface space-y-2 p-4">
+                <p>Das verlinkte Gebäude ist in dieser Ansicht nicht verfügbar.</p>
+                <button type="button" className="text-sm text-primary underline" onClick={() => choose(selection)}>Zur aktuellen Auswahl</button>
+              </div>
             : forbidden ? <Navigate to={fallback.path} replace />
-            : <BuildingScopeContext.Provider value={scope} key={[teamID, value, ...buildings.map(building => building.id)].join('/')}>
+            : <BuildingScopeContext.Provider value={scope} key={workspaceKey}>
                 <Outlet />
               </BuildingScopeContext.Provider>}
         </main>

@@ -39,6 +39,19 @@ async function request(user,path,method='GET',body){
  return {status:response.status,body:await response.json()};
 }
 
+test('team logos are served as unchanged image bytes to members',async()=>{
+ const team=(await request(owner,'/teams')).body.find(row=>row.buildings.some(building=>building.id===second));
+ const logo=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDscAAAAASUVORK5CYII=','base64');
+ const path=url+`/teams/${team.id}/logo`;
+ const upload=await fetch(path,{method:'PUT',headers:{'Content-Type':'image/png','X-D21-Session':owner.token},body:logo});
+ assert.equal(upload.status,200);
+ const response=await fetch(path,{headers:{'X-D21-Session':maintenance.token}});
+ assert.equal(response.status,200);
+ assert.equal(response.headers.get('content-type'),'image/png');
+ assert.deepEqual(Buffer.from(await response.arrayBuffer()),logo);
+ assert.equal((await fetch(path)).status,401);
+});
+
 test('team navigation and building selection respect the selected buildings and membership',async()=>{
  const team=(await request(owner,'/teams')).body.find(row=>row.buildings.some(building=>building.id===first));
  assert.ok(team);

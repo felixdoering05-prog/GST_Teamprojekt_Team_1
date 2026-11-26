@@ -142,7 +142,7 @@ function teamsRouter(db,requireAccount){
   const team=await currentTeam(req,res);if(!team)return;
   const row=(await db.query('SELECT logo,logo_type FROM app_teams WHERE id=$1',[team.id])).rows[0];
   if(!row?.logo)return res.status(404).json({error:'Für dieses Team ist kein Logo hinterlegt.'});
-  res.set('Content-Type',row.logo_type).set('Cache-Control','private, no-store').send(row.logo);
+  res.set('Content-Type',row.logo_type).set('Cache-Control','private, no-store').send(Buffer.from(row.logo));
  }));
  r.put('/teams/:teamID/logo',requireAccount,express.raw({type:'image/*',limit:MAX_LOGO}),wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;

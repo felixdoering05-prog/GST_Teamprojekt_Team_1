@@ -1,7 +1,7 @@
 import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Droplet, Flame, Gauge, Plus, Zap } from 'lucide-react';
 import { base44, request } from '@/api/base44Client';
 import PageHeader from '@/components/PageHeader';
@@ -173,17 +173,15 @@ export default function Energy() {
   const { medium = '' } = useParams();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [scope, setScope] = useState(() => localStorage.getItem('d21-selected-team') || '');
+  const cache = useQueryClient();
   const [dialog, setDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const { toast } = useToast();
   const selection = useBuildingScope();
   const buildings = selection.readable('energy');
   const headers = buildingScopeHeaders(buildings);
-  const requestedBuilding = params.get('building');
-  const building = buildings.length === 1 ? String(buildings[0].id)
-    : buildings.some(row => String(row.id) === requestedBuilding) ? requestedBuilding : '';
-  const unit = building === requestedBuilding ? params.get('unit') || '' : '';
+  const building = buildings.length === 1 ? String(buildings[0].id) : '';
+  const unit = building ? params.get('unit') || '' : '';
   const months = params.get('months') || '12';
   const source = params.get('source') || '';
   const end = params.get('end') || '';
@@ -192,30 +190,13 @@ export default function Energy() {
   const queryParams = new URLSearchParams({ building, unit, months, source, medium, offset: String(offset), ...(end ? { end } : {}) });
 
   const energy = useQuery({
-    queryKey: ['energy-consumption', scope, headers['X-D21-Buildings'], queryParams.toString()],
+    queryKey: ['energy-consumption', selection.team?.id, headers['X-D21-Buildings'], queryParams.toString()],
     queryFn: () => request('/energy-consumption?' + queryParams, { headers }),
     enabled: validMedium,
     retry: false,
   });
-  const teams = useQuery({ queryKey: ['energy-teams', scope], queryFn: () => request('/teams'), retry: false });
-  const canImport = teams.data?.some((team) => team.is_owner && String(team.id) === scope);
+  const canImport = selection.team?.is_owner && selection.value === 'all';
   const data = energy.data;
-
-  useEffect(() => {
-    const changeTeam = () => {
-      const nextScope = localStorage.getItem('d21-selected-team') || '';
-      setScope(nextScope);
-      setDialog(false);
-      if (!scope || scope === nextScope) return;
-      setParams((old) => {
-        const next = new URLSearchParams(old);
-        ['building', 'unit', 'source', 'offset'].forEach((key) => next.delete(key));
-        return next;
-      }, { replace: true });
-    };
-    window.addEventListener('d21-team-change', changeTeam);
-    return () => window.removeEventListener('d21-team-change', changeTeam);
-  }, [scope, setParams]);
 
   const update = (patch) => {
     const next = new URLSearchParams(params);
@@ -235,8 +216,11 @@ export default function Energy() {
     setImporting(true);
     try {
       const { data: result } = await base44.functions.invoke('seedPassportEnergy', {});
+      await Promise.all([
+        cache.invalidateQueries({ queryKey: ['teams'] }),
+        cache.invalidateQueries({ queryKey: ['building-navigation', String(selection.team?.id)] }),
+      ]);
       update({ building: result.building_id, unit: '', source: 'demo', months: '12', end: result.reference_month });
-      await energy.refetch();
       toast({ title: 'Gebäudepass-Demo verfügbar', description: result.readings_created ? 'Monatswerte und Kennzahlen aus ChatGPT Sites wurden übernommen.' : 'Die Historie war bereits vorhanden.' });
     } catch (error) {
       toast({ title: 'Import fehlgeschlagen', description: error.message, variant: 'destructive' });
@@ -259,7 +243,12 @@ export default function Energy() {
   const buildingName = (id) => data?.buildings.find((row) => row.id === id)?.name || 'Ohne Gebäudezuordnung';
   const editableBuildings = data?.buildings.filter((row) => row.can_edit) || [];
   const visibleMedia = [...new Set([...(data?.media || Object.keys(ENERGY_MEDIA).slice(0, 4)), ...(validMedium && medium ? [medium] : [])])];
-  const buildingOptions = [...(buildings.length === 1 ? [] : [{ ...ALL, label: 'Alle Gebäude' }]), ...(data?.buildings || []).map((row) => ({ value: row.id, label: row.name }))];
+  const group = selection.value.startsWith('group:');
+  const options = selection.building ? selection.readable('energy', { team: true }) : buildings;
+  const buildingOptions = [
+    { ...ALL, label: group ? selection.label : 'Alle Gebäude' },
+    ...options.map(row => ({ value: String(row.id), label: row.name })),
+  ];
 
   const title = validMedium && medium ? ENERGY_MEDIA[medium][0] : 'Energie';
   return (
@@ -271,7 +260,8 @@ export default function Energy() {
       </PageHeader>
 
       <div className="surface grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Verbrauchsfilter">
-        <SelectField label="Gebäude" aria-label="Gebäude" value={building} options={buildingOptions} onChange={(e) => update({ building: e.target.value, unit: '' })} />
+        <SelectField label="Gebäude" aria-label="Gebäude" value={selection.building ? building : ''} options={buildingOptions}
+          onChange={event => selection.choose(event.target.value ? 'building:' + event.target.value : 'all')} />
         <SelectField label="Nutzungseinheit" aria-label="Nutzungseinheit" value={unit} options={[{ ...ALL, label: 'Alle Nutzungseinheiten' }, ...(data?.units || []).map((row) => ({ value: row.id, label: row.name }))]} onChange={(e) => update({ unit: e.target.value })} />
         <SelectField label="Verbrauchsart" aria-label="Verbrauchsart" value={medium} options={[{ ...ALL, label: 'Alle Verbrauchsarten' }, ...visibleMedia.map(mediumOption)]} onChange={(e) => { setDialog(false); navigate(urlFor(e.target.value)); }} />
         <SelectField label="Zeitraum" aria-label="Zeitraum" value={months} options={PERIODS} onChange={(e) => update({ months: e.target.value })} />
@@ -281,7 +271,7 @@ export default function Energy() {
 
       {!validMedium && <p className="surface p-5">Diese Verbrauchsart ist unbekannt.</p>}
       {energy.isLoading && <p role="status" className="surface p-5 text-sm text-muted-foreground">Verbrauchsdaten werden geladen …</p>}
-      {energy.isError && <div className="surface flex flex-wrap items-center justify-between gap-2 p-5" role="alert"><p>{energy.error.message}</p><Button size="sm" variant="outline" onClick={() => building ? update({ building: '', unit: '' }) : energy.refetch()}>{building ? 'Alle Gebäude anzeigen' : 'Erneut laden'}</Button></div>}
+      {energy.isError && <div className="surface flex flex-wrap items-center justify-between gap-2 p-5" role="alert"><p>{energy.error.message}</p><Button size="sm" variant="outline" onClick={() => energy.refetch()}>Erneut laden</Button></div>}
       {data && (
         <>
           <p className="px-1 text-sm text-muted-foreground">{dayRange(data.ranges.current)}{data.ranges.previous && ' · Vorzeitraum ' + dayRange(data.ranges.previous)}</p>

@@ -112,7 +112,7 @@ export default function BuildingDialog({ open, onOpenChange, building, onSaved }
         bim_status: form.bim_status,
       };
       if (building) await base44.entities.Building.update(building.id, payload);
-      else { const created = await base44.entities.Building.create({ ...payload, source: 'real' }); localStorage.setItem('d21-selected-building',created.id); }
+      else await base44.entities.Building.create({ ...payload, source: 'real' });
       toast({ title: building ? 'Gebäude aktualisiert' : 'Gebäude angelegt', description: payload.name });
       onOpenChange(false);
       await onSaved();

@@ -27,13 +27,17 @@ const EMPTY = {
   source: 'real',
 };
 
-export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSaved }) {
+export default function SensorDialog({ open, onOpenChange, sensor, buildings, rooms, onSaved }) {
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+  const defaultBuilding = String(sensor?.building_id || (buildings.length === 1 ? buildings[0].id : ''));
+  const [building, setBuilding] = useState('');
+  const availableRooms = rooms.filter(room => String(room.building_id) === building);
 
   useEffect(() => {
     if (!open) return;
+    setBuilding(defaultBuilding);
     setForm(
       sensor
         ? {
@@ -49,9 +53,9 @@ export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSave
             interfaces: sensor.interfaces || [],
             source: sensor.source || 'real',
           }
-        : { ...EMPTY, room_id: rooms[0] ? rooms[0].id : '' },
+        : EMPTY,
     );
-  }, [open, sensor, rooms]);
+  }, [open, sensor, defaultBuilding]);
 
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
 
@@ -63,7 +67,7 @@ export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSave
   };
 
   const save = async () => {
-    if (!form.sensor_code.trim()) {
+    if (!building || !form.sensor_code.trim()) {
       toast({ title: 'Angaben fehlen', description: 'Die Sensorkennung ist erforderlich.', variant: 'destructive' });
       return;
     }
@@ -74,6 +78,7 @@ export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSave
         name: form.name.trim(),
         metric: form.metric,
         unit: METRICS[form.metric] ? METRICS[form.metric].unit : '',
+        building_id: building,
         room_id: form.room_id || null,
         status: form.status,
         hardware_type: form.hardware_type.trim(),
@@ -106,6 +111,9 @@ export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSave
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField label="Gebäude" aria-label="Gebäude" value={building} placeholder="Gebäude auswählen …" disabled={Boolean(sensor)}
+            options={buildings.map(row => ({ value: String(row.id), label: row.name }))}
+            onChange={event => { setBuilding(event.target.value); setForm(current => ({ ...current, room_id: '' })); }} />
           <TextField label="Sensorkennung *" value={form.sensor_code} onChange={set('sensor_code')} placeholder="z. B. EG.05-CO2" />
           <TextField label="Bezeichnung" value={form.name} onChange={set('name')} placeholder="z. B. CO₂ EG.05" />
           <SelectField
@@ -119,7 +127,7 @@ export default function SensorDialog({ open, onOpenChange, sensor, rooms, onSave
             value={form.room_id}
             onChange={set('room_id')}
             placeholder="Kein Raum zugeordnet"
-            options={rooms.map((r) => ({ value: r.id, label: `${r.room_code} ${r.name}` }))}
+            options={availableRooms.map((r) => ({ value: r.id, label: `${r.room_code} ${r.name}` }))}
           />
           <SelectField
             label="Status"

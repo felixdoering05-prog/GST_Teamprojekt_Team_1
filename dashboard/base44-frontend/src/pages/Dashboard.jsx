@@ -13,13 +13,15 @@ import '@/components/dashboard/dashboard-glass.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import useD21Data from '@/hooks/useD21Data';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
 import { base44 } from '@/api/base44Client';
 import { readingsForRoom, seriesByHour, statusForRoom } from '@/lib/roomMetrics';
 import { formatNumber } from '@/lib/metrics';
 import { formatDateTime } from '@/lib/dates';
 
 export default function Dashboard() {
-  const data = useD21Data('', { refreshMs: 60000 });
+  const scope = useBuildingScope();
+  const data = useD21Data('', { buildingIDs: scope.readable('overview').map(row => row.id).join(','), refreshMs: 60000 });
   const projectBuildings = useWidgetBuildings();
   const [seeding, setSeeding] = useState(false);
   const { toast } = useToast();
@@ -78,12 +80,12 @@ export default function Dashboard() {
     priority: () => <IssueWidget id="priority" />,
     activity: () => <IssueWidget id="activity" />,
     buildings: () => <BuildingsWidget buildings={projectBuildings} />,
-    model: item => <ModelWidget buildingID={item.building_id} buildings={projectBuildings} />,
+    model: item => <ModelWidget buildingID={scope.building?.id ?? item.building_id} />,
     map: () => <MapWidget />,
     system: () => <SystemWidget />,
     links: () => <LinksWidget />,
     climate: () => (<section className="climate-card" aria-label="Raumklima aus den Projektmesswerten">
-          <div className="flex items-start justify-between gap-2"><div><h3>Raumklima</h3><p className="climate-subtitle">{building?.name || 'Ausgewähltes Gebäude'} · Ø je Sensor</p></div><span className="climate-heading-icon"><Thermometer className="h-4 w-4" /></span></div>
+          <div className="flex items-start justify-between gap-2"><div><h3>Raumklima</h3><p className="climate-subtitle">{scope.label} · Ø je Sensor</p></div><span className="climate-heading-icon"><Thermometer className="h-4 w-4" /></span></div>
           <div className="climate-dial">
             <svg viewBox="0 0 160 160" role="img" aria-label={`Mittlere Lufttemperatur: ${formatNumber('temperature', averageTemperature)} Grad Celsius`}>
               <circle cx="80" cy="80" r="64" fill="none" stroke="#ffffff16" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${dialLength} ${2 * Math.PI * 64 - dialLength}`} transform="rotate(135 80 80)" />
@@ -149,9 +151,9 @@ export default function Dashboard() {
           description="Es sind noch keine Räume und Sensoren angelegt. Sie können den gekennzeichneten Demo-Datensatz erzeugen oder unter „Gebäude & Räume“ mit eigenen Daten beginnen."
           children={
             <>
-              <Button variant="outline" onClick={seed} disabled={seeding}>
+              {scope.value === 'all' && scope.team?.is_owner && <Button variant="outline" onClick={seed} disabled={seeding}>
                 {seeding ? 'Wird angelegt …' : 'Demo-Datensatz erzeugen'}
-              </Button>
+              </Button>}
               <Button variant="outline" asChild>
                 <Link to="/gebaeude">Gebäude & Räume öffnen</Link>
               </Button>
@@ -162,7 +164,7 @@ export default function Dashboard() {
   return (
     <div className="glass-dashboard space-y-5">
       <div className="dashboard-heading">
-        <div><h2>Kommandozentrale</h2><p className="mt-2 text-xs text-muted-foreground">{building?.name || 'Gebäude'} · Raumklima, Modell und Meldungen</p></div>
+        <div><h2>Kommandozentrale</h2><p className="mt-2 text-xs text-muted-foreground">{scope.label} · Raumklima, Modell und Meldungen</p></div>
         <div className="dashboard-heading-actions">
           {hasReadings ? <SourceBadge source={demoShare > 0.5 ? 'demo' : 'real'} labels={{ demo: 'Demo-Messwerte', real: 'Projektmesswerte' }} /> : <span className="glass-pill text-xs">Keine Messwerte</span>}
           <Button variant="outline" size="sm" onClick={data.reload} disabled={loading}><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Wird aktualisiert …' : 'Aktualisieren'}</Button>

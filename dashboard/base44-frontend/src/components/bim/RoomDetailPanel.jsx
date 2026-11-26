@@ -4,8 +4,12 @@ import SourceBadge from '@/components/SourceBadge';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { METRIC_KEYS } from '@/lib/metrics';
+import { Link } from 'react-router-dom';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
+import { roomAssistantLink } from '@/lib/roomLocation';
 
 export default function RoomDetailPanel({ room, floorLabel, readings, sensors, pointsByMetric, thresholds, onEdit }) {
+  const scope = useBuildingScope();
   if (!room) {
     return (
       <EmptyState
@@ -55,6 +59,9 @@ export default function RoomDetailPanel({ room, floorLabel, readings, sensors, p
             </dd>
           </div>
         </dl>
+        {scope?.can(room.building_id, 'assistant') && <Button variant="outline" size="sm" className="mt-4 w-full" asChild>
+          <Link to={roomAssistantLink(room.building_id, room.id)}>Assistent zu diesem Raum fragen</Link>
+        </Button>}
 
         {onEdit ? (
           <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => onEdit(room)}>

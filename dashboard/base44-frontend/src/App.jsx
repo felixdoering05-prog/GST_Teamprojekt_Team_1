@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -24,8 +24,7 @@ import Analysis from './pages/Analysis';
 import Alerts from './pages/Alerts';
 import Documents from './pages/Documents';
 import Operations from './pages/Operations';
-import BuildingIssues from './components/BuildingIssues';
-import PageHeader from './components/PageHeader';
+import { legacyIssuesLocation } from '@/lib/buildingScope';
 import DataSettings from './pages/DataSettings';
 import BuildingAssistant from './pages/BuildingAssistant';
 import TeamAccess from './pages/TeamAccess';
@@ -78,7 +77,7 @@ const AuthenticatedApp = () => {
           <Route path="/energie/:medium?" element={<Energy />} />
           <Route path="/analyse" element={<Analysis />} />
           <Route path="/meldungen" element={<Alerts />} />
-          <Route path="/issues" element={<div className="space-y-5"><PageHeader title="Issues und Mängel" /><BuildingIssues editable /></div>} />
+          <Route path="/issues" element={<LegacyIssues />} />
           <Route path="/daten" element={<DataSettings />} />
           <Route path="/assistent" element={<BuildingAssistant />} />
           <Route path="/teams" element={<Teams />} />
@@ -94,6 +93,10 @@ const AuthenticatedApp = () => {
   );
 };
 
+
+function LegacyIssues() {
+  return <Navigate to={legacyIssuesLocation(useLocation())} replace />;
+}
 
 function App() {
 

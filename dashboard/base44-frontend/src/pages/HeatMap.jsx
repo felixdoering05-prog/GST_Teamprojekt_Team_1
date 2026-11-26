@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Flame, Leaf, Snowflake, Sun, Pause, Play, RotateCcw, Thermometer, Layers } from 'lucide-react';
 import { request } from '@/api/base44Client';
-import useD21Data from '@/hooks/useD21Data';
+import { useBuildingScope } from '@/hooks/useBuildingScope';
+import { useBuildingSelection } from '@/hooks/useBuildingSelection';
+import { useBuildingModels } from '@/hooks/useBuildingModels';
+import { useRoomEvidence } from '@/hooks/useRoomEvidence';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
 import RoomHeatMap from '@/components/bim/RoomHeatMap';
+import RoomAnomalyList from '@/components/bim/RoomAnomalyList';
+import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
+import { readingStatus } from '@/lib/roomAlerts';
 import { HEAT_GRADIENT, HEAT_STOPS, ROOM_TEMPERATURE_SCENARIOS, SEASONS, heatColor, scenarioConditions, scenarioDate, seasonForDay, surfaceTemperature } from '../../ifc-viewer/heat-simulation.js';
 import { createWeatherProfile } from '../../ifc-viewer/weather-profile.js';
 
@@ -17,7 +25,7 @@ const EMPTY_READING = { temperature: null, timestamp: null, quality: null, ambig
 const measurementTime = timestamp => timestamp ? new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Berlin' }).format(new Date(timestamp)) : '';
 const measurementUTC = timestamp => timestamp ? new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(new Date(timestamp)) + ' UTC' : '';
 
-function CampusHeatMap() {
+function CampusHeatMap({ buildingIDs }) {
   const [scenario, setScenario] = useState({ day: 196, hour: 14, campus: true });
   const [playing, setPlaying] = useState(false);
   const [campus, setCampus] = useState({ loading: true, available: false, message: '' });
@@ -41,10 +49,12 @@ function CampusHeatMap() {
   useEffect(() => {
     let active = true;
     setCampus(current => ({ ...current, loading: true }));
-    request('/campus/d21').then(() => { if (active) setCampus({ loading: false, available: true, message: '' }); })
+    request('/campus/d21').then(metadata => { if (active) setCampus({
+      loading: false, available: buildingIDs.split(',').includes(String(metadata.building_id)), message: '',
+    }); })
       .catch(error => { if (active) setCampus({ loading: false, available: false, message: error.message }); });
     return () => { active = false; };
-  }, [revision]);
+  }, [revision, buildingIDs]);
   useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(() => setScenario(current => ({ ...current, day: (current.day + 7) % 365 })), 850);
@@ -145,113 +155,39 @@ function CampusHeatMap() {
 }
 
 
-function RoomDataHeatMap({ simulated = false }) {
+function RoomDataHeatMap({ simulated, building, document, modelLoading, temperatures }) {
+  const scope = useBuildingScope();
+  const cache = useQueryClient();
   const [roomScenarioID, setRoomScenarioID] = useState('comfort');
   const roomScenario = ROOM_TEMPERATURE_SCENARIOS.find(item => item.id === roomScenarioID) || ROOM_TEMPERATURE_SCENARIOS[1];
-  const [buildingID, setBuildingID] = useState(() => localStorage.getItem('d21-selected-building') || '');
-  const data = useD21Data(buildingID);
-  const [documents, setDocuments] = useState([]);
-  const [modelID, setModelID] = useState('');
-  const [documentsState, setDocumentsState] = useState({ loading: false, error: '' });
-  const [weatherState, setWeatherState] = useState({ loading: false, location: null, weather: null, error: '' });
-  const [refreshingWeather, setRefreshingWeather] = useState(false);
   const [heatStatus, setHeatStatus] = useState(null);
-
-  useEffect(() => {
-    if (!buildingID && data.building?.id) setBuildingID(data.building.id);
-  }, [buildingID, data.building]);
-
-  useEffect(() => {
-    if (!buildingID) return;
-    let active = true;
-    setDocumentsState({ loading: true, error: '' });
-    setDocuments([]);
-    setModelID('');
-    request(`/buildings/${buildingID}/documents`).then(files => {
-      if (!active) return;
-      const models = (files || []).filter(file => file.mime_type === 'application/x-step').sort((a,b) => a.name.localeCompare(b.name));
-      setDocuments(models);
-      setModelID(models[0]?.id || '');
-      setDocumentsState({ loading: false, error: '' });
-    }).catch(error => {
-      if (active) setDocumentsState({ loading: false, error: error.message || 'IFC-Dateien konnten nicht geladen werden.' });
-    });
-    return () => { active = false; };
-  }, [buildingID]);
-
-  useEffect(() => {
-    if (!buildingID) return;
-    let active = true;
-    setWeatherState(current => ({ ...current, loading: true, error: '' }));
-    request(`/buildings/${buildingID}/weather`).then(result => { if (active) setWeatherState({ loading: false, location: result.location, weather: result.weather, error: '' }); })
-      .catch(error => { if (active) setWeatherState({ loading: false, location: null, weather: null, error: error.message || 'Wetterdaten konnten nicht geladen werden.' }); });
-    return () => { active = false; };
-  }, [buildingID]);
-
-  const roomReadings = useMemo(() => {
-    if (data.loading) return [];
-    const sensors = new Map(data.sensors.map(sensor => [sensor.id, sensor]));
-    const rooms = new Map(data.rooms.map(room => [room.id, room]));
-    const latest = new Map();
-    const now = Date.now();
-    for (const measurement of data.series) {
-      if (measurement.source !== 'real' || measurement.quality !== 'ok' || measurement.metric !== 'temperature') continue;
-      const timestamp = Date.parse(measurement.measured_at);
-      if (!Number.isFinite(timestamp) || timestamp > now + 5 * 60 * 1000 || now - timestamp > 24 * 60 * 60 * 1000) continue;
-      const sensor = sensors.get(measurement.sensor_id);
-      if (!sensor || sensor.status !== 'aktiv' || sensor.metric !== 'temperature' || sensor.source !== 'real') continue;
-      const roomID = measurement.room_id || sensor.room_id;
-      if (!roomID || (measurement.room_id && sensor.room_id && measurement.room_id !== sensor.room_id)) continue;
-      const room = rooms.get(roomID);
-      const globalId = typeof room?.ifc_global_id === 'string' ? room.ifc_global_id.trim() : '';
-      if (!globalId || !Number.isFinite(measurement.value)) continue;
-      const unit = String(measurement.unit || sensor.unit || '').replaceAll(' ', '').toLowerCase();
-      if (!['°c','c','celsius'].includes(unit)) continue;
-      const current = latest.get(globalId);
-      if (!current || timestamp > current.timestamp) latest.set(globalId, {
-        globalId, roomCode: room.room_code || '', roomName: room.name || '',
-        temperature: measurement.value, unit: '°C', measuredAt: measurement.measured_at,
-        sensorCode: sensor.sensor_code || '', sensorID: sensor.id, source: 'real', timestamp,
-      });
-    }
-    return [...latest.values()].map(({ timestamp, ...reading }) => reading);
-  }, [data.loading, data.rooms, data.sensors, data.series]);
+  const weatherKey = ['building-weather', building.id];
+  const weatherPath = `/buildings/${building.id}/weather`;
+  const weatherState = useQuery({ queryKey: weatherKey, queryFn: () => request(weatherPath),
+    enabled: scope.can(building.id, 'settings'), retry: false });
+  const refreshWeather = useMutation({
+    mutationFn: () => request(weatherPath + '/refresh', { method: 'POST', body: {} }),
+    onSuccess: result => cache.setQueryData(weatherKey, result),
+  });
+  const roomReadings = useMemo(() => (temperatures.data?.rooms ?? [])
+    .filter(room => room.ifc_global_id?.trim() && readingStatus(room.reading) === 'current')
+    .map(({ reading, ...room }) => ({
+      globalId: room.ifc_global_id.trim(), roomCode: room.room_code, roomName: room.name,
+      temperature: reading.value, unit: reading.unit, measuredAt: reading.measured_at,
+      sensorCode: reading.sensor_code, source: reading.source,
+    })), [temperatures.data, temperatures.dataUpdatedAt]);
 
   const roomHeatmap = useMemo(() => simulated
     ? { mode: 'simulated-rooms', roomSimulation: { preset: roomScenario.id } }
     : { mode: 'measured', roomReadings }, [simulated, roomScenario.id, roomReadings]);
-  const selectedModel = documents.find(file => file.id === modelID);
-  const activeBuilding = data.buildings.find(building => building.id === buildingID) || data.building;
-  const buildingWeather = weatherState.weather;
-  const currentWeather = buildingWeather?.current;
-  const document = selectedModel ? {
-    ...selectedModel, buildingName: activeBuilding?.name, buildingID: activeBuilding?.id,
-    latitude: activeBuilding?.latitude, longitude: activeBuilding?.longitude,
-    model_heading_degrees: activeBuilding?.model_heading_degrees ?? 0,
-    map_provider_consent: activeBuilding?.map_provider_consent === true,
-  } : null;
-
-  if (data.loading && !data.building) return <div className="surface grid min-h-56 place-items-center p-6 text-sm text-muted-foreground">Gebäude- und Messdaten werden geladen …</div>;
+  const currentWeather = weatherState.data?.weather?.current;
+  const weatherError = refreshWeather.error || weatherState.error;
 
   return <div className="space-y-4">
-    <section className="surface flex flex-wrap items-end justify-between gap-4 p-4 sm:p-5" aria-label="Raum-Heatmap auswählen">
-      <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-xs font-medium">Gebäude
-          <select value={buildingID || data.building?.id || ''} onChange={event => { setHeatStatus(null); setBuildingID(event.target.value); }} className="min-h-10 rounded-xl border border-white/80 bg-white/80 px-3 text-sm text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            {data.buildings.map(building => <option key={building.id} value={building.id}>{building.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-xs font-medium">IFC-Modell
-          <select value={modelID} onChange={event => setModelID(event.target.value)} disabled={!documents.length} className="min-h-10 rounded-xl border border-white/80 bg-white/80 px-3 text-sm text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            {documents.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}
-            {!documents.length && <option value="">Kein IFC-Modell zugeordnet</option>}
-          </select>
-        </label>
-      </div>
-      <Button type="button" variant="outline" onClick={() => { setRefreshingWeather(true); request(`/buildings/${buildingID}/weather/refresh`, { method: 'POST', body: {} }).then(result => setWeatherState({ loading: false, location: result.location, weather: result.weather, error: '' })).catch(error => setWeatherState(current => ({ ...current, error: error.message || 'Wetterdienst nicht verfügbar.' }))).finally(() => setRefreshingWeather(false)); }} disabled={!buildingID || refreshingWeather}>
-        {refreshingWeather ? 'Wetter wird aktualisiert …' : 'Echtes Wetter aktualisieren'}
-      </Button>
-    </section>
+    {scope.can(building.id, 'settings', 'edit') && <Button type="button" variant="outline"
+      onClick={() => refreshWeather.mutate()} disabled={refreshWeather.isPending}>
+      {refreshWeather.isPending ? 'Wetter wird aktualisiert …' : 'Außenwetter aktualisieren'}
+    </Button>}
 
     {simulated && <section className="surface flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5" aria-label="Raumtemperatur-Szenario">
       <div className="max-w-xl">
@@ -267,24 +203,22 @@ function RoomDataHeatMap({ simulated = false }) {
       <p className="w-full text-[11px] text-muted-foreground">Aktive Annahmen: Außen {temperature(roomScenario.outsideTemperature)} °C · Solaraufschlag bis {temperature(roomScenario.solarGain)} °C · {roomScenario.description}. Diese Annahmen sind Teil der Simulation und keine abgerufenen Wetterwerte.</p>
     </section>}
 
-    {data.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{data.error}</p>}
-    {documentsState.error && <p role="alert" className="rounded-xl border border-destructive/25 bg-red-50/90 p-3 text-sm text-destructive">{documentsState.error}</p>}
-    {activeBuilding && !Number.isFinite(activeBuilding.latitude) && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Für dieses Gebäude sind keine Koordinaten gespeichert. Reale Wetterdaten können erst nach Hinterlegung eines Standorts abgerufen werden.</p>}
+    {weatherState.isSuccess && !weatherState.data.location && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Für dieses Gebäude ist kein Wetterstandort gespeichert.</p>}
 
     <section className="grid gap-3 sm:grid-cols-3" aria-label={simulated ? 'Raumsimulation und Außenwetter' : 'Echte Raumdaten und Außenwetter'}>
       <div className="surface p-4"><p className="text-xs text-muted-foreground">{simulated ? 'Szenario-Basiswert' : 'Echte Raumwerte mit IFC-ID'}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{simulated ? `${temperature(roomScenario.baseTemperature)} °C` : roomReadings.length}</p><p className="mt-1 text-[11px] text-muted-foreground">{simulated ? `${roomScenario.label} · Beispielannahme` : 'Temperatur · Qualität „ok“ · maximal 24 Stunden alt'}</p></div>
       <div className="surface p-4"><p className="text-xs text-muted-foreground">{simulated ? 'Simulierte IFC-Räume' : 'IFC-Räume mit Messwerten'}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{heatStatus && Boolean(heatStatus.simulated) === simulated ? heatStatus.matchedRooms : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{simulated ? 'aus IFC-Raumgeometrie · nicht gespeichert' : heatStatus ? 'GlobalId stimmt mit dem Modell überein' : 'Wird beim Modellladen ermittelt'}</p></div>
-      <div className="surface p-4"><p className="text-xs text-muted-foreground">Außenwetter · Open-Meteo</p><p className="mt-1 text-2xl font-semibold tabular-nums">{Number.isFinite(currentWeather?.temperature) ? `${temperature(currentWeather.temperature)} °C` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{currentWeather?.time ? `Modell-/Prognosedaten · Stand ${measurementTime(currentWeather.time)}` : weatherState.loading ? 'Wetterdaten werden geladen …' : weatherState.error || 'Noch keine Wetterdaten gespeichert'}{simulated ? ' · getrennt von der Raumsimulation' : ''}</p></div>
+      <div className="surface p-4"><p className="text-xs text-muted-foreground">Außenwetter · Open-Meteo</p><p className="mt-1 text-2xl font-semibold tabular-nums">{Number.isFinite(currentWeather?.temperature) ? `${temperature(currentWeather.temperature)} °C` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">{currentWeather?.time ? `Modell-/Prognosedaten · Stand ${measurementTime(currentWeather.time)}` : weatherState.isLoading ? 'Wetterdaten werden geladen …' : weatherState.isEnabled ? 'Keine Wetterdaten verfügbar' : 'Außenwetter ist für dieses Konto nicht freigegeben'}</p></div>
     </section>
 
-    {weatherState.error && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">Außenwetter nicht verfügbar: {weatherState.error}. Innenraumfarben werden davon nicht abgeleitet.</p>}
+    {weatherError && <p role="status" className="rounded-xl border border-amber-200/80 bg-amber-50/90 p-3 text-xs text-amber-900">{weatherError.message}</p>}
 
     {document ? <section className="surface min-w-0 overflow-hidden" aria-label={simulated ? 'Simulierte Raumtemperaturen im IFC-Modell' : 'Gemessene Raumtemperaturen im IFC-Modell'}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 px-4 py-3">
-        <div><h3 className="text-sm font-semibold">{activeBuilding?.name} · Raumtemperaturen</h3><p className="text-xs text-muted-foreground">{simulated ? 'Eine reproduzierbare Präsentationssimulation färbt Räume anhand ihrer IFC GlobalId und Geschosslage.' : 'Nur echte, aktuelle Messwerte mit exakter IFC GlobalId-Zuordnung werden eingefärbt.'}</p></div>
+        <div><h3 className="text-sm font-semibold">{building.name} · Raumtemperaturen</h3><p className="text-xs text-muted-foreground">{simulated ? 'Eine reproduzierbare Präsentationssimulation färbt Räume anhand ihrer IFC GlobalId und Geschosslage.' : 'Nur echte, aktuelle Messwerte mit exakter IFC GlobalId-Zuordnung werden eingefärbt.'}</p></div>
         <span className={`rounded-full border px-3 py-1 text-xs font-medium ${simulated ? 'border-amber-200 bg-amber-50/90 text-amber-900' : 'border-emerald-200 bg-emerald-50/90 text-emerald-800'}`}>{simulated ? 'Simulation · keine Messwerte · nicht gespeichert' : 'Messdaten · feste Skala −10 bis 50 °C'}</span>
       </div>
-      {documentsState.loading ? <div className="grid h-80 place-items-center text-sm text-muted-foreground">IFC-Modell wird gesucht …</div> : <IFCModelFrame document={document} heatmap={roomHeatmap} onHeatStatus={setHeatStatus} />}
+      <IFCModelFrame document={document} heatmap={roomHeatmap} onHeatStatus={setHeatStatus} />
       <div className="border-t border-white/70 bg-white/50 px-5 py-4" aria-label="Feste Temperaturskala">
         <p className="mb-2 flex justify-between text-xs font-medium"><span>Kalt</span><span>{simulated ? 'Simulierte Raumtemperatur · °C' : 'Gemessene Raumtemperatur · °C'}</span><span>Warm</span></p>
         <div className="h-3 rounded-full" style={{ background: HEAT_GRADIENT }} />
@@ -292,7 +226,7 @@ function RoomDataHeatMap({ simulated = false }) {
         <p className="mt-2 text-[11px] text-muted-foreground">{simulated ? 'Feste Skala −10 bis 50 °C. Die Temperaturfelder zeigen deterministische Szenariowerte, keine Messung und keine bauphysikalische Prognose. Nicht zugeordnete oder geometrisch fehlende Räume bleiben neutral.' : 'Werte außerhalb der Skala werden an den Grenzen eingefärbt. Die Farben werden nicht räumlich über mehrere Sensorpunkte interpoliert. Nicht zugeordnete Räume bleiben in ihrer IFC-Originaldarstellung.'}</p>
       </div>
     </section> : <section className="surface grid min-h-72 place-items-center p-8 text-center">
-      <div><p className="font-semibold">Kein IFC-Modell für dieses Gebäude gefunden</p><p className="mt-2 max-w-md text-sm text-muted-foreground">{documentsState.loading ? 'Dokumente werden geladen …' : 'Lade zuerst ein IFC-Modell in die Gebäudemappe. Die Messwerte bleiben unverändert.'}</p></div>
+      <p role="status" className="font-semibold">{modelLoading ? 'IFC-Modell wird gesucht …' : 'Für dieses Gebäude ist kein Modell hinterlegt.'}</p>
     </section>}
 
     <details className="surface px-4 py-3 text-xs text-muted-foreground">
@@ -303,11 +237,20 @@ function RoomDataHeatMap({ simulated = false }) {
 }
 
 export default function HeatMap() {
-  const [mode, setMode] = useState('floors');
+  const scope = useBuildingScope();
+  const selection = useBuildingSelection('bim');
+  const [params, setParams] = useSearchParams();
+  const mode = params.get('mode') || 'floors';
+  function setMode(value) {
+    const next = new URLSearchParams(params);
+    next.set('mode', value);
+    next.delete('focusRoom');
+    setParams(next, { preventScrollReset: true });
+  }
   return <div className="space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">D21 · Heat map</p>
+        <p className="mb-1 text-xs font-semibold text-primary">{mode === 'campus' ? 'Campus-Simulation' : scope.label}</p>
         <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Temperaturverteilung</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Raumtemperaturen im Geschossschnitt und Grundriss ansehen oder eine Simulation öffnen.</p>
       </div>
@@ -318,6 +261,33 @@ export default function HeatMap() {
         <button type="button" aria-pressed={mode==='campus'} onClick={()=>setMode('campus')} className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors ${mode==='campus'?'bg-primary text-primary-foreground shadow-sm':'text-muted-foreground hover:bg-white/70'}`}>Campus-Simulation</button>
       </div>
     </div>
-    {mode==='floors' ? <RoomHeatMap /> : mode==='campus' ? <CampusHeatMap /> : <RoomDataHeatMap simulated={mode==='room-simulation'} />}
+    {mode === 'campus' ? <CampusHeatMap buildingIDs={scope.readable('bim').map(row => row.id).join(',')} /> : <>
+      <BuildingSectionSelect selection={selection} />
+      {selection.building && <BuildingHeatMap key={selection.building.id} building={selection.building} mode={mode} />}
+    </>}
   </div>;
+}
+
+function BuildingHeatMap({ building, mode }) {
+  const [modelID, setModelID] = useState('');
+  const { models, loading, error, refresh } = useBuildingModels([building]);
+  const { structure, temperatures } = useRoomEvidence(building.id);
+  const document = models.find(item => String(item.id) === modelID) || models[0];
+  const simulated = mode === 'room-simulation';
+  return <>
+    {models.length > 1 && <label className="grid max-w-sm gap-1 text-xs font-medium">IFC-Modell
+      <select className="min-h-10 rounded-xl border border-input bg-card px-3 text-sm" value={document?.id ?? ''}
+        onChange={event => setModelID(event.target.value)}>
+        {models.map(file => <option key={file.id} value={file.id}>{file.name}</option>)}
+      </select>
+    </label>}
+    {error && <div role="alert" className="surface flex flex-wrap items-center gap-2 p-4 text-sm text-destructive">
+      <p>{error.message}</p><Button variant="outline" size="sm" onClick={refresh}>Erneut laden</Button>
+    </div>}
+    {!simulated && <RoomAnomalyList building={building} document={document} structure={structure} temperatures={temperatures} />}
+    {mode === 'floors' ? document ? <RoomHeatMap key={document.id} building={building} document={document} measurements={temperatures} />
+      : <p role="status" className="surface p-5 text-sm">{loading ? 'IFC-Modell wird gesucht …' : 'Für dieses Gebäude ist kein Modell hinterlegt.'}</p>
+      : <RoomDataHeatMap key={document?.id ?? 'no-ifc'} building={building} document={document}
+          temperatures={temperatures} modelLoading={loading} simulated={simulated} />}
+  </>;
 }

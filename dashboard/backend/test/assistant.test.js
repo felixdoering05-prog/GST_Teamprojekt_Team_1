@@ -4,6 +4,7 @@ const express=require('express');
 const {PGlite}=require('@electric-sql/pglite');
 const {randomBytes,createHash,randomUUID}=require('node:crypto');
 const {initAccounts,accountRouter}=require('../src/accounts');
+const {service}=require('../src/twin');
 let db,server,url,owner,member,outsider,building,other,mode='ok',calls=[];
 const privateContent='PRIVATE-PDF-CONTENT-NEVER-SEND';
 const mockKey='test-key-not-a-real-gemini-key';
@@ -96,6 +97,27 @@ test('IFC mode sends command text only, validates structured proposals and repla
  mode='command-invalid';assert.equal((await request(owner,path(),body,randomUUID())).status,502);
  mode='command-unsupported';const unsupported=await request(owner,path(),body,randomUUID());assert.equal(unsupported.body.command.action,'unsupported');
  mode='ok';await db.query("UPDATE app_ai_requests SET created_at=now()-interval '2 hours'");
+});
+test('room chat sends verified room context and stores the turn under its building only',async()=>{
+ const second=(await db.query("INSERT INTO app_buildings(user_id,name) VALUES($1,'Other owned building') RETURNING id",[owner.id])).rows[0];
+ const entities=service(db,owner.id).entities;
+ const floor=await entities.Floor.create({building_id:String(building.id),name:'EG',level:0,source:'real'});
+ const room=await entities.Room.create({building_id:String(building.id),floor_id:floor.id,room_code:'101',name:'Raum 101',source:'real'});
+ const secondPath=`/buildings/${second.id}/assistant`;
+ const info=await request(owner,path()+'?room_id='+room.id);
+ assert.equal(info.status,200);
+ assert.equal(info.body.context.room.id,room.id);
+ assert.equal(info.body.context.room.floor,'EG');
+ assert.equal((await request(owner,secondPath+'?room_id='+room.id)).status,404);
+ const body={question:'Wie warm ist es hier?',chat:true,room_id:room.id,context_hash:info.body.context_hash};
+ const before=calls.length;
+ assert.equal((await request(owner,secondPath,body,randomUUID())).status,404);
+ assert.equal(calls.length,before);
+ assert.equal((await request(owner,path(),body,randomUUID())).status,200);
+ const payload=JSON.parse(calls.at(-1).options.body);
+ assert.equal(JSON.parse(payload.contents.at(-1).parts[0].text).building_context.room.id,room.id);
+ assert.equal((await request(owner,path()+'/history')).body.at(-1).room_id,room.id);
+ assert.deepEqual((await request(owner,secondPath+'/history')).body,[]);
 });
 test('persistent account quota blocks new calls without affecting other users',async()=>{
  await db.query("UPDATE app_ai_requests SET created_at=now()-interval '2 hours'");
