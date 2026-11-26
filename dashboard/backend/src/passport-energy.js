@@ -2,6 +2,11 @@ const { buildingAccess, can } = require('./team-permissions');
 const { DAY, MEDIUMS, dayOf, uniqueReadings, unitKey } = require('./energy-records');
 const { reference } = require('./passport-energy-demo');
 
+const GROUP_MEDIA = {
+  strom: ['strom', 'netzbezug', 'pv_erzeugung', 'eigenverbrauch', 'einspeisung'],
+  wasser: ['wasser', 'kaltwasser', 'warmwasser'],
+};
+
 const monthStart = (year, month) => new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
 const previousDay = (day) => new Date(Date.parse(day) - DAY).toISOString().slice(0, 10);
 const amount = (rows, field) => {
@@ -75,6 +80,7 @@ function summarize(medium, rows, previous) {
 }
 
 function overview(readings, filters) {
+  const group = filters.group ? GROUP_MEDIA[filters.group] : null;
   const buildingsMatch = (row) => !filters.building || (filters.building === 'unassigned' ? !row.building_id : row.building_id === filters.building);
   const available = readings.filter(buildingsMatch);
   const source = filters.source || (available.length && available.every((row) => row.source === 'demo') ? 'demo' : 'real');
@@ -92,13 +98,15 @@ function overview(readings, filters) {
   const previous = ranges.previous ? scoped.filter((row) => between(readingDay(row), ranges.previous)) : [];
   const dataMedia = new Set(buildingRows.map((row) => row.medium));
   const media = Object.keys(MEDIUMS).filter((medium, index) => index < 4 || dataMedia.has(medium) || filters.medium === medium);
-  const summaries = media.map((medium) => summarize(medium, current.filter((r) => r.medium === medium),
+  const summaryMedia = group || (filters.medium ? [filters.medium] : media);
+  const summaries = summaryMedia.map((medium) => summarize(medium, current.filter((r) => r.medium === medium),
     previous.filter((r) => r.medium === medium)));
-  const rows = current.filter((row) => !filters.medium || row.medium === filters.medium);
-  const showReference = filters.reference && source === 'demo' && !filters.unit && !filters.medium &&
+  const historyMedia = filters.medium ? [filters.medium] : group;
+  const rows = historyMedia ? current.filter((row) => historyMedia.includes(row.medium)) : current;
+  const showReference = filters.reference && source === 'demo' && !filters.unit && !historyMedia &&
     between(periodRanges('1', reference.reference_month).current.to, ranges.current);
   return {
-    source, ranges, media, summaries: filters.medium ? summaries.filter((r) => r.medium === filters.medium) : summaries.map(({ meters, ...rest }) => rest),
+    source, ranges, media, summaries: historyMedia ? summaries : summaries.map(({ meters, ...rest }) => rest),
     units: [...usageUnits].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'de')),
     readings: rows.slice(filters.offset, filters.offset + 50), reading_count: rows.length,
     reference: showReference ? {
@@ -111,12 +119,15 @@ function overview(readings, filters) {
 async function getPassportEnergy(db, req, res) {
   const filters = {
     building: req.query.building || '', unit: req.query.unit || '', medium: req.query.medium || '',
+    group: req.query.group || '',
     months: req.query.months || '12', end: req.query.end || dayOf(new Date().toISOString()).slice(0, 7),
     source: req.query.source || '', offset: Number(req.query.offset || 0),
   };
-  if (![filters.building, filters.unit, filters.medium, filters.end].every((value) => typeof value === 'string') ||
+  if (![filters.building, filters.unit, filters.medium, filters.group, filters.end].every((value) => typeof value === 'string') ||
       (filters.building && filters.building !== 'unassigned' && !/^[1-9]\d{0,9}$/.test(filters.building)) ||
-      (filters.medium && !Object.hasOwn(MEDIUMS, filters.medium)) || !['1', '3', '12', 'all'].includes(filters.months) ||
+      (filters.medium && !Object.hasOwn(MEDIUMS, filters.medium)) ||
+      (filters.group && (!Object.hasOwn(GROUP_MEDIA, filters.group) || (filters.medium && !GROUP_MEDIA[filters.group].includes(filters.medium)))) ||
+      !['1', '3', '12', 'all'].includes(filters.months) ||
       !/^(19\d{2}|2\d{3})-(0[1-9]|1[0-2])$/.test(filters.end) || !['', 'real', 'demo'].includes(filters.source) ||
       !Number.isSafeInteger(filters.offset) || filters.offset < 0) {
     return res.status(400).json({ error: 'Ungültiger Verbrauchsfilter.' });

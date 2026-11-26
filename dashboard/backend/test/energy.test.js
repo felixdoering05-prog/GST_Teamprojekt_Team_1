@@ -90,6 +90,41 @@ test('building pass overview preserves Nala history, deduplicates retries and co
  assert.equal((await request('/energy-consumption','GET',undefined,stranger.token)).data.reading_count,0);
 });
 
+test('consumption groups preserve separate water meters and keep exact medium filters', async () => {
+ const created = await request('/buildings', 'POST', { name: 'Verbrauchsgruppen' }, owner.token);
+ assert.equal(created.status, 201);
+ const buildingID = String(created.data.id);
+ for (const [medium, unit, value] of [
+  ['kaltwasser', 'm³', 0], ['warmwasser', 'm³', 1.8], ['warmwasser', 'kWh', 42],
+  ['strom', 'kWh', 320], ['pv_erzeugung', 'kWh', 75],
+ ]) {
+  const reading = await request('/twin/EnergyReading/create', 'POST', { data: {
+   building_id: buildingID, meter_code: medium, medium, unit, value, reading_date: '2026-10-29', source: 'real',
+  } }, owner.token);
+  assert.equal(reading.status, 200, JSON.stringify(reading.data));
+ }
+ const path = `/energy-consumption?building=${buildingID}&months=1&end=2026-10`;
+ const water = await request(path + '&group=wasser', 'GET', undefined, owner.token);
+ assert.equal(water.status, 200);
+ assert.deepEqual(water.data.summaries.map(item => [item.medium, item.series[0].current]),
+  [['wasser', null], ['kaltwasser', 0], ['warmwasser', 1.8]]);
+ assert.deepEqual(water.data.summaries[2].series.map(item => item.unit), ['m³', 'kWh']);
+ assert.equal(water.data.reading_count, 3);
+ assert.ok(water.data.readings.every(item => ['kaltwasser', 'warmwasser'].includes(item.medium)));
+ const cold = await request(path + '&group=wasser&medium=kaltwasser', 'GET', undefined, owner.token);
+ assert.equal(cold.data.reading_count, 1);
+ assert.equal(cold.data.readings[0].medium, 'kaltwasser');
+ assert.equal(cold.data.summaries.length, 3);
+ const exact = await request(path + '&medium=warmwasser', 'GET', undefined, owner.token);
+ assert.deepEqual(exact.data.summaries.map(item => item.medium), ['warmwasser']);
+ const electricity = await request(path + '&group=strom', 'GET', undefined, owner.token);
+ assert.equal(electricity.data.reading_count, 2);
+ assert.equal(electricity.data.summaries.find(item => item.medium === 'pv_erzeugung').series[0].current, 75);
+ assert.equal((await request(path + '&group=wasser&medium=strom', 'GET', undefined, owner.token)).status, 400);
+ assert.equal((await request(path + '&group=__proto__', 'GET', undefined, owner.token)).status, 400);
+ assert.equal((await request(path + '&group=wasser', 'GET', undefined, stranger.token)).status, 404);
+});
+
 test('imports the published Sites building pass months, metrics and unit values exactly once',async()=>{
  const importDemo=()=>request('/twin-functions/seedPassportEnergy','POST',{},owner.token);
  const imported=await importDemo();assert.equal(imported.status,200,JSON.stringify(imported.data));
