@@ -20,7 +20,12 @@ const METRICS={
  humidity:{device_class:'humidity',unit:'%',label:'Luftfeuchte',units:{'%':v=>v},range:[0,100]},
  co2:{device_class:'carbon_dioxide',unit:'ppm',label:'CO₂',units:{'ppm':v=>v},range:[0,20000]},
  power:{device_class:'power',unit:'W',label:'Leistung',units:{'W':v=>v,'kW':v=>v*1000},range:[-1e6,1e7]},
- energy:{device_class:'energy',unit:'kWh',label:'Energie',units:{'Wh':v=>v/1000,'kWh':v=>v,'MWh':v=>v*1000},range:[0,1e9]}
+ energy:{device_class:'energy',unit:'kWh',label:'Energie',units:{'Wh':v=>v/1000,'kWh':v=>v,'MWh':v=>v*1000},range:[0,1e9]},
+ battery:{device_class:'battery',unit:'%',label:'Ladezustand',units:{'%':v=>v},range:[0,100]},
+ water:{device_class:'water',unit:'m³',label:'Wasserzähler',units:{'L':v=>v/1000,'m³':v=>v,'gal':v=>v*0.003785411784,'ft³':v=>v*0.028316846592,'CCF':v=>v*2.8316846592,'MCF':v=>v*28.316846592},range:[0,1e9]},
+ water_flow:{device_class:'volume_flow_rate',unit:'L/min',label:'Durchfluss',units:{'mL/s':v=>v*0.06,'L/s':v=>v*60,'L/min':v=>v,'L/h':v=>v/60,'m³/s':v=>v*60000,'m³/min':v=>v*1000,'m³/h':v=>v*1000/60},range:[0,1e6]},
+ volume_storage:{device_class:'volume_storage',unit:'m³',label:'Tankinhalt',units:{'mL':v=>v/1e6,'L':v=>v/1000,'m³':v=>v,'gal':v=>v*0.003785411784,'ft³':v=>v*0.028316846592},range:[0,1e6]},
+ irradiance:{device_class:'irradiance',unit:'W/m²',label:'Einstrahlung',units:{'W/m²':v=>v},range:[0,3000]}
 };
 const BY_CLASS=Object.fromEntries(Object.entries(METRICS).map(([metric,m])=>[m.device_class,metric]));
 const TELEMETRY_METRICS=new Set(['temperature','humidity','co2']);
@@ -93,8 +98,8 @@ async function applyInventory(c,link,b){
    }
    if(!onlyKeys(e,['entity_id','name','device_class','unit','device_id','area_id'])||typeof e.entity_id!=='string'||!ENTITY_RE.test(e.entity_id))fail('Nur Sensoren (sensor.*) und Lampen (light.*) sind erlaubt.');
    const metric=BY_CLASS[e.device_class];
-   if(!metric)fail(`Nicht unterstützte Sensorart bei ${e.entity_id}. Erlaubt: Temperatur, Luftfeuchte, CO₂, Leistung, Energie.`);
-   if(typeof e.unit!=='string'||!METRICS[metric].units[e.unit])fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
+   if(!Object.hasOwn(METRICS,metric))fail(`Nicht unterstützte Sensorart bei ${e.entity_id}.`);
+   if(typeof e.unit!=='string'||!Object.hasOwn(METRICS[metric].units,e.unit))fail(`Nicht unterstützte Einheit bei ${e.entity_id}.`);
    const device=ref(e.device_id),area=ref(e.area_id);
    entities.set(e.entity_id,{name:clean(e.name)||e.entity_id,metric,unit:e.unit,supports_color:false,caps:null,device_id:device&&devices.has(device)?device:null,area_id:area&&areas.has(area)?area:null});
   }

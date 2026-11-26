@@ -165,7 +165,18 @@ struct HAClient {
 
 /// Reine Paketlogik (gleiche Regeln wie Server und HA-Integration).
 enum HAPayload {
-    static let allowedUnits: [String: Set<String>] = ["temperature": ["°C", "°F", "K"], "humidity": ["%"], "carbon_dioxide": ["ppm"], "power": ["W", "kW"], "energy": ["Wh", "kWh", "MWh"]]
+    static let allowedUnits: [String: Set<String>] = [
+        "temperature": ["°C", "°F", "K"],
+        "humidity": ["%"],
+        "carbon_dioxide": ["ppm"],
+        "power": ["W", "kW"],
+        "energy": ["Wh", "kWh", "MWh"],
+        "battery": ["%"],
+        "water": ["L", "m³", "gal", "ft³", "CCF", "MCF"],
+        "volume_flow_rate": ["mL/s", "L/s", "L/min", "L/h", "m³/s", "m³/min", "m³/h"],
+        "volume_storage": ["mL", "L", "m³", "gal", "ft³"],
+        "irradiance": ["W/m²"],
+    ]
     static func allowed(_ entity: String, _ deviceClass: String?, _ unit: String?) -> Bool {
         guard entity.range(of: #"^sensor\.[a-z0-9_]{1,200}$"#, options: .regularExpression) != nil, let deviceClass, let unit else { return false }
         return allowedUnits[deviceClass]?.contains(unit) == true
@@ -173,7 +184,7 @@ enum HAPayload {
     // Registry-Daten (Bereiche, Geräte) über die Template-API, ohne WebSocket.
     static let registryTemplate = """
     {%- set ns = namespace(s=[], a=[]) -%}
-    {%- for s in (states.sensor | selectattr('attributes.device_class', 'in', ['temperature','humidity','carbon_dioxide','power','energy']) | list) + (states.light | list) -%}
+    {%- for s in (states.sensor | selectattr('attributes.device_class', 'in', ['temperature','humidity','carbon_dioxide','power','energy','battery','water','volume_flow_rate','volume_storage','irradiance']) | list) + (states.light | list) -%}
     {%- set d = device_id(s.entity_id) -%}
     {%- set ns.s = ns.s + [{'e': s.entity_id, 'a': area_id(s.entity_id), 'd': d, 'dn': (device_attr(d, 'name_by_user') or device_attr(d, 'name')) if d else none, 'dm': device_attr(d, 'manufacturer') if d else none, 'do': device_attr(d, 'model') if d else none, 'da': device_attr(d, 'area_id') if d else none}] -%}
     {%- endfor -%}

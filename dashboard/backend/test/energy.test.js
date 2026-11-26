@@ -86,6 +86,9 @@ test('building pass overview preserves Nala history, deduplicates retries and co
  assert.equal(detail.data.summaries.length,1);
  assert.equal(detail.data.readings.find(r=>r.unit==='m³').meter_reading,18);
  assert.equal(detail.data.summaries[0].series[0].previous,null);
+ const billing = (await request(path + '&medium=warmwasser&billing=1', 'GET', undefined, owner.token)).data.summaries[0].billing;
+ assert.deepEqual(billing.units, { 'm³': [{ month: '2026-11', value: 12.5 }], kWh: [] });
+ assert.equal(billing.average_rate, 12.5 / 1.8);
  assert.equal((await request(path,'GET',undefined,stranger.token)).status,404);
  assert.equal((await request('/energy-consumption','GET',undefined,stranger.token)).data.reading_count,0);
 });
@@ -123,6 +126,71 @@ test('consumption groups preserve separate water meters and keep exact medium fi
  assert.equal((await request(path + '&group=wasser&medium=strom', 'GET', undefined, owner.token)).status, 400);
  assert.equal((await request(path + '&group=__proto__', 'GET', undefined, owner.token)).status, 400);
  assert.equal((await request(path + '&group=wasser', 'GET', undefined, stranger.token)).status, 404);
+});
+
+test('energy monitoring maps selected measurements by building and keeps settings revisioned', async () => {
+ const created = await request('/buildings', 'POST', { name: 'Live-Messwerte' }, owner.token);
+ assert.equal(created.status, 201);
+ const buildingID = created.data.id;
+ const root = '/buildings/' + buildingID;
+ const ha = root + '/home-assistant';
+ const monitor = root + '/energy';
+ const login = owner.token;
+ assert.equal((await request(ha + '/app-connect', 'POST', { instance_name: 'Haus' }, login)).status, 201);
+ const entities = [
+  ['pv', 'power', 'kW'], ['reserve', 'battery', '%'], ['tank', 'volume_storage', 'L'],
+  ['flow', 'volume_flow_rate', 'm³/h'], ['cold', 'water', 'L'], ['grid', 'power', 'W'],
+ ].map(([name, device_class, unit]) => ({ entity_id: 'sensor.' + name, name, device_class, unit }));
+ const inventory = await request(ha + '/inventory', 'PUT', { areas: [], devices: [], entities }, login);
+ assert.equal(inventory.status, 200, JSON.stringify(inventory.data));
+ assert.equal((await request(ha + '/entities', 'PUT', { selected: entities.map((item) => item.entity_id) }, login)).status, 200);
+ const now = Date.now();
+ const points = [
+  ['cold', 1000], ['cold', 1100], ['cold', 10], ['cold', 30], ['flow', 1.2], ['tank', 2500],
+  ['reserve', 72], ['pv', 2.5], ['grid', -920],
+ ].map(([name, value], index) => ({ entity_id: 'sensor.' + name, value, measured_at: new Date(now - 30000 + index * 1000).toISOString() }));
+ assert.equal((await request(ha + '/samples', 'POST', { points }, login)).status, 201);
+ const settings = {
+  meters: { solar: 'sensor.pv', grid: 'sensor.grid', battery: 'sensor.reserve', water_total: 'sensor.cold', water_flow: 'sensor.flow', tank: 'sensor.tank' },
+  modules: [{ entity_id: 'sensor.pv', group: 'Süd' }], battery_capacity: 12, tank_capacity: 4,
+  standard_rate: 0.29, reduced_rate: 0.19, reduced_from: '22:00', reduced_to: '06:00', invert_grid: true,
+ };
+ const edit = monitor + '/settings';
+ assert.equal((await request(edit, 'PUT', { revision: 0, settings: { ...settings, meters: { load_total: 'sensor.zaehler' } } }, login)).status, 400);
+ const saved = await request(edit, 'PUT', { revision: 0, settings }, login);
+ assert.equal(saved.status, 200, JSON.stringify(saved.data));
+ assert.equal(saved.data.revision, 1);
+ assert.equal((await request(edit, 'PUT', { revision: 0, settings }, login)).status, 409);
+ assert.equal((await request(edit, 'PUT', { revision: 1, settings: { ...settings, reduced_from: '24:00' } }, login)).status, 400);
+ const configs = await request(edit, 'GET', undefined, login);
+ assert.equal(configs.data.revision, 1);
+ assert.equal(configs.data.sensors.length, 6);
+ const water = await request(monitor + '/live?medium=wasser', 'GET', undefined, login);
+ assert.equal(water.status, 200, JSON.stringify(water.data));
+ assert.equal(water.data.channels.water_flow.latest.value, 20);
+ assert.equal(water.data.channels.tank.latest.value, 2.5);
+ const total = water.data.channels.water_total.days.reduce((sum, item) => sum + item.value, 0);
+ assert.ok(Math.abs(total - 0.12) < 1e-10, 'Zählerrücksetzung überspringen und Liter nach m³ umrechnen');
+ assert.equal(water.data.channels.solar, undefined);
+ const electricity = await request(monitor + '/live?medium=strom', 'GET', undefined, login);
+ assert.equal(electricity.status, 200, JSON.stringify(electricity.data));
+ assert.equal(electricity.data.channels.grid.latest.value, 920);
+ assert.equal(electricity.data.channels.battery.latest.value, 72);
+ assert.equal(electricity.data.modules[0].group, 'Süd');
+ assert.equal(electricity.data.modules[0].latest.value, 2500);
+ assert.equal((await request(monitor + '/live?medium=wasser', 'GET', undefined, stranger.token)).status, 404);
+ const { ensureBuildingRoles } = require('../src/team-permissions');
+ const reader = (await ensureBuildingRoles(db, buildingID)).find((item) => item.role_key === 'maintenance');
+ await db.query("INSERT INTO app_building_members(building_id,user_id,role_id,status) VALUES($1,$2,$3,'accepted')",
+  [buildingID, stranger.user.id, reader.id]);
+ assert.equal((await request(monitor + '/live?medium=wasser', 'GET', undefined, stranger.token)).status, 200);
+ assert.equal((await request(edit, 'GET', undefined, stranger.token)).status, 403);
+ assert.equal((await request(edit, 'PUT', { revision: 1, settings }, stranger.token)).status, 403);
+ assert.equal((await request('/buildings/invalid/energy/live?medium=wasser', 'GET', undefined, login)).status, 404);
+ await db.query("UPDATE app_ha_entities SET selected=false WHERE entity_id='sensor.pv' AND link_id IN (SELECT id FROM app_ha_links WHERE building_id=$1)", [buildingID]);
+ const deselected = await request(monitor + '/live?medium=strom', 'GET', undefined, login);
+ assert.equal(deselected.data.channels.solar, undefined);
+ assert.deepEqual(deselected.data.modules, []);
 });
 
 test('imports the published Sites building pass months, metrics and unit values exactly once',async()=>{
