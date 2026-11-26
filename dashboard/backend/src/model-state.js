@@ -7,11 +7,11 @@ const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const category={IFCWALL:'walls',IFCWALLSTANDARDCASE:'walls',IFCWALLELEMENTEDCASE:'walls',IFCDOOR:'doors',IFCWINDOW:'windows',IFCROOF:'roofs',IFCSLAB:'slabs',IFCSPACE:'rooms'};
 // Read only entity headers outside quoted STEP strings/comments. Geometry remains on the client.
 function modelIndex(content){
- const clean=Buffer.from(content).toString('utf8').replace(/'(?:''|[^'])*'|\/\*[\s\S]*?\*\//g,' ');
+ const step=Buffer.from(content).toString('utf8').replace(/'(?:''|[^'])*'|\/\*[\s\S]*?\*\//g,token=>token.startsWith("'")?token:' ');
  const entities=[];const counts={};
- for(const m of clean.matchAll(/#(\d+)\s*=\s*(IFC[A-Z0-9_]+)\s*\(/g)){
+ for(const m of step.matchAll(/#(\d+)\s*=\s*(IFC[A-Z0-9_]+)\s*\(\s*(?:'([0-3][A-Z0-9_$]{21})'\s*,)?|'(?:''|[^'])*'/gi)){
   const id=Number(m[1]);if(!Number.isSafeInteger(id)||id<1)continue;
-  const type=category[m[2]]||'other';entities.push({id,type});counts[type]=(counts[type]||0)+1;
+  const type=category[m[2].toUpperCase()]||'other';entities.push({id,type,globalID:m[3]});counts[type]=(counts[type]||0)+1;
  }
  return {entities,counts};
 }

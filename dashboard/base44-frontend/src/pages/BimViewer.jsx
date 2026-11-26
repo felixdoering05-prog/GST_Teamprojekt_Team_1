@@ -2,6 +2,7 @@ import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import IFCModelFrame from '@/components/bim/IFCModelFrame';
+import BimAssetModel from '@/components/bim/BimAssetModel';
 import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
 import { useBuildingSelection } from '@/hooks/useBuildingSelection';
 import { useBuildingScope } from '@/hooks/useBuildingScope';
@@ -28,6 +29,7 @@ export default function BimViewer() {
       setParams(current => {
         const search = new URLSearchParams(current);
         search.set('model', id);
+        search.delete('asset');
         return search;
       }, { replace: true });
     }
@@ -55,7 +57,10 @@ export default function BimViewer() {
         <Button variant="ghost" size="sm" onClick={refresh} disabled={loading} aria-label="Modellliste aktualisieren"><RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} /></Button>
       </div>
       {error && <p role="alert" className="px-4 py-3 text-sm text-destructive">{error.message}</p>}
-      {model ? <IFCModelFrame key={model.id} document={model} presentation="bim" />
+      {model ? model.buildingID && scope.can(model.buildingID, 'maintenance')
+        ? <BimAssetModel key={[model.id, params.get('asset'), params.get('linkAsset')].join('/')} model={model}
+          focusAsset={params.get('asset')} linkAsset={params.get('linkAsset')} />
+        : <IFCModelFrame key={model.id} document={model} presentation="bim" />
         : <p role="status" className="p-6 text-sm text-muted-foreground">{loading ? 'Modellliste wird geladen …'
           : selection.building && !models.length && !error ? 'Für dieses Gebäude ist kein Modell hinterlegt.'
             : requested ? 'Dieses Modell ist in der aktuellen Gebäudeauswahl nicht verfügbar.' : 'Wähle ein Gebäude oder ein Modell aus.'}</p>}

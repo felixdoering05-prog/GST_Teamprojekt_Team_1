@@ -35,10 +35,11 @@ export const base44={
 };
 
 /** Binary upload with byte progress and an idempotency key for safe retries. */
-export function uploadFile(buildingID, file, uploadID, onProgress, category) {
+export function uploadFile(buildingID, file, uploadID, onProgress, category, maintenanceID = null) {
  return new Promise((resolve,reject)=>{
   const xhr=new XMLHttpRequest();
-  xhr.open('POST',`/api/v1/buildings/${buildingID}/documents`);
+  const maintenance = maintenanceID == null ? '' : `/maintenance/${maintenanceID}`;
+  xhr.open('POST',`/api/v1/buildings/${buildingID}${maintenance}/documents`);
   xhr.timeout=120000;
   xhr.setRequestHeader('X-D21-Session',sessionStorage.getItem(TOKEN_KEY)||'');
   const selectedTeam=localStorage.getItem('d21-selected-team');if(selectedTeam)xhr.setRequestHeader('X-D21-Team',selectedTeam);

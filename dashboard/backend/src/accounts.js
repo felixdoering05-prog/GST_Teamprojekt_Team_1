@@ -213,7 +213,7 @@ function accountRouter(db,options={}) {
  router.use(uiPreferencesRouter(db,requireAccount));
  router.use(issuesRouter(db,requireAccount,options.campus));
  router.use(maintenanceRouter(db,requireAccount));
- router.use(technicalAssetsRouter(db));
+ router.use(technicalAssetsRouter(db,options.campus));
  router.use(automationsRouter(db,requireAccount));
  router.use(energyRouter(db,requireAccount));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));

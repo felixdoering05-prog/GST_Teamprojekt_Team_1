@@ -41,6 +41,9 @@ async function initMaintenance(db){
   ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high')),
   ADD COLUMN IF NOT EXISTS work_status TEXT NOT NULL DEFAULT 'planned' CHECK(work_status IN ('planned','in_progress','completed'))`);
  await db.query('CREATE INDEX IF NOT EXISTS app_maintenance_asset_idx ON app_maintenance(asset_id,next_due)');
+ await db.query(`ALTER TABLE app_documents ADD COLUMN IF NOT EXISTS maintenance_id INTEGER
+  REFERENCES app_maintenance(id) ON DELETE SET NULL`);
+ await db.query('CREATE INDEX IF NOT EXISTS app_documents_maintenance_idx ON app_documents(maintenance_id) WHERE maintenance_id IS NOT NULL');
  await db.query(`CREATE TABLE IF NOT EXISTS app_maintenance_history(
   maintenance_id INTEGER NOT NULL REFERENCES app_maintenance(id) ON DELETE CASCADE, revision INTEGER NOT NULL,
   action TEXT NOT NULL, performed_on DATE, actor_id INTEGER REFERENCES app_users(id) ON DELETE SET NULL,
