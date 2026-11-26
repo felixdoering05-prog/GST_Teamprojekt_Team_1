@@ -2,6 +2,7 @@ const {test,before,after}=require('node:test'),assert=require('node:assert/stric
 const {PGlite}=require('@electric-sql/pglite');
 const {initAccounts,accountRouter}=require('../src/accounts');
 const {addMonths,status}=require('../src/maintenance');
+const {randomUUID}=require('node:crypto');
 let db,server,url,owner,member,stranger,building;
 before(async()=>{
  const pg=new PGlite();await pg.waitReady;
@@ -81,4 +82,104 @@ test('technical assets retain their own building, linked schedule, and maintenan
  assert.deepEqual(history.map(x=>x.action),['completed','started']);
  assert.equal(history[0].performed_on,'2026-11-24');
  assert.equal((await request('/buildings/'+outside.id+'/maintenance/'+task.id+'/history','GET',undefined,owner.token)).status,404);
+});
+
+test('maintenance and building register share one document, including upload retries', async () => {
+ const other = (await request('/buildings','POST',{name:'Gebäude B'},owner.token)).data;
+ const task = (await request(base(),'POST',{title:'Wartung mit Prüfprotokoll'},owner.token)).data;
+ const taskB = (await request(`/buildings/${other.id}/maintenance`,'POST',{title:'Andere Wartung'},owner.token)).data;
+ const bytes = Buffer.from('%PDF-1.4\n%%EOF');
+ const uploadID = randomUUID();
+ const upload = (buildingID, taskID, token) => fetch(`${url}/buildings/${buildingID}/maintenance/${taskID}/documents`, {
+  method:'POST', headers:{'X-D21-Session':token,'Content-Type':'application/octet-stream',
+   'X-File-Name':encodeURIComponent('Prüfprotokoll.pdf'),'X-Upload-ID':uploadID}, body:bytes,
+ });
+ assert.equal((await upload(other.id,task.id,owner.token)).status,404);
+ assert.equal((await upload(building.id,task.id,stranger.token)).status,404);
+ const uploaded = await upload(building.id,task.id,member.token);
+ assert.equal(uploaded.status,201);
+ const document = await uploaded.json();
+ assert.equal(document.maintenance_id,task.id);
+ assert.equal(document.category,'wartung');
+ const retried = await upload(building.id,task.id,member.token);
+ assert.equal(retried.status,200);
+ assert.deepEqual(await retried.json(),document);
+ assert.equal((await upload(building.id,taskB.id,member.token)).status,404);
+ const list = async id => (await request(`/buildings/${id}/documents`,'GET',undefined,owner.token)).data;
+ assert.deepEqual(await list(building.id),[document]);
+ assert.deepEqual(await list(other.id),[]);
+ const opened = await fetch(`${url}/documents/${document.id}`,{headers:{'X-D21-Session':owner.token}});
+ assert.deepEqual(Buffer.from(await opened.arrayBuffer()),bytes);
+ await db.query(`UPDATE app_building_roles SET permissions=permissions||'{"documents":"read"}'::jsonb
+  WHERE building_id=$1 AND role_key='employee'`,[building.id]);
+ assert.equal((await upload(building.id,task.id,member.token)).status,403);
+ await db.query(`UPDATE app_building_roles SET permissions=permissions||'{"documents":"edit","maintenance":"read"}'::jsonb
+  WHERE building_id=$1 AND role_key='employee'`,[building.id]);
+ assert.equal((await upload(building.id,task.id,member.token)).status,403);
+ assert.equal((await request(`/maintenance/${task.id}`,'DELETE',undefined,owner.token)).status,200);
+ assert.deepEqual(await list(building.id),[{...document,maintenance_id:null}]);
+});
+
+test('IFC links need a valid object in the asset building and keep their document identity', async () => {
+ const other = (await request('/buildings','POST',{name:'Anderes IFC-Gebäude'},owner.token)).data;
+ const path = `/buildings/${building.id}/assets`;
+ const asset = (await request(path,'POST',{name:'Raumlüftung',system:'Lüftung',location:'EG',status:'in_betrieb'},owner.token)).data;
+ const global_id = '2YvctVUKr0kugbFTf53O9L';
+ const bytes = Buffer.from(`#16=IFCSPACE('${global_id}',$,'Raum 101');`);
+ const addDoc = async id => (await db.query(`INSERT INTO app_documents(building_id,name,mime_type,size,content)
+  VALUES($1,'Prüfmodell.ifc','application/x-step',$2,$3) RETURNING id`,[id,bytes.length,bytes])).rows[0].id;
+ const model = await addDoc(building.id);
+ const foreign = await addDoc(other.id);
+ const reference = {model_id:String(model),element_id:16,global_id,label:'Raum 101'};
+ const link = (value, token=owner.token, revision=0) => request(`${path}/${asset.id}/ifc-reference`,'PUT',{revision,reference:value},token);
+ assert.equal((await link({...reference,model_id:String(foreign)})).status,404);
+ assert.equal((await link({...reference,element_id:30})).status,400);
+ assert.equal((await link(reference,stranger.token)).status,404);
+ assert.equal((await link(reference,member.token)).status,403);
+ const saved = await link(reference);
+ assert.equal(saved.status,200,JSON.stringify(saved.data));
+ assert.deepEqual(saved.data.ifc_reference,reference);
+ assert.equal((await link(null)).status,409);
+ await db.query('DELETE FROM app_documents WHERE id=$1',[model]);
+ const assets = (await request(path,'GET',undefined,owner.token)).data.items;
+ assert.deepEqual(assets.find(row => row.id === asset.id).ifc_reference,reference);
+ assert.equal((await link(null,owner.token,1)).data.ifc_reference,null);
+});
+
+test('asset trends distinguish uncovered periods, recorded zero, and current overdue stock', async () => {
+ const home = (await request('/buildings','POST',{name:'Anlagentrends'},owner.token)).data;
+ const path = `/buildings/${home.id}`;
+ const fields = {name:'Anlage A',system:'Lüftung',location:'EG',status:'in_betrieb',data_quality:40};
+ const asset = (await request(`${path}/assets`,'POST',fields,owner.token)).data;
+ const update = (revision, status, data_quality) => request(`${path}/assets/${asset.id}`,'PATCH',{...fields,revision,status,data_quality},owner.token);
+ assert.equal((await update(0,'stoerung',50)).status,200);
+ assert.equal((await update(1,'stoerung',80)).status,200);
+ assert.equal((await update(2,'in_betrieb',80)).status,200);
+ assert.equal((await update(3,'in_betrieb',80)).status,200);
+ const observations = (await db.query('SELECT revision,entered_fault FROM app_technical_asset_observations WHERE asset_id=$1 ORDER BY revision',[asset.id])).rows;
+ assert.deepEqual(observations.map(row=>[row.revision,row.entered_fault]),[[0,false],[1,true],[2,false],[3,false]]);
+ await db.query(`UPDATE app_technical_asset_observations SET observed_at=TIMESTAMPTZ '2020-01-05 12:00Z'+revision*interval '10 days' WHERE asset_id=$1`,[asset.id]);
+ await request(`${path}/maintenance`,'POST',{title:'Alt',next_due:'2020-01-15',asset_id:asset.id},owner.token);
+ const completed = (await request(`${path}/maintenance`,'POST',{title:'Erledigt',next_due:'2020-01-10',asset_id:asset.id},owner.token)).data;
+ await request(`/maintenance/${completed.id}/done`,'POST',{revision:0,date:'2020-01-11'},owner.token);
+ const endpoint = `${path}/analysis/asset-trends`;
+ const report = async (from,to) => (await request(`${endpoint}?from=${from}&to=${to}&asset_id=${asset.id}`,'GET',undefined,owner.token)).data.context;
+ const known = await report('2020-01-10','2020-01-30');
+ assert.deepEqual(known.assets,[{id:asset.id,name:'Anlage A'}]);
+ assert.equal(known.faults.current.count,1);
+ assert.equal(known.faults.current.complete,true);
+ assert.equal(known.faults.previous.complete,false);
+ assert.equal(known.quality.average_percent,80);
+ assert.equal(known.quality.change_percentage_points,40);
+ assert.equal(known.overdue.count,1);
+ assert.equal(known.overdue.historical_available,false);
+ const none = await report('2019-12-01','2019-12-31');
+ assert.equal(none.faults.current.count,null);
+ assert.equal(none.quality.average_percent,null);
+ assert.equal(none.overdue.count,known.overdue.count);
+ const zero = await report('2020-02-01','2020-02-10');
+ assert.equal(zero.faults.current.count,0);
+ assert.equal(zero.faults.current.complete,true);
+ assert.equal((await request(`${endpoint}?from=2020-02-01&to=2020-02-10`,'GET',undefined,stranger.token)).status,404);
+ assert.equal((await request(`${endpoint}?from=2020-02-01&to=2020-02-10&asset_id=999`,'GET',undefined,owner.token)).status,404);
 });

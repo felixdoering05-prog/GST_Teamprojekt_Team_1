@@ -15,6 +15,8 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
   const shared=!!native||window.parent!==window;
   const note=document.createElement('div');note.id='sync-status';note.setAttribute('role','status');document.body.append(note);
   if(!shared){note.textContent='Lokale Datei · Änderungen nur auf diesem Gerät';return {change(){}};}
+  let firstReply;
+  const ready = new Promise(resolve => { firstReply = resolve; });
   let revision=0,deviceSignature='',latestDeviceLights=[],ticket,busy=false,loaded=false,failed=false,queue=[],timer,timeout;
   const message=document.createElement('span'),retry=document.createElement('button');retry.textContent='Erneut laden';retry.hidden=true;note.append(message,retry);
   function status(text){message.textContent=text;}
@@ -28,6 +30,7 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
   function next(){if(!busy&&!failed&&queue.length)request(queue.shift());}
   function reply(id,result,error){
     if(id!==ticket)return;ticket=undefined;busy=false;clearTimeout(timeout);
+    firstReply();
     if(error){failed=true;queue=[];lock(true);status('Nicht synchronisiert: '+String(error));retry.hidden=false;return;}
     try{
       if(!Number.isInteger(result?.revision))throw Error('Ungültige Serverantwort.');
@@ -45,7 +48,7 @@ export function mountSynchronization({appearance,roomLights,update,environment=(
   status('Gemeinsamer Modellstand wird geladen …');lock(true);request();
   timer=setInterval(()=>{if(!busy&&!failed&&!queue.length&&!document.hidden)request();},5000);
   window.addEventListener('pagehide',()=>{clearTimeout(timeout);clearInterval(timer);window.removeEventListener('message',receive);delete window.d21SceneReply;},{once:true});
-  return {refresh(){if(!busy&&!queue.length&&!failed)request();},change(operation){
+  return {ready,refresh(){if(!busy&&!queue.length&&!failed)request();},change(operation){
     if(!loaded||failed){status('Noch nicht gespeichert. Bitte zuerst den Serverstand laden.');return;}
     queue.push(operation);if(queue.length>20){queue=[];failed=true;lock(true);retry.hidden=false;status('Zu viele offene Änderungen. Bitte den Serverstand erneut laden.');return;}
     status('Änderungen werden gespeichert …');next();

@@ -37,6 +37,6 @@ test('old issue links keep their filters, detail IDs and fragment', () => {
 });
 
 test('an explicit building change removes stale detail parameters and keeps view filters', () => {
-  assert.equal(clearBuildingParameters('?building=21&room=101&focusRoom=101&model=8&issue=401&unit=eg&mode=rooms&status=active').toString(),
+  assert.equal(clearBuildingParameters('?building=21&room=101&karte=1&focusRoom=101&model=8&issue=401&linkAsset=15&unit=eg&mode=rooms&status=active').toString(),
     'mode=rooms&status=active');
 });

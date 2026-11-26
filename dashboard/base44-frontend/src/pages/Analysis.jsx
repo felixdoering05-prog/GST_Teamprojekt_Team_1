@@ -4,6 +4,7 @@ import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import EmptyState from '@/components/EmptyState';
 import FindingCard from '@/components/analysis/FindingCard';
+import AssetTrends from '@/components/analysis/AssetTrends';
 import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/Field';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,6 +16,14 @@ import { analyseRoom, analysisSummary } from '@/lib/analysis';
 export default function Analysis() {
   const scope = useBuildingScope();
   const buildings = scope.readable('analysis');
+  return <div className="space-y-5">
+    <PageHeader title="KI-Analyse" description="Messwerte und Trends technischer Anlagen auswerten." />
+    <AssetTrends buildings={buildings.filter(building => scope.can(building.id, 'maintenance'))} />
+    <RoomAnalysis buildings={buildings} />
+  </div>;
+}
+
+function RoomAnalysis({ buildings }) {
   const editableBuildings = buildings.filter(building => building.is_owner);
   const data = useD21Data('', { buildingIDs: buildings.map(building => building.id).join(',') });
   const { toast } = useToast();
@@ -73,7 +82,6 @@ export default function Analysis() {
   if (!data.rooms.length || !data.series.length) {
     return (
       <div>
-        <PageHeader title="KI-Analyse" description="Auffälligkeiten, Trends und mögliche Ursachen untersuchen." />
         <EmptyState
           icon={BrainCircuit}
           title="Keine Messwerte für die Auswertung"
@@ -86,7 +94,7 @@ export default function Analysis() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="KI-Analyse"
+        title="Raum- und Sensoranalyse"
         description="Auffälligkeiten, Trends und mögliche Ursachen aus den hinterlegten Messwerten."
       >
         <Button variant="outline" size="sm" onClick={data.reload}>
@@ -102,11 +110,10 @@ export default function Analysis() {
           <Sparkles className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-heading text-sm font-semibold text-foreground">Regelbasierte Auswertung – Vorstufe zur KI-Anbindung</h3>
+          <h3 className="font-heading text-sm font-semibold text-foreground">Regelbasierte Messwertauswertung</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Die Ergebnisse entstehen ausschließlich aus den hinterlegten Grenzwerten und einer Verlaufsanalyse der Messreihen
-            (lineare Trendberechnung). Es ist kein KI-Modell im Einsatz, es werden keine Werte geschätzt oder Prognosen erfunden.
-            Die Auswertung ist so aufgebaut, dass später ein KI-Modell an derselben Datenbasis ansetzen kann.
+            (lineare Trendberechnung).
           </p>
         </div>
       </div>

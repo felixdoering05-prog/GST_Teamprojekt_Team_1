@@ -10,6 +10,27 @@ function campusBuildingID(options = {}) {
   return /^[1-9]\d*$/.test(id) && Number(id) <= 2147483647 ? id : null;
 }
 
+async function campusModelFile(options = {}) {
+  const missing = () => Object.assign(new Error('Das D21-Modell ist auf dem Projektserver noch nicht eingerichtet.'), { status: 503 });
+  const filename = options.file ?? process.env.D21_CAMPUS_MODEL_FILE ?? '/run/d21-models/H_DA_D21_Final.ifc';
+  if (!path.isAbsolute(filename)) throw missing();
+  let handle;
+  try {
+    handle = await fs.open(filename, 'r');
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_MODEL) throw Object.assign(new Error('Das D21-IFC muss eine Datei bis 20 MiB sein.'), { status: 413 });
+    const header = Buffer.alloc(Math.min(4096, stat.size));
+    await handle.read(header, 0, header.length, 0);
+    if (!header.toString('utf8').trimStart().startsWith('ISO-10303-21;') || !header.includes('FILE_SCHEMA')) {
+      throw Object.assign(new Error('Die bereitgestellte Datei ist kein unterstütztes IFC-Modell.'), { status: 415 });
+    }
+    return { filename, size: stat.size };
+  } catch (error) {
+    if (['ENOENT','EACCES','EISDIR'].includes(error.code)) throw missing();
+    throw error;
+  } finally { await handle?.close(); }
+}
+
 // The original is a private read-only deployment file, never a frontend build asset or DB upload.
 function campusRouter(db, requireAccount, options = {}) {
   const router = express.Router();
@@ -28,20 +49,12 @@ function campusRouter(db, requireAccount, options = {}) {
       res.status(404).json({error:'Das D21-Campusmodell ist für dieses Konto nicht freigegeben.'}); return null;
     }
     if (!can(access, 'bim', 'read')) { res.status(403).json({error:'Dafür hast du in diesem Gebäude keine Berechtigung.'}); return null; }
-    const filename = options.file ?? process.env.D21_CAMPUS_MODEL_FILE ?? '/run/d21-models/H_DA_D21_Final.ifc';
-    if (!path.isAbsolute(filename)) { res.status(503).json({error:'Das D21-Modell ist auf dem Projektserver noch nicht eingerichtet.'}); return null; }
-    let handle;
     try {
-      handle = await fs.open(filename, 'r');
-      const stat = await handle.stat();
-      if (!stat.isFile() || stat.size < 1 || stat.size > MAX_MODEL) { res.status(413).json({error:'Das D21-IFC muss eine Datei bis 20 MiB sein.'}); return null; }
-      const header = Buffer.alloc(Math.min(4096, stat.size)); await handle.read(header, 0, header.length, 0);
-      if (!header.toString('utf8').trimStart().startsWith('ISO-10303-21;') || !header.includes('FILE_SCHEMA')) { res.status(415).json({error:'Die bereitgestellte Datei ist kein unterstütztes IFC-Modell.'}); return null; }
-      return { filename, size: stat.size, buildingID };
+      return { ...await campusModelFile(options), buildingID };
     } catch (error) {
-      if (['ENOENT','EACCES','EISDIR'].includes(error.code)) { res.status(503).json({error:'Das D21-Modell ist auf dem Projektserver noch nicht eingerichtet.'}); return null; }
+      if (error.status) { res.status(error.status).json({ error: error.message }); return null; }
       throw error;
-    } finally { await handle?.close(); }
+    }
   };
   router.get('/d21', wrap(async (req, res) => {
     const file = await model(req, res); if (!file) return;
@@ -54,4 +67,4 @@ function campusRouter(db, requireAccount, options = {}) {
   }));
   return router;
 }
-module.exports = { campusRouter, campusBuildingID, MAX_MODEL };
+module.exports = { campusRouter, campusBuildingID, campusModelFile, MAX_MODEL };

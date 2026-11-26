@@ -29,6 +29,7 @@ const isRoomHeat = new URLSearchParams(location.search).get('room-heat') === 'tr
 const isDashboard = new URLSearchParams(location.search).get('presentation') === 'dashboard';
 const isBim = new URLSearchParams(location.search).get('presentation') === 'bim';
 const readOnly = new URLSearchParams(location.search).get('read-only') === 'true';
+const assetPicking = isBim && !readOnly && !isExample;
 if (readOnly) document.body.classList.add('issue-presentation');
 if (isDashboard) document.body.classList.add('dashboard-presentation');
 if (isRoomHeat) document.body.classList.add('room-heat-mode');
@@ -469,6 +470,31 @@ async function open() {
     campusEnvironment?.setLabels(!labelHost.hidden); render();
   };
   const text = value => typeof value?.value === 'string' ? value.value : '';
+  let pickMode = 'auto', selectedRoomObject;
+  const roomsByID = new Map();
+  const roomOutline = assetPicking ? new THREE.Box3Helper(new THREE.Box3(), 0xffd35c) : null;
+  if (roomOutline) { roomOutline.visible = false; scene.add(roomOutline); }
+  function setRoomObject(id) {
+    selectedRoomObject = id;
+    if (!roomOutline) return;
+    roomOutline.box.makeEmpty();
+    for (const mesh of roomsByID.get(id)?.meshes ?? []) roomOutline.box.expandByObject(mesh);
+    roomOutline.visible = !roomOutline.box.isEmpty();
+  }
+  function objectReference(id) {
+    if (id == null) return null;
+    const room = roomsByID.get(id);
+    const line = api.GetLine(modelID, id, false);
+    const global_id = text(line?.GlobalId);
+    if (!/^[0-3][A-Za-z0-9_$]{21}$/.test(global_id)) return null;
+    const label = room?.name || text(line.Name) || `IFC-Bauteil #${id}`;
+    return { element_id: id, global_id, label: label.slice(0, 160) };
+  }
+  function sendAssetSelection() {
+    if (!assetPicking || window.parent === window) return;
+    window.parent.postMessage({ type: 'd21-bim-object-selection',
+      object: objectReference(selectedRoomObject ?? appearance.selectedID) }, location.origin);
+  }
   function updateSelection() {
     const id = appearance.selectedID;
     panel.hidden = id === undefined;
@@ -479,6 +505,7 @@ async function open() {
     }
     document.querySelector('#show-all').textContent = appearance.hiddenCount ? `Alles anzeigen (${appearance.hiddenCount})` : 'Alles anzeigen';
     if (isBim) renderer.shadowMap.needsUpdate = true;
+    sendAssetSelection();
     render();
   }
   let synchronization; const roomLights = new Map();
@@ -503,7 +530,20 @@ async function open() {
     if (isDashboard) { // Im Dashboard-Widget nur Raum-Popups, keine Bauteilauswahl.
       roomSensors?.pick(ray, { element, allowed }); render(); return;
     }
-    if (roomSensors?.pick(ray, { element, allowed })) { appearance.select(undefined); updateSelection(); render(); return; }
+    if (assetPicking && pickMode === 'room') {
+      const space = ray.intersectObjects(roomEffects.children, false).find(hit => hit.object.layers.isEnabled(0) && allowed(hit));
+      roomSensors?.select(null);
+      setRoomObject(space?.object.userData.expressID);
+      appearance.select(undefined);
+      updateSelection();
+      return;
+    }
+    if (pickMode !== 'element' && roomSensors?.pick(ray, { element, allowed })) {
+      if (assetPicking) setRoomObject(roomSensors.selected ?? undefined);
+      appearance.select(undefined); updateSelection(); return;
+    }
+    if (pickMode === 'element') roomSensors?.select(null);
+    setRoomObject(undefined);
     appearance.select(element?.object.userData.expressID);
     updateSelection();
   }
@@ -538,7 +578,7 @@ async function open() {
   document.querySelector('#color').addEventListener('input', event => { appearance.color(event.target.value); render(); });
   document.querySelector('#color').addEventListener('change', event => { if (appearance.selectedID !== undefined) changed({action:'color',ids:[appearance.selectedID],color:event.target.value}); });
   document.querySelector('#hide').onclick = () => { const id=appearance.selectedID; appearance.hide(); updateSelection(); if(id!==undefined) changed({action:'hide',ids:[id]}); };
-  document.querySelector('#close-selection').onclick = () => { appearance.select(undefined); updateSelection(); };
+  document.querySelector('#close-selection').onclick = () => { setRoomObject(undefined); appearance.select(undefined); updateSelection(); };
   document.querySelector('#show-all').onclick = () => { appearance.showAll(); updateSelection(); changed({action:'show',ids:[...appearance.elements.keys()]}); };
   document.querySelector('#reset-colors').onclick = () => { appearance.resetColors(); updateSelection(); changed({action:'reset-colors',ids:[...appearance.elements.keys()]}); };
   let webSmartHome = false, lastSelectedRoom = null;
@@ -563,7 +603,6 @@ async function open() {
   }
   const spaceIDs = api.GetLineIDsWithType(modelID, IFCSPACE);
   const heatRoomSpaces = [];
-  const roomsByID = new Map();
   let roomVertices = 0, roomMeshes = 0;
   const sensorAnchors = new Map(); // IfcSpace-ID → Raummitte (Koordinaten der Raumgruppe) und Raumvolumen für Messwert-Popups
   for (let n = 0; n < spaceIDs.size(); n++) {
@@ -607,7 +646,7 @@ async function open() {
       } finally { data.delete(); }
     }
     if (meshes.length) { const box = new THREE.Box3(); for (const mesh of meshes) { mesh.updateMatrix(); mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix)); } sensorAnchors.set(id, { anchor: box.getCenter(new THREE.Vector3()), meshes, label: label.textContent }); }
-    if (readOnly) {
+    if (readOnly || assetPicking) {
       const code = names.join(' · ');
       const roomName = /^\d+(?:[.-]\d+)*$/.test(code) ? `Raum ${code}` : code || `IFC-Raum #${id}`;
       roomsByID.set(id, { name: roomName, aliases: names, globalId: text(line.GlobalId), meshes });
@@ -629,7 +668,18 @@ async function open() {
   // Raum-Popup für jeden IFC-Raum, sichtbar erst nach Klick in den Raum: Name (per Doppelklick änderbar) und, falls
   // vorhanden, Sensorwerte. Die Seite lädt Werte und Namen angemeldet und schickt sie; der Viewer fragt nur nach.
   if (!isCampus && !isExample && !isHeat && !isRoomHeat && !readOnly && sensorAnchors.size) {
-    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onChange: () => { render(); const selected = roomSensors?.selected ?? null; if (webSmartHome && selected !== lastSelectedRoom) { lastSelectedRoom = selected; window.parent.postMessage({ type: 'd21-room-selected', space_id: selected }, location.origin); } }, onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
+    roomSensors = createRoomSensors(document.body, roomEffects, sensorAnchors, camera, { planes: () => renderer.clippingPlanes, onChange: () => {
+      const selected = roomSensors?.selected ?? null;
+      if (assetPicking && pickMode === 'auto' && selected === null && selectedRoomObject !== undefined) {
+        setRoomObject(undefined);
+        sendAssetSelection();
+      }
+      if (webSmartHome && selected !== lastSelectedRoom) {
+        lastSelectedRoom = selected;
+        window.parent.postMessage({ type: 'd21-room-selected', space_id: selected }, location.origin);
+      }
+      render();
+    }, onRename: (space_id, name) => window.parent.postMessage({ type: 'd21-room-rename', space_id, name }, location.origin) });
     function receiveSensors(event) {
       if (event.source !== window.parent || event.origin !== location.origin) return;
       if (event.data?.type === 'd21-room-rename-result' && Number.isInteger(event.data.space_id)) { roomSensors?.renamed(event.data); return; }
@@ -749,9 +799,11 @@ async function open() {
       light.shadow.intensity = campus || exploded ? 0 : floor ? .43 : .68;
       if (!refit) {
         appearance.select(undefined);
+        setRoomObject(undefined);
         cancelCommand();
         panel.hidden = true;
         bimFloors.setView(floor, exploded);
+        sendAssetSelection();
         renderer.shadowMap.needsUpdate = true;
       }
       campusButton.setAttribute('aria-pressed', String(campus));
@@ -825,6 +877,56 @@ async function open() {
       window.addEventListener('message', focusIssue);
       window.addEventListener('pagehide', () => window.removeEventListener('message', focusIssue), { once: true });
       window.parent.postMessage({ type: 'd21-issue-view-ready' }, location.origin);
+    }
+    if (assetPicking && window.parent !== window) {
+      function receiveObject(event) {
+        if (event.source !== window.parent || event.origin !== location.origin) return;
+        if (event.data?.type === 'd21-bim-object-pick-mode' && ['auto', 'element', 'room'].includes(event.data.mode)) {
+          if (pickMode !== event.data.mode) {
+            pickMode = event.data.mode;
+            roomSensors?.select(null);
+            setRoomObject(undefined);
+            appearance.select(undefined);
+            updateSelection();
+          }
+          return;
+        }
+        if (event.data?.type !== 'd21-bim-object-focus') return;
+        const { element_id, global_id } = event.data.reference ?? {};
+        if (!Number.isInteger(element_id) || !/^[0-3][A-Za-z0-9_$]{21}$/.test(global_id)) return;
+        const selectable = id => roomsByID.get(id)?.meshes.length || appearance.elements.has(id);
+        let id = selectable(element_id) && objectReference(element_id)?.global_id === global_id ? element_id : undefined;
+        if (id === undefined) {
+          const ids = [...new Set([...roomsByID.keys(), ...appearance.elements.keys()])];
+          const matches = ids.filter(id => selectable(id) && objectReference(id)?.global_id === global_id);
+          if (matches.length === 1) id = matches[0];
+        }
+        roomSensors?.select(null);
+        const room = roomsByID.get(id);
+        if (id === undefined) {
+          appearance.select(undefined);
+          setRoomObject(undefined);
+        } else {
+          selectedFloor = floors.find(floor => floor.id === spatial.assignments.get(id))?.id ?? null;
+          exploded = false;
+          updateBimView();
+          const target = new THREE.Box3();
+          for (const mesh of room?.meshes ?? appearance.elements.get(id)) {
+            if (!room) mesh.visible = true;
+            target.expandByObject(mesh);
+          }
+          if (room) setRoomObject(id);
+          else appearance.select(id);
+          if (!target.isEmpty()) bimCamera.fit(target, { cut: selectedFloor !== null, top: !!room && selectedFloor !== null });
+        }
+        updateSelection();
+        window.parent.postMessage({ type: 'd21-bim-object-focus-result', found: id !== undefined }, location.origin);
+      }
+      window.addEventListener('message', receiveObject);
+      window.addEventListener('pagehide', () => window.removeEventListener('message', receiveObject), { once: true });
+      Promise.resolve(synchronization?.ready).then(() => {
+        if (!destroyed) window.parent.postMessage({ type: 'd21-bim-objects-ready' }, location.origin);
+      });
     }
     floorSelect.onchange = () => {
       selectedFloor = floorSelect.value ? Number(floorSelect.value) : null;

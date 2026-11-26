@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { SelectField, TextAreaField, TextField } from '@/components/Field';
 import PageHeader from '@/components/PageHeader';
+import BuildingFiles from '@/components/rooms/BuildingFiles';
+import AssetIFCLink from '@/components/bim/AssetIFCLink';
 import { request } from '@/api/base44Client';
 import { formatDateShort, formatDateTime } from '@/lib/dates';
+import { assetURL, workURL, WORK_STATUS } from '@/lib/operations';
 
 const ASSET_STATUS = { in_betrieb: 'In Betrieb', wartung: 'Wartung', stoerung: 'Störung' };
-const WORK_STATUS = { planned: 'Geplant', in_progress: 'In Bearbeitung', completed: 'Erledigt' };
 const DUE_STATUS = { ohne_termin: 'Ohne Termin', ueberfaellig: 'Überfällig', bald: 'Bald fällig', ok: 'Terminiert' };
 const PRIORITY = { low: 'Niedrig', normal: 'Mittel', high: 'Hoch' };
 const CATEGORIES = { heizung: 'Heizung', lueftung: 'Lüftung', wasser: 'Wasser', elektro: 'Elektro', dach: 'Dach', fenster: 'Fenster', brandschutz: 'Brandschutz', aufzug: 'Aufzug', garten: 'Garten', sonstiges: 'Sonstiges' };
@@ -18,8 +20,6 @@ const options = (labels) => Object.entries(labels).map(([value, label]) => ({ va
 const field = (name, label, defaults) => ({ name, label, 'aria-label': label, defaultValue: defaults[name] ?? '' });
 const date = (value) => value?.slice(0, 10) || '';
 const displayDate = (value) => formatDateShort(date(value));
-const assetURL = (building, id) => '/betrieb/technische-anlagen?building=' + building + (id ? '&asset=' + id : '');
-const workURL = (building, id) => '/betrieb/wartungen?building=' + building + (id ? '&asset=' + id : '');
 
 function RecordDialog({ title, description, submit, close, children }) {
   const [busy, setBusy] = useState(false);
@@ -102,7 +102,9 @@ function MaintenanceHistory({ building, item }) {
   </section>;
 }
 
-function OperationsContent({ building, mode, selectedAsset, initialTask }) {
+function OperationsContent({ buildingRecord, mode, selectedAsset, initialTask }) {
+  const scope = useBuildingScope();
+  const building = buildingRecord.id;
   const client = useQueryClient();
   const [editor, setEditor] = useState(null);
   const [openedTask, setOpenedTask] = useState(initialTask ? Number(initialTask) : null);
@@ -149,9 +151,10 @@ function OperationsContent({ building, mode, selectedAsset, initialTask }) {
           .map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd>{value}</dd></div>)}
       </dl>
       {asset.notes && <p className="whitespace-pre-wrap">{asset.notes}</p>}
+      <AssetIFCLink asset={asset} building={buildingRecord} canEdit={canEdit} refresh={refresh} />
       <h4 className="font-semibold">Zugehörige Wartungen</h4>
       {linked.length ? <ul className="divide-y">{linked.map(row => <li key={row.id} className="py-2">
-        <Link className="font-medium text-primary underline" to={workURL(building, asset.id) + '&task=' + row.id}>{row.title}</Link>
+        <Link className="font-medium text-primary underline" to={workURL(building, asset.id, row.id)}>{row.title}</Link>
         <p className="text-sm text-muted-foreground">{displayDate(row.next_due)} · {WORK_STATUS[row.work_status]}</p>
       </li>)}</ul> : <p className="text-sm text-muted-foreground">Noch keine Wartungen zugeordnet.</p>}
       <Button variant="outline" asChild><Link to={workURL(building, asset.id)}>Wartungen der Anlage öffnen</Link></Button>
@@ -178,6 +181,10 @@ function OperationsContent({ building, mode, selectedAsset, initialTask }) {
           {openedTask === row.id && <div className="space-y-3 rounded-lg border p-3">
             {row.notes && <p className="text-sm whitespace-pre-wrap">{row.notes}</p>}
             <MaintenanceHistory building={building} item={row} />
+            {scope.can(building, 'documents') && <div className="space-y-2">
+              <h4 className="text-sm font-semibold">Wartungsdokumente</h4>
+              <BuildingFiles building={buildingRecord} mode="maintenance" maintenanceID={row.id} canAttach={canEdit} compact />
+            </div>}
             {canEdit && <div className="flex flex-wrap gap-2">
               {row.can_edit && <Button size="sm" variant="outline" onClick={() => setEditor(row)}>Wartung bearbeiten</Button>}
               {row.work_status === 'planned' && <Button size="sm" variant="outline" disabled={!!action} onClick={() => change(row, 'start')}>Starten</Button>}
@@ -205,7 +212,7 @@ export default function Operations({ mode }) {
       const task = detail ? params.get('task') : null;
       return <section key={building.id} className="space-y-3">
         {buildings.length > 1 && <h2 className="font-semibold">{building.name}</h2>}
-        <OperationsContent key={[building.id, mode, asset, task].join('/')} building={building.id} mode={mode} selectedAsset={asset} initialTask={task} />
+        <OperationsContent key={[building.id, mode, asset, task].join('/')} buildingRecord={building} mode={mode} selectedAsset={asset} initialTask={task} />
       </section>;
     })}
   </div>;

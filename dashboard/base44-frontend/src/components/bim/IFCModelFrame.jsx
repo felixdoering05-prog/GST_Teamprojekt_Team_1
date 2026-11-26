@@ -11,7 +11,8 @@ function applyViewerAppearance(root, theme, scale) {
   root.style.fontSize = `${13 * scale / 100}px`;
 }
 
-export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage, issueFocus, focusVersion, onIssueLocation, readOnly = false }) {
+export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage, issueFocus, focusVersion, onIssueLocation, readOnly = false,
+  objectFocus, objectPickMode, onObjectEvent }) {
   const { resolvedTheme, value } = useAppearance();
   const frame = useRef(null);
   useEffect(() => {
@@ -34,6 +35,24 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
   const [viewerError, setViewerError] = useState('');
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [objectView, setObjectView] = useState(null);
+  useEffect(() => {
+    if (!onObjectEvent) return;
+    function receive(event) {
+      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
+      const type = event.data?.type;
+      if (type === 'd21-bim-objects-ready') setObjectView(event.source);
+      if (type === 'd21-bim-object-selection' || type === 'd21-bim-object-focus-result') onObjectEvent(event.data);
+    }
+    window.addEventListener('message', receive);
+    return () => window.removeEventListener('message', receive);
+  }, [onObjectEvent]);
+  useEffect(() => {
+    objectView?.postMessage({ type: 'd21-bim-object-pick-mode', mode: objectPickMode }, window.location.origin);
+  }, [objectView, objectPickMode]);
+  useEffect(() => {
+    if (objectFocus) objectView?.postMessage({ type: 'd21-bim-object-focus', reference: objectFocus }, window.location.origin);
+  }, [objectView, objectFocus]);
   const [mapFallback, setMapFallback] = useState(false);
   const [site, setSite] = useState(null);
   const terrainReady = useRef(false);
@@ -159,6 +178,8 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
   }
   function retry() {
     setViewerError('');
+    setObjectView(null);
+    onObjectEvent?.({ type: 'd21-bim-object-selection', object: null });
     setMapFallback(false);
     setAttempt(current => current + 1);
   }

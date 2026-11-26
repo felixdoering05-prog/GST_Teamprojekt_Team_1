@@ -197,6 +197,7 @@ export function createRoomSensors(host, parent, rooms, camera, { planes = () => 
     select(space) {
       if (editing || space === selected) return;
       selected = space; draw();
+      if (space === null) onChange();
     },
     get selected() { return selected; },
     /** Server answer to a rename: on error the old name returns and a short note is shown. */
