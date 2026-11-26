@@ -1,3 +1,4 @@
+import EntryFiles from '@/components/EntryFiles';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, MapPin, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
@@ -90,6 +91,7 @@ export default function BuildingGroups({ buildings = [], groupID, onOpenBuilding
           {manageGroupId === group.id ? <X className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}{manageGroupId === group.id ? 'Verwaltung schließen' : 'Gruppe verwalten'}
         </Button>}
       </div>
+      {!group.partial && <EntryFiles path={`/teams/${active.id}/groups/${group.id}/files`} editable={canEditGroup(group)} />}
       {group.visibleBuildings.length ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{group.visibleBuildings.map(building => <BuildingCard key={`${group.id}-${building.id}`} building={building} onOpen={onOpenBuilding} />)}</div> : <p className="text-sm text-muted-foreground">In dieser Gruppe sind keine sichtbaren Gebäude.</p>}
       {manageGroupId === group.id && active?.can_manage_groups && (() => {
         const draft = drafts[group.id] || { name: group.name, building_ids: group.buildings.map(item => String(item.id)) };

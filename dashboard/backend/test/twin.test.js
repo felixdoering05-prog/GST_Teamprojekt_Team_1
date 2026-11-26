@@ -57,3 +57,24 @@ test('demo and rule functions are account-scoped and idempotent',async()=>{
  const check=await call('/twin-functions/runThresholdCheck',{sinceHours:4},bob.token);assert.equal(check.status,200);assert.equal(check.body.created,0);
  assert.equal((await call('/twin-functions/notAllowed',{},bob.token)).status,404);
 });
+
+test('calendar keeps task locations, priority and binary attachments within the building',async()=>{
+ const room=(await action('Room','create',{data:{name:'Kalenderraum',room_code:'K1',building_id:String(building.id),floor_id:floor.id,source:'real'}})).body;
+ const path='/buildings/'+building.id+'/schedules';
+ const entry={title:'Prüfung',starts_at:'2027-01-12T10:00:00Z',kind:'task',priority:'high',room_ids:[room.id],floor_ids:[floor.id],interval_days:7,reminder_days:2};
+ const saved=await call(path,entry,alice.token);
+ assert.equal(saved.status,201,JSON.stringify(saved.body));
+ const list=await call(path,undefined,alice.token);
+ const row=list.body.items.find(item=>item.id===saved.body.id);
+ assert.deepEqual([row.kind,row.priority,row.room_ids,row.floor_ids,row.interval_days,row.reminder_days],['task','high',[room.id],[floor.id],7,2]);
+ assert.equal((await call(path,{...entry,floor_ids:['missing']},alice.token)).status,400);
+ const files=url+path+'/'+row.id+'/files';
+ const headers={'X-D21-Session':alice.token,'Content-Type':'application/octet-stream'};
+ const upload=await fetch(files+'?name=plan.png',{method:'POST',headers,body:Buffer.from([0,1,2,255])});
+ assert.equal(upload.status,201);
+ const {id}=await upload.json();
+ const download=await fetch(files+'/'+id,{headers});
+ assert.deepEqual([...new Uint8Array(await download.arrayBuffer())],[0,1,2,255]);
+ const denied=await fetch(files+'/'+id,{headers:{'X-D21-Session':bob.token}});
+ assert.ok([403,404].includes(denied.status));
+});

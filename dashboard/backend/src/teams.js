@@ -1,3 +1,4 @@
+const {initAttachments, attachmentRoutes}=require('./scoped-attachments');
 const express=require('express');
 const {buildingAccess,can,ensureBuildingRoles}=require('./team-permissions');
 const MAX_LOGO=2*1024*1024;
@@ -35,6 +36,7 @@ async function initTeams(db){
   group_id INTEGER NOT NULL REFERENCES app_building_groups(id) ON DELETE CASCADE,
   building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,
   PRIMARY KEY(group_id,building_id))`);
+ await initAttachments(db,'group');
  const owners=(await db.query('SELECT DISTINCT user_id FROM app_buildings WHERE team_id IS NULL')).rows;
  for(const row of owners){
   const team=await ensureDefaultTeam(db,Number(row.user_id));
@@ -195,9 +197,16 @@ function teamsRouter(db,requireAccount){
   for(const id of buildingIDs){const access=await buildingAccess(db,id,req.account.id);if(!access||(!access.is_owner&&!access.role?.can_manage_members)){res.status(403).json({error:'Für mindestens ein Gruppen-Gebäude fehlt die Mitgliederverwaltung.'});return false;}}
   return true;
  };
+ attachmentRoutes(r,db,requireAccount,'group','/teams/:teamID/groups/:parentID/files',async(req,res,write)=>{
+  const team=await currentTeam(req,res); if(!team)return false;
+  const rows=(await db.query('SELECT i.building_id FROM app_building_groups g JOIN app_building_group_items i ON i.group_id=g.id WHERE g.id=$1 AND g.team_id=$2',[req.params.parentID,team.id])).rows;
+  const ids=rows.map(row=>Number(row.building_id));
+  if(!ids.length || !ids.every(id=>team.buildings.some(b=>Number(b.id)===id)))return false;
+  return !write || groupManage(req,res,team,ids);
+ });
  const groupQuery=`SELECT g.id,g.team_id,g.name,g.created_at,COALESCE(json_agg(json_build_object('id',b.id,'name',b.name) ORDER BY b.name) FILTER(WHERE b.id IS NOT NULL),'[]') buildings
    FROM app_building_groups g LEFT JOIN app_building_group_items i ON i.group_id=g.id LEFT JOIN app_buildings b ON b.id=i.building_id WHERE g.team_id=$1 GROUP BY g.id ORDER BY g.name,g.id`;
- r.get('/teams/:teamID/groups',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const allowed=new Set(team.buildings.map(b=>Number(b.id)));res.json((await db.query(groupQuery,[team.id])).rows.map(group=>({...group,buildings:group.buildings.filter(building=>allowed.has(Number(building.id)))})));}));
+ r.get('/teams/:teamID/groups',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const allowed=new Set(team.buildings.map(b=>Number(b.id)));res.json((await db.query(groupQuery,[team.id])).rows.map(group=>({...group,partial:group.buildings.some(building=>!allowed.has(Number(building.id))),buildings:group.buildings.filter(building=>allowed.has(Number(building.id)))})));}));
  r.post('/teams/:teamID/groups',requireAccount,wrap(async(req,res)=>{
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';const ids=req.body?.building_ids;
   if(!name||name.length>80||!Array.isArray(ids)||!ids.length||new Set(ids.map(Number)).size!==ids.length)return res.status(400).json({error:'Name und mindestens ein Gebäude auswählen.'});
