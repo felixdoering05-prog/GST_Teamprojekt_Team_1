@@ -1,4 +1,5 @@
 const {accountLimits,reached}=require('./account-limits');
+const {can}=require('./team-permissions');
 const express=require('express');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const idOK=v=>/^[1-9]\d*$/.test(String(v))&&Number(v)<=2147483647;
@@ -40,6 +41,18 @@ async function accessibleBuilding(db,id,user,lock=false){
   await db.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[found.user_id]);
  }
  return (await db.query(`SELECT b.* FROM app_buildings b WHERE b.id=$1 AND ${accessSQL}${lock?' FOR UPDATE OF b':''}`,[id,user])).rows[0];
+}
+const validRoomID=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(id);
+async function findBuildingRoom(db, building, id, lock = false) {
+ const row = (await db.query(`SELECT r.id,r.data->>'name' AS name,r.data->>'room_code' AS room_code,
+   r.data->>'ifc_global_id' AS ifc_global_id,r.data->>'floor_id' AS floor_id,f.data->>'name' AS floor_name
+   FROM app_twin_records r LEFT JOIN app_twin_records f ON f.id=r.data->>'floor_id'
+    AND f.entity='Floor' AND f.user_id=r.user_id AND f.data->>'building_id'=$3
+   WHERE r.id=$1 AND r.user_id=$2 AND r.entity='Room' AND r.data->>'building_id'=$3${lock ? ' FOR SHARE OF r' : ''}`,
+  [id, building.user_id, String(building.id)])).rows[0];
+ if (!row) return null;
+ const { floor_name, ...room } = row;
+ return { room, floor: floor_name ? { id: room.floor_id, name: floor_name } : null };
 }
 async function notify(db,user,kind,title,building=null){await db.query('INSERT INTO app_notifications(user_id,kind,title,building_id) VALUES($1,$2,$3,$4)',[user,kind,title,building]);}
 async function notifyBuilding(db,building,actor,kind,title,message=null){
@@ -119,6 +132,16 @@ function collaborationRouter(db,requireAccount){
   }
   res.json({floors,rooms});
  }));
+ r.get('/buildings/:buildingId/structure/rooms/:roomId',wrap(async(req,res)=>{
+  res.set('Cache-Control','private, no-store');
+  if(!can(req.buildingAccess,'buildings'))return fail(res,403,'Für diesen Raum fehlt dir der Zugriff.');
+  const building=await accessibleBuilding(db,req.params.buildingId,req.account.id);
+  if(!building)return fail(res,404,'Gebäude nicht gefunden.');
+  const id=req.params.roomId;
+  const detail=validRoomID(id)?await findBuildingRoom(db,building,id):null;
+  if(!detail)return fail(res,404,'Raum nicht gefunden.');
+  res.json({building:{id:building.id,name:building.name},...detail});
+ }));
  r.get('/buildings/:buildingId/members',wrap(async(req,res)=>{
   if(!await accessibleBuilding(db,req.params.buildingId,req.account.id))return fail(res,404,'Gebäude nicht gefunden.');
   const rows=(await db.query(`SELECT u.id,u.name,'owner' AS status FROM app_users u JOIN app_buildings b ON b.user_id=u.id WHERE b.id=$1 UNION ALL SELECT u.id,u.name,m.status FROM app_users u JOIN app_building_members m ON m.user_id=u.id WHERE m.building_id=$1 ORDER BY id`,[req.params.buildingId])).rows;
@@ -194,4 +217,4 @@ function collaborationRouter(db,requireAccount){
  }));
  return r;
 }
-module.exports={initCollaboration,collaborationRouter,accessibleBuilding,accessSQL,notifyBuilding};
+module.exports={initCollaboration,collaborationRouter,accessibleBuilding,accessSQL,notifyBuilding,validRoomID,findBuildingRoom};

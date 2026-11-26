@@ -1,6 +1,6 @@
 const {accountLimits,reached}=require('./account-limits');
 const express=require('express');
-const {accessibleBuilding,accessSQL,notifyBuilding}=require('./collaboration');
+const {accessibleBuilding,accessSQL,notifyBuilding,findBuildingRoom,validRoomID}=require('./collaboration');
 const {buildingAccess,can}=require('./team-permissions');
 const {campusBuildingID}=require('./campus');
 // Defect reports ("Mängel") per building: text, optional photo and an optional position in an IFC model
@@ -16,7 +16,7 @@ const PRIORITY=['low','normal','high','urgent'];
 const OVERVIEW_LIMIT=500;
 const MAX_LIST=5000,MAX_PHOTO=2*1024*1024;
 const firstName=name=>name?String(name).trim().split(/\s+/)[0].slice(0,100):'Ehemaliges Mitglied';
-const COLUMNS='i.id,i.building_id,i.user_id,i.title,i.description,i.status,i.priority,i.source,i.room,i.document_id,i.space_id,i.element_id,i.x,i.y,i.z,(i.photo IS NOT NULL) AS has_photo,i.revision,i.created_at,i.updated_at,u.name AS reporter_name';
+const COLUMNS='i.id,i.building_id,i.user_id,i.title,i.description,i.status,i.priority,i.source,i.room,i.room_id,i.document_id,i.space_id,i.element_id,i.x,i.y,i.z,(i.photo IS NOT NULL) AS has_photo,i.revision,i.created_at,i.updated_at,u.name AS reporter_name';
 async function initIssues(db){
  await db.query(`CREATE TABLE IF NOT EXISTS app_building_issues(
  id SERIAL PRIMARY KEY,building_id INTEGER NOT NULL REFERENCES app_buildings(id) ON DELETE CASCADE,
@@ -38,7 +38,8 @@ async function initIssues(db){
  await db.query(`ALTER TABLE app_building_issues
   ADD COLUMN IF NOT EXISTS priority TEXT CHECK(priority IN ('low','normal','high','urgent')),
   ADD COLUMN IF NOT EXISTS source TEXT CHECK(source IN ('operator','tenant','bim','energy','alarm')),
-  ADD COLUMN IF NOT EXISTS element_id INTEGER CHECK(element_id > 0)`);
+  ADD COLUMN IF NOT EXISTS element_id INTEGER CHECK(element_id > 0),
+  ADD COLUMN IF NOT EXISTS room_id TEXT`);
  await db.query(`CREATE TABLE IF NOT EXISTS app_issue_history(
   issue_id INTEGER NOT NULL REFERENCES app_building_issues(id) ON DELETE CASCADE,
   revision INTEGER NOT NULL, actor_id INTEGER REFERENCES app_users(id) ON DELETE SET NULL,
@@ -52,7 +53,7 @@ async function recordChange(db, id, revision, actor, action, changes = {}) {
 function present(row,account,owner,access){
  // A position is only meaningful together with the model it was recorded in.
  const located=row.document_id!=null&&[row.x,row.y,row.z].every(Number.isFinite);
- return {id:row.id,building_id:row.building_id,title:row.title,description:row.description,status:row.status,priority:row.priority,source:row.source,room:row.room,document_id:row.document_id,
+ return {id:row.id,building_id:row.building_id,title:row.title,description:row.description,status:row.status,priority:row.priority,source:row.source,room:row.room,room_id:row.room_id,document_id:row.document_id,
   element_id:row.document_id==null?null:row.element_id,
   space_id:row.document_id==null?null:row.space_id,point:located?{x:row.x,y:row.y,z:row.z}:null,has_photo:row.has_photo,
   reporter:firstName(row.reporter_name),is_mine:row.user_id===account,can_edit:row.user_id===account||owner===account||can(access,'issues','edit'),
@@ -132,18 +133,27 @@ function issuesRouter(db,requireAccount,campusOptions){
  }));
  r.post(base,wrap(async(req,res)=>{
   const body=req.body||{};
-  if(typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['title','description','room','document_id','space_id','element_id','point','priority','source','request_key','reuse_existing'].includes(k)))fail('Bitte die Angaben prüfen.');
+  if(typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['title','description','room','room_id','document_id','space_id','element_id','point','priority','source','request_key','reuse_existing'].includes(k)))fail('Bitte die Angaben prüfen.');
   if(typeof body.request_key!=='string'||!UUID.test(body.request_key))fail('Ungültige Anfragekennung.');
   if(body.priority!==undefined&&!PRIORITY.includes(body.priority))fail('Ungültige Priorität.');
   if(body.source!==undefined&&!SOURCES.includes(body.source))fail('Ungültige Meldungsquelle.');
-  const title=text(body.title,120,'Titel',true),description=text(body.description,2000,'Beschreibung'),room=text(body.room,100,'Raum');
+  const title=text(body.title,120,'Titel',true),description=text(body.description,2000,'Beschreibung'),roomID=body.room_id??null;
+  if(roomID!==null&&!validRoomID(roomID))fail('Ungültiger Raum.');
+  const freeRoom=text(body.room,100,'Raum');
   const result=await tx(async c=>{
    const b=await building(c,req,true);
+   if(roomID&&(!can(req.buildingAccess,'structure')||!can(req.buildingAccess,'buildings')))fail('Für diesen Raum fehlt dir der Zugriff.',403);
    const existing=(await c.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id WHERE i.building_id=$1 AND i.request_key=$2`,[b.id,body.request_key])).rows[0];
-   if(existing){if(existing.user_id!==req.account.id||existing.title!==title)fail('Diese Meldung wurde bereits anders gespeichert.',409);return {status:200,row:existing,owner:b.user_id};}
-   if(body.reuse_existing===true&&description&&room){
+   if(existing){if(existing.user_id!==req.account.id||existing.title!==title||existing.room_id!==roomID)fail('Diese Meldung wurde bereits anders gespeichert.',409);return {status:200,row:existing,owner:b.user_id};}
+   let room=freeRoom;
+   if(roomID){
+    const detail=await findBuildingRoom(c,b,roomID,true);
+    if(!detail)fail('Der Raum ist in diesem Gebäude nicht verfügbar.',404);
+    room=text([detail.floor?.name,detail.room.room_code||detail.room.name].filter(Boolean).join(' · ').slice(0,100),100,'Raum');
+   }
+   if(!roomID&&body.reuse_existing===true&&description&&room){
     const same=(await c.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id
-     WHERE i.building_id=$1 AND lower(i.title)=lower($2) AND i.description=$3 AND lower(i.room)=lower($4)
+     WHERE i.building_id=$1 AND i.room_id IS NULL AND lower(i.title)=lower($2) AND i.description=$3 AND lower(i.room)=lower($4)
        AND i.status<>'done' AND ($5::text IS NULL OR i.source IS NULL OR i.source=$5) ORDER BY i.id DESC LIMIT 2`,
      [b.id,title,description,room,body.source??null])).rows;
     if(same.length===1)return {status:200,row:same[0],owner:b.user_id};
@@ -152,7 +162,7 @@ function issuesRouter(db,requireAccount,campusOptions){
    const lim=await accountLimits(c,b.user_id);
    if(reached(lim,'issues_building',(await c.query('SELECT COUNT(*) n FROM app_building_issues WHERE building_id=$1',[b.id])).rows[0].n))fail(`Höchstens ${lim.values.issues_building} Mängel pro Gebäude. Bitte erledigte Meldungen löschen.`,409);
    const at=await location(c,b.id,body);
-   const id=(await c.query('INSERT INTO app_building_issues(building_id,user_id,title,description,room,document_id,space_id,x,y,z,request_key,priority,element_id,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',[b.id,req.account.id,title,description,room,at.document_id,at.space_id,at.x,at.y,at.z,body.request_key,body.priority??null,at.element_id,body.source??null])).rows[0].id;
+   const id=(await c.query('INSERT INTO app_building_issues(building_id,user_id,title,description,room,document_id,space_id,x,y,z,request_key,priority,element_id,source,room_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id',[b.id,req.account.id,title,description,room,at.document_id,at.space_id,at.x,at.y,at.z,body.request_key,body.priority??null,at.element_id,body.source??null,roomID])).rows[0].id;
    await recordChange(c,id,0,req.account.id,'created');
    await notifyBuilding(c,b.id,req.account.id,'issue',`Neuer Mangel in ${String(b.name||'Gebäude').slice(0,80)}: ${title.slice(0,80)}`);
    const row=(await c.query(`SELECT ${COLUMNS} FROM app_building_issues i LEFT JOIN app_users u ON u.id=i.user_id WHERE i.id=$1`,[id])).rows[0];
@@ -172,6 +182,7 @@ function issuesRouter(db,requireAccount,campusOptions){
    const editing=['title','description','room','priority','source'].some(k=>body[k]!==undefined);
    if(editing&&row.user_id!==req.account.id&&b.user_id!==req.account.id&&!can(req.buildingAccess,'issues','edit'))fail('Nur die meldende Person, eine berechtigte Teamrolle oder der Eigentümer kann die Angaben ändern.',403);
    const next={status:body.status??row.status,title:body.title===undefined?row.title:text(body.title,120,'Titel',true),description:body.description===undefined?row.description:text(body.description,2000,'Beschreibung'),room:body.room===undefined?row.room:text(body.room,100,'Raum'),priority:body.priority??row.priority,source:body.source??row.source};
+   if(row.room_id&&next.room!==row.room)fail('Der zugeordnete Raum dieser Meldung ist fest hinterlegt.');
    const changed=Object.keys(next).filter(key=>next[key]!==row[key]);
    if(!changed.length)return {row,owner:b.user_id};
    await c.query('UPDATE app_building_issues SET status=$2,title=$3,description=$4,room=$5,priority=$6,source=$7,revision=revision+1,updated_at=now() WHERE id=$1',[row.id,next.status,next.title,next.description,next.room,next.priority,next.source]);
@@ -203,7 +214,7 @@ function issuesRouter(db,requireAccount,campusOptions){
    const changed=await c.query('UPDATE app_building_issues SET photo=$2,photo_type=$3,revision=revision+1,updated_at=now() WHERE id=$1 AND photo IS DISTINCT FROM $2',[row.id,req.body,type]);
    if(changed.rowCount)await recordChange(c,row.id,row.revision+1,req.account.id,'photo');
    return {row:await issue(c,req,b),owner:b.user_id};});
-  res.json(present(result.row,req.account.id,result.owner));
+  res.json(present(result.row,req.account.id,result.owner,req.buildingAccess));
  }));
  r.get(base+'/:issue/photo',wrap(async(req,res)=>{
   const b=await building(db,req);if(!idOK(req.params.issue))fail('Ungültiger Mangel.');

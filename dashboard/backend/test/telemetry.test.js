@@ -104,4 +104,11 @@ test('room heat returns the latest valid real temperature for each accessible ro
   value:22,unit:'°C',source:'real',provider:'sensor',sensor_code:'HEAT',measured_at:'2026-11-03T13:30:00.000Z',
  });
  assert.equal(result.data.rooms.find(item=>item.id===empty.id).reading,null);
+
+ const latest=`/buildings/${building_id}/telemetry/rooms/${room.id}/latest`;
+ assert.equal((await request(outsider,latest)).status,404);
+ assert.deepEqual((await request(member,latest)).data.reading,{
+  metric:'temperature',value:99,unit:'°C',source:'demo',sensor_code:'HEAT',measured_at:'2026-11-03T14:00:00.000Z',
+ });
+ assert.deepEqual((await request(member,`/buildings/${building_id}/telemetry/rooms/${empty.id}/latest`)).data,{reading:null});
 });

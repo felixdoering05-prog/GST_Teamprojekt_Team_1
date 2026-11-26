@@ -7,22 +7,26 @@ import { request } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatDateTime } from '@/lib/dates';
 import { issuePath, issuePriority, issueStatus, issueSource, priorityLabel } from '@/lib/buildingIssues';
+import { prepareIssuePhoto, uploadIssuePhoto } from '@/lib/issuePhoto';
 import { SelectField, TextAreaField, TextField } from '@/components/Field';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { RoomDetailsLink, RoomModelPreview, RoomReading } from '@/components/bim/RoomModelPreview';
 import { useRoomEvidence } from '@/hooks/useRoomEvidence';
-import { resolveBuildingRoom, roomModelFocus } from '@/lib/roomLocation';
+import { resolveBuildingRoom, roomDisplayName, roomModelFocus } from '@/lib/roomLocation';
+import IssuePhotoFields from './IssuePhotoFields';
 
 const limitedId = value => /^[1-9]\d{0,9}$/.test(value || '') && Number(value) <= 2147483647;
 const priorityTone = { urgent: 'text-destructive', high: 'text-warning', normal: 'text-primary', low: 'text-muted-foreground' };
 const changeName = { status: 'Status', priority: 'Priorität', title: 'Titel', description: 'Beschreibung', room: 'Ort', source: 'Quelle' };
 const options = entries => Object.entries(entries).map(([value, label]) => ({ value, label }));
 
-function IssueFields({ issue = {}, includePriority = false }) {
+function IssueFields({ issue = {}, includePriority = false, fixedRoom }) {
   return <>
     <TextField label="Titel" aria-label="Titel" name="title" maxLength={120} defaultValue={issue.title || ''} required />
-    <TextField label="Ort / Raum" aria-label="Ort / Raum" name="room" maxLength={100} defaultValue={issue.room || ''} />
+    {fixedRoom
+      ? <TextField label="Ort / Raum" aria-label="Ort / Raum" value={fixedRoom} readOnly />
+      : <TextField label="Ort / Raum" aria-label="Ort / Raum" name="room" maxLength={100} defaultValue={issue.room || ''} />}
     <SelectField label="Quelle" aria-label="Quelle" name="source" defaultValue={issue.source || (issue.id ? '' : 'operator')}
       options={[...(issue.id ? [{ value: '', label: 'Nicht hinterlegt' }] : []), ...options(issueSource)]} />
     {includePriority && <SelectField label="Priorität" aria-label="Priorität" name="priority" defaultValue="normal" options={options(issuePriority)} />}
@@ -30,30 +34,58 @@ function IssueFields({ issue = {}, includePriority = false }) {
   </>;
 }
 
-function CreateIssue({ buildings, close, created }) {
+export function CreateIssue({ buildings, close, created, roomContext }) {
   const [requestKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const fixedRoom = roomContext && [roomContext.floor?.name, roomDisplayName(roomContext.room)].filter(Boolean).join(' · ');
+
   async function submit(event) {
     event.preventDefault();
-    const { building, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
+    if (busy) return;
+    const { building: selected, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
+    const building = roomContext ? buildings[0].id : selected;
     if (!building) return;
+    if (roomContext && !photo) { setError('Bitte nimm ein Foto auf oder wähle eine Bilddatei.'); return; }
     setBusy(true); setError('');
+    let row = saved;
     try {
-      const row = await request('/buildings/' + building + '/issues', { method: 'POST', body: { ...fields, request_key: requestKey, reuse_existing: true } });
+      const image = photo && (photo.image || await prepareIssuePhoto(photo.file));
+      if (image && !photo.image) setPhoto({ ...photo, image });
+      if (!row) {
+        const location = roomContext ? { room_id: roomContext.room.id } : { reuse_existing: true };
+        row = await request('/buildings/' + building + '/issues', {
+          method: 'POST', body: { ...fields, ...location, request_key: requestKey },
+        });
+        if (roomContext) setSaved(row);
+      }
+      if (image) await uploadIssuePhoto(issuePath(building, row.id), image);
       created(row);
-    } catch (failure) { setError(failure.message); }
+    } catch (failure) {
+      setError(row ? `Der Mangel ist gespeichert. Das Foto konnte nicht hochgeladen werden. ${failure.message}` : failure.message);
+    }
     finally { setBusy(false); }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}>
     <DialogContent className="max-h-[90dvh] overflow-y-auto">
-      <DialogTitle>Mangel erfassen</DialogTitle><DialogDescription>Das Gebäude legt fest, wer Zugriff auf den Mangel hat.</DialogDescription>
+      <DialogTitle>{roomContext ? 'Mangel mit Foto melden' : 'Mangel erfassen'}</DialogTitle>
+      <DialogDescription>Das Gebäude legt fest, wer Zugriff auf den Mangel hat.</DialogDescription>
       <form onSubmit={submit} className="space-y-3">
-        <SelectField label="Gebäude" aria-label="Gebäude" name="building" required placeholder="Gebäude auswählen …" defaultValue={buildings.length === 1 ? String(buildings[0].id) : ''}
-          options={buildings.map(row => ({ value: String(row.id), label: row.name }))} />
-        <IssueFields includePriority />
+        <fieldset disabled={busy || Boolean(saved)} className="space-y-3">
+          {roomContext ? <TextField label="Gebäude" aria-label="Gebäude" value={buildings[0].name} readOnly />
+            : <SelectField label="Gebäude" aria-label="Gebäude" name="building" required placeholder="Gebäude auswählen …" defaultValue={buildings.length === 1 ? String(buildings[0].id) : ''}
+              options={buildings.map(row => ({ value: String(row.id), label: row.name }))} />}
+          <IssueFields includePriority fixedRoom={fixedRoom} />
+        </fieldset>
+        {roomContext && <IssuePhotoFields file={photo?.file} onChange={file => setPhoto({ file })} disabled={busy} />}
         {error && <p role="alert" className="text-destructive">{error}</p>}
-        <Button disabled={busy} type="submit">Mangel speichern</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={busy} type="submit">{busy ? 'Wird gespeichert …'
+            : saved ? 'Foto erneut hochladen' : roomContext ? 'Mangel mit Foto speichern' : 'Mangel speichern'}</Button>
+          {saved && !busy && <Button type="button" variant="outline" onClick={() => created(saved)}>Meldung öffnen</Button>}
+        </div>
       </form>
     </DialogContent>
   </Dialog>;
@@ -74,6 +106,27 @@ function IssuePhoto({ path, revision }) {
     : source ? <a href={source} target="_blank" rel="noreferrer"><img src={source} alt="Foto zur Meldung"
       className="mt-2 max-h-64 w-auto max-w-full rounded-lg object-contain" /></a>
     : <p role="status" className="text-sm text-muted-foreground">Foto wird geladen …</p>;
+}
+
+function AddIssuePhoto({ path, refresh }) {
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!file || busy) return;
+    setBusy(true); setError('');
+    try { await uploadIssuePhoto(path, await prepareIssuePhoto(file)); await refresh(); }
+    catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
+  }
+
+  return <form onSubmit={submit} className="space-y-2">
+    <IssuePhotoFields file={file} onChange={setFile} disabled={busy} />
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <Button type="submit" disabled={busy || !file}>{busy ? 'Wird gespeichert …' : 'Foto hinzufügen'}</Button>
+  </form>;
 }
 
 function History({ entries }) {
@@ -103,16 +156,16 @@ function IssueDetails({ issue, path, refresh }) {
   const hasLocation = Boolean(issue.point || issue.space_id || issue.element_id || issue.room?.trim());
   const { structure, temperatures } = useRoomEvidence(issue.building_id);
   const locationData = structure.data || temperatures.data;
-  const room = resolveBuildingRoom(locationData, {
-    globalId: spatial?.globalId, label: issue.room, building: issue.building_name,
-  });
+  const room = issue.room_id ? resolveBuildingRoom(structure.data, { roomID: issue.room_id })
+    : resolveBuildingRoom(locationData, { globalId: spatial?.globalId, label: issue.room, building: issue.building_name });
   const floor = locationData?.floors.find(row => row.id === room?.floor_id);
   const reading = temperatures.data?.rooms.find(row => row.id === room?.id)?.reading;
   const focus = useMemo(() => ({
     ...(room ? roomModelFocus(room, floor) : {}),
     id: issue.id, point: issue.point, spaceID: issue.space_id, elementID: issue.element_id,
-    ...(!room ? { location: issue.room } : {}), building: issue.building_name,
-  }), [room, floor, issue.id, issue.point, issue.space_id, issue.element_id, issue.room, issue.building_name]);
+    ...(!room && !issue.room_id ? { location: issue.room } : {}), building: issue.building_name,
+  }), [room, floor, issue.id, issue.point, issue.space_id, issue.element_id, issue.room, issue.room_id, issue.building_name]);
+  const roomLabel = room && issue.room_id ? roomDisplayName(room) : spatial?.room || issue.room;
 
   async function update(fields) {
     setError('');
@@ -132,7 +185,7 @@ function IssueDetails({ issue, path, refresh }) {
           <div><dt className="text-muted-foreground">Gebäude</dt><dd className="break-words">{issue.building_name}</dd></div>
           <div><dt className="text-muted-foreground">Standort</dt><dd className="break-words">{issue.building_address || 'Nicht hinterlegt'}</dd></div>
           <div><dt className="text-muted-foreground">Geschoss</dt><dd>{spatial?.floor || floor?.name || 'Nicht hinterlegt'}</dd></div>
-          <div><dt className="text-muted-foreground">Raum</dt><dd className="break-words">{spatial?.room || issue.room || (issue.space_id ? `IFC-Raum #${issue.space_id}` : 'Nicht hinterlegt')}</dd></div>
+          <div><dt className="text-muted-foreground">Raum</dt><dd className="break-words">{roomLabel || (issue.space_id ? `IFC-Raum #${issue.space_id}` : 'Nicht hinterlegt')}</dd></div>
           <div><dt className="text-muted-foreground">Bauteil</dt><dd className="break-words">{spatial?.element || (issue.element_id ? `IFC-Element #${issue.element_id}` : 'Nicht hinterlegt')}</dd></div>
           <div><dt className="text-muted-foreground">Erfasst</dt><dd>{issue.reporter} · {formatDateTime(issue.created_at)}</dd></div>
           <div><dt className="text-muted-foreground">Quelle</dt><dd>{issueSource[issue.source] || 'Nicht hinterlegt'}</dd></div>
@@ -161,19 +214,20 @@ function IssueDetails({ issue, path, refresh }) {
           const fields = Object.fromEntries(new FormData(event.currentTarget));
           if (!fields.source) delete fields.source;
           if (await update(fields)) setEditing(false);
-        }}><IssueFields issue={issue} /><Button type="submit" disabled={saving}>Angaben speichern</Button></form>}
+        }}><IssueFields issue={issue} fixedRoom={issue.room_id ? roomLabel : undefined} /><Button type="submit" disabled={saving}>Angaben speichern</Button></form>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {issue.has_photo && <section><h4 className="font-semibold">Foto</h4>
           <IssuePhoto key={issue.revision} path={path} revision={issue.revision} />
         </section>}
+        {issue.room_id && issue.can_edit && issue.can_update_status && !issue.has_photo && <AddIssuePhoto path={path} refresh={refresh} />}
         <History entries={issue.history} />
       </div>
       <section className="space-y-3 self-start rounded-xl border bg-card p-3 sm:p-4" aria-label="Gebäudeposition">
         <h4 className="font-semibold">Gebäudeposition</h4>
-        {issue.room && <p className="text-sm">Hinterlegter Ort · {issue.room}</p>}
+        {issue.room && (!issue.room_id || !room) && <p className="text-sm">Hinterlegter Ort · {issue.room}</p>}
         {!hasLocation && <p className="text-sm text-muted-foreground">Position nicht hinterlegt.</p>}
         <RoomModelPreview document={modelID ? { id: modelID, name: issue.building_name, campus } : null}
-          focus={hasLocation ? focus : undefined} location={spatial} onLocation={setSpatial} />
+          focus={hasLocation && (!issue.room_id || room) ? focus : undefined} location={spatial} onLocation={setSpatial} />
         {modelID && <Link className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           to={`/bim-viewer?building=${issue.building_id}&model=${modelID}`}>Modellbibliothek öffnen <ArrowUpRight className="h-4 w-4" /></Link>}
       </section>

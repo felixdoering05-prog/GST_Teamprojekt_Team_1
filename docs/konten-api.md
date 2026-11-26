@@ -21,7 +21,9 @@ Alle Pfade beginnen mit `/api/v1`. JSON-Anfragen mit `Content-Type: application/
 | GET | `/buildings` | Gebäude des angemeldeten Kontos |
 | POST | `/buildings` | `{name,address}` → angelegtes Gebäude |
 
-Geschützte Aufrufe benötigen `X-D21-Session: <token>`. So bleibt `Authorization` für den zusätzlichen Website-Passwortschutz verfügbar. Registrierung und Anmeldung benötigen keine Kontensitzung, aber weiterhin den vorhandenen Website-Zugang.
+Native Clients authentifizieren geschützte Aufrufe mit `X-D21-Session: <token>`. So bleibt `Authorization` für den zusätzlichen Website-Passwortschutz verfügbar. Registrierung und Anmeldung benötigen keine Kontensitzung, aber weiterhin den vorhandenen Website-Zugang.
+
+Die Web-App kann eine bestehende Sitzung über ein sicheres, auf den Web-App-Host beschränktes HttpOnly-Cookie in einem neuen Tab wiederaufnehmen. Nur Web-App-Aufrufe mit `X-D21-Web-Session: 1` dürfen das Cookie verwenden. Für QR-Links gelten dieselben Konten und Gebäuderechte.
 
 Fehler werden als `{error: "Beschreibung"}` geliefert: 400 ungültige Angaben, 401 fehlende/ungültige Anmeldung, 409 Kontokonflikt, 429 Anfragelimit, 500 Serverfehler.
 
