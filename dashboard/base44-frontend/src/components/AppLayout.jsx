@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { request, base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { canUseBuilding, clearBuildingParameters, linkedBuildingTeam, resolveBuildingScope } from '@/lib/buildingScope';
 import ProjectLogo from './ProjectLogo';
 
@@ -207,6 +208,7 @@ const scopeStorageKey = teamID => 'd21-building-scope:' + teamID;
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const route = location.pathname.replace(/\/+$/, '') || '/';
@@ -214,6 +216,8 @@ export default function AppLayout() {
   const current = ALL_NAV.find(n => n.path === pathname || (!n.end && pathname.startsWith(n.path + '/'))) || ALL_NAV[0];
   const params = new URLSearchParams(location.search);
   const linkedID = current.module ? params.get('building') ?? (current.module === 'issues' ? params.get('building_id') : null) : null;
+  const isRoomCard = route === '/gebaeude' && params.get('karte') === '1';
+  const roomID = isRoomCard ? params.get('room') : null;
   const [teamID, setTeamID] = useState(() => localStorage.getItem('d21-selected-team') || '');
   const [selection, setSelection] = useState(() => localStorage.getItem(scopeStorageKey(teamID)) || 'all');
   const teamQuery = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });
@@ -259,7 +263,19 @@ export default function AppLayout() {
   const linkedAllowed = !!linkedAccess && (current.module === 'teamRights'
     ? (linkedTeam.is_owner || linkedTeam.can_manage_groups)
     : canUseBuilding(linkedAccess, current.module));
-  const linkedValue = linkedAllowed ? 'building:' + linkedID : null;
+  const mayReadRoom = linkedAllowed && canUseBuilding(linkedAccess, 'structure');
+  const lookupRoom = isRoomCard && mayReadRoom && /^[A-Za-z0-9_-]{1,100}$/.test(roomID || '');
+  const roomCard = useQuery({
+    queryKey: ['room-card', user.id, linkedTeamID, linkedID, roomID],
+    queryFn: () => request(`/buildings/${linkedID}/structure/rooms/${roomID}`, {
+      headers: { 'X-D21-Team': linkedTeamID },
+    }),
+    enabled: lookupRoom,
+    retry: false,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const linkedValue = linkedAllowed && (!isRoomCard || (lookupRoom && roomCard.isSuccess)) ? 'building:' + linkedID : null;
   useEffect(() => {
     if (!linkedValue) return;
     if (linkedTeamID !== teamID) {
@@ -305,8 +321,10 @@ export default function AppLayout() {
   permissions.teamRights = !!(activeTeam?.is_owner || activeTeam?.can_manage_groups);
   // The building overview remains the entry point for creating the first building.
   if (activeTeam?.is_owner && !activeTeam.buildings.length) permissions.buildings = 'read';
-  const resolvingLink = linkedID && linkedTeam && (linkedNavigation.isPending || (linkedAllowed && linkedTeamID !== teamID));
+  const resolvingLink = linkedID && linkedTeam && (linkedNavigation.isPending
+    || (lookupRoom && roomCard.isPending) || (linkedValue && linkedTeamID !== teamID));
   const missingLink = linkedID && !resolvingLink && !linkedAllowed;
+  const roomUnavailable = isRoomCard && !linkedValue;
   const ready = !resolvingLink && teamQuery.isSuccess && (!teams.length || !!activeTeam)
     && (linkedValue || !selection.startsWith('group:') || !groupQuery.isPending || !activeTeam)
     && (!activeTeam || !navigation.isPending);
@@ -379,13 +397,22 @@ export default function AppLayout() {
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 pb-7 pt-2 focus:outline-none sm:px-6 sm:pb-9 lg:px-7 lg:pt-7">
           {(teamQuery.isError || scopeError) ? <p role="alert">{(teamQuery.error || scopeError).message}</p>
             : !ready ? <p role="status">Gebäudezugriff wird geladen …</p>
+            : roomUnavailable ? <div role="alert" className="surface mx-auto max-w-xl space-y-3 p-5">
+                <h2 className="font-heading text-xl font-semibold">Raumkarte nicht verfügbar</h2>
+                <p>{!mayReadRoom || roomCard.error?.status === 403 ? 'Für diesen Raum fehlt dir der Zugriff.'
+                  : !lookupRoom || roomCard.error?.status === 404 ? 'Der Raum wurde gelöscht oder der Raumlink ist ungültig.'
+                  : 'Die Raumkarte konnte nicht geladen werden.'}</p>
+                {lookupRoom && roomCard.isError && ![403, 404].includes(roomCard.error.status) &&
+                  <button type="button" className="mr-4 text-sm text-primary underline" onClick={() => roomCard.refetch()}>Erneut versuchen</button>}
+                <button type="button" className="text-sm text-primary underline" onClick={() => choose(selection)}>Zur aktuellen Auswahl</button>
+              </div>
             : missingLink ? <div role="alert" className="surface space-y-2 p-4">
                 <p>Das verlinkte Gebäude ist in dieser Ansicht nicht verfügbar.</p>
                 <button type="button" className="text-sm text-primary underline" onClick={() => choose(selection)}>Zur aktuellen Auswahl</button>
               </div>
             : forbidden ? <Navigate to={fallback.path} replace />
             : <BuildingScopeContext.Provider value={scope} key={workspaceKey}>
-                <Outlet />
+                <Outlet context={isRoomCard ? roomCard.data : null} />
               </BuildingScopeContext.Provider>}
         </main>
       </div>

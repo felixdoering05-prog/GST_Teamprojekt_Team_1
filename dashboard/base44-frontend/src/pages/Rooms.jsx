@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Layers, Plus, RefreshCw, Users } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import EmptyState from '@/components/EmptyState';
@@ -10,6 +10,8 @@ import BuildingDialog from '@/components/rooms/BuildingDialog';
 import FloorSection from '@/components/rooms/FloorSection';
 import FloorDialog from '@/components/rooms/FloorDialog';
 import RoomDialog from '@/components/rooms/RoomDialog';
+import RoomQRCode from '@/components/rooms/RoomQRCode';
+import RoomCard from '@/components/rooms/RoomCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { base44, request } from '@/api/base44Client';
@@ -31,6 +33,11 @@ import { readingsForRoom, roomSeries } from '@/lib/roomMetrics';
 import { METRIC_KEYS } from '@/lib/metrics';
 
 export default function Rooms() {
+  const card = useOutletContext();
+  return card ? <RoomCard key={card.room.id} card={card} /> : <BuildingRooms />;
+}
+
+function BuildingRooms() {
   const cache = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [setupOpen, setSetupOpen] = useState(false);
@@ -149,7 +156,8 @@ function RoomDetails({ building, roomID, close }) {
   const scope = useBuildingScope();
   const allowed = scope.can(building.id, 'structure');
   const data = useD21Data(String(building.id), { buildingIDs: allowed ? String(building.id) : '' });
-  const room = data.rooms.find(row => String(row.id) === roomID);
+  const room = allowed && data.rooms.find(row => String(row.id) === roomID);
+  const floor = data.floors.find(row => row.id === room?.floor_id);
   const readings = room ? readingsForRoom(room, data.sensors, data.latest, data.thresholds) : {};
   const pointsByMetric = room ? Object.fromEntries(METRIC_KEYS.map(metric => [metric, roomSeries(room, data.sensors, data.series, metric)])) : {};
   return <Dialog open onOpenChange={open => { if (!open) close(); }}>
@@ -157,8 +165,9 @@ function RoomDetails({ building, roomID, close }) {
       <DialogTitle>Raumdetail</DialogTitle>
       <DialogDescription>{building.name}</DialogDescription>
       {data.loading && allowed ? <p role="status">Raum wird geladen …</p> : room
-        ? <RoomDetailPanel room={room} floorLabel={data.floors.find(floor => floor.id === room.floor_id)?.name}
-            readings={readings} sensors={data.sensors} pointsByMetric={pointsByMetric} thresholds={data.thresholds} />
+        ? <><div><RoomQRCode building={building} floor={floor} room={room} /></div>
+            <RoomDetailPanel room={room} floorLabel={floor?.name}
+              readings={readings} sensors={data.sensors} pointsByMetric={pointsByMetric} thresholds={data.thresholds} /></>
         : <p role="status">{data.error || 'Dieser Raum ist für dein Konto nicht verfügbar.'}</p>}
     </DialogContent>
   </Dialog>;

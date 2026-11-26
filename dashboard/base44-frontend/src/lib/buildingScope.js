@@ -1,4 +1,4 @@
-const buildingParameters = ['building', 'building_id', 'room', 'focusRoom', 'floor', 'model', 'issue', 'alert', 'asset', 'task', 'unit', 'offset', 'all', 'start'];
+const buildingParameters = ['building', 'building_id', 'room', 'karte', 'focusRoom', 'floor', 'model', 'issue', 'alert', 'asset', 'task', 'unit', 'offset', 'all', 'start'];
 
 export function findBuilding(buildings, id) {
   return buildings.find(building => String(building.id) === String(id));

@@ -1,9 +1,10 @@
 const express=require('express');
 const {createHash,randomUUID}=require('node:crypto');
-const {accessibleBuilding}=require('./collaboration');
+const {accessibleBuilding,findBuildingRoom,validRoomID}=require('./collaboration');
+const {can}=require('./team-permissions');
 const {service}=require('./twin');
 const {mergeThresholds,METRIC_META}=require('./twin/thresholdRules');
-const {haTelemetry,haRoomTemperatures}=require('./ha-import');
+const {haTelemetry,haRoomTemperatures,haRoomClimate}=require('./ha-import');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res)).catch(next);
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const text=(v,max=100)=>typeof v==='string'?v.slice(0,max):'';
@@ -95,6 +96,35 @@ async function roomTemperatures(db, building) {
    provider:reading.provider, measured_at: new Date(reading.time).toISOString() } : null };
  }) };
 }
+
+async function latestRoomReading(db, building, roomID) {
+ const [native, homeAssistant] = await Promise.all([
+  db.query(`SELECT m.data->>'metric' AS metric, m.data->'value' AS value, m.data->>'measured_at' AS measured_at,
+    s.data->>'sensor_code' AS sensor_code, COALESCE(NULLIF(m.data->>'unit',''),s.data->>'unit') AS unit,
+    CASE WHEN s.data->>'source'='demo' THEN 'demo' ELSE m.data->>'source' END AS source
+   FROM app_twin_records s JOIN app_twin_records m ON m.user_id=s.user_id AND m.data->>'sensor_id'=s.id
+   WHERE s.user_id=$1 AND s.data->>'building_id'=$2 AND s.entity='Sensor' AND s.data->>'room_id'=$3
+    AND m.entity='Measurement' AND m.data->>'building_id'=$2 AND m.data->>'metric'=s.data->>'metric'
+    AND m.data->>'source' IN ('real','demo') AND COALESCE(m.data->>'quality','ok')='ok'
+   ORDER BY m.id DESC`, [building.user_id, String(building.id), roomID]),
+  haRoomClimate(db, building.id, roomID),
+ ]);
+ const readings = [
+  ...native.rows,
+  ...(homeAssistant[0]?.values ?? []).map(row => ({ ...row, source: 'real', provider: 'home-assistant' })),
+ ];
+ let latest = null, latestAt = -Infinity;
+ for (const reading of readings) {
+  const time = Date.parse(reading.measured_at);
+  if (!Number.isFinite(reading.value) || !Number.isFinite(time) || !Object.hasOwn(METRIC_META, reading.metric)) continue;
+  if (time > latestAt || (time === latestAt && latest?.source === 'demo' && reading.source === 'real')) {
+   latest = reading;
+   latestAt = time;
+  }
+ }
+ return latest && { ...latest, unit: latest.unit || METRIC_META[latest.metric].unit, measured_at: new Date(latestAt).toISOString() };
+}
+
 function telemetryRouter(db,requireAccount){
  const r=express.Router(),base='/buildings/:telemetryBuilding/telemetry';
  r.use(base,requireAccount,(req,res,next)=>{res.set('Cache-Control','private, no-store');if(!/^[1-9]\d*$/.test(req.params.telemetryBuilding)||Number(req.params.telemetryBuilding)>2147483647)return res.status(400).json({error:'Ungültiges Gebäude.'});next();});
@@ -153,6 +183,13 @@ function telemetryRouter(db,requireAccount){
   const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
   if(!building)return res.status(404).json({error:'Gebäude nicht gefunden.'});
   res.json(await roomTemperatures(db,building));
+ }));
+ r.get(base+'/rooms/:roomId/latest',wrap(async(req,res)=>{
+  if(!can(req.buildingAccess,'structure')||!can(req.buildingAccess,'buildings'))fail('Für diesen Raum fehlt dir der Zugriff.',403);
+  const building=await accessibleBuilding(db,req.params.telemetryBuilding,req.account.id);
+  const id=req.params.roomId;
+  if(!building||!validRoomID(id)||!await findBuildingRoom(db,building,id))fail('Raum nicht gefunden.',404);
+  res.json({reading:await latestRoomReading(db,building,id)});
  }));
  r.post(base+'/sensors',wrap(async(req,res)=>{
   const b=req.body||{};
