@@ -167,7 +167,7 @@ async function locations(db, body, existing, owner, building) {
   if (!Array.isArray(ids) || ids.length > 500 || ids.some(id => !['number','string'].includes(typeof id))) return null;
   if (!ids.length) continue;
   const result = await db.query("SELECT id FROM app_twin_records WHERE user_id=$1 AND entity=$2 AND data->>'building_id'=$3 AND data->>'source' IS DISTINCT FROM 'demo' AND id=ANY($4::text[])", [owner,entity,String(building),ids.map(String)]);
-  if (result.rowCount !== ids.length) return null;
+  if (result.rows.length !== ids.length) return null;
  }
  return { rooms, floors, priority };
 }
@@ -176,7 +176,7 @@ function scheduleRouter(db,requireAccount){
  attachmentRoutes(r,db,requireAccount,'schedule','/buildings/:buildingId/schedules/:parentID/files',async(req,res,write)=>{
   const access=await accessible(db,req,res); if(!access)return false;
   if(!can(access,'schedule',write?'edit':'read')) { fail(res,403,'Kein Zugriff auf diese Anhänge.'); return false; }
-  return (await db.query('SELECT id FROM app_building_schedules WHERE id=$1 AND building_id=$2',[req.params.parentID,req.params.buildingId])).rowCount>0;
+  return (await db.query('SELECT id FROM app_building_schedules WHERE id=$1 AND building_id=$2',[req.params.parentID,req.params.buildingId])).rows.length>0;
  });
  r.get('/buildings/:buildingId/schedules',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
