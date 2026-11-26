@@ -148,7 +148,7 @@ async function initBuildingSchedules(db){
  await db.query(`ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'appointment',ADD COLUMN IF NOT EXISTS interval_days INTEGER,ADD COLUMN IF NOT EXISTS reminder_days INTEGER,ADD COLUMN IF NOT EXISTS room_id TEXT,ADD COLUMN IF NOT EXISTS sensor_id TEXT`);
  await db.query("ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS room_ids TEXT[] DEFAULT '{}', ADD COLUMN IF NOT EXISTS floor_ids TEXT[] DEFAULT '{}'");
  await initAttachments(db, 'schedule');
- await db.query(`DO $ BEGIN
+ await db.query(`DO $$ BEGIN
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='app_building_schedules' AND column_name='room_id' AND data_type<>'text') THEN
    ALTER TABLE app_building_schedules ALTER COLUMN room_id TYPE TEXT USING room_id::text;
   END IF;
