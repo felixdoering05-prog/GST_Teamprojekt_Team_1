@@ -73,7 +73,8 @@ const AuthenticatedApp = () => {
           <Route path="/daten" element={<DataSettings />} />
           <Route path="/assistent" element={<BuildingAssistant />} />
           <Route path="/teams" element={<Teams />} />
-          <Route path="/zeitplanung" element={<BuildingSchedules />} />
+          <Route path="/kalender" element={<BuildingSchedules />} />
+          <Route path="/zeitplanung" element={<LegacyCalendar />} />
           <Route path="/rechte" element={<TeamAccess />} />
           <Route path="/verwaltung" element={<Admin />} />
         </Route>
@@ -85,6 +86,11 @@ const AuthenticatedApp = () => {
   );
 };
 
+
+function LegacyCalendar() {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: '/kalender', search, hash }} replace />;
+}
 
 function LegacyIssues() {
   return <Navigate to={legacyIssuesLocation(useLocation())} replace />;
