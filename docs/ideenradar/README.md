@@ -39,6 +39,8 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [26.11.2026 09:11 · IFC und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-26-0911.md)
+
 - [25.11.2026 17:04 · Serverbetrieb und Auth: keine neue Empfehlung](berichte/2026-11-25-1704.md)
 
 - [25.11.2026 09:03 · Energiekacheln bei großer Schrift](berichte/2026-11-25-0903.md)
