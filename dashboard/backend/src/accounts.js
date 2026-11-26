@@ -19,6 +19,7 @@ const {initMaintenance,maintenanceRouter}=require('./maintenance');
 const {initTechnicalAssets,technicalAssetsRouter}=require('./technical-assets');
 const {initAutomations,automationsRouter}=require('./automations');
 const {energyRouter}=require('./energy');
+const {initEnergyMonitor,energyMonitorRouter}=require('./energy-monitor');
 const {initHomeAssistant,homeAssistantRouter}=require('./home-assistant');
 const {initAdmin,adminRouter}=require('./admin');
 const {campusRouter}=require('./campus');
@@ -99,6 +100,7 @@ async function initAccounts(db) {
  await initAutomations(db);
  await initBuildingWeather(db);
  await initTelemetry(db);await initSensorDevices(db);await initSensorPlacement(db);await initHAImport(db);
+ await initEnergyMonitor(db);
  await initVoice(db);
  await initAIPreferences(db);
  await initUIPreferences(db);await initRuView(db);
@@ -243,6 +245,7 @@ function accountRouter(db,options={}) {
  router.use(technicalAssetsRouter(db,options.campus));
  router.use(automationsRouter(db,requireAccount));
  router.use(energyRouter(db,requireAccount));
+ router.use(energyMonitorRouter(db));
  router.use(equipmentRouter(db,requireAccount,options.homeAssistant));
  router.use(homeAssistantRouter(db,requireAccount,options.homeAssistant));
  router.use(liveVoiceRouter(db,requireAccount,{...options.liveVoice,homeAssistant:options.homeAssistant}));

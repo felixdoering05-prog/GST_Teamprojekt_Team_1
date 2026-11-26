@@ -31,7 +31,7 @@ class InventoryTest(unittest.TestCase):
     def test_only_allowed_sensors_and_needed_areas_leave_home_assistant(self):
         inv = payload.build_inventory(SENSORS, DEVICES, AREAS)
         ids = [e["entity_id"] for e in inv["entities"]]
-        self.assertEqual(ids, ["sensor.buero_co2", "sensor.wohnzimmer_temperatur", "sensor.zaehler"])
+        self.assertEqual(ids, ["sensor.batterie", "sensor.buero_co2", "sensor.wohnzimmer_temperatur", "sensor.zaehler"])
         self.assertNotIn("Felix iPhone", json.dumps(inv, ensure_ascii=False))
         self.assertNotIn("schlafzimmer", [a["area_id"] for a in inv["areas"]])
         self.assertEqual([d["device_id"] for d in inv["devices"]], ["dev1", "dev2"])
@@ -39,6 +39,13 @@ class InventoryTest(unittest.TestCase):
         self.assertEqual(by_id["sensor.wohnzimmer_temperatur"]["area_id"], "wohnzimmer", "device area is inherited")
         self.assertEqual(by_id["sensor.zaehler"]["area_id"], "keller", "entity area overrides device area")
         self.assertEqual(by_id["sensor.buero_co2"]["name"], "CO₂")
+
+    def test_water_counters_flow_and_storage_use_distinct_classes(self):
+        self.assertTrue(payload.allowed("sensor.zaehler", "water", "m³"))
+        self.assertTrue(payload.allowed("sensor.durchfluss", "volume_flow_rate", "L/min"))
+        self.assertTrue(payload.allowed("sensor.tank", "volume_storage", "L"))
+        self.assertFalse(payload.allowed("sensor.zaehler", "water", "L/min"))
+        self.assertFalse(payload.allowed("sensor.tank", "volume_storage", "%"))
 
     def test_unknown_references_are_dropped(self):
         inv = payload.build_inventory([{**SENSORS[0], "device_id": "missing", "area_id": "nirgends"}], DEVICES, AREAS)

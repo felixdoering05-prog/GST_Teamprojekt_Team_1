@@ -143,7 +143,7 @@ function MeterReadings({ meters, buildingName, showMedium }) {
   );
 }
 
-export default function EnergyDashboard({ data, medium, family, buildingName, urlFor }) {
+export default function EnergyDashboard({ data, medium, family, buildingName, urlFor, children }) {
   const summary = data.summaries.find((item) => item.medium === medium);
   const parts = data.summaries.filter((item) => item.medium !== medium && item.series[0].current != null);
   const splitWater = medium === 'wasser' && summary.series[0].current == null && parts.length > 0;
@@ -177,6 +177,7 @@ export default function EnergyDashboard({ data, medium, family, buildingName, ur
           }))} hint={!splitWater && summary.latest?.reading_date ? `Letzte Ablesung am ${formatEnergyDate(summary.latest.reading_date)}` : null} />
         </div>
       </div>
+      {children}
       <div className="energy-grid">
         <ConsumptionTrend title="Verbrauchsverlauf" series={visibleSeries} range={range} />
         {related.length ? <RelatedConsumption title={family === 'wasser' ? 'Wasserarten' : 'Strombilanz'} items={related} activeMedium={medium} urlFor={urlFor} /> : meterPanel}

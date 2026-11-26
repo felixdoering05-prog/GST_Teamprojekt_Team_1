@@ -1,8 +1,7 @@
 """Reine Hilfsfunktionen ohne Home-Assistant-Abhängigkeit (testbar mit unittest).
 
-Hier wird entschieden, welche Daten Home Assistant überhaupt verlassen. Nur Sensoren mit
-Temperatur, Luftfeuchte, CO₂, Leistung oder Energie werden gemeldet; Personen, Standorte,
-Kameras, Anwesenheit, Schalter usw. bleiben in Home Assistant.
+Hier wird entschieden, welche Daten Home Assistant für Raumklima, Strom und Wasser meldet.
+Die unterstützten Einheiten werden pro Sensorklasse geprüft.
 """
 from __future__ import annotations
 
@@ -18,6 +17,11 @@ ALLOWED_UNITS: dict[str, set[str]] = {
     "carbon_dioxide": {"ppm"},
     "power": {"W", "kW"},
     "energy": {"Wh", "kWh", "MWh"},
+    "battery": {"%"},
+    "water": {"L", "m³", "gal", "ft³", "CCF", "MCF"},
+    "volume_flow_rate": {"mL/s", "L/s", "L/min", "L/h", "m³/s", "m³/min", "m³/h"},
+    "volume_storage": {"mL", "L", "m³", "gal", "ft³"},
+    "irradiance": {"W/m²"},
 }
 ENTITY_RE = re.compile(r"^sensor\.[a-z0-9_]{1,200}$")
 REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")

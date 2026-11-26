@@ -12,7 +12,7 @@ import { SelectField, TextField } from '@/components/Field';
 import { formatDateShort } from '@/lib/dates';
 import { documentKey, isImage, isModel, uploadProblem } from './buildingFilesModel';
 
-const documentCategories = { allgemein: 'Allgemein', tga: 'TGA', elektro: 'Elektro', bim: 'BIM', brandschutz: 'Brandschutz', wartung: 'Wartung', bilder: 'Bilder und Scans', plaene: 'Pläne' };
+const documentCategories = { allgemein: 'Allgemein', tga: 'TGA', elektro: 'Elektro', bim: 'BIM', brandschutz: 'Brandschutz', wartung: 'Wartung', bilder: 'Bilder und Scans', plaene: 'Pläne', abrechnung: 'Abrechnungen' };
 const reviewStatuses = { draft: 'Entwurf', in_review: 'In Prüfung', approved: 'Freigegeben' };
 const options = values => Object.entries(values).map(([value, label]) => ({ value, label }));
 const categoryOf = file => file.category || (isModel(file) ? 'bim' : isImage(file) ? 'bilder' : ['application/acad', 'application/dxf'].includes(file.mime_type) ? 'plaene' : 'allgemein');

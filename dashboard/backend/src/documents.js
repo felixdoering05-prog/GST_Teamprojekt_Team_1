@@ -40,7 +40,7 @@ async function initDocuments(db) {
  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS app_documents_upload_key_idx ON app_documents(building_id,upload_key) WHERE upload_key IS NOT NULL');
 }
 const METADATA = 'id,building_id,name,mime_type,size,created_at,category,version_label,review_status,maintenance_id';
-const DOCUMENT_CATEGORIES = ['allgemein','tga','elektro','bim','brandschutz','wartung','bilder','plaene'];
+const DOCUMENT_CATEGORIES = ['allgemein','tga','elektro','bim','brandschutz','wartung','bilder','plaene','abrechnung'];
 const REVIEW_STATUSES = ['draft','in_review','approved'];
 function documentRouter(db,requireAccount) {
  const router=express.Router();

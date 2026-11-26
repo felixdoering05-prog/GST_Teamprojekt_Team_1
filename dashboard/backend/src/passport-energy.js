@@ -44,12 +44,12 @@ function totalsRows(rows) {
   });
 }
 
-function monthlySeries(rows) {
+function monthlySeries(rows, field = 'value') {
   const points = new Map();
   for (const row of rows) {
-    if (!Number.isFinite(row.value)) continue;
+    if (!Number.isFinite(row[field])) continue;
     const month = readingDay(row).slice(0, 7);
-    points.set(month, (points.get(month) || 0) + row.value);
+    points.set(month, (points.get(month) || 0) + row[field]);
   }
   const sorted = [...points.entries()].sort(([a], [b]) => a.localeCompare(b));
   if (!sorted.length) return [];
@@ -64,7 +64,7 @@ function monthlySeries(rows) {
   });
 }
 
-function summarize(medium, rows, previous) {
+function summarize(medium, rows, previous, withBilling) {
   const [label, defaultUnit] = MEDIUMS[medium];
   const units = [...new Set([defaultUnit, ...rows.map((row) => row.unit), ...previous.map((row) => row.unit)])];
   const series = units.map((unit) => {
@@ -75,7 +75,19 @@ function summarize(medium, rows, previous) {
   const meterKey = (row) => JSON.stringify([row.building_id, unitKey(row), row.meter_code, row.unit]);
   const meters = new Map();
   for (const row of rows) if (row.meter_code && !meters.has(meterKey(row))) meters.set(meterKey(row), row);
-  return { medium, label, series, cost_eur: amount(totalsRows(rows), 'cost_eur'),
+  const totals = totalsRows(rows);
+  let billing;
+  if (withBilling) {
+    const priced = totals.filter((row) => row.unit === defaultUnit && Number.isFinite(row.cost_eur) && Number.isFinite(row.value));
+    const quantity = amount(priced, 'value');
+    billing = {
+      previous: amount(totalsRows(previous), 'cost_eur'),
+      points: monthlySeries(totals, 'cost_eur'),
+      units: Object.fromEntries(units.map((unit) => [unit, monthlySeries(totals.filter((row) => row.unit === unit), 'cost_eur')])),
+      average_rate: quantity > 0 ? amount(priced, 'cost_eur') / quantity : null,
+    };
+  }
+  return { medium, label, series, cost_eur: amount(totals, 'cost_eur'), billing,
     meter_count: meters.size, latest: rows[0] || null, meters: [...meters.values()] };
 }
 
@@ -100,7 +112,7 @@ function overview(readings, filters) {
   const media = Object.keys(MEDIUMS).filter((medium, index) => index < 4 || dataMedia.has(medium) || filters.medium === medium);
   const summaryMedia = group || (filters.medium ? [filters.medium] : media);
   const summaries = summaryMedia.map((medium) => summarize(medium, current.filter((r) => r.medium === medium),
-    previous.filter((r) => r.medium === medium)));
+    previous.filter((r) => r.medium === medium), filters.billing));
   const historyMedia = filters.medium ? [filters.medium] : group;
   const rows = historyMedia ? current.filter((row) => historyMedia.includes(row.medium)) : current;
   const showReference = filters.reference && source === 'demo' && !filters.unit && !historyMedia &&
@@ -119,7 +131,7 @@ function overview(readings, filters) {
 async function getPassportEnergy(db, req, res) {
   const filters = {
     building: req.query.building || '', unit: req.query.unit || '', medium: req.query.medium || '',
-    group: req.query.group || '',
+    group: req.query.group || '', billing: req.query.billing === '1',
     months: req.query.months || '12', end: req.query.end || dayOf(new Date().toISOString()).slice(0, 7),
     source: req.query.source || '', offset: Number(req.query.offset || 0),
   };

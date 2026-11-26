@@ -1,0 +1,202 @@
+.energy-section-nav,
+.energy-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.energy-section-nav button,
+.energy-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid hsl(var(--border) / 0.7);
+  border-radius: 0.7rem;
+  background: hsl(var(--card) / 0.62);
+  padding: 0.45rem 0.7rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.energy-section-nav button[aria-pressed="true"],
+.energy-mode-switch button[aria-pressed="true"] {
+  border-color: hsl(var(--primary) / 0.45);
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.energy-mode-switch button:hover,
+.energy-section-nav button:hover,
+.energy-module-grid button:hover {
+  border-color: hsl(var(--primary));
+}
+
+.energy-section-nav button:focus-visible,
+.energy-mode-switch button:focus-visible,
+.energy-module-grid button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.energy-figures,
+.energy-flow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.7rem;
+}
+
+.energy-figure,
+.energy-flow li {
+  min-width: 0;
+  border: 1px solid hsl(var(--border) / 0.55);
+  border-radius: 0.9rem;
+  background: hsl(var(--card) / 0.35);
+  padding: 0.75rem;
+}
+
+.energy-figure dt,
+.energy-flow li p {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.78rem;
+}
+
+.energy-figure dd:first-of-type,
+.energy-flow strong {
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+  font: 600 clamp(1rem, 2vw, 1.45rem) / 1.3 var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-figure dd + dd {
+  margin-top: 0.25rem;
+}
+
+.energy-flow {
+  margin-top: 0.9rem;
+}
+
+.energy-flow li {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 0.2rem;
+}
+
+.energy-flow li > svg {
+  margin-bottom: 0.25rem;
+  color: var(--energy-chart);
+}
+
+.energy-flow li span,
+.energy-flow li time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.energy-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.75rem, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.energy-module-grid button {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  min-height: 4.25rem;
+  padding: 0.6rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--energy-chart) calc(var(--module-output) * 50%), hsl(var(--card)));
+  text-align: left;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.energy-module-grid[data-view="3d"] {
+  grid-auto-rows: 7rem;
+  align-items: end;
+  padding: 0.25rem 0.5rem 0.65rem;
+  background: repeating-linear-gradient(0deg, hsl(var(--border) / 0.28), hsl(var(--border) / 0.28) 1px, transparent 1px, transparent 1.4rem);
+}
+
+.energy-module-grid[data-view="3d"] button {
+  min-height: calc(3.75rem + var(--module-output) * 2rem);
+  transform: skewY(-3deg);
+  box-shadow: 0 calc(0.1rem + var(--module-output) * 0.45rem) 0 hsl(var(--primary) / 0.34);
+}
+
+.energy-module-grid button[aria-pressed="true"] {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}
+
+.energy-storage-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.9rem;
+}
+
+.energy-storage-gauge {
+  position: relative;
+  display: grid;
+  width: 5.5rem;
+  height: 9rem;
+  flex-shrink: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.5rem;
+  background: hsl(var(--muted));
+}
+
+.energy-storage-gauge span {
+  position: absolute;
+  inset: auto 0 0;
+  background: color-mix(in srgb, var(--energy-chart) 65%, hsl(var(--muted)));
+}
+
+.energy-storage-gauge strong {
+  position: relative;
+  border-radius: 999px;
+  background: hsl(var(--card));
+  padding: 0.3rem 0.65rem;
+  font-size: 1rem;
+}
+
+.energy-tariff {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  height: 0.7rem;
+  margin-top: 1rem;
+  border-radius: 99px;
+}
+
+.energy-tariff span {
+  background: #b76a31;
+}
+
+.energy-tariff span[data-reduced="true"] {
+  background: #51853e;
+}
+
+@media (max-width: 559px) {
+  .energy-section-nav {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

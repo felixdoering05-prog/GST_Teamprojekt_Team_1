@@ -2,7 +2,7 @@ import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CalendarDays, ChevronDown, Droplet, Droplets, Flame, Gauge, LayoutGrid, Plus, SlidersHorizontal, Zap } from 'lucide-react';
+import { ArrowRight, BatteryCharging, CalendarDays, ChevronDown, Droplet, Droplets, Flame, Gauge, LayoutGrid, Plus, ReceiptText, Settings2, SlidersHorizontal, Sun, Zap } from 'lucide-react';
 import { base44, request } from '@/api/base44Client';
 import PageHeader from '@/components/PageHeader';
 import { SelectField, TextField } from '@/components/Field';
@@ -10,7 +10,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import EnergyChart from '@/components/energy/EnergyChart';
 import EnergyDashboard from '@/components/energy/EnergyDashboard';
+import { EnergyLiveOverview, EnergyStorage, EnergyUsage } from '@/components/energy/EnergyLiveViews';
+import EnergyBilling from '@/components/energy/EnergyBilling';
+import EnergySourceSettings from '@/components/energy/EnergySourceSettings';
 import ReadingDialog from '@/components/energy/ReadingDialog';
+import '@/components/energy/energy-monitor.css';
 import { ENERGY_MEDIA, formatAmount, formatCost, formatEnergyDate, formatEnergyMonth, formatPeriod, readingSource } from '@/lib/energy';
 
 const ALL = { value: '', label: 'Alle' };
@@ -28,6 +32,12 @@ const NAVIGATION = [
   { medium: 'strom', label: 'Strom', icon: Zap },
   { medium: 'wasser', label: 'Wasser', icon: Droplets },
   { medium: 'alle', label: 'Alle', name: 'Alle Verbrauchsarten', icon: LayoutGrid },
+];
+const SECTIONS = [
+  { key: 'uebersicht', title: 'Übersicht', icon: LayoutGrid },
+  { key: 'verlauf', title: 'Erzeugung', water: 'Verbrauch', icon: Sun, waterIcon: Gauge },
+  { key: 'speicher', title: 'Speicher', icon: BatteryCharging, waterIcon: Droplets },
+  { key: 'abrechnung', title: 'Abrechnung', icon: ReceiptText },
 ];
 const mediumOption = (value) => ({ value, label: ENERGY_MEDIA[value][0] });
 
@@ -157,6 +167,7 @@ export default function Energy() {
   const [dialog, setDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const { toast } = useToast();
   const selection = useBuildingScope();
   const buildings = selection.readable('energy');
@@ -168,9 +179,10 @@ export default function Energy() {
   const end = params.get('end') || '';
   const offset = Number(params.get('offset')) || 0;
   const validMedium = !medium || Object.hasOwn(ENERGY_MEDIA, medium);
+  const section = family ? SECTIONS.find((item) => item.key === params.get('ansicht'))?.key || 'uebersicht' : 'uebersicht';
   const queryParams = new URLSearchParams({
     building, unit, months, source, medium: groupedHistory ? '' : medium, offset: String(offset),
-    ...(family ? { group: family } : {}), ...(end ? { end } : {}),
+    ...(family ? { group: family } : {}), ...(end ? { end } : {}), ...(section === 'abrechnung' ? { billing: '1' } : {}),
   });
 
   const energy = useQuery({
@@ -181,6 +193,15 @@ export default function Energy() {
   });
   const canImport = selection.team?.is_owner && selection.value === 'all';
   const data = energy.data;
+  const liveEnabled = Boolean(family && building && !unit && data?.source === 'real');
+  const liveQuery = useQuery({
+    queryKey: ['energy-live', selection.team?.id, building, family],
+    queryFn: () => request('/buildings/' + building + '/energy/live?medium=' + family, { headers }),
+    enabled: liveEnabled,
+    refetchInterval: 60000,
+    retry: false,
+  });
+  const live = liveEnabled ? liveQuery.data : undefined;
 
   const update = (patch) => {
     const next = new URLSearchParams(params);
@@ -218,6 +239,7 @@ export default function Energy() {
     next.set('building', row.building_id);
     next.set('source', row.source);
     next.delete('offset');
+    next.delete('ansicht');
     if (row.unit_id) next.set('unit', row.unit_id);
     else next.delete('unit');
     if (months !== 'all') next.set('end', (row.period_end || row.period_start || row.reading_date).slice(0, 7));
@@ -227,6 +249,9 @@ export default function Energy() {
 
   const buildingName = (id) => data?.buildings.find((row) => row.id === id)?.name || 'Ohne Gebäudezuordnung';
   const editableBuildings = data?.buildings.filter((row) => row.can_edit) || [];
+  const canConfigure = Boolean(family && building && editableBuildings.some((row) => row.id === building));
+  const canReadDocuments = selection.readable('documents').some((row) => String(row.id) === building);
+  const configure = canConfigure && <button type="button" className="font-medium text-primary underline" onClick={() => setShowSources(true)}>Messquellen öffnen</button>;
   const visibleMedia = [...new Set(['strom', 'wasser', ...(data?.media || Object.keys(ENERGY_MEDIA).slice(0, 4)), ...(validMedium && medium ? [medium] : [])])];
   const group = selection.value.startsWith('group:');
   const options = selection.building ? selection.readable('energy', { team: true }) : buildings;
@@ -263,6 +288,18 @@ export default function Energy() {
           </Button>
         </div>
       </div>
+      {family && (
+        <div className="energy-controls">
+          <nav className="energy-section-nav" aria-label="Bereiche im Energie-Reiter">
+            {SECTIONS.map(({ key, title, water, icon, waterIcon }) => {
+              const Icon = family === 'wasser' && waterIcon ? waterIcon : icon;
+              return <button key={key} type="button" aria-pressed={section === key}
+                onClick={() => update({ ansicht: key === 'uebersicht' ? '' : key })}><Icon size={16} aria-hidden />{family === 'wasser' && water ? water : title}</button>;
+            })}
+          </nav>
+          {canConfigure && <Button variant="outline" className="rounded-xl" onClick={() => setShowSources(true)}><Settings2 /> Messquellen und Tarife</Button>}
+        </div>
+      )}
       <div className={showFilters ? 'surface grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5' : 'hidden'} id="energy-filters" aria-label="Verbrauchsfilter">
         <SelectField label="Gebäude" aria-label="Gebäude" value={selection.building ? building : ''} options={buildingOptions}
           onChange={event => selection.choose(event.target.value ? 'building:' + event.target.value : 'all')} />
@@ -275,11 +312,26 @@ export default function Energy() {
       {!validMedium && <p className="surface p-5">Diese Verbrauchsart ist unbekannt.</p>}
       {energy.isLoading && <p role="status" className="surface p-5 text-sm text-muted-foreground">Verbrauchsdaten werden geladen …</p>}
       {energy.isError && <div className="surface flex flex-wrap items-center justify-between gap-2 p-5" role="alert"><p>{energy.error.message}</p><Button size="sm" variant="outline" onClick={() => energy.refetch()}>Erneut laden</Button></div>}
+      {liveEnabled && liveQuery.isError && (
+        <div className="surface flex items-center justify-between gap-3 p-4 text-sm" role="alert">
+          <p>Live-Messwerte konnten nicht geladen werden.</p>
+          <Button size="sm" variant="outline" onClick={() => liveQuery.refetch()}>Live-Daten erneut laden</Button>
+        </div>
+      )}
+      {family && section !== 'uebersicht' && (!building || unit) && (
+        <p className="surface p-4 text-sm text-muted-foreground">Wähle für Live-Messwerte und Speicher ein einzelnes Gebäude und alle Nutzungseinheiten.</p>
+      )}
       {data && (
         <>
-          {medium ? (
+          {section === 'verlauf' && <EnergyUsage key={family} family={family} data={data} live={live} configure={configure} />}
+          {section === 'speicher' && <EnergyStorage key={building + family} family={family} live={live} configure={configure} />}
+          {section === 'abrechnung' && <EnergyBilling data={data} family={family} live={live} building={building} headers={headers}
+            teamId={selection.team?.id} canReadDocuments={canReadDocuments} />}
+          {section === 'uebersicht' && (medium ? (
             data.summaries.some((item) => item.medium === medium) &&
-            <EnergyDashboard data={data} medium={medium} family={family} urlFor={urlFor} buildingName={buildingName} />
+            <EnergyDashboard data={data} medium={medium} family={family} urlFor={urlFor} buildingName={buildingName}>
+              <EnergyLiveOverview key={building + family} family={family} live={live} />
+            </EnergyDashboard>
           ) : (
             <>
               <p className="px-1 text-sm text-muted-foreground">
@@ -292,12 +344,14 @@ export default function Energy() {
               </section>
               {data.reference && <SitesReference reference={data.reference} electricity={data.summaries.find((summary) => summary.medium === 'strom')?.series[0]} />}
             </>
-          )}
-          <ReadingHistory data={data} offset={offset} onOffset={(value) => update({ offset: value ? String(value) : '' })}
-            buildingName={buildingName} detail={Boolean(medium) && !groupedHistory} />
+          ))}
+          {section === 'uebersicht' && <ReadingHistory data={data} offset={offset} onOffset={(value) => update({ offset: value ? String(value) : '' })}
+            buildingName={buildingName} detail={Boolean(medium) && !groupedHistory} />}
         </>
       )}
       {dialog && <ReadingDialog buildings={editableBuildings} selectedBuilding={building} selectedMedium={medium} onClose={() => setDialog(false)} onSaved={showSavedReading} />}
+      {showSources && canConfigure && <EnergySourceSettings key={building + family} building={building} family={family} headers={headers}
+        teamId={selection.team?.id} onClose={() => setShowSources(false)} />}
     </div>
   );
 }
