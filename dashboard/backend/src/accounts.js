@@ -43,6 +43,20 @@ const {randomBytes, scrypt, timingSafeEqual, createHash} = require('node:crypto'
 const {promisify} = require('node:util');
 const derive = promisify(scrypt);
 const SESSION_DAYS = 7;
+const WEB_SESSION_COOKIE = '__Host-d21-session';
+const WEB_COOKIE_OPTIONS = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' };
+function isWebRequest(req) {
+ // A browser form or top-level navigation cannot send this application header.
+ const site = req.get('Sec-Fetch-Site');
+ return req.get('X-D21-Web-Session') === '1' && (!site || site === 'same-origin');
+}
+function webSessionToken(req) {
+ if (!isWebRequest(req)) return '';
+ return req.get('Cookie')?.match(/(?:^|;\s*)__Host-d21-session=([a-f0-9]{64})(?:;|$)/)?.[1] ?? '';
+}
+function setWebSession(req,res,token) {
+ if (isWebRequest(req)) res.cookie(WEB_SESSION_COOKIE,token,WEB_COOKIE_OPTIONS);
+}
 const hashToken = token => createHash('sha256').update(token).digest('hex');
 const wrap = fn => (req,res,next) => Promise.resolve(fn(req,res)).catch(next);
 async function passwordHash(password, salt = randomBytes(16).toString('hex')) {
@@ -118,7 +132,7 @@ function accountRouter(db,options={}) {
  // Middleware wrapper explicitly continues only after successful authentication.
  const requireAccount=(req,res,next)=>{if(req.account)return next();return Promise.resolve(authenticateAccount(req,res)).then(ok=>{if(ok)next()}).catch(next);};
  async function authenticateAccount(req,res){
-  const token=req.get('X-D21-Session')||'';
+  const token=req.get('X-D21-Session')||webSessionToken(req);
   if(!/^[a-f0-9]{64}$/.test(token)){res.status(401).json({error:'Bitte anmelden.'});return false;}
   const user=(await db.query(`SELECT u.id,u.name,u.email FROM app_users u JOIN app_sessions s ON s.user_id=u.id WHERE s.token_hash=$1 AND s.expires_at > $2`,[hashToken(token),new Date()])).rows[0];
   if(!user){res.status(401).json({error:'Die Sitzung ist abgelaufen. Bitte erneut anmelden.'});return false;}
@@ -133,7 +147,9 @@ function accountRouter(db,options={}) {
   const hash=await boundedHash(password);
   try {
    const user=(await db.query('INSERT INTO app_users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id,name,email',[name,email,hash])).rows[0];
-   res.status(201).json(await session(user));
+   const result=await session(user);
+   setWebSession(req,res,result.token);
+   res.status(201).json(result);
   } catch(e){if(e.code==='23505')return res.status(409).json({error:'Ein Konto mit diesen Angaben kann nicht angelegt werden. Bitte anmelden oder andere Angaben verwenden.'});throw e;}
  }));
  router.post('/auth/login',throttle,wrap(async(req,res)=>{
@@ -150,13 +166,24 @@ function accountRouter(db,options={}) {
    await client.query('BEGIN');
    const current=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
    if(!current||current.password_hash!==user.password_hash){await client.query('ROLLBACK');return res.status(401).json({error:'E-Mail oder Passwort ist falsch.'});}
-   const result=await session(user,client);await client.query('COMMIT');res.json(result);
+   const result=await session(user,client);await client.query('COMMIT');
+   setWebSession(req,res,result.token);
+   res.json(result);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }));
  router.use(passwordResetRouter(db,{passwordHash:boundedHash,throttle,...options}));
  router.use(accountDeletionRouter(db,requireAccount,verifyPassword));
- router.get('/auth/me',requireAccount,(req,res)=>res.json(publicUser(req.account)));
- router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);res.json({ok:true})}));
+ router.get('/auth/me',requireAccount,(req,res)=>{
+  const explicit=req.get('X-D21-Session');
+  if(explicit&&!webSessionToken(req))setWebSession(req,res,explicit);
+  res.set('Cache-Control','private, no-store').json(publicUser(req.account));
+ });
+ router.post('/auth/logout',requireAccount,wrap(async(req,res)=>{
+  await db.query('DELETE FROM app_sessions WHERE token_hash=$1',[req.sessionHash]);
+  const cookie=webSessionToken(req);
+  if(cookie&&hashToken(cookie)===req.sessionHash)res.clearCookie(WEB_SESSION_COOKIE,WEB_COOKIE_OPTIONS);
+  res.json({ok:true});
+ }));
  router.get('/buildings',requireAccount,applyTeamScope,wrap(async(req,res)=>{
   const params=[req.account.id],teamFilter=req.teamScope?' AND b.team_id=$2':'';if(req.teamScope)params.push(req.teamScope.id);
   res.json((await db.query(`SELECT b.id,b.name,b.address,b.created_at,b.user_id AS owner_id,b.team_id,(b.user_id=$1) AS is_owner,(SELECT d.id FROM app_documents d WHERE d.building_id=b.id AND d.mime_type='application/x-step' ORDER BY d.id DESC LIMIT 1) AS model_document_id FROM app_buildings b WHERE (b.user_id=$1 OR EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$1 AND m.status='accepted'))${teamFilter} ORDER BY b.id`,params)).rows);

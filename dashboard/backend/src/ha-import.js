@@ -409,14 +409,15 @@ async function haLamps(db,buildingID){
 
 
 // Neueste HA-Messwerte je zugeordnetem Raum (Temperatur, Luftfeuchte, CO₂) für die Messwert-Popups und das Raumklima im 3D-Modell.
-async function haRoomClimate(db,buildingID){
+async function haRoomClimate(db,buildingID,roomID=null){
  const rows=(await db.query(`SELECT DISTINCT ON (x.room_id,e.metric) x.room_id,e.metric,s.value,s.measured_at,r.data->>'name' AS room_name,r.data->>'ifc_global_id' AS room_gid
   FROM app_ha_links l JOIN app_ha_entities e ON e.link_id=l.id AND e.selected AND e.metric IN ('temperature','humidity','co2')
   LEFT JOIN app_ha_devices d ON d.link_id=l.id AND d.device_id=e.device_id LEFT JOIN app_ha_areas a ON a.link_id=l.id AND a.area_id=e.area_id LEFT JOIN app_ha_areas da ON da.link_id=d.link_id AND da.area_id=d.area_id
   CROSS JOIN LATERAL (SELECT COALESCE(e.room_id,d.room_id,a.room_id,da.room_id) AS room_id) x
   JOIN app_twin_records r ON r.id=x.room_id AND r.entity='Room'
   JOIN LATERAL (SELECT value,measured_at FROM app_ha_samples WHERE link_id=l.id AND entity_id=e.entity_id ORDER BY measured_at DESC LIMIT 1) s ON true
-  WHERE l.building_id=$1 ORDER BY x.room_id,e.metric,s.measured_at DESC LIMIT 300`,[buildingID])).rows;
+  WHERE l.building_id=$1 AND ($2::text IS NULL OR x.room_id=$2)
+  ORDER BY x.room_id,e.metric,s.measured_at DESC LIMIT 300`,[buildingID,roomID])).rows;
  const rooms=new Map();
  for(const r of rows){const room=rooms.get(r.room_id)||{room_id:r.room_id,room:r.room_name||'Raum',room_gid:r.room_gid||null,values:[]};room.values.push({metric:r.metric,value:Number(r.value),measured_at:new Date(r.measured_at).toISOString()});rooms.set(r.room_id,room);}
  return [...rooms.values()];

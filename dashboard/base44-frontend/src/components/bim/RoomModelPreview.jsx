@@ -16,7 +16,7 @@ export function RoomReading({ reading }) {
   const status = readingStatus(reading);
   if (status === 'missing') return <span>Kein Messwert hinterlegt</span>;
   const source = reading.provider === 'home-assistant' ? 'Home Assistant'
-    : reading.source === 'real' ? 'Sensormessung' : reading.source === 'demo' ? 'Demo-Messwert' : 'Quelle nicht hinterlegt';
+    : reading.source === 'real' ? 'Sensormessung' : reading.source === 'demo' ? 'Simulierter Messwert' : 'Quelle nicht hinterlegt';
   return <span className="break-words">
     <strong>{displayValue.format(reading.value)}{reading.unit ? ' ' + reading.unit : ''}</strong>
     {' · '}{[source, reading.sensor_code].filter(Boolean).join(' · ')}
@@ -33,13 +33,13 @@ export function RoomDetailsLink({ buildingID, room }) {
   </Button>;
 }
 
-export function RoomModelPreview({ document, focus, onLocation, location, show = false }) {
+export function RoomModelPreview({ document, focus, onLocation, location, show = false, buttonLabel = 'Im Modell zeigen' }) {
   const [opened, setOpened] = useState(show);
   const [focusVersion, setFocusVersion] = useState(0);
   return <div className="min-w-0 space-y-3">
     {document ? <>
       <Button variant="outline" size="sm" onClick={() => { setOpened(true); setFocusVersion(value => value + 1); }}>
-        <MapPin className="h-4 w-4" /> Im Modell zeigen
+        <MapPin className="h-4 w-4" aria-hidden="true" /> {buttonLabel}
       </Button>
       {opened && <IFCModelFrame key={document.id} document={document} presentation="bim"
         issueFocus={focus} focusVersion={focusVersion} onIssueLocation={onLocation} readOnly />}

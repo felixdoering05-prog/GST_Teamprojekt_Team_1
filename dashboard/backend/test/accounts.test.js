@@ -32,6 +32,27 @@ test('login and account restore succeed',async()=>{
  const r=await request('/auth/login',{email:'ALICE@example.test',password:'Test-Passphrase-123'});assert.equal(r.status,200);
  assert.equal((await request('/auth/me',null,r.body.token)).body.id,alice.user.id);
 });
+test('web session cookies resume a new tab and require a same-origin app request',async()=>{
+ const appHeaders={'Content-Type':'application/json','X-D21-Web-Session':'1','Sec-Fetch-Site':'same-origin'};
+ const login=await fetch(url+'/auth/login',{method:'POST',headers:appHeaders,body:JSON.stringify({
+  email:'alice@example.test',password:'Test-Passphrase-123',
+ })});
+ assert.equal(login.status,200);
+ const set=login.headers.get('set-cookie');
+ assert.match(set,/^__Host-d21-session=[a-f0-9]{64}; Path=\/; HttpOnly; Secure; SameSite=Lax$/);
+ const cookie=set.split(';',1)[0];
+ const me=headers=>fetch(url+'/auth/me',{headers:{...headers,Cookie:cookie}});
+ const recovered=await me(appHeaders);
+ assert.equal(recovered.status,200);
+ assert.equal((await recovered.json()).id,alice.user.id);
+ assert.equal((await me({})).status,401);
+ assert.equal((await me({...appHeaders,'Sec-Fetch-Site':'same-site'})).status,401);
+
+ const logout=await fetch(url+'/auth/logout',{method:'POST',headers:{...appHeaders,Cookie:cookie},body:'{}'});
+ assert.equal(logout.status,200);
+ assert.match(logout.headers.get('set-cookie'),/^__Host-d21-session=;/);
+ assert.equal((await me(appHeaders)).status,401);
+});
 test('building routes require a valid session',async()=>{
  assert.equal((await request('/buildings')).status,401);
  assert.equal((await request('/buildings',null,'a'.repeat(64))).status,401);

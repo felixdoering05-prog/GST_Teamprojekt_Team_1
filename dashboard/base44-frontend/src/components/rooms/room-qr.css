@@ -1,0 +1,35 @@
+.room-qr-print {
+  display: none;
+}
+
+@media print {
+  body:has(> .room-qr-print) {
+    margin: 0;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body:has(> .room-qr-print) > :not(.room-qr-print) {
+    display: none !important;
+  }
+
+  .room-qr-print {
+    display: block;
+    max-width: 100mm;
+    break-inside: avoid;
+  }
+
+  .room-qr-print .room-qr-label {
+    font-family: system-ui, sans-serif;
+    border-color: black;
+    border-radius: 0;
+    padding: 4mm;
+    gap: 5mm;
+  }
+
+  .room-qr-print svg {
+    width: 36mm;
+    height: 36mm;
+    shape-rendering: crispEdges;
+  }
+}

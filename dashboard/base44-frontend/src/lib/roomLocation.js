@@ -4,6 +4,18 @@ export function roomDetailLink(buildingID, roomID) {
   return '/gebaeude?' + new URLSearchParams({ building: buildingID, section: 'rooms', room: roomID });
 }
 
+export function roomCardLink(buildingID, roomID) {
+  return '/gebaeude?' + new URLSearchParams({ building: buildingID, room: roomID, karte: '1' });
+}
+
+export function roomQRCodeLink(buildingID, roomID, { protocol, origin }) {
+  return new URL(roomCardLink(buildingID, roomID), protocol === 'https:' ? origin : 'https://nala-solutions.de').href;
+}
+
+export function roomDisplayName(room) {
+  return [...new Set([room.room_code, room.name].filter(Boolean))].join(' · ');
+}
+
 export function roomAssistantLink(buildingID, roomID) {
   return '/assistent?' + new URLSearchParams({ building: buildingID, room: roomID });
 }

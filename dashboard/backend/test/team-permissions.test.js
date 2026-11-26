@@ -2,7 +2,7 @@ const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 const express=require('express');
 const {PGlite}=require('@electric-sql/pglite');
-const {randomBytes,createHash}=require('node:crypto');
+const {randomBytes,createHash,randomUUID}=require('node:crypto');
 const {initAccounts,accountRouter}=require('../src/accounts');
 const {MODULES,ensureBuildingRoles}=require('../src/team-permissions');
 
@@ -71,6 +71,51 @@ test('team navigation and building selection respect the selected buildings and 
  assert.deepEqual(await scopedFloors(owner,`${first},${second}`),[floorFirst.id,floorSecond.id].sort());
  assert.deepEqual(await scopedFloors(maintenance,`${first},${second}`),[floorSecond.id]);
  assert.deepEqual(await scopedFloors(owner,'none'),[]);
+});
+
+test('a saved room link and its photo report keep the same room ID through a rename', async () => {
+ const payload={building_id:String(second),floor_id:floorSecond.id,name:'Raum vor Umbenennung',room_code:'A-12',source:'real'};
+ const {body:room}=await request(owner,'/twin/Room/create','POST',{data:payload});
+ const link=building=>`/buildings/${building}/structure/rooms/${room.id}`;
+ const reports=`/buildings/${second}/issues`;
+ const body={title:'Türgriff locker',room_id:room.id,room:'Überschreibversuch',request_key:randomUUID()};
+ assert.equal((await request(null,link(second))).status,401);
+ assert.equal((await request(peer,link(second))).status,404);
+ assert.equal((await request(owner,link(first))).status,404);
+ assert.equal((await request(owner,`/buildings/${first}/issues`,'POST',body)).status,404);
+ assert.equal((await request(maintenance,reports,'POST',body)).status,403);
+ const read=await request(maintenance,link(second));
+ assert.equal(read.status,200);
+ assert.equal(read.body.building.id,second);
+ assert.equal(read.body.room.id,room.id);
+ assert.equal(read.body.floor.id,floorSecond.id);
+
+ const created=await request(owner,reports,'POST',body);
+ assert.equal(created.status,201);
+ assert.equal(created.body.room_id,room.id);
+ assert.equal(created.body.room,'UG · A-12');
+ const detail=`${reports}/${created.body.id}`;
+ const photo=bytes=>fetch(url+detail+'/photo',{
+  method:'PUT',headers:{'X-D21-Session':owner.token,'Content-Type':'image/jpeg'},body:bytes,
+ });
+ assert.equal((await photo(Buffer.from('unlesbar'))).status,415);
+ assert.equal((await request(owner,reports,'POST',body)).body.id,created.body.id);
+ assert.equal((await request(owner,reports,'POST',{...body,room_id:null})).status,409);
+ const bytes=Buffer.from([0xff,0xd8,0xff,0xe0,0,0x10,0x4a,0x46,0x49,0x46,0,1]);
+ assert.equal((await photo(bytes)).status,200);
+ const downloaded=await fetch(url+detail+'/photo',{headers:{'X-D21-Session':maintenance.token}});
+ assert.equal(downloaded.status,200);
+ assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
+
+ assert.equal((await request(owner,'/twin/Room/update','POST',{id:room.id,data:{name:'Raum nach Umbenennung',room_code:'A-14'}})).status,200);
+ const renamed=await request(maintenance,link(second));
+ assert.equal(renamed.body.room.id,room.id);
+ assert.equal(renamed.body.room.room_code,'A-14');
+ assert.equal((await request(owner,detail)).body.room_id,room.id);
+ assert.equal((await request(owner,reports)).body.filter(row=>row.id===created.body.id).length,1);
+ assert.equal((await request(owner,'/twin/Room/delete','POST',{id:room.id})).status,200);
+ assert.equal((await request(owner,link(second))).status,404);
+ assert.equal((await request(owner,detail)).body.room,'UG · A-12');
 });
 
 test('roles and building scopes limit reads and writes independently per building',async()=>{
