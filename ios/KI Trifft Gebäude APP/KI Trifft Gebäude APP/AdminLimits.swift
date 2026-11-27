@@ -57,6 +57,7 @@ struct AdminEntrySection: View {
     @ObservedObject var account: AccountModel
     var body: some View {
         Section("Projektadministration") {
+            NavigationLink { AdminOverviewView(account: account) } label: { Label("Serverübersicht", systemImage: "gauge.with.dots.needle.50percent") }
             NavigationLink { AdminUsersView(account: account) } label: { Label("Personen und Limits", systemImage: "person.badge.shield.checkmark") }
         }
     }

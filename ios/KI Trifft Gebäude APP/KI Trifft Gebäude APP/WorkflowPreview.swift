@@ -157,6 +157,22 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.contains("/telemetry/rooms/") && path.hasSuffix("/latest") {
             result = ["reading":["metric":"temperature","value":21.4,"unit":"°C","measured_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-600)),"source":"real","sensor_code":"TEMP-01"]]
         }
+        else if path.contains("/energy/live") {
+            let now = Date(), iso = ISO8601DateFormatter()
+            let points: [[String: Any]] = (0..<20).map { i in ["time": iso.string(from: now.addingTimeInterval(Double(i - 20) * 1800)), "value": 400 + 300 * sin(Double(i) / 3)] }
+            result = ["now": iso.string(from: now), "channels": [
+                "load": ["name": "sensor.hausverbrauch", "label": "Gebäudelast", "unit": "W", "latest": ["value": 612, "time": iso.string(from: now), "stale": false], "points": points, "peak": 720, "days": []],
+                "solar": ["name": "sensor.pv_leistung", "label": "PV-Leistung", "unit": "W", "latest": ["value": 1840, "time": iso.string(from: now), "stale": false], "points": [], "peak": 2400, "days": []],
+                "battery": ["name": "sensor.speicher_soc", "label": "Speicher · Ladezustand", "unit": "%", "latest": ["value": 78, "time": iso.string(from: now.addingTimeInterval(-900)), "stale": true], "points": [], "peak": NSNull(), "days": []]]]
+        }
+        else if path.hasSuffix("admin/overview") {
+            result = ["generated_at":ISO8601DateFormatter().string(from: Date()),
+                      "counts":["users":"12","buildings":"9","files":"41","file_bytes":"183500000","sessions":"5","database_bytes":"96000000"],
+                      "ai":["requests":"17","successful":"15","failed":"1","limited":"1","processing":"0","provider":"Google Gemini","model":"gemini-3.5-flash-lite","enabled":true,"key_configured":true,"limits":["account_24h":20,"project_24h":100,"account_minute":3,"concurrent":2]],
+                      "http":["requests":"4210","errors":"37","average_ms":"84","series":[]],
+                      "host":["version":1,"collected_at":ISO8601DateFormatter().string(from: Date()),"cpu_percent":23.5,"cpu_cores":4,"memory":["used":3_100_000_000,"total":8_000_000_000],"disk":["used":41_000_000_000,"total":80_000_000_000],"uptime_seconds":1_900_000,"containers":[["name":"api","state":"running"],["name":"db","state":"running"],["name":"web","state":"running"]]],
+                      "host_error":NSNull(),"host_stale":false]
+        }
         else if path.hasSuffix("/ruview") {
             let now = ISO8601DateFormatter().string(from: Date())
             result = ["enabled":true,"stale_after_seconds":60,"bridges":[["id":1,"label":"Heimnetz"]],
