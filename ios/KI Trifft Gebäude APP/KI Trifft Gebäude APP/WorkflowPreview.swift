@@ -157,6 +157,10 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.contains("/telemetry/rooms/") && path.hasSuffix("/latest") {
             result = ["reading":["metric":"temperature","value":21.4,"unit":"°C","measured_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-600)),"source":"real","sensor_code":"TEMP-01"]]
         }
+        else if path.hasSuffix("/twin/Alert/filter") {
+            result = ["items":[["id":"a1","title":"CO₂ über Grenzwert","message":"Projektraum: 1450 ppm überschreitet den Grenzwert von 1000 ppm","severity":"warning","metric":"co2","value":1450,"threshold":1000,"room_id":"r-003","room_label":"003 Projektraum","building_id":"901","triggered_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600)),"status":"offen","source":"real"]],"has_more":false]
+        }
+        else if path.hasSuffix("/twin/Alert/update") { result = ["id":"a1"] }
         else if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
         else if path.hasSuffix("admin/me") { result = ["admin":true] }
         else if path.contains("/admin/users/") && path.hasSuffix("/limits") {

@@ -329,7 +329,7 @@ struct BuildingDetailView: View {
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
                     Button("Räume", systemImage: "door.left.hand.open") { open("Räume") }
                     Button("Dokumente", systemImage: "folder") { open("Dateien") }
-                    Button("Issues und Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
+                    Button("Meldungen", systemImage: "exclamationmark.bubble") { open("Mängel") }
                     Menu("Betrieb", systemImage: "wrench.and.screwdriver") {
                         Button("Technische Anlagen", systemImage: "gearshape.2") { open("Technische Anlagen") }
                         Button("Wartungen", systemImage: "calendar") { open("Wartung") }
@@ -353,7 +353,7 @@ struct BuildingDetailView: View {
     @ViewBuilder private var content: some View {
         switch section {
         case "Dateien": BuildingFilesView(building: building, model: model)
-        case "Mängel": BuildingIssuesView(building: building, account: model, open: open)
+        case "Mängel": BuildingReportsView(building: building, account: model, open: open)
         case "Räume": BuildingRoomsView(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open, initialRoom: initialRoom)
         case "Wartung": BuildingMaintenanceView(building: building, account: model)
         case "Technische Anlagen": BuildingTechnicalAssetsView(building: building, account: model)
