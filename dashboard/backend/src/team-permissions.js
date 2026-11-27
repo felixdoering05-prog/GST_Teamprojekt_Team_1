@@ -28,6 +28,10 @@ async function initTeamPermissions(db) {
     UNIQUE(building_id,role_key),
     UNIQUE(building_id,sort_order)
   )`);
+  await db.query(`CREATE TABLE IF NOT EXISTS app_owner_role_definitions (
+    owner_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE, role_key TEXT NOT NULL,
+    name TEXT NOT NULL, permissions JSONB NOT NULL, can_manage_members BOOLEAN NOT NULL,
+    PRIMARY KEY(owner_id,role_key))`);
   await db.query('ALTER TABLE app_building_members ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES app_building_roles(id) ON DELETE SET NULL');
   await db.query('CREATE INDEX IF NOT EXISTS app_building_roles_order_idx ON app_building_roles(building_id,sort_order,id)');
 }
@@ -50,6 +54,16 @@ async function ensureBuildingRoles(db, buildingID) {
   }
   await db.query("UPDATE app_building_roles SET permissions=permissions||'{\"maintenance\":\"none\"}'::jsonb WHERE building_id=$1 AND role_key='maintenance' AND NOT (permissions ? 'maintenance')",[buildingID]);
   await db.query("UPDATE app_building_roles SET permissions=permissions||'{\"maintenance\":\"edit\"}'::jsonb WHERE building_id=$1 AND role_key IN ('management','employee') AND NOT (permissions ? 'maintenance')",[buildingID]);
+  await db.query(`INSERT INTO app_building_roles(building_id,role_key,name,permissions,can_manage_members,sort_order,is_system)
+   SELECT b.id,d.role_key,d.name,d.permissions,d.can_manage_members,
+     GREATEST(2,COALESCE((SELECT max(sort_order) FROM app_building_roles WHERE building_id=b.id),2))+
+       row_number() OVER (ORDER BY d.role_key),false
+   FROM app_buildings b JOIN app_owner_role_definitions d ON d.owner_id=b.user_id
+   WHERE b.id=$1 AND NOT EXISTS(SELECT 1 FROM app_building_roles r WHERE r.building_id=b.id AND r.role_key=d.role_key)
+   ON CONFLICT DO NOTHING`,[buildingID]);
+  await db.query(`UPDATE app_building_roles r SET name=d.name,permissions=d.permissions,can_manage_members=d.can_manage_members
+    FROM app_owner_role_definitions d,app_buildings b WHERE b.id=$1 AND r.building_id=b.id AND b.user_id=d.owner_id AND r.role_key=d.role_key
+    AND (r.name,r.permissions,r.can_manage_members) IS DISTINCT FROM (d.name,d.permissions,d.can_manage_members)`,[buildingID]);
   return (await db.query('SELECT id,role_key,name,sort_order,permissions,can_manage_members,is_system FROM app_building_roles WHERE building_id=$1 ORDER BY sort_order,id', [buildingID])).rows;
 }
 
@@ -97,7 +111,8 @@ function scopedAccessMiddleware(db) {
     try {
       const parts = req.path.split('/').filter(Boolean);
       let buildingID = null, module = null;
-      const action = ['GET','HEAD','OPTIONS'].includes(req.method) ? 'read' : 'edit';
+      const taskCompletion = req.method === 'POST' && parts.length === 5 && parts[0] === 'buildings' && parts[2] === 'schedules' && parts[4] === 'complete';
+      const action = taskCompletion || ['GET','HEAD','OPTIONS'].includes(req.method) ? 'read' : 'edit';
       if (parts[0] === 'buildings' && /^\d+$/.test(parts[1] || '')) {
         buildingID = Number(parts[1]);
         if(req.teamScope&&!req.teamScope.buildingIDs.includes(buildingID))return res.status(404).json({error:'Gebäude nicht in diesem Team gefunden.'});

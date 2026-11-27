@@ -1,3 +1,4 @@
+import BuildingSchedules from './BuildingSchedules';
 import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +31,9 @@ const TABS = [
 export default function Alerts() {
   const [params, setParams] = useSearchParams();
   const scope = useBuildingScope();
+  const canIssues = scope.readable('issues').length > 0;
+  const canTasks = scope.readable('schedule').length > 0;
+  const tasks = canTasks && (!canIssues || (!params.has('issue') && !params.has('alert') && params.get('ansicht')==='aufgaben'));
   const warnings = !params.has('issue') && (params.has('alert') || params.get('ansicht') === 'sensorwarnungen');
 
   function choose(view) {
@@ -43,10 +47,11 @@ export default function Alerts() {
   return <div className="space-y-5">
     <PageHeader title="Meldungen" description={scope.label} />
     <nav className="flex flex-wrap gap-2" aria-label="Meldungsarten">
-      <Button variant={warnings ? 'outline' : 'default'} aria-pressed={!warnings} onClick={() => choose('maengel')}>Mängel</Button>
-      <Button variant={warnings ? 'default' : 'outline'} aria-pressed={warnings} onClick={() => choose('sensorwarnungen')}>Sensorwarnungen</Button>
+      {canIssues && <><Button variant={warnings || tasks ? 'outline' : 'default'} aria-pressed={!warnings && !tasks} onClick={() => choose('maengel')}>Mängel</Button>
+      <Button variant={warnings ? 'default' : 'outline'} aria-pressed={warnings} onClick={() => choose('sensorwarnungen')}>Sensorwarnungen</Button></>}
+      {canTasks && <Button variant={tasks?'default':'outline'} aria-pressed={tasks} onClick={()=>choose('aufgaben')}>Aufgaben</Button>}
     </nav>
-    {warnings ? <SensorAlerts /> : <BuildingIssues />}
+    {tasks ? <BuildingSchedules tasksOnly/> : warnings ? <SensorAlerts /> : <BuildingIssues />}
   </div>;
 }
 
