@@ -17,6 +17,10 @@ Nur belegte, deduplizierte Ideen aus den Berichten aufnehmen. Eine Empfehlung is
 
 | RADAR-010 | Haupt- und Unterzähler getrennt ausweisen | Sensorik und SwiftUI | Jetzt testen | Doppelzählung und unklare Summen erkennen | 60–90 min plus 20 min VoiceOver, geschätzt | HA Core Apache-2.0; Apple-SDK proprietär; eigener Test | [Bericht](berichte/2026-11-23-0855.md) | Noch keine Umsetzung beauftragt |
 
+| RADAR-011 | BIMCraft 0.12 vor Upgrade vergleichen | Plan zu IFC und BIM | Beobachten | Export- und Formatkompatibilität klären | 2–4 h geschätzt | MIT/Apache laut Repository; Binärumfang ungeprüft | [Bericht](berichte/2026-11-24-0901.md) | Keine Upgrade-Freigabe |
+
+| RADAR-012 | Energiekacheln bei großer Schrift prüfen | SwiftUI/UX | Jetzt testen | Lesbare Werte, Einheiten und Zeiträume | 30–45 min geschätzt | Apple-SDK proprietär | [Bericht](berichte/2026-11-25-0903.md) | Keine Umsetzung beauftragt |
+
 Entscheidungen sind Rechercheempfehlungen, keine verbindlich beauftragte Umsetzung.
 
 Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-11-13-0911.md), kein neuer Eintrag.
@@ -32,3 +36,15 @@ Abgleich vom 13.11.2026, 09:11 Uhr: [SwiftUI und Sprachassistent](berichte/2026-
 [20.11.2026 · Verzögerter Quellenabgleich](berichte/2026-11-20-0902.md) – Fortsetzung des Abendlaufs, keine neue Empfehlung.
 
 [23.11.2026 17:11 · APNs und Hochschulserver: keine neue Empfehlung](berichte/2026-11-23-1711.md).
+
+[24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md).
+
+RADAR-003: [25.11.2026 · Ergänzender Null-/Nullwertvergleich in der Energie-Zählerliste](berichte/2026-11-25-0903.md), kein neuer Eintrag.
+
+[25.11.2026 17:04 · Serverbetrieb und Auth: keine neue Empfehlung](berichte/2026-11-25-1704.md).
+
+[26.11.2026 09:11 · IFC und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-26-0911.md).
+
+RADAR-003: [26.11.2026 17:03 · Präsenzsensorik und Datenschutz](berichte/2026-11-26-1703.md) ergänzt den Fehlwerttest um veraltete Präsenzdaten; kein neuer Eintrag.
+
+RADAR-003: [27.11.2026 09:06 · Energiekurven und Datenlücken](berichte/2026-11-27-0906.md) ergänzt den bestehenden Fehlwerttest; Recharts-Majorwechsel nur beobachten, kein neuer Eintrag.

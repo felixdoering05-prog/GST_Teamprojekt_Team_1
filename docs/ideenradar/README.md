@@ -39,6 +39,23 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [27.11.2026 09:06 · Energiekurven und Datenlücken](berichte/2026-11-27-0906.md)
+
+- [26.11.2026 17:03 · Präsenzsensorik und Datenschutz](berichte/2026-11-26-1703.md)
+
+- [26.11.2026 09:11 · IFC und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-26-0911.md)
+
+- [25.11.2026 17:04 · Serverbetrieb und Auth: keine neue Empfehlung](berichte/2026-11-25-1704.md)
+
+- [25.11.2026 09:03 · Energiekacheln bei großer Schrift](berichte/2026-11-25-0903.md)
+
+- [24.11.2026 17:00 · Wetter und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-24-1700.md)
+
+- [24.11.2026 09:01 · BIMCraft-Versionsvergleich](berichte/2026-11-24-0901.md)
+
+- [23.11.2026 17:11 · APNs und Hochschulserver](berichte/2026-11-23-1711.md)
+
+
 - [23.11.2026 08:55 · Haupt- und Unterzähler, Swift Charts](berichte/2026-11-23-0855.md)
 
 - [18.11.2026 16:59 · Energiezähler nach Rücksetzung](berichte/2026-11-18-1659.md)
