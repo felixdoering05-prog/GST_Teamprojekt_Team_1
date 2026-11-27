@@ -26,7 +26,7 @@ struct NativeTeamsEntry: View {
     #endif
 }
 
-private func teamColor(_ hex: String) -> Color {
+func teamColor(_ hex: String) -> Color {
     let value = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0x596b3d
     return Color(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
 }
@@ -50,13 +50,14 @@ struct TeamProblem: View {
 struct NativeTeamMark: View {
     let team: NativeTeam
     @ObservedObject var account: AccountModel
+    var size: CGFloat = 60
     @State private var image: UIImage?
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 17).fill(teamColor(team.primary_color).opacity(0.15))
-            if let image { Image(uiImage: image).resizable().scaledToFit().padding(7) }
-            else { Image(systemName: "person.3.fill").font(.title2).foregroundStyle(teamColor(team.primary_color)) }
-        }.frame(width: 60, height: 60).accessibilityHidden(true)
+            RoundedRectangle(cornerRadius: size * 17 / 60).fill(teamColor(team.primary_color).opacity(0.15))
+            if let image { Image(uiImage: image).resizable().scaledToFit().padding(size * 7 / 60) }
+            else { Image(systemName: "person.3.fill").font(size < 44 ? .footnote : .title2).foregroundStyle(teamColor(team.primary_color)) }
+        }.frame(width: size, height: size).accessibilityHidden(true)
             .task(id: "\(team.id)-\(team.has_logo)") {
                 image = nil
                 if team.has_logo, let data = try? await account.fileRequest(path: "teams/\(team.id)/logo") { image = UIImage(data: data) }

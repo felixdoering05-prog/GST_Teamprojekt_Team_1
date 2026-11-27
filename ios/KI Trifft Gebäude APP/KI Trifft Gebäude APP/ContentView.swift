@@ -590,6 +590,7 @@ struct AccountHomeView: View {
     }()
     @StateObject private var social = CollaborationModel()
     @StateObject private var scope = BuildingScopeModel()
+    @Environment(\.colorScheme) private var colorScheme
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProfile = false
@@ -686,6 +687,7 @@ struct AccountHomeView: View {
                         }
                     }
                 }
+                .teamBackground(scope.brandBackground(for: colorScheme))
                 .navigationTitle("Hallo, \(model.user?.name ?? "")")
                 .confirmationDialog("„\(deletionTarget?.name ?? "")“ endgültig löschen?", isPresented: Binding(get: { deletionTarget != nil }, set: { if !$0 { deletionTarget = nil } }), titleVisibility: .visible, presenting: deletionTarget) { target in
                     Button("Gebäude und zugehörige Daten löschen", role: .destructive) {
@@ -699,6 +701,7 @@ struct AccountHomeView: View {
                     BuildingQuickSheet(building: building) { area in nextArea = area; nextBuilding = building; buildingPreview = nil }
                 }
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) { TeamLogoBadge(scope: scope, account: model) }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showProfile = true } label: { AvatarBadge(data: model.avatarData, size: 38) }
                             .accessibilityLabel("Mein Profil öffnen")
@@ -738,7 +741,10 @@ struct AccountHomeView: View {
             NavigationStack { TeamInboxView(account:model,social:social) }.tabItem { Label("Team",systemImage:"person.2") }.badge(social.unread).tag(1)
             ProfileView(embedded: true).tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(2)
         }
+        .tint(scope.brandTint)
         .onChange(of: router.route) { _, _ in consumeRoute() }
+        // Teamfarben oder Logo können im Team-Reiter geändert worden sein.
+        .onChange(of: selectedTab) { _, tab in if tab == 0 { Task { await scope.load(account: model) } } }
         .onChange(of: model.buildings) { _, _ in consumeRoute() }
         .onChange(of: social.unread) { _, count in WidgetSnapshotWriter.unread(count) }
         .fullScreenCover(item: $locating) { building in
