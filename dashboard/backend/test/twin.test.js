@@ -109,3 +109,21 @@ test('role definitions are shared across owned buildings while membership stays 
  assert.equal((await call(base(building.id),undefined,alice.token)).body.roles.find(role=>role.id===created.body.id).permissions.schedule,'edit');
  assert.equal((await call(base(other.id),undefined,bob.token)).status,404);
 });
+
+test('group workspace retains its files when removing and re-adding its last building',async()=>{
+ const teams=await call('/teams',undefined,alice.token);
+ const team=teams.body.find(row=>row.buildings.some(b=>String(b.id)===String(building.id)));
+ const path='/teams/'+team.id+'/groups';
+ const created=await call(path,{name:'Campus',building_ids:[building.id]},alice.token);
+ assert.equal(created.status,201,JSON.stringify(created.body));
+ const group=path+'/'+created.body.id, membership=url+group+'/buildings/'+building.id;
+ const headers={'X-D21-Session':alice.token};
+ const upload=await fetch(url+group+'/files?name=grundriss.png&category=models',{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream'},body:Buffer.from([1,2,3])});
+ assert.equal(upload.status,201);
+ assert.equal((await fetch(membership,{method:'DELETE',headers})).status,200);
+ assert.equal((await call(group+'/files',undefined,alice.token)).body[0].category,'models');
+ assert.ok([403,404].includes((await call(group+'/files',undefined,bob.token)).status));
+ for(let i=0;i<2;i++)assert.equal((await fetch(membership,{method:'PUT',headers})).status,200);
+ const row=(await call(path,undefined,alice.token)).body.find(g=>g.id===created.body.id);
+ assert.deepEqual(row.buildings.map(b=>b.id),[building.id]);
+});

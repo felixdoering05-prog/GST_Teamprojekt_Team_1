@@ -12,7 +12,7 @@ const steps = [
   { title: 'Gebäude', icon: Building2 }, { title: 'Bilder', icon: Images },
   { title: 'Pläne & 3D', icon: FileBox }, { title: 'Bereit', icon: CheckCircle2 },
 ];
-export default function BuildingSetupDialog({ building: initialBuilding, onClose, onCreated }) {
+export default function BuildingSetupDialog({ building: initialBuilding, onClose, onCreated, assignToGroup }) {
   const id = useId();
   const [building, setBuilding] = useState(initialBuilding ?? null);
   const [step, setStep] = useState(initialBuilding ? 1 : 0);
@@ -32,9 +32,11 @@ export default function BuildingSetupDialog({ building: initialBuilding, onClose
     if (!attempt.current) attempt.current = { name: name.trim(), address: address.trim(), id: crypto.randomUUID() };
     lock.current = true; setSaving(true); setError('');
     try {
-      const saved = await request('/buildings', { method: 'POST', body: { name: attempt.current.name, address: attempt.current.address }, headers: { 'X-Request-ID': attempt.current.id } });
+      const saved = attempt.current.saved || await request('/buildings', { method: 'POST', body: { name: attempt.current.name, address: attempt.current.address }, headers: { 'X-Request-ID': attempt.current.id } });
+      attempt.current.saved = saved;
+      if (assignToGroup) await assignToGroup(saved.id);
       setBuilding({ ...saved, is_owner: true }); setStep(1);
-    } catch (failure) { setError(failure.message); if (failure.status === 400) attempt.current = null; }
+    } catch (failure) { setError(failure.message); if (failure.status === 400 && !attempt.current?.saved) attempt.current = null; }
     finally { lock.current = false; setSaving(false); }
   }
   return <Dialog open onOpenChange={open => { if (!open) close(); }}>

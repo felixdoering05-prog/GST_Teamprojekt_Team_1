@@ -50,7 +50,8 @@ function BuildingRooms() {
   const buildings = useQuery({ queryKey: buildingsKey, queryFn: () => request('/buildings') });
   const [groupCreateOpen, setGroupCreateOpen] = useState(false);
   const start = params.get('start') === '1';
-  const selectedId = params.get('all') !== '1' && !start ? scope.building?.id : null;
+  const groupID = params.get('gruppe') || (params.get('all') !== '1' && scope.value.startsWith('group:') ? scope.value.slice(6) : null);
+  const selectedId = !groupID && params.get('all') !== '1' && !start ? scope.building?.id : null;
   const selected = buildings.data?.find(building => building.id === selectedId);
   const readableIDs = new Set(scope.readable('buildings').map(row => row.id));
   const roomID = params.get('room');
@@ -64,6 +65,7 @@ function BuildingRooms() {
 
   function openBuilding(building, nextSection = 'overview') {
     const next = nextSection === 'overview' ? {} : { section: nextSection };
+    if(groupID) next.vonGruppe=groupID;
     scope.chooseBuilding(building.id, { search: new URLSearchParams(next), replace: false });
   }
 
@@ -101,8 +103,8 @@ function BuildingRooms() {
         <>
           <PageHeader title={selected.name} description={selected.address || (selected.is_owner ? 'Gebäudemappe' : 'Geteiltes Gebäude')}>
             <DeleteBuildingButton key={selected.id} building={selected} onDeleted={deletedBuilding} />
-            <Button variant="ghost" size="sm" onClick={() => setParams({ all: '1' })}>
-              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Zur Gebäudeliste
+            <Button variant="ghost" size="sm" onClick={() => setParams(params.has('vonGruppe') ? {all:'1',gruppe:params.get('vonGruppe'),bereich:'buildings'} : {all:'1'})}>
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> {params.has('vonGruppe')?'Zur Gebäudegruppe':'Zur Gebäudeliste'}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setTeamBuildingId(selected.id)}>
               <Users className="mr-1.5 h-4 w-4" aria-hidden="true" /> {selected.is_owner ? 'Gebäude teilen' : 'Gebäudeteam'}
@@ -110,7 +112,7 @@ function BuildingRooms() {
           </PageHeader>
           {selection.buildings.length > 1 && <BuildingSectionSelect selection={selection} />}
           <BuildingWorkspace key={selected.id} building={selected} section={section} onSaved={refreshBuildings}
-            onSection={nextSection => setParams(nextSection === 'overview' ? {} : { section: nextSection }, { replace: true })}
+            onSection={nextSection => {const next=new URLSearchParams(params);next.set('section',nextSection);setParams(next,{replace:true});}}
             onSetup={() => setSetupOpen(true)} onTeam={() => setTeamBuildingId(selected.id)}
             structure={selected.is_owner
               ? <OwnedBuilding key={selected.id} buildingId={String(selected.id)} onSaved={refreshBuildings} />
@@ -127,14 +129,14 @@ function BuildingRooms() {
         </>
       ) : selectedId && buildings.isPending ? <p role="status">Gebäude wird geladen …</p> : (
         <>
-          <PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
+          {!groupID && <><PageHeader title="Deine Gebäude" description="Deine Gebäude, Bilder und Modelle. Alles an einem Ort.">
             {activeTeam?.is_owner && <Button onClick={() => setSetupOpen(true)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäude anlegen</Button>}
             {activeTeam?.can_manage_groups && <Button variant="outline" onClick={() => setGroupCreateOpen(open => !open)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Gebäudegruppe erstellen</Button>}
           </PageHeader>
           <details className="surface space-y-4 p-5" open={start || undefined}>
             <summary className="cursor-pointer font-heading font-semibold">Erste Schritte</summary>
             <BuildingStartSteps active={1} />
-          </details>
+          </details></>}
           {buildings.isPending && <p role="status" className="text-sm text-muted-foreground">Gebäude werden geladen …</p>}
           {buildings.error && (
             <div className="flex flex-wrap items-center gap-3">
@@ -142,12 +144,14 @@ function BuildingRooms() {
               <Button variant="outline" size="sm" onClick={() => buildings.refetch()}>Erneut versuchen</Button>
             </div>
           )}
-          <BuildingGroups buildings={(buildings.data || []).filter(row => readableIDs.has(row.id) || (params.get('all') === '1' && scope.can(row.id, 'buildings')))}
-            groupID={params.get('all') !== '1' && scope.value.startsWith('group:') ? scope.value.slice(6) : null}
+          <BuildingGroups key={groupID||'list'} buildings={(buildings.data || []).filter(row => readableIDs.has(row.id) || ((params.get('all') === '1' || groupID) && scope.can(row.id, 'buildings')))}
+            groupID={groupID} section={params.get('bereich')||'overview'}
+            onOpenGroup={(id,bereich='overview')=>setParams({all:'1',gruppe:String(id),bereich})}
+            onBack={()=>setParams({all:'1'})} onCreateBuilding={()=>setSetupOpen(true)}
             onOpenBuilding={building => openBuilding(building)} createOpen={groupCreateOpen} onCloseCreate={() => setGroupCreateOpen(false)} />
         </>
       )}
-      {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} />}
+      {setupOpen && <BuildingSetupDialog building={selected} onClose={() => setSetupOpen(false)} onCreated={created} assignToGroup={groupID && activeTeam ? async id=>{await request(`/teams/${activeTeam.id}/groups/${groupID}/buildings/${id}`,{method:'PUT'});await cache.invalidateQueries({queryKey:['building-groups']});} : undefined} />}
     </div>
   );
 }

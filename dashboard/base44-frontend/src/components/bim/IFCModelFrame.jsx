@@ -11,7 +11,7 @@ function applyViewerAppearance(root, theme, scale) {
   root.style.fontSize = `${13 * scale / 100}px`;
 }
 
-export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage, issueFocus, focusVersion, onIssueLocation, readOnly = false,
+export default function IFCModelFrame({ document, heatmap, onHeatStatus, presentation, roomHeat, onRoomHeatMessage, issueFocus, focusVersion, onIssueLocation, readOnly = false, modelPath,
   objectFocus, objectPickMode, onObjectEvent }) {
   const { resolvedTheme, value } = useAppearance();
   const frame = useRef(null);
@@ -147,7 +147,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
       } catch(e) { if(active) target.postMessage({type:'d21-scene-reply',id,error:e.message}, window.location.origin); }
     }
     window.addEventListener('message', receive);
-    request(document.campus ? '/campus/d21/model' : `/documents/${document.id}`, { raw: true }).then(async blob => {
+    request(modelPath || (document.campus ? '/campus/d21/model' : `/documents/${document.id}`), { raw: true }).then(async blob => {
       if (!blob.size || blob.size > 20 * 1024 * 1024) throw new Error('Bitte ein IFC-Modell bis 20 MB auswählen.');
       const bytes = await blob.arrayBuffer();
       if (active) { buffer = bytes; send(); }
@@ -158,7 +158,7 @@ export default function IFCModelFrame({ document, heatmap, onHeatStatus, present
       if (roomHeatMode) onRoomHeatMessage({ type: 'd21-room-heat-error', message: e.message });
     });
     return () => { active = false; buffer = undefined; terrainReady.current = false; window.removeEventListener('message', receive); };
-  }, [document.id, document.example, document.campus, document.mapOnly, attempt, roomHeatMode, onRoomHeatMessage, canEditTerrain, onHeatStatus, document.latitude, document.longitude, document.model_heading_degrees, document.map_provider_consent, readOnly]);
+  }, [modelPath, document.id, document.example, document.campus, document.mapOnly, attempt, roomHeatMode, onRoomHeatMessage, canEditTerrain, onHeatStatus, document.latitude, document.longitude, document.model_heading_degrees, document.map_provider_consent, readOnly]);
   const mapOnly = document.mapOnly || mapFallback;
   const source = ifcViewerUrl({ example: document.example, campus: document.campus, mapOnly, heat: Boolean(heatmap), roomHeat: roomHeatMode, presentation, readOnly });
   function onFrameLoad(event) {
