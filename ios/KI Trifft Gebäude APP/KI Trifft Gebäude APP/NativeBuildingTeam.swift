@@ -22,7 +22,7 @@ struct NativeBuildingTeamView: View {
             if let access {
                 Section("Zusammenarbeit") {
                     if access.allows("coordination") { NavigationLink { BuildingChatView(building: building, account: account) } label: { Label("Gebäudechat", systemImage: "bubble.left.and.bubble.right") } }
-                    if access.allows("schedule") { NavigationLink { NativeBuildingSchedules(building: building, account: account) } label: { Label("Zeitplanung", systemImage: "calendar.badge.clock") } }
+                    if access.allows("schedule") { NavigationLink { NativeBuildingSchedules(building: building, account: account) } label: { Label("Kalender", systemImage: "calendar") } }
                 }
                 Section {
                     ForEach(access.members) { member in

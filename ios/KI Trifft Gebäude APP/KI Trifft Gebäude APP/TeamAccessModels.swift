@@ -97,10 +97,22 @@ struct NativeSchedule: Decodable, Identifiable {
     let starts_at: String
     let ends_at: String?
     let created_by_name: String?
+    var building_id: Int? = nil
+    var kind: String? = nil
+    var priority: String? = nil
+    var interval_days: Int? = nil
+    var reminder_days: Int? = nil
+    var room_id: String? = nil
+    var sensor_id: String? = nil
+    var room_name: String? = nil
+    var sensor_name: String? = nil
 }
+struct NativeScheduleOption: Decodable, Identifiable, Hashable { let id: String; let name: String }
 struct NativeScheduleList: Decodable {
     let items: [NativeSchedule]
     let can_edit: Bool
+    var rooms: [NativeScheduleOption]? = nil
+    var sensors: [NativeScheduleOption]? = nil
 }
 
 let nativeTeamModules: [(key: String, title: String)] = [

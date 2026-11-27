@@ -730,6 +730,7 @@ struct AccountHomeView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { TeamLogoBadge(scope: scope, account: model) }
+                    ToolbarItem(placement: .topBarTrailing) { ScopeCalendarButton(buildings: scopedBuildings, account: model) }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showProfile = true } label: { AvatarBadge(data: model.avatarData, size: 38) }
                             .accessibilityLabel("Mein Profil öffnen")

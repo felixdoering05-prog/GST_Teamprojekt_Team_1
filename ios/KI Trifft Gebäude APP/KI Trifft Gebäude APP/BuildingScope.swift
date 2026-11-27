@@ -204,3 +204,22 @@ extension View {
         if let color { scrollContentBackground(.hidden).background(color) } else { self }
     }
 }
+
+/// Gemeinsamer Kalender aller Gebäude der aktuellen Auswahl (#269).
+struct ScopeCalendarButton: View {
+    let buildings: [Building]
+    let account: AccountModel
+    @State private var open = false
+    var body: some View {
+        if !buildings.isEmpty {
+            Button { open = true } label: { Image(systemName: "calendar") }
+                .accessibilityLabel("Kalender der ausgewählten Gebäude")
+                .sheet(isPresented: $open) {
+                    NavigationStack {
+                        NativeBuildingSchedules(buildings: buildings, account: account)
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { open = false } } }
+                    }
+                }
+        }
+    }
+}
