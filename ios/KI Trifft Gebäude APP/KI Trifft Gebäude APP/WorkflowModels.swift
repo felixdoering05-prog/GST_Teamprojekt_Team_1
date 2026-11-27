@@ -23,11 +23,11 @@ enum BuildingStep: Int, Codable, CaseIterable {
     case name = 1, address, photos, plans, overview
     var title: String {
         switch self {
-        case .name: "Name"
-        case .address: "Adresse"
-        case .photos: "Fotos"
-        case .plans: "Pläne"
-        case .overview: "Übersicht"
+        case .name: tr("Name")
+        case .address: tr("Adresse")
+        case .photos: tr("Fotos")
+        case .plans: tr("Pläne")
+        case .overview: tr("Übersicht")
         }
     }
 }

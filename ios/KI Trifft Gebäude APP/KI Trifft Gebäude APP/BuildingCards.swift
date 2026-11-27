@@ -99,8 +99,8 @@ struct BuildingOverviewSummary: View {
                 }.buttonStyle(BuildingTileButtonStyle()).accessibilityLabel(hasDraft ? "Entwurf fortsetzen" : "Gebäude hinzufügen")
             }
             (stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
-                chip("\(models)", models == 1 ? "Modell" : "Modelle", symbol: "cube.transparent")
-                chip("\(unread)", unread == 1 ? "Mitteilung" : "Mitteilungen", symbol: unread > 0 ? "bell.badge" : "bell")
+                chip("\(models)", models == 1 ? tr("Modell") : tr("Modelle"), symbol: "cube.transparent")
+                chip("\(unread)", unread == 1 ? tr("Mitteilung") : tr("Mitteilungen"), symbol: unread > 0 ? "bell.badge" : "bell")
             }
         }.foregroundStyle(.white).padding(22).frame(maxWidth: .infinity, alignment: .leading)
             .background {

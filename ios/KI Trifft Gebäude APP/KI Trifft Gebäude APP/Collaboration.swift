@@ -611,6 +611,7 @@ struct UIPreferences: Decodable {
     let revision: Int
     let theme: AppTheme?
     let font_scale: AppFontScale?
+    let language: String?
 }
 struct TeamInboxView:View {
     @ObservedObject var account:AccountModel
