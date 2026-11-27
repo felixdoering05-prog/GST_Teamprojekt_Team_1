@@ -31,6 +31,16 @@
         }
       }
     },
+    "%@ %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@"
+          }
+        }
+      }
+    },
     "%@ %@ %@, Simulation": {
       "localizations": {
         "de": {
@@ -2459,16 +2469,16 @@
     },
     "Auf diesem Gerät gespeichert.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved on this device."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Auf diesem Gerät gespeichert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved on this device."
           }
         }
       }
@@ -2523,16 +2533,16 @@
     },
     "Auf einem anderen Gerät geändert. Bitte die aktuelle Darstellung prüfen.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Changed on another device. Please check the current appearance."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Auf einem anderen Gerät geändert. Bitte die aktuelle Darstellung prüfen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed on another device. Please check the current appearance."
           }
         }
       }
@@ -4749,6 +4759,16 @@
         }
       }
     },
+    "Demo": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo"
+          }
+        }
+      }
+    },
     "Demo schließen": {
       "localizations": {
         "de": {
@@ -4841,6 +4861,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "The defect appears as a marker in the 3D model."
+          }
+        }
+      }
+    },
+    "Der Messwert konnte nicht geladen werden.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The reading could not be loaded."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Messwert konnte nicht geladen werden."
+          }
+        }
+      }
+    },
+    "Der Name gilt für alle Mitglieder. Raum-ID und QR-Link bleiben gleich.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name applies to all members. Room ID and QR link stay the same."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Name gilt für alle Mitglieder. Raum-ID und QR-Link bleiben gleich."
           }
         }
       }
@@ -5379,6 +5431,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "This building has no rooms yet. Rooms come, for example, from an IFC model or a room scan."
+          }
+        }
+      }
+    },
+    "Dieses Gebäude ist für dein Konto nicht freigegeben.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This building is not shared with your account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gebäude ist für dein Konto nicht freigegeben."
           }
         }
       }
@@ -6073,16 +6141,16 @@
     },
     "Einstellungen wurden inzwischen geändert. Bitte erneut auswählen.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings have changed in the meantime. Please select again."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Einstellungen wurden inzwischen geändert. Bitte erneut auswählen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings have changed in the meantime. Please select again."
           }
         }
       }
@@ -6663,6 +6731,22 @@
         }
       }
     },
+    "Etikett teilen oder drucken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share or print label"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etikett teilen oder drucken"
+          }
+        }
+      }
+    },
     "Euer Gebäude-Chat": {
       "localizations": {
         "de": {
@@ -7065,16 +7149,16 @@
     },
     "Fotos": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Photos"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Fotos"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
           }
         }
       }
@@ -7587,6 +7671,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "There are no sensors for this source."
+          }
+        }
+      }
+    },
+    "Für diesen Raum liegt noch kein Messwert vor.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no reading for this room yet."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Raum liegt noch kein Messwert vor."
           }
         }
       }
@@ -8887,6 +8987,22 @@
         }
       }
     },
+    "Geschoss nicht hinterlegt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storey not set"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschoss nicht hinterlegt"
+          }
+        }
+      }
+    },
     "Geschoss, z. B. Erdgeschoss": {
       "localizations": {
         "de": {
@@ -10129,6 +10245,22 @@
         }
       }
     },
+    "Im Modell anzeigen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in model"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Modell anzeigen"
+          }
+        }
+      }
+    },
     "Im Zeitraum": {
       "localizations": {
         "de": {
@@ -11235,16 +11367,16 @@
     },
     "Kontoeinstellungen derzeit nicht verfügbar.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Account settings currently unavailable."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Kontoeinstellungen derzeit nicht verfügbar."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account settings currently unavailable."
           }
         }
       }
@@ -11601,6 +11733,22 @@
         }
       }
     },
+    "Leistung": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Power"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leistung"
+          }
+        }
+      }
+    },
     "Lesen": {
       "localizations": {
         "de": {
@@ -11613,6 +11761,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read"
+          }
+        }
+      }
+    },
+    "Letzter Raummesswert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest room reading"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzter Raummesswert"
           }
         }
       }
@@ -11799,6 +11963,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading limits …"
+          }
+        }
+      }
+    },
+    "Link kopieren": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy link"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link kopieren"
+          }
+        }
+      }
+    },
+    "Link kopiert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link kopiert"
           }
         }
       }
@@ -12005,6 +12201,22 @@
         }
       }
     },
+    "Luftfeuchte": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Humidity"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftfeuchte"
+          }
+        }
+      }
+    },
     "Lädt das Modell vom Projektserver herunter": {
       "localizations": {
         "de": {
@@ -12197,6 +12409,22 @@
         }
       }
     },
+    "Mangel gespeichert.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defect saved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mangel gespeichert."
+          }
+        }
+      }
+    },
     "Mangel hier melden": {
       "localizations": {
         "de": {
@@ -12241,6 +12469,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Report defect"
+          }
+        }
+      }
+    },
+    "Mangel mit Foto melden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report defect with photo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mangel mit Foto melden"
           }
         }
       }
@@ -12935,16 +13179,16 @@
     },
     "Mitteilung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notification"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Mitteilung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification"
           }
         }
       }
@@ -13111,16 +13355,16 @@
     },
     "Modelle": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Models"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Modelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models"
           }
         }
       }
@@ -13477,6 +13721,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nala is typing …"
+          }
+        }
+      }
+    },
+    "Nala zu diesem Raum fragen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Nala about this room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nala zu diesem Raum fragen"
           }
         }
       }
@@ -14695,6 +14955,22 @@
         }
       }
     },
+    "Ohne Geschoss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No storey"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Geschoss"
+          }
+        }
+      }
+    },
     "Ohne KI und ohne neues Kontingent. Das Modell wird in wenigen Sekunden neu gebaut.": {
       "localizations": {
         "de": {
@@ -15107,16 +15383,16 @@
     },
     "Pläne": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plans"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Pläne"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plans"
           }
         }
       }
@@ -15409,6 +15685,22 @@
         }
       }
     },
+    "QR-Code für %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code for %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR-Code für %@"
+          }
+        }
+      }
+    },
     "Qualitätsbericht": {
       "localizations": {
         "de": {
@@ -15501,6 +15793,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Room"
+          }
+        }
+      }
+    },
+    "Raum %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum %@"
           }
         }
       }
@@ -15633,6 +15941,22 @@
         }
       }
     },
+    "Raum ohne Namen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unnamed room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum ohne Namen"
+          }
+        }
+      }
+    },
     "Raum per LiDAR erkennen": {
       "localizations": {
         "de": {
@@ -15665,6 +15989,38 @@
         }
       }
     },
+    "Raum suchen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum suchen"
+          }
+        }
+      }
+    },
+    "Raum umbenennen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum umbenennen"
+          }
+        }
+      }
+    },
     "Raum wird ausgewertet …": {
       "localizations": {
         "de": {
@@ -15693,6 +16049,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Room, for example meeting"
+          }
+        }
+      }
+    },
+    "Raum-QR-Code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room QR code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum-QR-Code"
+          }
+        }
+      }
+    },
+    "Raumbezug entfernen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove room reference"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raumbezug entfernen"
           }
         }
       }
@@ -16017,6 +16405,22 @@
         }
       }
     },
+    "Räume werden geladen …": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading rooms …"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Räume werden geladen …"
+          }
+        }
+      }
+    },
     "Räume werden gelesen …": {
       "localizations": {
         "de": {
@@ -16251,6 +16655,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sensor"
+          }
+        }
+      }
+    },
+    "Sensor %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor %@"
           }
         }
       }
@@ -16619,6 +17039,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Simulated ESP32 history: %@"
+          }
+        }
+      }
+    },
+    "Simulierter Wert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulated value"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulierter Wert"
           }
         }
       }
@@ -17479,6 +17915,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Phone number"
+          }
+        }
+      }
+    },
+    "Temperatur": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temperature"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temperatur"
           }
         }
       }
@@ -19071,6 +19523,22 @@
         }
       }
     },
+    "Wer den Code scannt und Zugriff auf das Gebäude hat, landet direkt auf dieser Raumkarte – im Web oder in der App.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone who scans the code and has access to the building lands directly on this room card – on the web or in the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wer den Code scannt und Zugriff auf das Gebäude hat, landet direkt auf dieser Raumkarte – im Web oder in der App."
+          }
+        }
+      }
+    },
     "Werkzeug": {
       "localizations": {
         "de": {
@@ -20617,16 +21085,16 @@
     },
     "Übersicht": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Overview"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Übersicht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overview"
           }
         }
       }

@@ -41,7 +41,11 @@ struct BuildingAssistantView: View {
     @State private var lastFingerprint = ""
     @State private var retryNew = false
     @State private var sendTask: Task<Void,Never>?
-    init(building: Building, account: AccountModel, initialText: String = "") { self.building = building; self.account = account; _question = State(initialValue: initialText) }
+    /// Raumbezug aus der Raumkarte (#280); der Server prüft Gebäude und Raum.
+    @State private var room: (id: String, name: String)?
+    init(building: Building, account: AccountModel, initialText: String = "", room: (id: String, name: String)? = nil) {
+        self.building = building; self.account = account; _question = State(initialValue: initialText); _room = State(initialValue: room)
+    }
     private var canSend: Bool {
         !sending && !loading && account.aiPreferences.active && !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && question.utf16.count <= 2000 && (!commandMode || selectedID != nil)
     }
@@ -99,6 +103,13 @@ struct BuildingAssistantView: View {
                         .accessibilityLabel(account.aiPreferences.active ? "bereit" : "KI nicht aktiviert")
                 }
                 Text("Gebäudeassistentin · " + building.name).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if let room {
+                    HStack(spacing: 4) {
+                        Label("Raum \(room.name)", systemImage: "door.left.hand.open").font(.caption.weight(.semibold)).foregroundStyle(d21Accent).lineLimit(1)
+                        Button { self.room = nil } label: { Image(systemName: "xmark.circle.fill").font(.caption) }
+                            .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Raumbezug entfernen")
+                    }
+                }
             }
             Spacer(minLength: 6)
             Button { showInfo = true } label: { Image(systemName: "info.circle").font(.title3).foregroundStyle(.secondary) }.accessibilityLabel("Informationen zu KI und Datenübertragung")
@@ -261,13 +272,16 @@ struct BuildingAssistantView: View {
         if fingerprint != lastFingerprint || retryNew { requestID = UUID() }
         lastFingerprint = fingerprint; retryNew = false; problem = nil; notice = nil
         do {
-            let query = commandMode ? "?mode=ifc-command" : selectedID.map { "?document_id=\($0)" } ?? ""
+            var query = commandMode ? "?mode=ifc-command" : selectedID.map { "?document_id=\($0)" } ?? ""
+            let roomID = commandMode ? nil : room?.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+            if let roomID { query += (query.isEmpty ? "?" : "&") + "room_id=" + roomID }
             struct Status: Decodable { let enabled: Bool; let context_hash: String }
             let info: Status = try await account.request("buildings/\(building.id)/assistant" + query)
             guard info.enabled else { throw APIError(status: 503, message: "Nala ist gerade nicht verfügbar.") }
             var body: [String:Any] = ["question":text,"consent":"yes","context_hash":info.context_hash,"chat":true]
             if commandMode { body["mode"] = "ifc-command" }
             if let selectedID { body["document_id"] = selectedID }
+            if !commandMode, let room { body["room_id"] = room.id }
             let reply: AssistantAnswer = try await account.request("buildings/\(building.id)/assistant", method: "POST", body: body, headers:["X-Request-ID":requestID.uuidString], timeout:45)
             guard !Task.isCancelled else { return }; question = ""; lastFingerprint = ""; await load()
             if let actions = reply.ha_actions, !actions.isEmpty, !reply.cached { await runLights(actions) }

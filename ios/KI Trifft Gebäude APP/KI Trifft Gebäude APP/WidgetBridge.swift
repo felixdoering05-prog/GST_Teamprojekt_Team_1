@@ -12,6 +12,7 @@ import Combine
         case building(Int?, area: String)
         case locate(Int?)
         case nala(Int?)
+        case room(Int, String)
     }
     @Published var route: Route?
     /// Counts Siri/widget questions so the Nala tab rebuilds its chat with the new prefilled text.
@@ -19,6 +20,8 @@ import Combine
     private var question: (buildingID: Int?, text: String)?
 
     func open(_ url: URL) {
+        // Raum-QR-Etikett (https://nala-solutions.de/gebaeude?building=…&room=…&karte=1)
+        if let target = RoomLink.parse(url) { route = .room(target.building, target.room); return }
         guard url.scheme == AppLink.scheme else { return }
         switch url.host {
         case "building": route = .building(Int(url.lastPathComponent), area: "Dashboard")

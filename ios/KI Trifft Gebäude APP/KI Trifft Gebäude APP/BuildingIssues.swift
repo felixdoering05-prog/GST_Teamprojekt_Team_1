@@ -118,8 +118,9 @@ struct IssueLocation: Codable, Equatable {
 
 extension AccountModel {
     func issues(buildingID: Int) async throws -> [BuildingIssue] { try await request("buildings/\(buildingID)/issues") }
-    func reportIssue(buildingID: Int, title: String, description: String, room: String, priority: IssuePriority?, location: IssueLocation?, requestKey: UUID, source: String? = nil) async throws -> BuildingIssue {
+    func reportIssue(buildingID: Int, title: String, description: String, room: String, priority: IssuePriority?, location: IssueLocation?, requestKey: UUID, source: String? = nil, roomID: String? = nil) async throws -> BuildingIssue {
         var body: [String: Any] = ["title": title, "description": description, "room": room, "request_key": requestKey.uuidString.lowercased()]
+        if let roomID { body["room_id"] = roomID }
         if let priority { body["priority"] = priority.rawValue }
         if let source { body["source"] = source }
         if let location {
@@ -313,6 +314,8 @@ struct IssueReportSheet: View {
     let building: Building
     @ObservedObject var account: AccountModel
     let location: IssueLocation?
+    /// Raum aus der Raumkarte: Ort steht fest und wird mit `room_id` gespeichert.
+    var structureRoom: (id: String, name: String)? = nil
     let done: (BuildingIssue) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
@@ -349,7 +352,9 @@ struct IssueReportSheet: View {
                     Picker("Quelle", selection: $source) { ForEach(IssueOrigin.labels, id: \.0) { Text($0.1).tag($0.0) } }
                 } header: { Text("Mangel") }
                 Section {
-                    if let place, place.point != nil {
+                    if let structureRoom {
+                        Label(structureRoom.name, systemImage: "door.left.hand.open").foregroundStyle(d21Accent)
+                    } else if let place, place.point != nil {
                         Label(place.room.isEmpty ? "Position im 3D-Modell" : place.room, systemImage: "scope").foregroundStyle(d21Accent)
                         Button("Position entfernen", role: .destructive) { self.place = nil }
                     } else {
@@ -403,6 +408,7 @@ struct IssueReportSheet: View {
             .task {
                 place = location
                 if let location { roomText = location.room }
+                if let structureRoom { roomText = structureRoom.name; return }
                 guard location == nil, let model = building.model_document_id else { return }
                 if let list: RoomList = try? await account.request("documents/\(model)/model-rooms") { rooms = list.rooms.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending } }
             }
@@ -432,7 +438,7 @@ struct IssueReportSheet: View {
                 throw APIError(status: 400, message: "Das Foto konnte nicht verkleinert werden.")
             }
             let draft = PendingIssue(id: UUID(), buildingID: building.id, title: summary, description: description,
-                room: room, priority: priority, location: position, jpeg: jpeg, source: source)
+                room: room, priority: priority, location: position, jpeg: jpeg, source: source, roomID: structureRoom?.id)
             try account.enqueueIssue(draft)
             queuedID = draft.id
             let synced = await account.syncIssueOutbox()
