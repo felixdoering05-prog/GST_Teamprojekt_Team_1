@@ -10,6 +10,7 @@ final class NalaNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
 @main struct MyApp: App {
     // App-scoped state: shown once per process, never on a normal foreground return.
     @State private var showingIntro = true
+    @ObservedObject private var language = AppLanguage.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     init() { UNUserNotificationCenter.current().delegate = NalaNotificationDelegate.shared }
 
@@ -25,6 +26,7 @@ final class NalaNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
                         .transition(.opacity)
                 }
             }
+            .environment(\.locale, language.locale)
             .onOpenURL { AppRouter.shared.open($0) }
             .task {
                 guard showingIntro else { return }

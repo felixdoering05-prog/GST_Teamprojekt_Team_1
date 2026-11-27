@@ -215,6 +215,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
         guard issueQueueScope == scope else { return }
         presentationMode = value.presentation_mode
         uiRevision = value.revision
+        // Eine im Konto gewählte Sprache gilt wie im Web auch auf diesem iPhone.
+        if let language = value.language { AppLanguage.shared.apply(language) }
         if let theme = value.theme, let scale = value.font_scale {
             rememberAppearance(AppAppearance(theme: theme, scale: scale), scope: scope)
             appearanceNotice = nil
@@ -243,13 +245,31 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
                 }
                 applyUIPreferences(value, scope: scope)
                 if local.theme != remoteTheme || local.scale != remoteScale {
-                    appearanceNotice = "Auf einem anderen Gerät geändert. Bitte die aktuelle Darstellung prüfen."
+                    appearanceNotice = tr("Auf einem anderen Gerät geändert. Bitte die aktuelle Darstellung prüfen.")
                 }
             } else {
                 applyUIPreferences(value, scope: scope)
             }
         } catch {
-            if issueQueueScope == scope { appearanceNotice = "Kontoeinstellungen derzeit nicht verfügbar." }
+            if issueQueueScope == scope { appearanceNotice = tr("Kontoeinstellungen derzeit nicht verfügbar.") }
+        }
+    }
+
+    /// Speichert die Sprache im Konto; ohne Server bleibt sie zumindest auf diesem iPhone.
+    func saveLanguage(_ code: String) async {
+        AppLanguage.shared.apply(code)
+        guard let scope = issueQueueScope else { return }
+        for attempt in 0..<2 {
+            do {
+                let value: UIPreferences = try await request("profile/ui?view=appearance", method: "PATCH",
+                    body: ["language": code, "revision": uiRevision])
+                applyUIPreferences(value, scope: scope)
+                return
+            } catch {
+                if (error as? APIError)?.status == 409 && attempt == 0 { await refreshUIPreferences(); AppLanguage.shared.apply(code); continue }
+                if issueQueueScope == scope { appearanceNotice = tr("Auf diesem Gerät gespeichert.") }
+                return
+            }
         }
     }
 
@@ -284,10 +304,10 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
             let status = (error as? APIError)?.status
             if status == 409 {
                 await refreshUIPreferences()
-                if issueQueueScope == scope { appearanceNotice = "Einstellungen wurden inzwischen geändert. Bitte erneut auswählen." }
+                if issueQueueScope == scope { appearanceNotice = tr("Einstellungen wurden inzwischen geändert. Bitte erneut auswählen.") }
             } else if error is URLError || [0, 400, 404].contains(status ?? -1) || (status ?? 0) >= 500 {
                 rememberAppearance(desired, scope: scope)
-                appearanceNotice = "Auf diesem Gerät gespeichert."
+                appearanceNotice = tr("Auf diesem Gerät gespeichert.")
             } else {
                 appearanceNotice = error.localizedDescription
             }
@@ -795,7 +815,7 @@ struct ProfileView: View {
     @State private var savingAppearance = false
     @State private var projectAdmin = false
     var body: some View {
-        let photoTitle = model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern"
+        let photoTitle: LocalizedStringKey = model.avatarData == nil ? "Profilbild auswählen" : "Profilbild ändern"
         return NavigationStack {
             Form {
                 Section {
@@ -811,6 +831,7 @@ struct ProfileView: View {
                 Section { NavigationLink { ProjectServiceStatusView(account: model) } label: { Label("Serverstatus", systemImage: "server.rack") } }
                 if projectAdmin { AdminEntrySection(account: model) }
                 Section("Darstellung") {
+                    AppLanguagePicker(account: model)
                     Picker("Designmodus", selection: Binding(get: { model.appearance.theme }, set: { theme in
                         Task { await saveAppearance(theme: theme) }
                     })) {
