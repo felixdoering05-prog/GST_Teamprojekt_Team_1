@@ -113,8 +113,11 @@ function RoleEditor({ initial, busy, onCancel, onSave }) {
           </span>
           <div>
             <h3 className="font-heading font-semibold text-foreground">
-              {initial ? `Rolle bearbeiten: ${initial.name}` : 'Neue gebäudebezogene Rolle erstellen'}
+              {initial ? `Rolle bearbeiten: ${initial.name}` : 'Neue Rolle erstellen'}
             </h3>
+            <p className="text-xs text-muted-foreground">
+              Diese Rollenrechte gelten in allen deinen Gebäuden. Du weist die Rolle pro Gebäude zu.
+            </p>
             <p className="text-xs text-muted-foreground">
               Berechtigungen: {stats.editCount} Vollzugriff · {stats.readCount} Nur Lesen ·{' '}
               {stats.total - stats.editCount - stats.readCount} Kein Zugriff

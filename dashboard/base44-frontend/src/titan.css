@@ -90,9 +90,10 @@ html[data-theme="dark"] {
 .titan-widget { display: flex; min-width: 0; min-height: 26rem; align-self: stretch; flex-direction: column; overflow: hidden; }
 .titan-widget-lang { min-height: 40rem; }
 .titan-widget-id-model, .titan-widget-id-map { min-height: 34rem; }
+.titan-widget:not(.titan-widget-editing) > section:has(.titan-widget-content) { height: auto; flex: 1 0 auto; }
 .titan-widget > :is(section, article) { height: 100%; min-height: 0; }
 .titan-widget-editing > :is(section, article) { height: auto; min-height: 0; flex: 1; }
-.titan-widget-content { overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; }
+.titan-widget-content { overflow-x: clip; overflow-y: visible; overflow-wrap: anywhere; }
 .titan-widget-content > ul { min-height: 0; }
 .titan-widget .climate-card { min-width: 0; }
 @container (min-width: 36rem) {

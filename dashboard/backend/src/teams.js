@@ -250,7 +250,8 @@ function teamsRouter(db,requireAccount){
    if(!actor||(!actor.is_owner&&!actor.role?.can_manage_members))return res.status(403).json({error:'Für mindestens ein Gruppen-Gebäude fehlt die Mitgliederverwaltung.'});
    if(!actor.is_owner&&Number(sourceRole.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Die ausgewählte Rolle ist in mindestens einem Gebäude zu hoch eingestuft.'});
    const roles=await ensureBuildingRoles(db,building.id);
-   const chosen=roles.find(role=>role.name===sourceRole.name&&JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions)&&role.can_manage_members===sourceRole.can_manage_members);
+   const chosen=roles.find(role=>role.role_key===sourceRole.role_key && role.name===sourceRole.name && JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions) && role.can_manage_members===sourceRole.can_manage_members) || roles.find(role=>role.name===sourceRole.name&&JSON.stringify(role.permissions)===JSON.stringify(sourceRole.permissions)&&role.can_manage_members===sourceRole.can_manage_members);
+   if(chosen && !actor.is_owner && Number(chosen.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Die Rolle ist in diesem Gebäude zu hoch eingestuft.'});
    const existing=(await db.query('SELECT m.status,r.sort_order FROM app_building_members m LEFT JOIN app_building_roles r ON r.id=m.role_id WHERE m.building_id=$1 AND m.user_id=$2',[building.id,target])).rows[0];
    if(existing&&!actor.is_owner&&Number(existing.sort_order)<=Number(actor.role.sort_order))return res.status(403).json({error:'Eine bestehende höhere oder gleichrangige Rolle darf nicht geändert werden.'});
    prepared.push({buildingID:Number(building.id),roleID:chosen?Number(chosen.id):null,existing:existing||null,actor});

@@ -12,6 +12,30 @@ function cleanPermissions(input){
  if(Object.values(out).some(value=>!LEVELS.has(value)))return null;
  return out;
 }
+async function saveRoleDefinition(db,buildingID,ownerID,role,previous){
+ const client=await db.connect();
+ try {
+  await client.query('BEGIN');
+  await client.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[ownerID]);
+  await client.query(`INSERT INTO app_owner_role_definitions(owner_id,role_key,name,permissions,can_manage_members)
+    VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,role_key) DO UPDATE SET name=excluded.name,
+    permissions=excluded.permissions,can_manage_members=excluded.can_manage_members`,[ownerID,role.role_key,role.name,JSON.stringify(role.permissions),role.can_manage_members]);
+  // Earlier group assignments created independent copies with a generated group key.
+  if(previous) await client.query(`UPDATE app_building_roles r SET role_key=$2 FROM app_buildings b
+    WHERE b.id=r.building_id AND b.user_id=$1 AND r.role_key LIKE 'group-%' AND r.name=$3
+    AND r.permissions=$4::jsonb AND r.can_manage_members=$5 AND NOT EXISTS (
+      SELECT 1 FROM app_building_roles other WHERE other.building_id=r.building_id AND other.role_key=$2)
+    AND r.id=(SELECT min(copy.id) FROM app_building_roles copy WHERE copy.building_id=r.building_id AND copy.role_key LIKE 'group-%' AND copy.name=$3 AND copy.permissions=$4::jsonb AND copy.can_manage_members=$5)`,
+    [ownerID,role.role_key,previous.name,JSON.stringify(previous.permissions),previous.can_manage_members]);
+  const buildings=(await client.query('SELECT id FROM app_buildings WHERE user_id=$1 ORDER BY id',[ownerID])).rows;
+  let result;
+  for(const b of buildings){
+    const rows=await ensureBuildingRoles(client,b.id);
+    if(Number(b.id)===buildingID)result=rows.find(r=>r.role_key===role.role_key);
+  }
+  await client.query('COMMIT');return result;
+ } catch(error){await client.query('ROLLBACK');throw error;} finally{client.release();}
+}
 async function accessible(db,req,res){
  const id=req.params.buildingId;
  if(!idOK(id)){fail(res,400,'Ungültiges Gebäude.');return null;}
@@ -93,9 +117,8 @@ function teamAccessRouter(db,requireAccount){
   const permissions=cleanPermissions(req.body?.permissions),canManageMembers=req.body?.can_manage_members===true;
   if(!name||name.length>80||!permissions||typeof req.body?.can_manage_members!=='boolean')return fail(res,400,'Bitte Rollenname und gültige Funktionsrechte angeben.');
   const buildingID=Number(req.params.buildingId);
-  const next=Number((await db.query('SELECT COALESCE(MAX(sort_order),-1)+1 AS next FROM app_building_roles WHERE building_id=$1',[buildingID])).rows[0].next);
-  const role=(await db.query(`INSERT INTO app_building_roles(building_id,role_key,name,sort_order,permissions,can_manage_members,is_system)
-    VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id,role_key,name,sort_order,permissions,can_manage_members,is_system`,[buildingID,`custom-${randomUUID()}`,name,next,JSON.stringify(permissions),canManageMembers])).rows[0];
+  const roleKey='custom-'+randomUUID();
+  const role=await saveRoleDefinition(db,buildingID,req.account.id,{role_key:roleKey,name,permissions,can_manage_members:canManageMembers});
   res.status(201).json(role);
  }));
  r.patch('/buildings/:buildingId/team-access/roles/order',requireAccount,wrap(async(req,res)=>{
@@ -119,10 +142,9 @@ function teamAccessRouter(db,requireAccount){
   const name=typeof req.body?.name==='string'?req.body.name.trim():'';
   const permissions=cleanPermissions(req.body?.permissions);
   if(!name||name.length>80||!permissions||typeof req.body?.can_manage_members!=='boolean')return fail(res,400,'Bitte Rollenname und gültige Funktionsrechte angeben.');
-  const updated=await db.query(`UPDATE app_building_roles SET name=$3,permissions=$4,can_manage_members=$5 WHERE building_id=$1 AND id=$2
-   RETURNING id,role_key,name,sort_order,permissions,can_manage_members,is_system`,[req.params.buildingId,req.params.roleId,name,JSON.stringify(permissions),req.body.can_manage_members]);
-  if(!updated.rowCount)return fail(res,404,'Rolle nicht gefunden.');
-  res.json(updated.rows[0]);
+  const previous=(await db.query('SELECT * FROM app_building_roles WHERE building_id=$1 AND id=$2',[req.params.buildingId,req.params.roleId])).rows[0];
+  if(!previous)return fail(res,404,'Rolle nicht gefunden.');
+  res.json(await saveRoleDefinition(db,Number(req.params.buildingId),req.account.id,{role_key:previous.role_key,name,permissions,can_manage_members:req.body.can_manage_members},previous));
  }));
  r.delete('/buildings/:buildingId/team-access/roles/:roleId',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
@@ -132,7 +154,12 @@ function teamAccessRouter(db,requireAccount){
   if(!role)return fail(res,404,'Rolle nicht gefunden.');
   if(role.is_system)return fail(res,400,'Die drei Standardrollen können nicht gelöscht werden.');
   if(Number((await db.query('SELECT COUNT(*) AS n FROM app_building_members WHERE building_id=$1 AND role_id=$2',[buildingID,roleID])).rows[0].n))return fail(res,409,'Ordne zuerst alle Mitglieder einer anderen Rolle zu.');
-  await db.query('DELETE FROM app_building_roles WHERE building_id=$1 AND id=$2',[buildingID,roleID]);
+  const deleted=await db.query(`WITH target AS (SELECT role_key FROM app_building_roles WHERE id=$2 AND building_id=$1),
+    copies AS (SELECT r.id FROM app_building_roles r JOIN app_buildings b ON b.id=r.building_id JOIN target t ON t.role_key=r.role_key WHERE b.user_id=$3),
+    allowed AS (SELECT NOT EXISTS(SELECT 1 FROM app_building_members WHERE role_id IN (SELECT id FROM copies)) AS ok),
+    definition AS (DELETE FROM app_owner_role_definitions WHERE owner_id=$3 AND role_key IN (SELECT role_key FROM target) AND (SELECT ok FROM allowed))
+    DELETE FROM app_building_roles WHERE id IN (SELECT id FROM copies) AND (SELECT ok FROM allowed) RETURNING id`,[buildingID,roleID,req.account.id]);
+  if(!deleted.rows.length)return fail(res,409,'Diese Rolle ist noch einem Mitglied zugeordnet.');
   res.json({ok:true});
  }));
  return r;
@@ -148,6 +175,8 @@ async function initBuildingSchedules(db){
  await db.query(`ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'appointment',ADD COLUMN IF NOT EXISTS interval_days INTEGER,ADD COLUMN IF NOT EXISTS reminder_days INTEGER,ADD COLUMN IF NOT EXISTS room_id TEXT,ADD COLUMN IF NOT EXISTS sensor_id TEXT`);
  await db.query("ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS room_ids TEXT[] DEFAULT '{}', ADD COLUMN IF NOT EXISTS floor_ids TEXT[] DEFAULT '{}'");
  await initAttachments(db, 'schedule');
+ await db.query('ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS completed_due_at timestamptz, ADD COLUMN IF NOT EXISTS completed_by integer REFERENCES app_users(id) ON DELETE SET NULL');
+ await db.query("UPDATE app_building_schedules SET ends_at=NULL WHERE kind='task' AND ends_at IS NOT NULL");
  await db.query(`DO $$ BEGIN
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='app_building_schedules' AND column_name='room_id' AND data_type<>'text') THEN
    ALTER TABLE app_building_schedules ALTER COLUMN room_id TYPE TEXT USING room_id::text;
@@ -178,6 +207,26 @@ function scheduleRouter(db,requireAccount){
   if(!can(access,'schedule',write?'edit':'read')) { fail(res,403,'Kein Zugriff auf diese Anhänge.'); return false; }
   return (await db.query('SELECT id FROM app_building_schedules WHERE id=$1 AND building_id=$2',[req.params.parentID,req.params.buildingId])).rows.length>0;
  });
+ // Each completion consumes precisely one occurrence, including overdue repetitions.
+ const nextDue = `CASE WHEN completed_due_at IS NULL OR completed_due_at < starts_at THEN starts_at
+   WHEN interval_days > 0 THEN starts_at + ((floor(extract(epoch FROM (completed_due_at-starts_at))/(interval_days*86400.0))+1)*interval_days)*interval '24 hours' END`;
+ r.get('/buildings/:buildingId/schedules/due-tasks',requireAccount,wrap(async(req,res)=>{
+  const access=await accessible(db,req,res); if(!access)return;
+  if(!can(access,'schedule','read'))return fail(res,403,'Kein Zugriff auf Aufgaben.');
+  const result=await db.query(`SELECT id,building_id,title,details,priority,${nextDue} AS due_at
+    FROM app_building_schedules WHERE building_id=$1 AND kind='task' AND ${nextDue}<=now()
+    ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'low' THEN 2 ELSE 1 END,due_at,id`,[req.params.buildingId]);
+  res.set('Cache-Control','private, no-store').json(result.rows);
+ }));
+ r.post('/buildings/:buildingId/schedules/:scheduleId/complete',requireAccount,wrap(async(req,res)=>{
+  const access=await accessible(db,req,res); if(!access)return;
+  if(!can(access,'schedule','read'))return fail(res,403,'Kein Zugriff auf Aufgaben.');
+  if(!idOK(req.params.scheduleId)||!Number.isFinite(Date.parse(req.body?.due_at)))return fail(res,400,'Ungültige Fälligkeit.');
+  await db.query(`UPDATE app_building_schedules SET completed_due_at=${nextDue},completed_by=$3
+    WHERE building_id=$1 AND id=$2 AND kind='task' AND ${nextDue}<=now() AND ${nextDue}=$4::timestamptz`,
+    [req.params.buildingId,req.params.scheduleId,req.account.id,req.body.due_at]);
+  res.json({ok:true});
+ }));
  r.get('/buildings/:buildingId/schedules',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
   if(!can(access,'schedule','read'))return fail(res,403,'Du darfst Zeitpläne in diesem Gebäude nicht einsehen.');
@@ -194,7 +243,7 @@ function scheduleRouter(db,requireAccount){
   const details=typeof req.body?.details==='string'?req.body.details.trim():'';
   const starts=new Date(req.body?.starts_at),ends=req.body?.ends_at?new Date(req.body.ends_at):null;
   const kind=req.body?.kind??'appointment',interval=req.body?.interval_days??null,reminder=req.body?.reminder_days??null,room=req.body?.room_id??null,sensor=req.body?.sensor_id??null;
-  if(!title||title.length>120||details.length>2000||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
+  if(!title||title.length>120||details.length>2000||(kind==='task'&&ends!==null)||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
   for(const [entity,id] of [['Room',room],['Sensor',sensor]])if(id!==null){if(!['string','number'].includes(typeof id)||!String(id).length||String(id).length>100||!(await db.query(`SELECT 1 FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3 AND data->>'building_id'=$4 AND data->>'source' IS DISTINCT FROM 'demo'`,[String(id),access.owner_id,entity,String(req.params.buildingId)])).rows.length)return fail(res,400,`${entity==='Room'?'Raum':'Sensor'} gehört nicht zu diesem Gebäude.`);}
   const links=await locations(db,req.body,{},access.owner_id,req.params.buildingId);
   if (!links) return fail(res,400,'Bitte Räume, Geschosse und Priorität prüfen.');
@@ -212,7 +261,7 @@ function scheduleRouter(db,requireAccount){
   const starts=new Date(req.body?.starts_at),ends=req.body?.ends_at?new Date(req.body.ends_at):null;
   const keep=key=>req.body?.[key]===undefined?existing[key]:req.body[key];
   const kind=keep('kind'),interval=keep('interval_days'),reminder=keep('reminder_days'),room=keep('room_id'),sensor=keep('sensor_id');
-  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids'].includes(key))||!idOK(req.params.scheduleId)||!title||title.length>120||details.length>2000||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
+  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids'].includes(key))||!idOK(req.params.scheduleId)||!title||title.length>120||details.length>2000||(kind==='task'&&ends!==null)||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
   for(const [entity,id] of [['Room',room],['Sensor',sensor]])if(id!==null){if(!['string','number'].includes(typeof id)||!String(id).length||String(id).length>100||!(await db.query(`SELECT 1 FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3 AND data->>'building_id'=$4 AND data->>'source' IS DISTINCT FROM 'demo'`,[String(id),access.owner_id,entity,String(req.params.buildingId)])).rows.length)return fail(res,400,`${entity==='Room'?'Raum':'Sensor'} gehört nicht zu diesem Gebäude.`);}
   const links=await locations(db,req.body,existing,access.owner_id,req.params.buildingId);
   if (!links) return fail(res,400,'Bitte Räume, Geschosse und Priorität prüfen.');

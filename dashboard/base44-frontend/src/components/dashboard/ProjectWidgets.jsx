@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
@@ -10,6 +11,15 @@ import { widgetTitles } from './WidgetBoard';
 import { buildingScopeHeaders, useBuildingScope } from '@/hooks/useBuildingScope';
 import { useBuildingModels } from '@/hooks/useBuildingModels';
 
+function InteractivePreview({children,label}) {
+  const [interactive,setInteractive]=useState(false);
+  return <div className="space-y-2">
+    <button type="button" aria-pressed={interactive} className="rounded-md border px-3 py-2 text-sm font-medium" onClick={()=>setInteractive(!interactive)}>
+      {interactive?'Interaktion beenden':label+' bedienen'}
+    </button>
+    <div ref={node=>{if(node)node.inert=!interactive;}} className={interactive?'':'pointer-events-none'}>{children}</div>
+  </div>;
+}
 function Widget({ title, children, link }) {
   return <section className="glass-card flex h-full min-h-0 min-w-0 flex-col space-y-3 overflow-hidden p-4 sm:p-5">
     <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
@@ -71,9 +81,9 @@ export function ModelWidget({ buildingID }) {
     : buildings.length === 1 ? buildings[0] : null;
   const { models, loading, error } = useBuildingModels(building ? [building] : []);
   const model = models[0];
-  if (model?.campus) return <DashboardModel document={model} />;
+  if (model?.campus) return <InteractivePreview label="Modell"><DashboardModel document={model} /></InteractivePreview>;
   return <Widget title={building?.name || 'BIM-Modell'} link="/bim-viewer">
-    {model ? <IFCModelFrame key={model.id} document={model} presentation="dashboard" />
+    {model ? <InteractivePreview label="Modell"><IFCModelFrame key={model.id} document={model} presentation="dashboard" /></InteractivePreview>
       : <p role="status" className="text-sm text-muted-foreground">{loading ? 'Modell wird gesucht …' : error ? error.message
         : building || scope.building ? 'Für dieses Gebäude ist kein Modell hinterlegt.' : 'Wähle ein Gebäude für die Modellvorschau aus.'}</p>}
   </Widget>;
@@ -92,7 +102,7 @@ export function SystemWidget() {
 
 export function MapWidget() {
   return <Widget title="Campuskarte" link="/heat-map">
-    <IFCModelFrame document={{ id: 'campus-d21', name: 'Campus Darmstadt', campus: true, mapOnly: true }} presentation="dashboard" />
+    <InteractivePreview label="Karte"><IFCModelFrame document={{ id: 'campus-d21', name: 'Campus Darmstadt', campus: true, mapOnly: true }} presentation="dashboard" /></InteractivePreview>
   </Widget>;
 }
 

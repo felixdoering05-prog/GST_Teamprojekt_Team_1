@@ -315,9 +315,10 @@ export default function AppLayout() {
     ['/energie', showContent('energy', 'energy')],
     ['/betrieb/technische-anlagen', showContent('maintenance', 'assets')],
     ['/betrieb/wartungen', showContent('maintenance', 'maintenance')],
-    ['/meldungen', showContent('issues', 'issues', 'alerts')],
+    ['/meldungen', showContent('issues', 'issues', 'alerts') || readable('schedule').length > 0],
     ['/kalender', showContent('schedule', 'schedule')],
   ].filter(([, visible]) => !visible).map(([path]) => path));
+  if (readable('schedule').length) permissions.issues = 'read';
   permissions.teamRights = !!(activeTeam?.is_owner || activeTeam?.can_manage_groups);
   // The building overview remains the entry point for creating the first building.
   if (activeTeam?.is_owner && !activeTeam.buildings.length) permissions.buildings = 'read';

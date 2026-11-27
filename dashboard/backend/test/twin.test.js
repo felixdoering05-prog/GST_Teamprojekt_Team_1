@@ -78,3 +78,34 @@ test('calendar keeps task locations, priority and binary attachments within the 
  const denied=await fetch(files+'/'+id,{headers:{'X-D21-Session':bob.token}});
  assert.ok([403,404].includes(denied.status));
 });
+
+test('due tasks persist until completed and a retry cannot complete the next occurrence',async()=>{
+ const path='/buildings/'+building.id+'/schedules';
+ const starts_at=new Date(Date.now()-2*86400000).toISOString();
+ const task={title:'Offene Prüfung',kind:'task',starts_at,interval_days:1};
+ assert.equal((await call(path,{...task,ends_at:new Date().toISOString()},alice.token)).status,400);
+ const saved=await call(path,task,alice.token);
+ assert.equal(saved.status,201);
+ const list=async()=>(await call(path+'/due-tasks',undefined,alice.token)).body.find(item=>item.id===saved.body.id);
+ const due=await list();
+ assert.equal(Date.parse(due.due_at),Date.parse(starts_at));
+ const complete=path+'/'+saved.body.id+'/complete';
+ assert.ok([403,404].includes((await call(complete,{due_at:due.due_at},bob.token)).status));
+ for(let n=0;n<2;n++) assert.equal((await call(complete,{due_at:due.due_at},alice.token)).status,200);
+ assert.equal(Date.parse((await list()).due_at),Date.parse(starts_at)+86400000);
+});
+
+test('role definitions are shared across owned buildings while membership stays local',async()=>{
+ const other=(await call('/buildings',{name:'Rollenprüfung'},alice.token)).body;
+ const base=id=>'/buildings/'+id+'/team-access';
+ const spec={name:'Prüfdienst',permissions:{schedule:'read'},can_manage_members:false};
+ const created=await call(base(building.id)+'/roles',spec,alice.token);
+ assert.equal(created.status,201,JSON.stringify(created.body));
+ const roles=(await call(base(other.id),undefined,alice.token)).body.roles;
+ const copy=roles.find(role=>role.role_key===created.body.role_key);
+ assert.equal(copy.permissions.schedule,'read');
+ const updated=await fetch(url+base(other.id)+'/roles/'+copy.id,{method:'PATCH',headers:{'Content-Type':'application/json','X-D21-Session':alice.token},body:JSON.stringify({...spec,permissions:{schedule:'edit'}})});
+ assert.equal(updated.status,200);
+ assert.equal((await call(base(building.id),undefined,alice.token)).body.roles.find(role=>role.id===created.body.id).permissions.schedule,'edit');
+ assert.equal((await call(base(other.id),undefined,bob.token)).status,404);
+});
