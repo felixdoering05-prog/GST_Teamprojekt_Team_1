@@ -1,3 +1,5 @@
+import EventKit
+import EventKitUI
 import SwiftUI
 import UserNotifications
 
@@ -34,6 +36,7 @@ struct NativeBuildingSchedules: View {
     @State private var editing: (NativeSchedule, Building)?
     @State private var removal: (NativeSchedule, Building)?
     @State private var busy = false
+    @State private var exporting: ScheduleOccurrence?
     private let calendar = Calendar.current
 
     init(building: Building, account: AccountModel) { self.buildings = [building]; self.account = account }
@@ -100,6 +103,9 @@ struct NativeBuildingSchedules: View {
         .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } }), onDismiss: { Task { await load() } }) {
             if let editing { NativeScheduleEditor(buildings: [editing.1], item: editing.0, lists: lists, day: day, account: account) }
         }
+        .sheet(item: $exporting) { occurrence in
+            AppleCalendarEditor(event: AppleCalendarExport.event(for: occurrence.item, building: occurrence.building, date: occurrence.date)).ignoresSafeArea()
+        }
         .confirmationDialog("Eintrag löschen?", isPresented: Binding(get: { removal != nil }, set: { if !$0 { removal = nil } }), titleVisibility: .visible) {
             Button("Eintrag löschen", role: .destructive) { if let removal { Task { await remove(removal.0, building: removal.1) } } }
         } message: { if removal?.0.interval_days != nil { Text("Alle Wiederholungen dieses Eintrags werden entfernt.") } }
@@ -158,6 +164,8 @@ struct NativeBuildingSchedules: View {
             if let sensor = item.sensor_name { Label(sensor, systemImage: "sensor").font(.caption).foregroundStyle(.secondary) }
             if !item.details.isEmpty { Text(item.details).font(.subheadline) }
             if let author = item.created_by_name { Text("Erstellt von \(author)").font(.caption).foregroundStyle(.secondary) }
+            Button("Zum iOS-Kalender hinzufügen", systemImage: "calendar.badge.plus") { exporting = occurrence }
+                .font(.caption).buttonStyle(.borderless)
             if lists[occurrence.building.id]?.can_edit == true {
                 HStack {
                     Button("Bearbeiten", systemImage: "pencil") { editing = (item, occurrence.building) }
@@ -329,5 +337,56 @@ struct NativeScheduleEditor: View {
             let _: Saved = try await account.request("buildings/\(buildingID)/schedules" + (item.map { "/\($0.id)" } ?? ""), method: item == nil ? "POST" : "PATCH", body: body)
             dismiss()
         } catch { problem = error.localizedDescription }
+    }
+}
+
+/// Übergabe an den iOS-Kalender. Der Systemdialog speichert den Termin selbst,
+/// die App braucht dafür keinen Kalenderzugriff und liest keine Termine aus.
+enum AppleCalendarExport {
+    static let store = EKEventStore()
+    static func event(for item: NativeSchedule, building: Building, date: Date) -> EKEvent {
+        let event = EKEvent(eventStore: store)
+        event.title = item.title
+        event.location = [item.room_name, building.name, building.address.isEmpty ? nil : building.address].compactMap { $0 }.joined(separator: ", ")
+        event.notes = [item.details.isEmpty ? nil : item.details, item.sensor_name.map { tr("Sensor \($0)") }, "Nala · \(ScheduleKind.label(item.kind))"].compactMap { $0 }.joined(separator: "\n\n")
+        let start = nativeTeamDate(item.starts_at) ?? date
+        // Bei Wiederholungen startet der Termin beim ersten Vorkommen, damit die Serie stimmt.
+        event.startDate = item.interval_days == nil ? date : start
+        let length = item.ends_at.flatMap(nativeTeamDate).map { $0.timeIntervalSince(start) } ?? 3600
+        event.endDate = event.startDate.addingTimeInterval(max(length, 900))
+        if let step = item.interval_days, step > 0 {
+            let rule: EKRecurrenceRule
+            switch step {
+            case 7: rule = EKRecurrenceRule(recurrenceWith: .weekly, interval: 1, end: nil)
+            case 30, 31: rule = EKRecurrenceRule(recurrenceWith: .monthly, interval: 1, end: nil)
+            case 91, 92: rule = EKRecurrenceRule(recurrenceWith: .monthly, interval: 3, end: nil)
+            case 182, 183: rule = EKRecurrenceRule(recurrenceWith: .monthly, interval: 6, end: nil)
+            case 365: rule = EKRecurrenceRule(recurrenceWith: .yearly, interval: 1, end: nil)
+            default: rule = EKRecurrenceRule(recurrenceWith: .daily, interval: step, end: nil)
+            }
+            event.recurrenceRules = [rule]
+        }
+        if let days = item.reminder_days { event.addAlarm(EKAlarm(relativeOffset: -Double(days) * 86400)) }
+        return event
+    }
+}
+
+/// Systemdialog „Neues Ereignis“ mit vorausgefülltem Termin.
+struct AppleCalendarEditor: UIViewControllerRepresentable {
+    let event: EKEvent
+    @Environment(\.dismiss) private var dismiss
+    func makeUIViewController(context: Context) -> EKEventEditViewController {
+        let controller = EKEventEditViewController()
+        controller.eventStore = AppleCalendarExport.store
+        controller.event = event
+        controller.editViewDelegate = context.coordinator
+        return controller
+    }
+    func updateUIViewController(_ controller: EKEventEditViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(dismiss: dismiss) }
+    final class Coordinator: NSObject, EKEventEditViewDelegate {
+        let dismiss: DismissAction
+        init(dismiss: DismissAction) { self.dismiss = dismiss }
+        func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) { dismiss() }
     }
 }

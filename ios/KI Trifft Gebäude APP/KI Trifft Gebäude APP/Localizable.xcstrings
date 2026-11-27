@@ -399,16 +399,16 @@
     },
     "%lld Gebäude in der Auswahl": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld buildings in the selection"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld Gebäude in der Auswahl"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld buildings in the selection"
           }
         }
       }
@@ -633,16 +633,16 @@
     },
     "%lld Tage vorher": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld days before"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld Tage vorher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days before"
           }
         }
       }
@@ -1637,16 +1637,16 @@
     },
     "Alle %lld Tage": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every %lld days"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Alle %lld Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld days"
           }
         }
       }
@@ -1781,16 +1781,16 @@
     },
     "Alle Wiederholungen dieses Eintrags werden entfernt.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All repetitions of this entry are removed."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Alle Wiederholungen dieses Eintrags werden entfernt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All repetitions of this entry are removed."
           }
         }
       }
@@ -1989,16 +1989,16 @@
     },
     "An diesem Tag ist nichts eingetragen.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing is scheduled on this day."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "An diesem Tag ist nichts eingetragen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is scheduled on this day."
           }
         }
       }
@@ -3141,16 +3141,16 @@
     },
     "Bald fällig: %@": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Due soon: %@"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Bald fällig: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due soon: %@"
           }
         }
       }
@@ -3525,16 +3525,16 @@
     },
     "Bezug (optional)": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Link (optional)"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Bezug (optional)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link (optional)"
           }
         }
       }
@@ -4890,16 +4890,16 @@
     },
     "Demnächst": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upcoming"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Demnächst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upcoming"
           }
         }
       }
@@ -6302,80 +6302,80 @@
     },
     "Eintrag": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entry"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Eintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entry"
           }
         }
       }
     },
     "Eintrag anlegen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add entry"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Eintrag anlegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add entry"
           }
         }
       }
     },
     "Eintrag bearbeiten": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit entry"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Eintrag bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit entry"
           }
         }
       }
     },
     "Eintrag löschen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete entry"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Eintrag löschen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entry"
           }
         }
       }
     },
     "Eintrag löschen?": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete entry?"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Eintrag löschen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entry?"
           }
         }
       }
@@ -6638,32 +6638,32 @@
     },
     "Erinnerung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reminder"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Erinnerung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder"
           }
         }
       }
     },
     "Erinnerung %lld Tage vorher": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reminder %lld days before"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Erinnerung %lld Tage vorher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder %lld days before"
           }
         }
       }
@@ -6702,16 +6702,16 @@
     },
     "Erinnerungen erscheinen auf diesem iPhone, sobald unter Wartung die Erinnerungen eingeschaltet sind.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reminders appear on this iPhone once reminders are turned on under Maintenance."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Erinnerungen erscheinen auf diesem iPhone, sobald unter Wartung die Erinnerungen eingeschaltet sind."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminders appear on this iPhone once reminders are turned on under Maintenance."
           }
         }
       }
@@ -9790,16 +9790,16 @@
     },
     "Halbjährlich": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every six months"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Halbjährlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every six months"
           }
         }
       }
@@ -10728,16 +10728,16 @@
     },
     "Intervall": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Interval"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Intervall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval"
           }
         }
       }
@@ -10968,32 +10968,32 @@
     },
     "Kalender": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calendar"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Kalender"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
           }
         }
       }
     },
     "Kalender der ausgewählten Gebäude": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calendar of the selected buildings"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Kalender der ausgewählten Gebäude"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar of the selected buildings"
           }
         }
       }
@@ -11192,16 +11192,16 @@
     },
     "Kein Sensor": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No sensor"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Kein Sensor"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sensor"
           }
         }
       }
@@ -13917,16 +13917,16 @@
     },
     "Monatlich": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monthly"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Monatlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly"
           }
         }
       }
@@ -14533,16 +14533,16 @@
     },
     "Neuer Eintrag": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New entry"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Neuer Eintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New entry"
           }
         }
       }
@@ -15095,13 +15095,13 @@
     },
     "Normal": {
       "localizations": {
-        "en": {
+        "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Normal"
           }
         },
-        "de": {
+        "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Normal"
@@ -15335,16 +15335,16 @@
     },
     "Nächster Monat": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next month"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Nächster Monat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next month"
           }
         }
       }
@@ -19401,16 +19401,16 @@
     },
     "Vierteljährlich": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quarterly"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Vierteljährlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quarterly"
           }
         }
       }
@@ -19561,16 +19561,16 @@
     },
     "Vorheriger Monat": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previous month"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Vorheriger Monat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous month"
           }
         }
       }
@@ -19827,16 +19827,16 @@
     },
     "Wartung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maintenance"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Wartung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenance"
           }
         }
       }
@@ -20323,16 +20323,16 @@
     },
     "Wiederholung & Erinnerung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repeat & reminder"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Wiederholung & Erinnerung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat & reminder"
           }
         }
       }
@@ -20675,16 +20675,16 @@
     },
     "Wöchentlich": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weekly"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Wöchentlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly"
           }
         }
       }
@@ -21010,6 +21010,22 @@
         }
       }
     },
+    "Zum iOS-Kalender hinzufügen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to iOS Calendar"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum iOS-Kalender hinzufügen"
+          }
+        }
+      }
+    },
     "Zuordnung": {
       "localizations": {
         "de": {
@@ -21314,16 +21330,16 @@
     },
     "mit Einträgen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "with entries"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "mit Einträgen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with entries"
           }
         }
       }
