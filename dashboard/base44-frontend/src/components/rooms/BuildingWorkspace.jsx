@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ClipboardList, Building2, CheckCircle2, FileBox, Images, LayoutDashboard, Layers, MapPin, Plus, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Radio, Thermometer, ClipboardList, Building2, CheckCircle2, FileBox, Images, LayoutDashboard, Layers, MapPin, Plus, Sparkles, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/api/base44Client';
@@ -9,14 +9,16 @@ import StatCard from '@/components/StatCard';
 import { useBuildingScope } from '@/hooks/useBuildingScope';
 import BuildingProfile from './BuildingProfile';
 import PlanConversionPanel from './PlanConversionPanel';
-import { documentKey, isImage, isModel } from './buildingFilesModel';
+import useD21Data from '@/hooks/useD21Data';
+import { readingsForRoom } from '@/lib/roomMetrics';
+import { documentKey, isModel } from './buildingFilesModel';
 
 function metricValue(query, count) {
   if (query.isError) return '—';
   return query.isSuccess ? count(query.data) : '…';
 }
 
-function BuildingMetrics({ building, documents, onSection }) {
+function BuildingMetrics({ building, onSection }) {
   const scope = useBuildingScope();
   const id = building.id;
   const canRead = module => building.is_owner || scope.can(id, module);
@@ -28,24 +30,37 @@ function BuildingMetrics({ building, documents, onSection }) {
     queryKey: ['due-tasks', String(id)], queryFn: () => request(`/buildings/${id}/schedules/due-tasks`),
     enabled: canRead('schedule'), refetchInterval: 15000,
   });
+  const canReadSensors = canRead('sensors');
+  const data = useD21Data(String(id), { buildingIDs: canReadSensors ? String(id) : '', refreshMs: canReadSensors ? 60000 : 0 });
   const cards = [];
   if (canRead('structure')) cards.push({
-    label: 'Räume', query: structure, count: data => data.rooms.length, icon: Layers, section: 'rooms',
+    label: 'Räume', value: metricValue(structure, data => data.rooms.length), error: structure.isError, icon: Layers, section: 'rooms',
     hint: structure.isSuccess ? `${structure.data.floors.length} Geschosse` : undefined,
   });
   if (canRead('schedule')) cards.push({
-    label: 'Fällige Aufgaben', query: tasks, count: rows => rows.length, icon: ClipboardList,
+    label: 'Fällige Aufgaben', value: metricValue(tasks, rows => rows.length), error: tasks.isError, icon: ClipboardList,
     tone: tasks.data?.length ? 'warn' : 'default', link: `/meldungen?building=${id}&ansicht=aufgaben`,
   });
-  if (canRead('documents')) cards.push(
-    { label: 'Bilder', query: documents, count: rows => rows.filter(isImage).length, icon: Images, section: 'gallery' },
-    { label: '3D-Modelle', query: documents, count: rows => rows.filter(isModel).length, icon: FileBox, section: 'models' },
-  );
+  if (canReadSensors) {
+    const ready = !data.loading && !data.error;
+    const missing = data.error ? '—' : '…';
+    const inactive = data.sensors.filter(sensor => sensor.status !== 'aktiv').length;
+    cards.push({label:'Inaktive Sensoren',value:ready?inactive:missing,error:data.error,
+      hint:'Inklusive defekter Sensoren',icon:Radio,tone:ready&&inactive?'warn':'default',link:`/sensorik?building=${id}`});
+    if (canRead('structure')) {
+      const levels=data.rooms.map(room=>readingsForRoom(room,data.sensors,data.latest,data.thresholds).temperature.level);
+      const measured=levels.filter(level=>level!=='unknown').length;
+      const outside=levels.filter(level=>level==='warning'||level==='critical').length;
+      cards.push({label:'Räume außerhalb des Temperatursolls',value:ready?(measured||!levels.length?outside:'—'):missing,
+        hint:ready?`${measured} von ${levels.length} Räumen mit Messwert (24 h)`:undefined,
+        error:data.error,icon:Thermometer,tone:ready&&outside?'warn':'default',section:'rooms'});
+    }
+  }
   if (!cards.length) return null;
   return <section aria-label="Gebäudekennzahlen" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
     {cards.map(card => {
       const content = <StatCard label={card.label} icon={card.icon} tone={card.tone || 'primary'}
-        value={metricValue(card.query, card.count)} hint={card.query.isError ? 'Daten nicht verfügbar' : card.hint} />;
+        value={card.value} hint={card.error ? 'Daten nicht verfügbar' : card.hint} />;
       const style = 'min-w-0 rounded-xl text-left hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
       return card.link ? <Link key={card.label} className={style} to={card.link}>{content}</Link>
         : <button key={card.label} className={style} type="button" onClick={() => onSection(card.section)}>{content}</button>;
@@ -66,7 +81,7 @@ export default function BuildingWorkspace({ building, section, onSection, onSetu
         <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
         <div className="relative flex flex-wrap items-center gap-5"><span className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-primary/10 text-primary"><Building2 className="h-10 w-10" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-widest text-primary">Deine Gebäudemappe</p><h2 className="mt-2 break-words font-heading text-2xl font-semibold sm:text-3xl">{building.name}</h2><p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4 shrink-0" />{building.address || 'Adresse kannst du später ergänzen'}</p></div><div className="flex flex-wrap gap-2">{model && <Button asChild><Link to={`/bim-viewer?model=${model}`}><FileBox className="mr-2 h-4 w-4" />In 3D öffnen</Link></Button>}{building.is_owner && <Button variant="outline" onClick={onSetup}><Plus className="mr-2 h-4 w-4" />Einrichtung fortsetzen</Button>}</div></div>
       </section>
-      <BuildingMetrics building={building} documents={query} onSection={onSection} />
+      <BuildingMetrics building={building} onSection={onSection} />
       <BuildingProfile building={building} onSaved={onSaved} />
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" asChild><Link to={'/dokumente?building=' + building.id}>Dokumente</Link></Button>

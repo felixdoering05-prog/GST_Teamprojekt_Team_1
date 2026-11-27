@@ -1,3 +1,4 @@
+import ScheduleReminders from '@/components/ScheduleReminders';
 import BuildingSchedules from './BuildingSchedules';
 import { useBuildingScope, buildingScopeHeaders } from '@/hooks/useBuildingScope';
 import { useState } from 'react';
@@ -33,7 +34,8 @@ export default function Alerts() {
   const scope = useBuildingScope();
   const canIssues = scope.readable('issues').length > 0;
   const canTasks = scope.readable('schedule').length > 0;
-  const tasks = canTasks && (!canIssues || (!params.has('issue') && !params.has('alert') && params.get('ansicht')==='aufgaben'));
+  const reminders = canTasks && !params.has('issue') && !params.has('alert') && params.get('ansicht')==='erinnerungen';
+  const tasks = !reminders && canTasks && (!canIssues || (!params.has('issue') && !params.has('alert') && params.get('ansicht')==='aufgaben'));
   const warnings = !params.has('issue') && (params.has('alert') || params.get('ansicht') === 'sensorwarnungen');
 
   function choose(view) {
@@ -47,11 +49,12 @@ export default function Alerts() {
   return <div className="space-y-5">
     <PageHeader title="Meldungen" description={scope.label} />
     <nav className="flex flex-wrap gap-2" aria-label="Meldungsarten">
-      {canIssues && <><Button variant={warnings || tasks ? 'outline' : 'default'} aria-pressed={!warnings && !tasks} onClick={() => choose('maengel')}>Mängel</Button>
+      {canIssues && <><Button variant={warnings || tasks || reminders ? 'outline' : 'default'} aria-pressed={!warnings && !tasks && !reminders} onClick={() => choose('maengel')}>Mängel</Button>
       <Button variant={warnings ? 'default' : 'outline'} aria-pressed={warnings} onClick={() => choose('sensorwarnungen')}>Sensorwarnungen</Button></>}
       {canTasks && <Button variant={tasks?'default':'outline'} aria-pressed={tasks} onClick={()=>choose('aufgaben')}>Aufgaben</Button>}
+      {canTasks && <Button variant={reminders?'default':'outline'} aria-pressed={reminders} onClick={()=>choose('erinnerungen')}>Erinnerungen</Button>}
     </nav>
-    {tasks ? <BuildingSchedules tasksOnly/> : warnings ? <SensorAlerts /> : <BuildingIssues />}
+    {reminders ? <ScheduleReminders/> : tasks ? <BuildingSchedules tasksOnly/> : warnings ? <SensorAlerts /> : <BuildingIssues />}
   </div>;
 }
 
