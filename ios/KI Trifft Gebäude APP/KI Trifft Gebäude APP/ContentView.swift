@@ -589,6 +589,7 @@ struct AccountHomeView: View {
         #endif
     }()
     @StateObject private var social = CollaborationModel()
+    @StateObject private var scope = BuildingScopeModel()
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProfile = false
@@ -615,6 +616,7 @@ struct AccountHomeView: View {
         switch route {
         case .building(let id, let area):
             guard let building = resolve(id) else { return }
+            Task { await scope.reveal(building.id, account: model) }
             selectedTab = 0; nextArea = area; showAdd = false; showProfile = false
             if path.isEmpty { path = [building]; return }
             // Pop first so the detail view is recreated with the requested area; pushing in the same update is dropped.
@@ -628,6 +630,8 @@ struct AccountHomeView: View {
             showAdd = false; showProfile = false; selectedTab = 5
         }
     }
+    /// Gebäude der teamweiten Auswahl; ohne Teamdaten alle Gebäude.
+    private var scopedBuildings: [Building] { scope.filter(model.buildings) }
     private func refreshDraft() {
         do { savedDraft = try model.draftStore()?.load() }
         catch { model.error = "Der gespeicherte Entwurf konnte nicht gelesen werden. Er bleibt erhalten. " + error.localizedDescription }
@@ -637,7 +641,7 @@ struct AccountHomeView: View {
             NavigationStack(path: $path) {
                 List {
                     Section {
-                        BuildingOverviewSummary(buildings: model.buildings, unread: social.unread, hasDraft: savedDraft != nil) { showAdd = true }
+                        BuildingOverviewSummary(buildings: scopedBuildings, unread: social.unread, hasDraft: savedDraft != nil) { showAdd = true }
                             .listRowBackground(Color.clear).listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 12, trailing: 0))
                     }
@@ -652,13 +656,27 @@ struct AccountHomeView: View {
                             Button("Lokalen Entwurf verwerfen", role: .destructive) { discardDraft = true }
                         }
                     }
-                    Section("Meine und geteilte Gebäude") {
-                        ForEach(model.buildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
+                    if scope.team != nil {
+                        Section {
+                            BuildingScopeBar(scope: scope, account: model)
+                                .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                        }
+                    }
+                    Section(scope.isFiltered ? scope.label : "Meine und geteilte Gebäude") {
+                        ForEach(scopedBuildings.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }) { building in
                             Button { nextArea = "Dashboard"; path.append(building) } label: { NativeBuildingCard(building: building) }.buttonStyle(BuildingTileButtonStyle())
                                 .contextMenu {
                                     Button("Öffnen", systemImage: "arrow.up.forward.app") { nextArea = "Dashboard"; path.append(building) }
                                     if building.is_owner != false { Button("Gebäude löschen", systemImage: "trash", role: .destructive) { deletionTarget = building } }
                                 }.listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)).accessibilityLabel("Gebäude \(building.name) entdecken")
+                        }
+                        if !model.buildings.isEmpty && scopedBuildings.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("In dieser Auswahl sind keine Gebäude.").font(.headline)
+                                Text("Wähle oben ein anderes Team, eine andere Gruppe oder alle Gebäude.").foregroundStyle(.secondary)
+                                Button("Alle Gebäude zeigen") { scope.choose("all") }
+                            }.padding(.vertical, 8)
                         }
                         if model.buildings.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -687,7 +705,7 @@ struct AccountHomeView: View {
                             .contextMenu { Button("Profil und Profilbild", systemImage: "person.crop.circle") { showProfile = true } }
                     }
                 }
-                .refreshable { await model.loadBuildings(); await model.loadAvatar(); refreshDraft() }
+                .refreshable { await model.loadBuildings(); await scope.load(account: model); await model.loadAvatar(); refreshDraft() }
                 .sheet(isPresented: $showAdd, onDismiss: refreshDraft) { AddBuildingView(model: model) { building in showAdd = false; nextArea = "Dashboard"; path.append(building) } }
                  .sheet(isPresented: $showProfile) { ProfileView() }
                 #if DEBUG
@@ -705,6 +723,7 @@ struct AccountHomeView: View {
                     if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview") || args.contains("-D21EnergyPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
                 }
                 #endif
+                .task(id: model.buildings.map(\.id)) { await scope.load(account: model) }
                 .task { refreshDraft(); await HASync.syncAll(account: model) }
                 .onChange(of: model.buildings) { _, _ in refreshDraft() }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { refreshDraft(); Task { await HASync.syncAll(account: model) } } }
