@@ -99,6 +99,15 @@ enum WorkflowPreview {
         guard enabled else { return }
         guard !fixturesLoaded else { return }
         fixturesLoaded = true
+        if ProcessInfo.processInfo.arguments.contains("-D21ScopePreview") {
+            // Teamweite Gebäudeauswahl: drei Gebäude, eine Gruppe mit zweien davon.
+            buildings = [
+                ["id":901,"name":"Gebäude D21","address":"Hochschule Darmstadt"],
+                ["id":902,"name":"Technikum D12","address":"Schöfferstraße 3"],
+                ["id":903,"name":"Bürohaus Frankfurt","address":"Mainzer Landstraße 50"]
+            ]
+            NativeTeamsPreview.groups = [["id":1,"team_id":1,"name":"Campus Darmstadt","buildings":[["id":901,"name":"Gebäude D21"],["id":902,"name":"Technikum D12"]]]]
+        }
         if ProcessInfo.processInfo.arguments.contains("-D21IFCPreview") {
             buildings = [
                 ["id":901,"name":"Gebäude D21 (Hauptcampus)","address":"Hochschule Darmstadt"],
