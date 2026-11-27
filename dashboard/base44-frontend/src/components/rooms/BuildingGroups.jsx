@@ -3,7 +3,7 @@ import PageHeader from '@/components/PageHeader';
 import { Tabs,TabsList,TabsTrigger,TabsContent } from '@/components/ui/tabs';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Building2, FileBox, Images, Layers, LayoutDashboard, MapPin, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Building2, FileBox, Images, Layers, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { request } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,8 +69,8 @@ export default function BuildingGroups({ buildings = [], groupID, section, onOpe
     const editable=!group.partial && (group.buildings.length ? canEditGroup(group) : active.is_owner);
     const path=`/teams/${active.id}/groups/${group.id}`;
     const candidates=manageable.filter(building=>!group.buildings.some(row=>String(row.id)===String(building.id)));
-    const tabs=[['overview','Übersicht',LayoutDashboard],['gallery','Galerie',Images],['models','Pläne & 3D',FileBox],['buildings','Gebäude',Building2]];
-    const current=tabs.some(([id])=>id===section)?section:'overview';
+    const tabs=[['buildings','Gebäude',Building2],['gallery','Galerie',Images],['models','Pläne & 3D',FileBox]];
+    const current=tabs.some(([id])=>id===section)?section:'buildings';
     const groupName=drafts[group.id]?.name??group.name;
     return <div className="space-y-5">
       <PageHeader title={group.name} description="Gebäudegruppe">
@@ -87,17 +87,13 @@ export default function BuildingGroups({ buildings = [], groupID, section, onOpe
       </form>}
       <Tabs value={current} onValueChange={tab=>onOpenGroup(group.id,tab)} className="space-y-5">
         <div className="overflow-x-auto pb-1"><TabsList aria-label="Bereiche der Gebäudegruppe" className="h-auto w-max gap-1 rounded-full p-1.5">{tabs.map(([id,label,Icon])=><TabsTrigger key={id} value={id} className="rounded-full px-4 py-2.5"><Icon className="mr-2 h-4 w-4"/>{label}</TabsTrigger>)}</TabsList></div>
-        <TabsContent value="overview" className="space-y-4">
-          <section className="surface flex items-center gap-4 p-6"><Layers className="h-12 w-12 text-primary"/><div><h2 className="font-heading text-xl font-semibold">{group.name}</h2><p className="text-sm text-muted-foreground">{active.name} · {group.visibleBuildings.length} sichtbare Gebäude</p></div></section>
-          <div className="grid gap-3 sm:grid-cols-3">{tabs.slice(1).map(([id,label,Icon])=><button key={id} onClick={()=>onOpenGroup(group.id,id)} className="surface flex items-center gap-3 p-5 text-left hover:border-primary"><Icon className="h-5 w-5 text-primary"/>{label}</button>)}</div>
+        {['gallery','models'].map(tab=><TabsContent key={tab} value={tab}>{group.partial || (!group.buildings.length && !active.is_owner) ? <p>Für Gruppendateien ist Zugriff auf die gesamte Gruppe erforderlich.</p> : <GroupMedia path={path+'/files'} section={tab} editable={editable}/>}</TabsContent>)}
+        <TabsContent value="buildings" className="space-y-4"><div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{group.visibleBuildings.map(building=><div key={building.id} className="space-y-1"><BuildingCard building={building} onOpen={onOpenBuilding}/>{editable && <Button variant="ghost" size="sm" disabled={mutation.isPending} onClick={()=>{if(window.confirm('„'+building.name+'“ aus dieser Gruppe entfernen? Das Gebäude bleibt erhalten.'))mutation.mutate({path:path+'/buildings/'+building.id,method:'DELETE'});}}>Aus Gruppe entfernen</Button>}</div>)}</div>
+          {!group.visibleBuildings.length && <p className="surface p-5">In dieser Gruppe sind keine sichtbaren Gebäude.</p>}
           {editable && <details className="surface p-4"><summary className="cursor-pointer font-semibold">Gruppe verwalten</summary><form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();mutation.mutate({path,method:'PATCH',body:{name:groupName.trim()}});}}>
             <label className="grid gap-1 text-sm">Gruppenname<Input value={groupName} maxLength={80} required onChange={event=>setDrafts({...drafts,[group.id]:{name:event.target.value}})}/></label><Button disabled={!groupName.trim()||groupName.trim()===group.name||mutation.isPending}>Speichern</Button>
             <Button type="button" variant="outline" disabled={mutation.isPending} onClick={()=>{if(window.confirm('Gruppe „'+group.name+'“ samt Gruppendateien löschen? Die Gebäude bleiben erhalten.'))mutation.mutate({path,method:'DELETE'},{onSuccess:onBack});}}><Trash2 className="h-4 w-4"/>Gruppe löschen</Button>
           </form></details>}
-        </TabsContent>
-        {['gallery','models'].map(tab=><TabsContent key={tab} value={tab}>{group.partial || (!group.buildings.length && !active.is_owner) ? <p>Für Gruppendateien ist Zugriff auf die gesamte Gruppe erforderlich.</p> : <GroupMedia path={path+'/files'} section={tab} editable={editable}/>}</TabsContent>)}
-        <TabsContent value="buildings"><div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{group.visibleBuildings.map(building=><div key={building.id} className="space-y-1"><BuildingCard building={building} onOpen={onOpenBuilding}/>{editable && <Button variant="ghost" size="sm" disabled={mutation.isPending} onClick={()=>{if(window.confirm('„'+building.name+'“ aus dieser Gruppe entfernen? Das Gebäude bleibt erhalten.'))mutation.mutate({path:path+'/buildings/'+building.id,method:'DELETE'});}}>Aus Gruppe entfernen</Button>}</div>)}</div>
-          {!group.visibleBuildings.length && <p className="surface p-5">In dieser Gruppe sind keine sichtbaren Gebäude.</p>}
         </TabsContent>
       </Tabs>
     </div>;

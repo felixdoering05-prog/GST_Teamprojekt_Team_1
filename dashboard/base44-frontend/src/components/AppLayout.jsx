@@ -262,7 +262,7 @@ export default function AppLayout() {
   const linkedAccess = linkedNavigation.data?.find(row => String(row.id) === linkedID);
   const linkedAllowed = !!linkedAccess && (current.module === 'teamRights'
     ? (linkedTeam.is_owner || linkedTeam.can_manage_groups)
-    : canUseBuilding(linkedAccess, current.module));
+    : canUseBuilding(linkedAccess, current.module === 'issues' && params.get('ansicht') === 'aufgaben' && !params.has('issue') && !params.has('alert') ? 'schedule' : current.module));
   const mayReadRoom = linkedAllowed && canUseBuilding(linkedAccess, 'structure');
   const lookupRoom = isRoomCard && mayReadRoom && /^[A-Za-z0-9_-]{1,100}$/.test(roomID || '');
   const roomCard = useQuery({
