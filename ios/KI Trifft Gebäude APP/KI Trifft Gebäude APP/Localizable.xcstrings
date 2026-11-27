@@ -67,6 +67,16 @@
         }
       }
     },
+    "%@ / %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ / %@"
+          }
+        }
+      }
+    },
     "%@ aus der Upload-Liste entfernen": {
       "localizations": {
         "de": {
@@ -637,6 +647,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld rooms · %lld walls%@ · %lld doors · %lld windows · %lld furniture/objects"
+          }
+        }
+      }
+    },
+    "%lld Tage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Tage"
           }
         }
       }
@@ -1415,6 +1441,22 @@
         }
       }
     },
+    "API-Anfragen · 24 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API requests · 24 h"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API-Anfragen · 24 h"
+          }
+        }
+      }
+    },
     "AR-Ansicht schließen": {
       "localizations": {
         "de": {
@@ -1575,6 +1617,22 @@
         }
       }
     },
+    "Aktive Sitzungen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active sessions"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktive Sitzungen"
+          }
+        }
+      }
+    },
     "Aktualisieren": {
       "localizations": {
         "de": {
@@ -1587,6 +1645,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Refresh"
+          }
+        }
+      }
+    },
+    "Aktualisiert jede Minute, solange die Ansicht offen ist. Werte kommen aus Home Assistant und sind nicht unabhängig verifiziert.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated every minute while the view is open. Values come from Home Assistant and are not independently verified."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisiert jede Minute, solange die Ansicht offen ist. Werte kommen aus Home Assistant und sind nicht unabhängig verifiziert."
           }
         }
       }
@@ -2039,6 +2113,22 @@
         }
       }
     },
+    "Anbieter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anbieter"
+          }
+        }
+      }
+    },
     "Anbieter: Google Gemini · %@. Es gelten die gemeinsamen App-Kontingente. Es gelten die Anbieterbedingungen zur Verarbeitung.": {
       "localizations": {
         "de": {
@@ -2163,6 +2253,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit details"
+          }
+        }
+      }
+    },
+    "Angezeigt wird der letzte geladene Stand.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing the last loaded state."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angezeigt wird der letzte geladene Stand."
           }
         }
       }
@@ -2483,6 +2589,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "App version"
+          }
+        }
+      }
+    },
+    "Arbeitsspeicher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arbeitsspeicher"
           }
         }
       }
@@ -3545,16 +3667,16 @@
     },
     "Bewegung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Motion"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Bewegung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motion"
           }
         }
       }
@@ -3780,6 +3902,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gross floor area"
+          }
+        }
+      }
+    },
+    "CPU": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CPU"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CPU"
           }
         }
       }
@@ -4312,6 +4450,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Data and limits"
+          }
+        }
+      }
+    },
+    "Datenbank": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenbank"
           }
         }
       }
@@ -5330,16 +5484,16 @@
     },
     "Die Eigentümerin oder der Eigentümer schaltet sie im Profil unter „WLAN-Präsenz (RuView)“ ein. Die Brücke für die ESP32-Knoten wird im Web unter Sensorik eingerichtet.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The owner turns it on in the profile under “Wi-Fi presence (RuView)”. The bridge for the ESP32 nodes is set up on the web under Sensors."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Die Eigentümerin oder der Eigentümer schaltet sie im Profil unter „WLAN-Präsenz (RuView)“ ein. Die Brücke für die ESP32-Knoten wird im Web unter Sensorik eingerichtet."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The owner turns it on in the profile under “Wi-Fi presence (RuView)”. The bridge for the ESP32 nodes is set up on the web under Sensors."
           }
         }
       }
@@ -5372,6 +5526,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "The Home Assistant sign-in is stored only on the iPhone that connected."
+          }
+        }
+      }
+    },
+    "Die Host-Messung ist älter als zwei Minuten.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The host measurement is older than two minutes."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Host-Messung ist älter als zwei Minuten."
           }
         }
       }
@@ -5532,6 +5702,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Energy periods imported for this building in the web dashboard also appear here. CSV import on the iPhone supports sensor readings for now."
+          }
+        }
+      }
+    },
+    "Dienste und Speicher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Services and storage"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dienste und Speicher"
           }
         }
       }
@@ -5744,6 +5930,22 @@
         }
       }
     },
+    "Durch Limit abgelehnt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected by limit"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durch Limit abgelehnt"
+          }
+        }
+      }
+    },
     "Durchschnitt": {
       "localizations": {
         "de": {
@@ -5826,16 +6028,16 @@
     },
     "ESP32-Knoten schätzen über WLAN, ob jemand im Raum ist. Gilt für deine eigenen Gebäude. Gespeichert werden nur zusammengefasste Werte, sie werden nach 24 Stunden gelöscht. Schätzung, kein Medizinprodukt.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ESP32 nodes estimate via Wi-Fi whether someone is in the room. Applies to your own buildings. Only aggregated values are stored and they are deleted after 24 hours. Estimate, not a medical device."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "ESP32-Knoten schätzen über WLAN, ob jemand im Raum ist. Gilt für deine eigenen Gebäude. Gespeichert werden nur zusammengefasste Werte, sie werden nach 24 Stunden gelöscht. Schätzung, kein Medizinprodukt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESP32 nodes estimate via Wi-Fi whether someone is in the room. Applies to your own buildings. Only aggregated values are stored and they are deleted after 24 hours. Estimate, not a medical device."
           }
         }
       }
@@ -6704,6 +6906,22 @@
         }
       }
     },
+    "Erfolgreich / fehlgeschlagen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Successful / failed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erfolgreich / fehlgeschlagen"
+          }
+        }
+      }
+    },
     "Erinnerung": {
       "localizations": {
         "de": {
@@ -7106,16 +7324,16 @@
     },
     "Experimentell": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Experimental"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Experimentell"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimental"
           }
         }
       }
@@ -7276,6 +7494,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Error"
+          }
+        }
+      }
+    },
+    "Fehlerantworten · 24 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error responses · 24 h"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlerantworten · 24 h"
           }
         }
       }
@@ -8128,6 +8362,22 @@
         }
       }
     },
+    "Für dieses Medium sind im Energiemonitor noch keine Sensoren zugeordnet. Das geht im Web unter Energie → Einstellungen.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sensors are assigned to this medium in the energy monitor yet. You can do this on the web under Energy → Settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für dieses Medium sind im Energiemonitor noch keine Sensoren zugeordnet. Das geht im Web unter Energie → Einstellungen."
+          }
+        }
+      }
+    },
     "Für echte Schatten das Modell zuerst auf der Karte ausrichten.": {
       "localizations": {
         "de": {
@@ -8268,6 +8518,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Building & room"
+          }
+        }
+      }
+    },
+    "Gebäude / Dateien": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buildings / files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebäude / Dateien"
           }
         }
       }
@@ -10160,6 +10426,22 @@
         }
       }
     },
+    "Hochgeladene Dateien": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploaded files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hochgeladene Dateien"
+          }
+        }
+      }
+    },
     "Hochschule Darmstadt": {
       "localizations": {
         "de": {
@@ -10842,6 +11124,22 @@
         }
       }
     },
+    "Ja": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja"
+          }
+        }
+      }
+    },
     "Jede Person erscheint einmal. Tippe auf ein Mitglied für Telefon und E-Mail, sofern es sie mit dem Team teilt. Titel beschreiben Zuständigkeiten und ändern keine Zugriffsrechte.": {
       "localizations": {
         "de": {
@@ -10906,6 +11204,22 @@
         }
       }
     },
+    "KI eingeschaltet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI turned on"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI eingeschaltet"
+          }
+        }
+      }
+    },
     "KI einmal für dein Konto aktivieren": {
       "localizations": {
         "de": {
@@ -10934,6 +11248,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "AI not turned on"
+          }
+        }
+      }
+    },
+    "KI und API-Nutzung": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI and API usage"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI und API-Nutzung"
           }
         }
       }
@@ -10982,6 +11312,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "AI analysis"
+          }
+        }
+      }
+    },
+    "KI-Anfragen · 24 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI requests · 24 h"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI-Anfragen · 24 h"
           }
         }
       }
@@ -11484,16 +11830,16 @@
     },
     "Keine Zuordnung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No assignment"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Keine Zuordnung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No assignment"
           }
         }
       }
@@ -11612,32 +11958,32 @@
     },
     "Knoten": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nodes"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Knoten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodes"
           }
         }
       }
     },
     "Knoten %lld": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Node %lld"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Knoten %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Node %lld"
           }
         }
       }
@@ -11782,6 +12128,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Contacts only see your name. You share buildings individually via “Members and sharing” in each building."
+          }
+        }
+      }
+    },
+    "Konten": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konten"
           }
         }
       }
@@ -12118,6 +12480,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pan slowly along the walls and capture doors, windows and furniture fully once. Distance 1–3 m. For interior walls, scan both sides – then the server measures the wall thickness."
+          }
+        }
+      }
+    },
+    "Laufzeit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uptime"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laufzeit"
           }
         }
       }
@@ -12513,6 +12891,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Link copied"
+          }
+        }
+      }
+    },
+    "Live · Home Assistant": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live · Home Assistant"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live · Home Assistant"
           }
         }
       }
@@ -13067,6 +13461,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dimensions approximate. For exact dimensions, photograph the overall dimensions on the plan legibly."
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
           }
         }
       }
@@ -13771,6 +14181,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mean: %@ %@ · Min: %@ · Max: %@"
+          }
+        }
+      }
+    },
+    "Mittlere Antwortzeit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average response time"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mittlere Antwortzeit"
           }
         }
       }
@@ -15082,16 +15508,16 @@
     },
     "Noch keine Knoten gemeldet. Richte im Web unter Sensorik → WLAN-Präsenz eine Brücke ein und starte sie im Heimnetz.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No nodes reported yet. Set up a bridge on the web under Sensors → Wi-Fi presence and start it on your home network."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Noch keine Knoten gemeldet. Richte im Web unter Sensorik → WLAN-Präsenz eine Brücke ein und starte sie im Heimnetz."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No nodes reported yet. Set up a bridge on the web under Sensors → Wi-Fi presence and start it on your home network."
           }
         }
       }
@@ -15285,6 +15711,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Notes"
+          }
+        }
+      }
+    },
+    "Nur Anzeige. Aktualisiert %@ · alle 30 Sekunden, solange die Ansicht offen ist.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display only. Updated %@ · every 30 seconds while the view is open."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Anzeige. Aktualisiert %@ · alle 30 Sekunden, solange die Ansicht offen ist."
           }
         }
       }
@@ -15903,16 +16345,16 @@
     },
     "Personen je Raum": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "People per room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Personen je Raum"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People per room"
           }
         }
       }
@@ -16575,16 +17017,16 @@
     },
     "Raum für Knoten %lld": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Room for node %lld"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum für Knoten %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room for node %lld"
           }
         }
       }
@@ -16735,32 +17177,32 @@
     },
     "Raum zuordnen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Assign room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum zuordnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign room"
           }
         }
       }
     },
     "Raum ändern": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum ändern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change room"
           }
         }
       }
@@ -17363,16 +17805,16 @@
     },
     "Schätzung aus WLAN-Signalen, kein Medizinprodukt. Werte älter als 60 Sekunden gelten als veraltet.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estimate from Wi-Fi signals, not a medical device. Values older than 60 seconds count as stale."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Schätzung aus WLAN-Signalen, kein Medizinprodukt. Werte älter als 60 Sekunden gelten als veraltet."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimate from Wi-Fi signals, not a medical device. Values older than 60 seconds count as stale."
           }
         }
       }
@@ -17643,6 +18085,22 @@
         }
       }
     },
+    "Server-Festplatte": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server disk"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server-Festplatte"
+          }
+        }
+      }
+    },
     "Serveradresse": {
       "localizations": {
         "de": {
@@ -17655,6 +18113,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server address"
+          }
+        }
+      }
+    },
+    "Serverdaten werden geladen …": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading server data …"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serverdaten werden geladen …"
+          }
+        }
+      }
+    },
+    "Serverkapazität": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server capacity"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serverkapazität"
           }
         }
       }
@@ -17719,6 +18209,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server connection"
+          }
+        }
+      }
+    },
+    "Serverübersicht": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server overview"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serverübersicht"
           }
         }
       }
@@ -18309,6 +18815,22 @@
         }
       }
     },
+    "Strom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Electricity"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strom"
+          }
+        }
+      }
+    },
     "Strom · Home Assistant": {
       "localizations": {
         "de": {
@@ -18491,6 +19013,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Day"
+          }
+        }
+      }
+    },
+    "Tagesverlauf %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily trend %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tagesverlauf %@"
           }
         }
       }
@@ -19917,64 +20455,64 @@
     },
     "WLAN-Präsenz": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wi-Fi presence"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "WLAN-Präsenz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence"
           }
         }
       }
     },
     "WLAN-Präsenz (RuView)": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wi-Fi presence (RuView)"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "WLAN-Präsenz (RuView)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence (RuView)"
           }
         }
       }
     },
     "WLAN-Präsenz ist für dieses Gebäude aus.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wi-Fi presence is off for this building."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "WLAN-Präsenz ist für dieses Gebäude aus."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence is off for this building."
           }
         }
       }
     },
     "WLAN-Präsenz wird geladen …": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading Wi-Fi presence …"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "WLAN-Präsenz wird geladen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading Wi-Fi presence …"
           }
         }
       }
@@ -20305,6 +20843,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "What happens to my voice?"
+          }
+        }
+      }
+    },
+    "Wasser": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Water"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wasser"
           }
         }
       }
@@ -21596,16 +22150,16 @@
     },
     "leer": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "empty"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "leer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "empty"
           }
         }
       }
@@ -21702,16 +22256,16 @@
     },
     "niemand": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "nobody"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "niemand"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nobody"
           }
         }
       }
@@ -21750,32 +22304,32 @@
     },
     "ruhig": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "still"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "ruhig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "still"
           }
         }
       }
     },
     "veraltet": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "stale"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "veraltet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stale"
           }
         }
       }
@@ -22318,16 +22872,16 @@
     },
     "≈ %lld Personen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "≈ %lld people"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "≈ %lld Personen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %lld people"
           }
         }
       }

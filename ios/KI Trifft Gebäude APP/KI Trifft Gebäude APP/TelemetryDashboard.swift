@@ -63,6 +63,7 @@ struct TelemetryDashboardView: View {
                 if let espProblem { Section("ESP32-Verbindung") { Label(espProblem, systemImage: "exclamationmark.icloud").foregroundStyle(.orange); if espSnapshot != nil { Text("Letzter geladener Stand. Zum Aktualisieren nach unten ziehen.").font(.caption) } } }
             }
             if area == "Energie", !localDemo, let account, let building {
+                EnergyLiveSection(account: account, building: building)
                 PassportEnergySections(account: account, building: building)
             } else if let data = snapshot {
                 if area == "Dashboard" && (!data.sensors.isEmpty || espSnapshot?.sensors.isEmpty != false) { overview(data) }

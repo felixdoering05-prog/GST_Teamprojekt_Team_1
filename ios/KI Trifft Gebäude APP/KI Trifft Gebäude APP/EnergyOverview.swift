@@ -194,6 +194,7 @@ struct PassportEnergyView: View {
                     }
                 }
             }
+            EnergyLiveSection(account: account, building: current).id("live-\(current.id)")
             PassportEnergySections(account: account, building: current).id(current.id)
         }
         .navigationTitle("Energie")
