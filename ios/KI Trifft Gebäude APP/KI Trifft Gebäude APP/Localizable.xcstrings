@@ -301,6 +301,16 @@
         }
       }
     },
+    "%lld /min": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld /min"
+          }
+        }
+      }
+    },
     "%lld Bereiche bearbeiten · %lld nur lesen": {
       "localizations": {
         "de": {
@@ -685,6 +695,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld on"
+          }
+        }
+      }
+    },
+    "%lld dBm": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dBm"
           }
         }
       }
@@ -3523,6 +3543,22 @@
         }
       }
     },
+    "Bewegung": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motion"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bewegung"
+          }
+        }
+      }
+    },
     "Bezug (optional)": {
       "localizations": {
         "de": {
@@ -5292,6 +5328,22 @@
         }
       }
     },
+    "Die Eigentümerin oder der Eigentümer schaltet sie im Profil unter „WLAN-Präsenz (RuView)“ ein. Die Brücke für die ESP32-Knoten wird im Web unter Sensorik eingerichtet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The owner turns it on in the profile under “Wi-Fi presence (RuView)”. The bridge for the ESP32 nodes is set up on the web under Sensors."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Eigentümerin oder der Eigentümer schaltet sie im Profil unter „WLAN-Präsenz (RuView)“ ein. Die Brücke für die ESP32-Knoten wird im Web unter Sensorik eingerichtet."
+          }
+        }
+      }
+    },
     "Die Einfärbung zeigt illustrative Oberflächentemperaturen aus Wetter, Sonneneinstrahlung und Flächenausrichtung – keine gemessenen Raumtemperaturen, keine echten Materialien, keine Verschattungsprüfung.": {
       "localizations": {
         "de": {
@@ -5768,6 +5820,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ESP32 · Live transmission"
+          }
+        }
+      }
+    },
+    "ESP32-Knoten schätzen über WLAN, ob jemand im Raum ist. Gilt für deine eigenen Gebäude. Gespeichert werden nur zusammengefasste Werte, sie werden nach 24 Stunden gelöscht. Schätzung, kein Medizinprodukt.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESP32 nodes estimate via Wi-Fi whether someone is in the room. Applies to your own buildings. Only aggregated values are stored and they are deleted after 24 hours. Estimate, not a medical device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESP32-Knoten schätzen über WLAN, ob jemand im Raum ist. Gilt für deine eigenen Gebäude. Gespeichert werden nur zusammengefasste Werte, sie werden nach 24 Stunden gelöscht. Schätzung, kein Medizinprodukt."
           }
         }
       }
@@ -7032,6 +7100,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your building chat"
+          }
+        }
+      }
+    },
+    "Experimentell": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimental"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimentell"
           }
         }
       }
@@ -11398,6 +11482,22 @@
         }
       }
     },
+    "Keine Zuordnung": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No assignment"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Zuordnung"
+          }
+        }
+      }
+    },
     "Keine bestätigten Kontakte ohne Teamzugang. Kontakte fügst du unter „Kontakte“ hinzu.": {
       "localizations": {
         "de": {
@@ -11506,6 +11606,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Key figures from the building passport"
+          }
+        }
+      }
+    },
+    "Knoten": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Knoten"
+          }
+        }
+      }
+    },
+    "Knoten %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Node %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Knoten %lld"
           }
         }
       }
@@ -14948,6 +15080,22 @@
         }
       }
     },
+    "Noch keine Knoten gemeldet. Richte im Web unter Sensorik → WLAN-Präsenz eine Brücke ein und starte sie im Heimnetz.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No nodes reported yet. Set up a bridge on the web under Sensors → Wi-Fi presence and start it on your home network."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Knoten gemeldet. Richte im Web unter Sensorik → WLAN-Präsenz eine Brücke ein und starte sie im Heimnetz."
+          }
+        }
+      }
+    },
     "Noch keine Räume": {
       "localizations": {
         "de": {
@@ -15753,6 +15901,22 @@
         }
       }
     },
+    "Personen je Raum": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People per room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personen je Raum"
+          }
+        }
+      }
+    },
     "Personen und Limits": {
       "localizations": {
         "de": {
@@ -16409,6 +16573,22 @@
         }
       }
     },
+    "Raum für Knoten %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room for node %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum für Knoten %lld"
+          }
+        }
+      }
+    },
     "Raum im Plan": {
       "localizations": {
         "de": {
@@ -16549,6 +16729,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Analysing room …"
+          }
+        }
+      }
+    },
+    "Raum zuordnen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum zuordnen"
+          }
+        }
+      }
+    },
+    "Raum ändern": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum ändern"
           }
         }
       }
@@ -17145,6 +17357,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld of 5: %@"
+          }
+        }
+      }
+    },
+    "Schätzung aus WLAN-Signalen, kein Medizinprodukt. Werte älter als 60 Sekunden gelten als veraltet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimate from Wi-Fi signals, not a medical device. Values older than 60 seconds count as stale."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schätzung aus WLAN-Signalen, kein Medizinprodukt. Werte älter als 60 Sekunden gelten als veraltet."
           }
         }
       }
@@ -19687,6 +19915,70 @@
         }
       }
     },
+    "WLAN-Präsenz": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN-Präsenz"
+          }
+        }
+      }
+    },
+    "WLAN-Präsenz (RuView)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence (RuView)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN-Präsenz (RuView)"
+          }
+        }
+      }
+    },
+    "WLAN-Präsenz ist für dieses Gebäude aus.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi presence is off for this building."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN-Präsenz ist für dieses Gebäude aus."
+          }
+        }
+      }
+    },
+    "WLAN-Präsenz wird geladen …": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading Wi-Fi presence …"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN-Präsenz wird geladen …"
+          }
+        }
+      }
+    },
     "Wand hier öffnen": {
       "localizations": {
         "de": {
@@ -21012,16 +21304,16 @@
     },
     "Zum iOS-Kalender hinzufügen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add to iOS Calendar"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Zum iOS-Kalender hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to iOS Calendar"
           }
         }
       }
@@ -21302,6 +21594,22 @@
         }
       }
     },
+    "leer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "empty"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "leer"
+          }
+        }
+      }
+    },
     "längs": {
       "localizations": {
         "de": {
@@ -21392,6 +21700,22 @@
         }
       }
     },
+    "niemand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nobody"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "niemand"
+          }
+        }
+      }
+    },
     "noch %lld:%@": {
       "localizations": {
         "de": {
@@ -21420,6 +21744,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "crosswise"
+          }
+        }
+      }
+    },
+    "ruhig": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "still"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ruhig"
+          }
+        }
+      }
+    },
+    "veraltet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stale"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "veraltet"
           }
         }
       }
@@ -21956,6 +22312,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "−10 °C"
+          }
+        }
+      }
+    },
+    "≈ %lld Personen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %lld people"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %lld Personen"
           }
         }
       }

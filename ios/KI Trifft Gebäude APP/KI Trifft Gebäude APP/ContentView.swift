@@ -58,6 +58,8 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     @Published var avatarData: Data?
     @Published var aiPreferences = AIPreferences.disabled
     @Published var presentationMode = false
+    /// WLAN-Präsenz (RuView) für eigene Gebäude, Opt-in wie im Web (#270).
+    @Published var ruviewEnabled = false
     private var uiRevision = 0
     @Published private(set) var appearance = AppAppearance()
     @Published var appearanceNotice: String?
@@ -214,6 +216,7 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
     private func applyUIPreferences(_ value: UIPreferences, scope: String) {
         guard issueQueueScope == scope else { return }
         presentationMode = value.presentation_mode
+        ruviewEnabled = value.ruview_enabled ?? false
         uiRevision = value.revision
         // Eine im Konto gewählte Sprache gilt wie im Web auch auf diesem iPhone.
         if let language = value.language { AppLanguage.shared.apply(language) }
@@ -270,6 +273,17 @@ struct GatewayCredentials: Codable { let username: String; let password: String 
                 if issueQueueScope == scope { appearanceNotice = tr("Auf diesem Gerät gespeichert.") }
                 return
             }
+        }
+    }
+
+    func saveRuview(_ enabled: Bool) async throws {
+        guard let scope = issueQueueScope else { return }
+        do {
+            let value: UIPreferences = try await request("profile/ui?view=appearance", method: "PATCH", body: ["ruview_enabled": enabled, "revision": uiRevision])
+            applyUIPreferences(value, scope: scope)
+        } catch {
+            await refreshUIPreferences()
+            throw error
         }
     }
 
@@ -743,7 +757,8 @@ struct AccountHomeView: View {
                 #if DEBUG
                 .fullScreenCover(item: $planPreviewBuilding) { building in
                     NavigationStack {
-                        if ProcessInfo.processInfo.arguments.contains("-D21ReportsPreview") { BuildingReportsView(building: building, account: model) }
+                        if ProcessInfo.processInfo.arguments.contains("-D21RuViewPreview") { RuViewPresenceView(building: building, account: model) }
+                        else if ProcessInfo.processInfo.arguments.contains("-D21ReportsPreview") { BuildingReportsView(building: building, account: model) }
                         else if ProcessInfo.processInfo.arguments.contains("-D21MaintenancePreview") { BuildingMaintenanceView(building: building, account: model) }
                         else if ProcessInfo.processInfo.arguments.contains("-D21EnergyPreview") { TelemetryDashboardView(account: model, building: building, initialArea: "Energie") }
                         else if ProcessInfo.processInfo.arguments.contains("-D21AutomationsPreview") { BuildingAutomationsView(building: building, account: model) }
@@ -753,7 +768,7 @@ struct AccountHomeView: View {
                 }
                 .task(id: model.buildings.count) {
                     let args = ProcessInfo.processInfo.arguments
-                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21ReportsPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview") || args.contains("-D21EnergyPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
+                    if WorkflowPreview.enabled, args.contains("-D21PlanPreview") || args.contains("-D21ReportsPreview") || args.contains("-D21RuViewPreview") || args.contains("-D21PlanEditorPreview") || args.contains("-D21MaintenancePreview") || args.contains("-D21AutomationsPreview") || args.contains("-D21EnergyPreview"), planPreviewBuilding == nil { planPreviewBuilding = model.buildings.first }
                 }
                 #endif
                 .task(id: model.buildings.map(\.id)) { await scope.load(account: model) }
@@ -862,6 +877,7 @@ struct ProfileView: View {
                     Text("Nur hier lassen sich fiktive Beispieldaten aktivieren. Deine echten Gebäude und Daten werden dadurch nicht verändert.").font(.footnote).foregroundStyle(.secondary)
                     LabeledContent("App-Version",value:(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")+" · "+(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))
                 }
+                RuViewSettingSection(account: model)
                 Section { NavigationLink("Datenschutz und Support") { PrivacyNoticeView() }; NavigationLink("Konto dauerhaft löschen") { DeleteAccountView(account: model) } }
                 Section("Dein Konto") { LabeledContent("Name", value: model.user?.name ?? ""); LabeledContent("E-Mail", value: model.user?.email ?? "") }
                 Section { Button("Erweitert: eigener Projektserver", systemImage: "network") { showConnection = true }.disabled(uploading); Button("Abmelden", role: .destructive) { Task { await model.logout(); if model.user == nil { dismiss() } } }.disabled(model.busy || uploading) }
