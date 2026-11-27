@@ -1,3 +1,16 @@
+## 27.11.2026, abends – Mobile Betriebsprozesse und Live-Zwillinge
+
+Quellenabruf 27.11.2026; Anbieterangaben, keine eigenen Produkttests. FotoEstate ist neu im dokumentierten Vergleich, Dalux bereits seit 21.11. enthalten. Keine heutige Markteinführung oder Preisänderung bestätigt.
+
+- [FotoEstate – IoT-Integration](https://fotoestate.de/leistungen/iot-smart-building-integration): projektbezogene Dienstleistung für Gebäudebetreiber und FM; verknüpft 3D-/BIM-Modelle mit IoT-Daten, MQTT/REST, Raumklima, Belegung und Energie sowie CAFM. Einstieg **999 EUR pro Projekt zzgl. MwSt.**; Umfang, laufende Kosten, native IFC-/Revit-Bearbeitung und KI-Sprachfunktionen nicht bestätigt. Kein vergleichbarer SaaS-Tarif.
+- [Dalux FM](https://www.dalux.com/de-ch/produkte/dalux-fm/) und [BIM-Dokumentation](https://www.dalux.com/de-at/produkte/dalux-fm/bim-dokumentation/): Cloud-CAFM für Betreiber, FM und Dienstleister, Web/iOS/Android, IFC/Revit, QR-Meldungen, Wartung und Lieferantenportal; 14 Tage Test, regulärer Preis nicht bestätigt. [Release 2026.6 vom 29.09.2026](https://support.dalux.com/hc/de/articles/29797937108892-FM-Versionshinweise-2026-5-und-2026-6): zusätzliche SLA-Kennzahlen für Reaktionszeit, Bearbeitungsdauer und Fristeinhaltung sowie standortbasierter Lieferanten-Check-in. Keine bestätigte native KI-Sprachsteuerung oder Live-GA in diesen Quellen.
+
+**Nala-Abgleich:** Haupt-README auf main (Stand 26.11.) und direkt als gemergt geprüfte [#295](../../pull/295), [#299](../../pull/299), [#300](../../pull/300) vom 27.11.: iPhone-Raumkarte mit QR-Link, Foto-Mängelmeldung, Raumkontext für KI und Messwert-Herkunft; Live-Energie mit HA, Dokumente, Adminübersicht; fällige Aufgaben und gemeinsame Rollen. Laut PRs Simulator-/Vorschautests, nicht selbst wiederholt; echter Kamerascan, produktive Universal Links, gezielter 3D-Raumfokus auf iPhone und echter Servertest offen. D21-Livewert und reproduzierbare Revit-Synchronisation nicht nachgewiesen. Dalux-gleichwertiger SLA-/Lieferantenprozess nicht belegt.
+
+**Chance:** mobiler Ablauf QR → Raum → Messwert mit Herkunft → KI-Abfrage → Mängelmeldung; Zeitbedarf, Datenqualität und Rechte mit identischem Referenzfall messen. **Risiko:** mobile BIM-Wartung und räumliche Live-Daten sind etablierte Angebote; weder USP noch Preisvorteil nachgewiesen. Für Kostenvergleich einmalige Einrichtung, Modellpflege, Hosting, KI, Hardware und Support getrennt erfassen.
+
+---
+
 ## 26.11.2026, 19:00 MEZ – Energiemanagement: evcc und HEMSight
 
 Neu im geprüften Vergleich, keine bestätigte heutige Markteinführung. Anbieter-/Projektquellen, Abruf 26.11.2026:
