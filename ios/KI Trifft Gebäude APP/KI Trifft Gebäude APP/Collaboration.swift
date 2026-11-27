@@ -336,6 +336,7 @@ struct BuildingDetailView: View {
                         Button("Wartungen", systemImage: "calendar") { open("Wartung") }
                     }
                     Button("Automationen", systemImage: "bell.and.waves.left.and.right") { open("Automationen") }
+                    Button("WLAN-Präsenz", systemImage: "wifi") { open("WLAN-Präsenz") }
                     if isOwner {
                         Divider()
                         Button("Gebäude löschen", systemImage: "trash", role: .destructive) { confirmDeletion = true }
@@ -360,6 +361,7 @@ struct BuildingDetailView: View {
         case "Kalender": NativeBuildingSchedules(building: building, account: model)
         case "Technische Anlagen": BuildingTechnicalAssetsView(building: building, account: model)
         case "Automationen": BuildingAutomationsView(building: building, account: model)
+        case "WLAN-Präsenz": RuViewPresenceView(building: building, account: model)
         case "3D": BuildingModelView(building: building, account: model)
         case "Geräte": BuildingDevicesView(building: building, account: model)
         case "Heatmap": BuildingHeatmapView(account: model, building: building)
@@ -620,6 +622,7 @@ struct UIPreferences: Decodable {
     let theme: AppTheme?
     let font_scale: AppFontScale?
     let language: String?
+    let ruview_enabled: Bool?
 }
 struct TeamInboxView:View {
     @ObservedObject var account:AccountModel

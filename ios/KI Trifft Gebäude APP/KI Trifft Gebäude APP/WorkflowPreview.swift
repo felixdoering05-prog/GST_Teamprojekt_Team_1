@@ -157,6 +157,14 @@ final class WorkflowPreviewProtocol: URLProtocol {
         else if path.contains("/telemetry/rooms/") && path.hasSuffix("/latest") {
             result = ["reading":["metric":"temperature","value":21.4,"unit":"°C","measured_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-600)),"source":"real","sensor_code":"TEMP-01"]]
         }
+        else if path.hasSuffix("/ruview") {
+            let now = ISO8601DateFormatter().string(from: Date())
+            result = ["enabled":true,"stale_after_seconds":60,"bridges":[["id":1,"label":"Heimnetz"]],
+                      "nodes":[["bridge_id":1,"node_id":1,"room_id":"r-003","room":"Projektraum","presence":true,"motion":2.4,"persons":2,"breathing_bpm":14.5,"rssi":-52,"pps":20,"updated_at":now,"stale":false],
+                               ["bridge_id":1,"node_id":2,"room_id":NSNull(),"room":NSNull(),"presence":false,"motion":0.1,"persons":0,"breathing_bpm":NSNull(),"rssi":-71,"pps":18,"updated_at":now,"stale":false]],
+                      "rooms":[["id":"r-003","name":"Projektraum"],["id":"r-004","name":"Labor"]],
+                      "occupancy":[["room_id":"r-003","room":"Projektraum","nodes":1,"presence":true,"persons":2,"stale":false,"updated_at":now]]]
+        }
         else if path.hasSuffix("/twin/Alert/filter") {
             result = ["items":[["id":"a1","title":"CO₂ über Grenzwert","message":"Projektraum: 1450 ppm überschreitet den Grenzwert von 1000 ppm","severity":"warning","metric":"co2","value":1450,"threshold":1000,"room_id":"r-003","room_label":"003 Projektraum","building_id":"901","triggered_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600)),"status":"offen","source":"real"]],"has_more":false]
         }
