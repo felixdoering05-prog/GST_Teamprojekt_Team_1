@@ -1,3 +1,34 @@
+## 26.11.2026, 19:00 MEZ – Energiemanagement: evcc und HEMSight
+
+Neu im geprüften Vergleich, keine bestätigte heutige Markteinführung. Anbieter-/Projektquellen, Abruf 26.11.2026:
+
+| Angebot / Zielgruppe | Funktionen laut Projekt | Preis / Lizenz |
+| --- | --- | --- |
+| [evcc](https://docs.evcc.io/) – Haushalte, PV-/Wallbox-Betreiber, Integratoren | PV-Überschussladen, dynamische Tarife, Speicherkoordination, Lastmanagement, Home Assistant, REST/MQTT und MCP für KI-Assistenten; lokaler Betrieb | Selbsthosting möglich; konkrete Sponsorbedingungen und Preise nicht in dieser Quelle bestätigt |
+| [HEMSight](https://hemsight.de/en/) – Smart-Home-/PV-Haushalte | Prognosebasierte Planung für PV, Speicher, Wallbox und Verbraucher; lokale Docker-/HA-Installation, Freigaben und Rücklesung vor Schaltaktionen | Laut Anbieter kostenlos, frühe Beta; konkrete Lizenzbedingungen und Hardwarekosten nicht bestätigt |
+
+**Nala-Abgleich:** [PR #291](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/291) direkt als gemergt geprüft: Strom-/Wasseransichten, HA-Livewerte, PV-Plan/3D, Speicherstand, rechnerische Notstromreserve, Tarife, Abrechnung und CSV. Laut PR 56 Viewer-, 33 Backend-, acht HA- und zwei lokale Browsertests (synthetische Werte); nicht selbst ausgeführt. Haupt-README auf main weiterhin 20.11.; IFC, Gemini, ElevenLabs und private HA-Anbindung dokumentiert. Echte D21-Daten, produktive Revit-Synchronisation und automatische tarifoptimierte Speichersteuerung nicht nachgewiesen. Bei beiden Energieangeboten nativer IFC-/Revit-Viewer und BIM-Sprachkontext nicht aus den geprüften Quellen belegt.
+
+**Chance:** BIM-gebundene Energie- und Anlagenübersicht mit nachvollziehbarer Datenherkunft; evcc als mögliche Integrationsschicht prüfen. **Risiko:** PV-Flüsse, Tarife, lokale Steuerung und KI-Schnittstellen sind keine exklusiven Funktionen; Visualisierung ist keine Optimierung. **Test:** identische 24h-Messreihe mit Netzbezug/Einspeisung, Speicherstand, Tarifwechsel und fehlenden Werten; Kostenrechnung gegen Referenz prüfen. Keine Einsparung oder USP nachgewiesen.
+
+---
+
+## 25.11.2026, 19:00 MEZ – Kamerafreie Raumbelegung als Wettbewerbsfeld
+
+Neu im Vergleich, nicht als neue Markteinführung bestätigt. Herstellerquellen geprüft am 25.11.2026:
+
+| Angebot / Zielgruppe | Funktionen laut Anbieter | Preis / Lizenz |
+| --- | --- | --- |
+| [Aqusense](https://aqusense.com/) – Gebäudeeigentümer, FM, Campus, Integratoren | WLAN-basierte Raum-/Zonenbelegung und Bewegung, PoE-Sensoren, Dashboards, APIs und Gebäudeintegrationen | Kein öffentlicher Preis auf geprüfter Seite; Vertragsmodell nicht bestätigt |
+| [Origin Wireless](https://www.originwirelessai.com/wifi-sensing/) – Netzwerk- und IoT-Anbieter | CSI-basierte Bewegungs- und Belegungserkennung auf kompatibler Netzwerktechnik, konfigurierbare Haltezeit, eingebettete/hybride/cloudgestützte Architektur | Kein öffentlicher Lizenzpreis bestätigt |
+| [Aqara FP2](https://www.aqara.com/de/product/presence-sensor-fp2/) – Smart Home | mmWave-Radar (nicht WLAN-CSI), bis 40 m², bis 30 Zonen, bis fünf Personen laut Hersteller, beste Ergebnisse bis drei; Home Assistant über HomeKit | [EU-Shop](https://eu.aqara.com/de-eu/products/aqara-presence-sensor-fp2) zeigt 82,99 EUR je Gerät; mögliche Zusatzabos für neue Funktionen laut [Produktseite](https://www.aqara.com/en/product/presence-sensor-fp2) |
+
+**Projektabgleich:** [RuView-Brücke auf main](../sensorik/ruview-bridge/README.md) dokumentiert ESP32-S3/CSI, lokale Rohdaten, Ergebnisübertragung alle zehn Sekunden, Raumzuordnung, Belegungsschätzung, standardmäßig deaktivierte Funktion und 24-Stunden-Verlauf. Atemfrequenz ist eine grobe Schätzung, kein medizinischer Nachweis. Hardwaregenauigkeit, reale D21-Daten und produktive RLT-Regelung nicht bestätigt; Tests nicht selbst ausgeführt. [Haupt-README](../README.md) ist noch auf 20.11. datiert; IFC, Gemini, ElevenLabs und private Home-Assistant-Anbindung dokumentiert, reproduzierbare Revit-Anbindung offen. Kein nativer IFC-/Revit-Viewer oder Sprachassistent bei den drei Sensoranbietern aus diesen Quellen nachgewiesen; keine Aussage über deren vollständiges Portfolio.
+
+**Chance:** Belegung mit IFC-Räumen, CO₂ und Energie verknüpfen; herstellerunabhängige Sensorik. **Risiko:** Kamerafreiheit und Belegungserkennung sind keine Alleinstellungsmerkmale; auch lokale Rohdaten garantieren keine Anonymität. Vor Campus-Einsatz Freigaben, Zweckbindung und Datenminimierung prüfen; Atemfrequenz für FM möglichst nicht erfassen. Vergleichstest mit freiwilligen Teilnehmenden, manueller Referenz, Fehlalarmrate, Zählfehler, Latenz und Gesamtkosten; zunächst keine automatische Anlagensteuerung. Keine neue Preisänderung oder Markteinführung bestätigt.
+
+---
+
 ## 23.11.2026, 19:00 MEZ – Home Assistant 2026.11: KI-Diagnose, KNX und Sprachrechte
 
 **Neue belegte Produktänderung (Release 04.11.2026, nicht erst heute erschienen):** [Home Assistant Core 2026.11](https://www.home-assistant.io/blog/2026/11/04/release-202611/) führt laut offizieller Release-Note einen integrierten Marketplace (HACS), zusätzliche LLM-API-Werkzeuge zur System-/Loganalyse, Aktionen und Integrationsverwaltung sowie KNX-spezifische LLM-Werkzeuge für Telegrammspeicher, Projektdatei und Datenpunkttypen ein. Ein MCP-Server kann auf lesende Werkzeuge beschränkt werden; die Freigabe einer LLM-API erfolgt durch Administratoren. Außerdem wurden Energie-Dashboard und Kalenderdarstellung erweitert. **Zielgruppe:** Smart-Home-Nutzer, Integratoren, Automatisierungsentwickler; professionelle KNX-Anwender als angrenzende Zielgruppe. **Preis/Lizenz:** Open-Source-Software; keine belastbare neue Monatsgebühr aus dieser Release-Note; Hardware, Cloud-LLM, Hosting und Integrationsaufwand sind getrennte Kosten. Keine unabhängigen Praxis- oder Sicherheitsbenchmarks.

@@ -1,5 +1,20 @@
 # Marktforschung – KI trifft Gebäude
 
+## 26.11.2026, 19:00 MEZ – Energiemanagement: evcc und HEMSight
+
+Neu im geprüften Vergleich, keine bestätigte heutige Markteinführung. Anbieter-/Projektquellen, Abruf 26.11.2026:
+
+| Angebot / Zielgruppe | Funktionen laut Projekt | Preis / Lizenz |
+| --- | --- | --- |
+| [evcc](https://docs.evcc.io/) – Haushalte, PV-/Wallbox-Betreiber, Integratoren | PV-Überschussladen, dynamische Tarife, Speicherkoordination, Lastmanagement, Home Assistant, REST/MQTT und MCP für KI-Assistenten; lokaler Betrieb | Selbsthosting möglich; konkrete Sponsorbedingungen und Preise nicht in dieser Quelle bestätigt |
+| [HEMSight](https://hemsight.de/en/) – Smart-Home-/PV-Haushalte | Prognosebasierte Planung für PV, Speicher, Wallbox und Verbraucher; lokale Docker-/HA-Installation, Freigaben und Rücklesung vor Schaltaktionen | Laut Anbieter kostenlos, frühe Beta; konkrete Lizenzbedingungen und Hardwarekosten nicht bestätigt |
+
+**Nala-Abgleich:** [PR #291](https://github.com/felixdoering05-prog/GST_Teamprojekt_Team_1/pull/291) direkt als gemergt geprüft: Strom-/Wasseransichten, HA-Livewerte, PV-Plan/3D, Speicherstand, rechnerische Notstromreserve, Tarife, Abrechnung und CSV. Laut PR 56 Viewer-, 33 Backend-, acht HA- und zwei lokale Browsertests (synthetische Werte); nicht selbst ausgeführt. Haupt-README auf main weiterhin 20.11.; IFC, Gemini, ElevenLabs und private HA-Anbindung dokumentiert. Echte D21-Daten, produktive Revit-Synchronisation und automatische tarifoptimierte Speichersteuerung nicht nachgewiesen. Bei beiden Energieangeboten nativer IFC-/Revit-Viewer und BIM-Sprachkontext nicht aus den geprüften Quellen belegt.
+
+**Chance:** BIM-gebundene Energie- und Anlagenübersicht mit nachvollziehbarer Datenherkunft; evcc als mögliche Integrationsschicht prüfen. **Risiko:** PV-Flüsse, Tarife, lokale Steuerung und KI-Schnittstellen sind keine exklusiven Funktionen; Visualisierung ist keine Optimierung. **Test:** identische 24h-Messreihe mit Netzbezug/Einspeisung, Speicherstand, Tarifwechsel und fehlenden Werten; Kostenrechnung gegen Referenz prüfen. Keine Einsparung oder USP nachgewiesen.
+
+---
+
 **Beginn:** 13. November 2026 · **Pflege:** zweimal täglich (09:00 und 19:00 Uhr, Europe/Berlin).
 
 Dieser Ordner dokumentiert nachvollziehbar, welche bestehenden Produkte mit unserem Projekt **KI trifft Gebäude** konkurrieren oder ähnliche Funktionen anbieten. Neue Erkenntnisse werden mit Datum, Quellen und Abgrenzung zum tatsächlich implementierten Projektstand festgehalten.
@@ -46,3 +61,15 @@ Welche am Markt angebotenen Lösungen verbinden digitale Gebäudemappen, BIM/IFC
 **Neu im Wettbewerbsradar:** [Tacit Twin](https://tacitwin.ai/) (UCL-Spinout) bewirbt einen natürlichsprachlichen Gebäudeassistenten, gemeinsame BMS-/BIM-/IoT-Daten, erklärbare Fehlerdiagnosen und priorisierte Energiekosten. Öffentlich belastbarer Listenpreis und unabhängige Produktvalidierung fehlen. [realvirtual.io](https://realvirtual.io/en) bietet einen KI-gestützten industriellen Digital-Twin-Editor mit MCP-Server und AGPL-3.0-Kern; eher angrenzender Technologieanbieter als direkter Gebäudebetriebs-SaaS-Wettbewerber.
 
 **Lizenzrisiko Autodesk:** Autodesk dokumentiert seit **09.02.2026** den Übergang auf kapazitätsbasierte Tandem-Abos. Legacy-Free-Konten wurden nicht automatisch migriert; laut Autodesk-Support konnten alte Konten gesperrt und Datenpipelines deaktiviert werden. [Nutzungsbedingungen](https://www.autodesk.com/company/terms-of-use/de/offering-types-and-benefits), [Support 19.05.2026](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/Autodesk-Tandem-Moves-to-Capacity-Based-Subscription-Model-Prompting-Account-Action.html), [Support 22.08.2026](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/This-account-is-no-longer-supported-and-is-locked-when-accessing-Tandem-connect.html). **Kein neues Ereignis vom 16.11.**, sondern neu aufgenommene, offiziell belegte Migrationsfolgen.
+
+## 25.11.2026, 19:00 MEZ – Kamerafreie Raumbelegung als Wettbewerbsfeld
+
+Neu im Vergleich, nicht als neue Markteinführung bestätigt. Herstellerquellen geprüft am 25.11.2026:
+
+| Angebot / Zielgruppe | Funktionen laut Anbieter | Preis / Lizenz |
+| --- | --- | --- |
+| [Aqusense](https://aqusense.com/) – Gebäudeeigentümer, FM, Campus, Integratoren | WLAN-basierte Raum-/Zonenbelegung und Bewegung, PoE-Sensoren, Dashboards, APIs und Gebäudeintegrationen | Kein öffentlicher Preis auf geprüfter Seite; Vertragsmodell nicht bestätigt |
+| [Origin Wireless](https://www.originwirelessai.com/wifi-sensing/) – Netzwerk- und IoT-Anbieter | CSI-basierte Bewegungs- und Belegungserkennung auf kompatibler Netzwerktechnik, konfigurierbare Haltezeit, eingebettete/hybride/cloudgestützte Architektur | Kein öffentlicher Lizenzpreis bestätigt |
+| [Aqara FP2](https://www.aqara.com/de/product/presence-sensor-fp2/) – Smart Home | mmWave-Radar (nicht WLAN-CSI), bis 40 m², bis 30 Zonen, bis fünf Personen laut Hersteller, beste Ergebnisse bis drei; Home Assistant über HomeKit | [EU-Shop](https://eu.aqara.com/de-eu/products/aqara-presence-sensor-fp2) zeigt 82,99 EUR je Gerät; mögliche Zusatzabos für neue Funktionen laut [Produktseite](https://www.aqara.com/en/product/presence-sensor-fp2) |
+
+**Projektabgleich:** RuView experimentell dokumentiert; Hardwarevalidierung und D21-Freigabe offen. Details im [Vergleich](wettbewerbsvergleich.md) und [Journal](recherchejournal.md).
