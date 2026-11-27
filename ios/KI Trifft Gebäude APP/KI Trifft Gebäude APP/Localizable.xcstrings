@@ -1555,6 +1555,22 @@
         }
       }
     },
+    "Alle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle"
+          }
+        }
+      }
+    },
     "Alle %lld Jahre": {
       "localizations": {
         "de": {
@@ -4867,32 +4883,32 @@
     },
     "Der Messwert konnte nicht geladen werden.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The reading could not be loaded."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Der Messwert konnte nicht geladen werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The reading could not be loaded."
           }
         }
       }
     },
     "Der Name gilt für alle Mitglieder. Raum-ID und QR-Link bleiben gleich.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The name applies to all members. Room ID and QR link stay the same."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Der Name gilt für alle Mitglieder. Raum-ID und QR-Link bleiben gleich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name applies to all members. Room ID and QR link stay the same."
           }
         }
       }
@@ -5437,16 +5453,16 @@
     },
     "Dieses Gebäude ist für dein Konto nicht freigegeben.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This building is not shared with your account."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Dieses Gebäude ist für dein Konto nicht freigegeben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This building is not shared with your account."
           }
         }
       }
@@ -6733,16 +6749,16 @@
     },
     "Etikett teilen oder drucken": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share or print label"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Etikett teilen oder drucken"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share or print label"
           }
         }
       }
@@ -7677,16 +7693,16 @@
     },
     "Für diesen Raum liegt noch kein Messwert vor.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "There is no reading for this room yet."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Für diesen Raum liegt noch kein Messwert vor."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no reading for this room yet."
           }
         }
       }
@@ -8989,16 +9005,16 @@
     },
     "Geschoss nicht hinterlegt": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Storey not set"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Geschoss nicht hinterlegt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storey not set"
           }
         }
       }
@@ -10247,16 +10263,16 @@
     },
     "Im Modell anzeigen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show in model"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Im Modell anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in model"
           }
         }
       }
@@ -11013,6 +11029,22 @@
         }
       }
     },
+    "Keine Sensorwarnungen in dieser Ansicht": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sensor warnings in this view"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Sensorwarnungen in dieser Ansicht"
+          }
+        }
+      }
+    },
     "Keine Suchergebnisse": {
       "localizations": {
         "de": {
@@ -11073,6 +11105,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No open defects"
+          }
+        }
+      }
+    },
+    "Keine offenen Sensorwarnungen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No open sensor warnings"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine offenen Sensorwarnungen"
           }
         }
       }
@@ -11735,16 +11783,16 @@
     },
     "Leistung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Power"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Leistung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Power"
           }
         }
       }
@@ -11767,16 +11815,16 @@
     },
     "Letzter Raummesswert": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Latest room reading"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Letzter Raummesswert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest room reading"
           }
         }
       }
@@ -11969,32 +12017,32 @@
     },
     "Link kopieren": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy link"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Link kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy link"
           }
         }
       }
     },
     "Link kopiert": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Link copied"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Link kopiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copied"
           }
         }
       }
@@ -12203,16 +12251,16 @@
     },
     "Luftfeuchte": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Humidity"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Luftfeuchte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Humidity"
           }
         }
       }
@@ -12411,16 +12459,16 @@
     },
     "Mangel gespeichert.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Defect saved."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Mangel gespeichert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defect saved."
           }
         }
       }
@@ -12475,16 +12523,16 @@
     },
     "Mangel mit Foto melden": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Report defect with photo"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Mangel mit Foto melden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report defect with photo"
           }
         }
       }
@@ -12629,6 +12677,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "All members of this building see the report, location and photo. Location data in the photo is removed before uploading. Please don't photograph people."
+          }
+        }
+      }
+    },
+    "Meldungen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reports"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldungen"
           }
         }
       }
@@ -13727,16 +13791,16 @@
     },
     "Nala zu diesem Raum fragen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Nala about this room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Nala zu diesem Raum fragen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Nala about this room"
           }
         }
       }
@@ -14939,6 +15003,22 @@
         }
       }
     },
+    "Offen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offen"
+          }
+        }
+      }
+    },
     "Ohne Anlage": {
       "localizations": {
         "de": {
@@ -14957,16 +15037,16 @@
     },
     "Ohne Geschoss": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No storey"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Ohne Geschoss"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No storey"
           }
         }
       }
@@ -15687,16 +15767,16 @@
     },
     "QR-Code für %@": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "QR code for %@"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "QR-Code für %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code for %@"
           }
         }
       }
@@ -15781,6 +15861,38 @@
         }
       }
     },
+    "Quittieren": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledge"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quittieren"
+          }
+        }
+      }
+    },
+    "Quittiert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledged"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quittiert"
+          }
+        }
+      }
+    },
     "Raum": {
       "localizations": {
         "de": {
@@ -15799,16 +15911,16 @@
     },
     "Raum %@": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Room %@"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room %@"
           }
         }
       }
@@ -15943,16 +16055,16 @@
     },
     "Raum ohne Namen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unnamed room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum ohne Namen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unnamed room"
           }
         }
       }
@@ -15991,32 +16103,32 @@
     },
     "Raum suchen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search room"
           }
         }
       }
     },
     "Raum umbenennen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rename room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum umbenennen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename room"
           }
         }
       }
@@ -16033,6 +16145,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Analysing room …"
+          }
+        }
+      }
+    },
+    "Raum öffnen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open room"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum öffnen"
           }
         }
       }
@@ -16055,32 +16183,32 @@
     },
     "Raum-QR-Code": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Room QR code"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum-QR-Code"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room QR code"
           }
         }
       }
     },
     "Raumbezug entfernen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove room reference"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raumbezug entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove room reference"
           }
         }
       }
@@ -16407,16 +16535,16 @@
     },
     "Räume werden geladen …": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading rooms …"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Räume werden geladen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading rooms …"
           }
         }
       }
@@ -16661,13 +16789,13 @@
     },
     "Sensor %@": {
       "localizations": {
-        "en": {
+        "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Sensor %@"
           }
         },
-        "de": {
+        "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sensor %@"
@@ -16815,6 +16943,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Import sensors, devices and areas"
+          }
+        }
+      }
+    },
+    "Sensorwarnung": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor warning"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensorwarnung"
+          }
+        }
+      }
+    },
+    "Sensorwarnungen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor warnings"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensorwarnungen"
+          }
+        }
+      }
+    },
+    "Sensorwarnungen werden geladen …": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading sensor warnings …"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensorwarnungen werden geladen …"
           }
         }
       }
@@ -17045,16 +17221,16 @@
     },
     "Simulierter Wert": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Simulated value"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Simulierter Wert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulated value"
           }
         }
       }
@@ -17440,6 +17616,12 @@
     "Status": {
       "localizations": {
         "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status"
+          }
+        },
+        "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Status"
@@ -17921,16 +18103,16 @@
     },
     "Temperatur": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temperature"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Temperatur"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temperature"
           }
         }
       }
@@ -19123,6 +19305,22 @@
         }
       }
     },
+    "Warnungen entstehen nur aus dem regelbasierten Prüflauf gegen die hinterlegten Grenzwerte.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warnings only come from the rule-based check against the stored thresholds."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warnungen entstehen nur aus dem regelbasierten Prüflauf gegen die hinterlegten Grenzwerte."
+          }
+        }
+      }
+    },
     "Warte auf Bestätigung vom Server …": {
       "localizations": {
         "de": {
@@ -19525,16 +19723,16 @@
     },
     "Wer den Code scannt und Zugriff auf das Gebäude hat, landet direkt auf dieser Raumkarte – im Web oder in der App.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anyone who scans the code and has access to the building lands directly on this room card – on the web or in the app."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Wer den Code scannt und Zugriff auf das Gebäude hat, landet direkt auf dieser Raumkarte – im Web oder in der App."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone who scans the code and has access to the building lands directly on this room card – on the web or in the app."
           }
         }
       }
