@@ -397,6 +397,22 @@
         }
       }
     },
+    "%lld Gebäude in der Auswahl": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Gebäude in der Auswahl"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld buildings in the selection"
+          }
+        }
+      }
+    },
     "%lld Gebäude · %@": {
       "localizations": {
         "de": {
@@ -611,6 +627,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld rooms · %lld walls%@ · %lld doors · %lld windows · %lld furniture/objects"
+          }
+        }
+      }
+    },
+    "%lld Tage vorher": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Tage vorher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days before"
           }
         }
       }
@@ -1557,16 +1589,16 @@
     },
     "Alle": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Alle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
           }
         }
       }
@@ -1599,6 +1631,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Every %lld months"
+          }
+        }
+      }
+    },
+    "Alle %lld Tage": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle %lld Tage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld days"
           }
         }
       }
@@ -1727,6 +1775,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "All statuses"
+          }
+        }
+      }
+    },
+    "Alle Wiederholungen dieses Eintrags werden entfernt.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Wiederholungen dieses Eintrags werden entfernt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All repetitions of this entry are removed."
           }
         }
       }
@@ -1919,6 +1983,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "On"
+          }
+        }
+      }
+    },
+    "An diesem Tag ist nichts eingetragen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An diesem Tag ist nichts eingetragen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is scheduled on this day."
           }
         }
       }
@@ -3059,6 +3139,22 @@
         }
       }
     },
+    "Bald fällig: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bald fällig: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due soon: %@"
+          }
+        }
+      }
+    },
     "Balken = Sonneneinstrahlung": {
       "localizations": {
         "de": {
@@ -3427,6 +3523,22 @@
         }
       }
     },
+    "Bezug (optional)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezug (optional)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link (optional)"
+          }
+        }
+      }
+    },
     "Bilder und Pläne ergänzen": {
       "localizations": {
         "de": {
@@ -3460,6 +3572,7 @@
       }
     },
     "Bis %@": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -4771,6 +4884,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your overview"
+          }
+        }
+      }
+    },
+    "Demnächst": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demnächst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upcoming"
           }
         }
       }
@@ -6171,6 +6300,86 @@
         }
       }
     },
+    "Eintrag": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entry"
+          }
+        }
+      }
+    },
+    "Eintrag anlegen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eintrag anlegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add entry"
+          }
+        }
+      }
+    },
+    "Eintrag bearbeiten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eintrag bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit entry"
+          }
+        }
+      }
+    },
+    "Eintrag löschen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eintrag löschen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entry"
+          }
+        }
+      }
+    },
+    "Eintrag löschen?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eintrag löschen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entry?"
+          }
+        }
+      }
+    },
     "Einverstanden, Gespräch starten": {
       "localizations": {
         "de": {
@@ -6427,6 +6636,38 @@
         }
       }
     },
+    "Erinnerung": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder"
+          }
+        }
+      }
+    },
+    "Erinnerung %lld Tage vorher": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerung %lld Tage vorher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder %lld days before"
+          }
+        }
+      }
+    },
     "Erinnerungen an": {
       "localizations": {
         "de": {
@@ -6455,6 +6696,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reminders off"
+          }
+        }
+      }
+    },
+    "Erinnerungen erscheinen auf diesem iPhone, sobald unter Wartung die Erinnerungen eingeschaltet sind.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerungen erscheinen auf diesem iPhone, sobald unter Wartung die Erinnerungen eingeschaltet sind."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminders appear on this iPhone once reminders are turned on under Maintenance."
           }
         }
       }
@@ -9531,6 +9788,22 @@
         }
       }
     },
+    "Halbjährlich": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halbjährlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every six months"
+          }
+        }
+      }
+    },
     "Hallo, %@": {
       "localizations": {
         "de": {
@@ -10453,6 +10726,22 @@
         }
       }
     },
+    "Intervall": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intervall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval"
+          }
+        }
+      }
+    },
     "Issues und Mängel": {
       "localizations": {
         "de": {
@@ -10677,6 +10966,38 @@
         }
       }
     },
+    "Kalender": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalender"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
+          }
+        }
+      }
+    },
+    "Kalender der ausgewählten Gebäude": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalender der ausgewählten Gebäude"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar of the selected buildings"
+          }
+        }
+      }
+    },
     "Kalt": {
       "localizations": {
         "de": {
@@ -10869,6 +11190,22 @@
         }
       }
     },
+    "Kein Sensor": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Sensor"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sensor"
+          }
+        }
+      }
+    },
     "Kein Titel": {
       "localizations": {
         "de": {
@@ -11031,16 +11368,16 @@
     },
     "Keine Sensorwarnungen in dieser Ansicht": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No sensor warnings in this view"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Keine Sensorwarnungen in dieser Ansicht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sensor warnings in this view"
           }
         }
       }
@@ -11111,16 +11448,16 @@
     },
     "Keine offenen Sensorwarnungen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No open sensor warnings"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Keine offenen Sensorwarnungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No open sensor warnings"
           }
         }
       }
@@ -11686,6 +12023,7 @@
       }
     },
     "Lege den ersten Termin für dieses Gebäude an.": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -12683,16 +13021,16 @@
     },
     "Meldungen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reports"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Meldungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reports"
           }
         }
       }
@@ -13577,6 +13915,22 @@
         }
       }
     },
+    "Monatlich": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monatlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly"
+          }
+        }
+      }
+    },
     "Monatlicher Verbrauch in %@": {
       "localizations": {
         "de": {
@@ -14177,6 +14531,22 @@
         }
       }
     },
+    "Neuer Eintrag": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Eintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New entry"
+          }
+        }
+      }
+    },
     "Neuer Raum": {
       "localizations": {
         "de": {
@@ -14194,6 +14564,7 @@
       }
     },
     "Neuer Termin": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -14642,6 +15013,7 @@
       }
     },
     "Noch keine Termine": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -14717,6 +15089,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing completed yet"
+          }
+        }
+      }
+    },
+    "Normal": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
           }
         }
       }
@@ -14945,6 +15333,22 @@
         }
       }
     },
+    "Nächster Monat": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächster Monat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next month"
+          }
+        }
+      }
+    },
     "Nächster Raum": {
       "localizations": {
         "de": {
@@ -15005,16 +15409,16 @@
     },
     "Offen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Offen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
           }
         }
       }
@@ -15863,32 +16267,32 @@
     },
     "Quittieren": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acknowledge"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Quittieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledge"
           }
         }
       }
     },
     "Quittiert": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acknowledged"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Quittiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledged"
           }
         }
       }
@@ -16151,16 +16555,16 @@
     },
     "Raum öffnen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open room"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Raum öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open room"
           }
         }
       }
@@ -16949,48 +17353,48 @@
     },
     "Sensorwarnung": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sensor warning"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Sensorwarnung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor warning"
           }
         }
       }
     },
     "Sensorwarnungen": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sensor warnings"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Sensorwarnungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sensor warnings"
           }
         }
       }
     },
     "Sensorwarnungen werden geladen …": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading sensor warnings …"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Sensorwarnungen werden geladen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading sensor warnings …"
           }
         }
       }
@@ -18134,6 +18538,7 @@
       }
     },
     "Termin bearbeiten": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -18150,6 +18555,7 @@
       }
     },
     "Termin erstellen": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -18166,6 +18572,7 @@
       }
     },
     "Termin löschen": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -18182,6 +18589,7 @@
       }
     },
     "Termin löschen?": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -18991,6 +19399,22 @@
         }
       }
     },
+    "Vierteljährlich": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vierteljährlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quarterly"
+          }
+        }
+      }
+    },
     "Vollständigen Kontext anzeigen": {
       "localizations": {
         "de": {
@@ -19131,6 +19555,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect existing device"
+          }
+        }
+      }
+    },
+    "Vorheriger Monat": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorheriger Monat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous month"
           }
         }
       }
@@ -19307,16 +19747,16 @@
     },
     "Warnungen entstehen nur aus dem regelbasierten Prüflauf gegen die hinterlegten Grenzwerte.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Warnings only come from the rule-based check against the stored thresholds."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Warnungen entstehen nur aus dem regelbasierten Prüflauf gegen die hinterlegten Grenzwerte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warnings only come from the rule-based check against the stored thresholds."
           }
         }
       }
@@ -19381,6 +19821,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for Home Assistant"
+          }
+        }
+      }
+    },
+    "Wartung": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenance"
           }
         }
       }
@@ -19865,6 +20321,22 @@
         }
       }
     },
+    "Wiederholung & Erinnerung": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederholung & Erinnerung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat & reminder"
+          }
+        }
+      }
+    },
     "Wiederkehrend": {
       "localizations": {
         "de": {
@@ -20201,6 +20673,22 @@
         }
       }
     },
+    "Wöchentlich": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wöchentlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly"
+          }
+        }
+      }
+    },
     "Zeit": {
       "localizations": {
         "de": {
@@ -20218,6 +20706,7 @@
       }
     },
     "Zeitplanung": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {
@@ -20521,6 +21010,22 @@
         }
       }
     },
+    "Zum iOS-Kalender hinzufügen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to iOS Calendar"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum iOS-Kalender hinzufügen"
+          }
+        }
+      }
+    },
     "Zuordnung": {
       "localizations": {
         "de": {
@@ -20819,6 +21324,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "m"
+          }
+        }
+      }
+    },
+    "mit Einträgen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mit Einträgen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with entries"
           }
         }
       }

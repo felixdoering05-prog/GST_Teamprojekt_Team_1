@@ -74,7 +74,12 @@ enum NativeTeamsPreview {
             return (200,["ok":true])
         }
         if path.contains("/schedules") {
-            if method == "GET" { return (200,["items":schedules,"can_edit":owner]) }
+            if method == "GET" {
+                if !schedules.contains(where: { $0["id"] as? Int == 2 }) {
+                    schedules.append(["id":2,"title":"Heizungswartung","details":"Brenner prüfen, Abgaswerte messen.","starts_at":"2026-11-27T08:00:00.000Z","ends_at":NSNull(),"created_by_name":"Felix","kind":"maintenance","priority":"high","interval_days":30,"reminder_days":7,"room_id":"r-004","room_name":"Labor"])
+                }
+                return (200,["items":schedules,"can_edit":owner,"rooms":[["id":"r-003","name":"Projektraum"],["id":"r-004","name":"Labor"]],"sensors":[["id":"s-1","name":"CO₂ Projektraum"]]])
+            }
             if !owner { return (403,["error":"Keine Schreibrechte für Zeitpläne."]) }
             let id = Int(path.split(separator: "/").last ?? "")
             if method == "DELETE" { schedules.removeAll { $0["id"] as? Int == id }; return (200,["ok":true]) }

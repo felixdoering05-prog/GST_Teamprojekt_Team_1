@@ -330,6 +330,7 @@ struct BuildingDetailView: View {
                     Button("Räume", systemImage: "door.left.hand.open") { open("Räume") }
                     Button("Dokumente", systemImage: "folder") { open("Dateien") }
                     Button("Meldungen", systemImage: "exclamationmark.bubble") { open("Mängel") }
+                    Button("Kalender", systemImage: "calendar") { open("Kalender") }
                     Menu("Betrieb", systemImage: "wrench.and.screwdriver") {
                         Button("Technische Anlagen", systemImage: "gearshape.2") { open("Technische Anlagen") }
                         Button("Wartungen", systemImage: "calendar") { open("Wartung") }
@@ -356,6 +357,7 @@ struct BuildingDetailView: View {
         case "Mängel": BuildingReportsView(building: building, account: model, open: open)
         case "Räume": BuildingRoomsView(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open, initialRoom: initialRoom)
         case "Wartung": BuildingMaintenanceView(building: building, account: model)
+        case "Kalender": NativeBuildingSchedules(building: building, account: model)
         case "Technische Anlagen": BuildingTechnicalAssetsView(building: building, account: model)
         case "Automationen": BuildingAutomationsView(building: building, account: model)
         case "3D": BuildingModelView(building: building, account: model)
