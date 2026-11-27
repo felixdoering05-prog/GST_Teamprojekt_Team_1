@@ -10,6 +10,7 @@ async function initAttachments(db, kind) {
   await db.query(`CREATE TABLE IF NOT EXISTS ${table} (
     id SERIAL PRIMARY KEY, parent_id INTEGER NOT NULL REFERENCES ${parent}(id) ON DELETE CASCADE,
     name TEXT NOT NULL, bytes BYTEA NOT NULL)`);
+  if(kind==='group') await db.query('ALTER TABLE app_group_files ADD COLUMN IF NOT EXISTS category TEXT');
 }
 
 function attachmentRoutes(router, db, requireAccount, kind, path, authorize) {
@@ -24,7 +25,7 @@ function attachmentRoutes(router, db, requireAccount, kind, path, authorize) {
   const guard = [requireAccount, check];
   router.get(path, ...guard, async (req,res,next) => {
     try {
-      res.set('Cache-Control','private, no-store').json((await db.query(`SELECT id,name FROM ${table} WHERE parent_id=$1 ORDER BY id`,[req.params.parentID])).rows);
+      res.set('Cache-Control','private, no-store').json((await db.query(`SELECT id,name${kind==='group'?',category':''} FROM ${table} WHERE parent_id=$1 ORDER BY id`,[req.params.parentID])).rows);
     } catch(error) { next(error); }
   });
   router.post(path, ...guard, express.raw({type:'application/octet-stream',limit:'10mb'}), async(req,res,next)=>{
@@ -32,7 +33,9 @@ function attachmentRoutes(router, db, requireAccount, kind, path, authorize) {
       const name=req.query.name;
       if(typeof name!=='string'||!name.trim()||name.length>255||!Buffer.isBuffer(req.body)||!req.body.length)
         return res.status(400).json({error:'Bitte eine Datei bis 10 MB auswählen.'});
-      const result=await db.query(`INSERT INTO ${table}(parent_id,name,bytes) VALUES($1,$2,$3) RETURNING id,name`,[req.params.parentID,name,req.body]);
+      const category=kind==='group'?req.query.category:null;
+      if(category && !['gallery','models'].includes(category))return res.status(400).json({error:'Ungültiger Dateibereich.'});
+      const result=category ? await db.query('INSERT INTO app_group_files(parent_id,name,bytes,category) VALUES($1,$2,$3,$4) RETURNING id,name,category',[req.params.parentID,name,req.body,category]) : await db.query(`INSERT INTO ${table}(parent_id,name,bytes) VALUES($1,$2,$3) RETURNING id,name`,[req.params.parentID,name,req.body]);
       res.status(201).json(result.rows[0]);
     } catch(error) { next(error); }
   });

@@ -201,7 +201,8 @@ function teamsRouter(db,requireAccount){
   const team=await currentTeam(req,res); if(!team)return false;
   const rows=(await db.query('SELECT i.building_id FROM app_building_groups g JOIN app_building_group_items i ON i.group_id=g.id WHERE g.id=$1 AND g.team_id=$2',[req.params.parentID,team.id])).rows;
   const ids=rows.map(row=>Number(row.building_id));
-  if(!ids.length || !ids.every(id=>team.buildings.some(b=>Number(b.id)===id)))return false;
+  if(!ids.length) return team.is_owner && (await db.query('SELECT id FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.parentID,team.id])).rows.length>0;
+  if(!ids.every(id=>team.buildings.some(b=>Number(b.id)===id)))return false;
   return !write || groupManage(req,res,team,ids);
  });
  const groupQuery=`SELECT g.id,g.team_id,g.name,g.created_at,COALESCE(json_agg(json_build_object('id',b.id,'name',b.name) ORDER BY b.name) FILTER(WHERE b.id IS NOT NULL),'[]') buildings
@@ -215,8 +216,37 @@ function teamsRouter(db,requireAccount){
   const client=await db.connect();try{await client.query('BEGIN');const g=(await client.query('INSERT INTO app_building_groups(team_id,name,created_by) VALUES($1,$2,$3) RETURNING id',[team.id,name,req.account.id])).rows[0];for(const id of ids)await client.query('INSERT INTO app_building_group_items(group_id,building_id) VALUES($1,$2)',[g.id,Number(id)]);await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');if(error.code==='23505')return res.status(409).json({error:'Dieser Gruppenname ist bereits vergeben.'});throw error;}finally{client.release();}
   res.status(201).json((await db.query(groupQuery,[team.id])).rows.find(g=>g.name===name));
  }));
+ // Change a single membership without replacing concurrent changes to the group.
+ const changeMembership=wrap(async(req,res)=>{
+  const team=await currentTeam(req,res);if(!team)return;
+  const {groupID,buildingID}=req.params;
+  if(!idOK(groupID)||!idOK(buildingID))return res.status(400).json({error:'Ungültige Zuordnung.'});
+  const client=await db.connect();
+  try {
+   await client.query('BEGIN');
+   const group=await client.query('SELECT id FROM app_building_groups WHERE team_id=$1 AND id=$2 FOR UPDATE',[team.id,groupID]);
+   if(!group.rows.length){await client.query('ROLLBACK');return res.status(404).json({error:'Gruppe nicht gefunden.'});}
+   const current=(await client.query('SELECT building_id FROM app_building_group_items WHERE group_id=$1',[groupID])).rows.map(row=>Number(row.building_id));
+   if(!current.length&&!team.is_owner){await client.query('ROLLBACK');return res.status(403).json({error:'Nur die Teamleitung kann eine leere Gruppe verwalten.'});}
+   if(!await groupManage(req,res,team,[...new Set([...current,Number(buildingID)])])){await client.query('ROLLBACK');return;}
+   if(req.method==='PUT')await client.query('INSERT INTO app_building_group_items(group_id,building_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[groupID,buildingID]);
+   else await client.query('DELETE FROM app_building_group_items WHERE group_id=$1 AND building_id=$2',[groupID,buildingID]);
+   await client.query('COMMIT');res.json({ok:true});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ });
+ r.put('/teams/:teamID/groups/:groupID/buildings/:buildingID',requireAccount,changeMembership);
+ r.delete('/teams/:teamID/groups/:groupID/buildings/:buildingID',requireAccount,changeMembership);
  r.patch('/teams/:teamID/groups/:groupID',requireAccount,wrap(async(req,res)=>{
   const groupID=Number(req.params.groupID),name=typeof req.body?.name==='string'?req.body.name.trim():'';const ids=req.body?.building_ids;
+  if(idOK(groupID)&&name&&name.length<=80&&ids===undefined){
+   const team=await currentTeam(req,res);if(!team)return;
+   const group=(await db.query(groupQuery,[team.id])).rows.find(row=>Number(row.id)===groupID);
+   if(!group)return res.status(404).json({error:'Gruppe nicht gefunden.'});
+   if(group.buildings.length){if(!await groupManage(req,res,team,group.buildings.map(b=>Number(b.id))))return;}
+   else if(!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann eine leere Gruppe umbenennen.'});
+   await db.query('UPDATE app_building_groups SET name=$3,updated_at=now() WHERE id=$1 AND team_id=$2',[groupID,team.id,name]);
+   return res.json({...group,name});
+  }
   if(!idOK(groupID)||!name||name.length>80||!Array.isArray(ids)||!ids.length||new Set(ids.map(Number)).size!==ids.length)return res.status(400).json({error:'Gruppenname und mindestens ein Gebäude auswählen.'});
   const team=await currentTeam(req,res);if(!team)return;
   const exists=(await db.query('SELECT id FROM app_building_groups WHERE id=$1 AND team_id=$2',[groupID,team.id])).rows[0];if(!exists)return res.status(404).json({error:'Gruppe nicht gefunden.'});
@@ -225,7 +255,7 @@ function teamsRouter(db,requireAccount){
   const client=await db.connect();try{await client.query('BEGIN');await client.query('UPDATE app_building_groups SET name=$3,updated_at=now() WHERE id=$1 AND team_id=$2',[groupID,team.id,name]);await client.query('DELETE FROM app_building_group_items WHERE group_id=$1',[groupID]);for(const id of ids)await client.query('INSERT INTO app_building_group_items(group_id,building_id) VALUES($1,$2)',[groupID,Number(id)]);await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');if(error.code==='23505')return res.status(409).json({error:'Dieser Gruppenname ist bereits vergeben.'});throw error;}finally{client.release();}
   res.json((await db.query(groupQuery,[team.id])).rows.find(g=>Number(g.id)===groupID));
  }));
- r.delete('/teams/:teamID/groups/:groupID',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const ids=(await db.query('SELECT i.building_id FROM app_building_group_items i JOIN app_building_groups g ON g.id=i.group_id WHERE g.id=$1 AND g.team_id=$2',[req.params.groupID,team.id])).rows.map(row=>Number(row.building_id));if(!ids.length)return res.status(404).json({error:'Gruppe nicht gefunden oder leer.'});if(!await groupManage(req,res,team,ids))return;const result=await db.query('DELETE FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.groupID,team.id]);if(!result.rowCount)return res.status(404).json({error:'Gruppe nicht gefunden.'});res.json({ok:true});}));
+ r.delete('/teams/:teamID/groups/:groupID',requireAccount,wrap(async(req,res)=>{const team=await currentTeam(req,res);if(!team)return;const ids=(await db.query('SELECT i.building_id FROM app_building_group_items i JOIN app_building_groups g ON g.id=i.group_id WHERE g.id=$1 AND g.team_id=$2',[req.params.groupID,team.id])).rows.map(row=>Number(row.building_id));if(!ids.length&&!team.is_owner)return res.status(403).json({error:'Nur die Teamleitung kann eine leere Gruppe löschen.'});if(ids.length&&!await groupManage(req,res,team,ids))return;const result=await db.query('DELETE FROM app_building_groups WHERE id=$1 AND team_id=$2',[req.params.groupID,team.id]);if(!result.rowCount)return res.status(404).json({error:'Gruppe nicht gefunden.'});res.json({ok:true});}));
  r.post('/teams/:teamID/groups/:groupID/assign',requireAccount,wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;
   const target=Number(req.body?.user_id),sourceBuildingID=Number(req.body?.role_building_id),sourceRoleID=Number(req.body?.role_id);

@@ -11,15 +11,20 @@ import BuildingInvitations from '@/components/rooms/BuildingInvitations';
 export default function Teams(){
  const teams=useQuery({queryKey:['teams'],queryFn:()=>request('/teams')});
  const globalID=localStorage.getItem('d21-selected-team') || String(teams.data?.[0]?.id||'');
+ const [createOpen,setCreateOpen]=useState(false);
  const [viewID,setViewID]=useState('');
  const ordered=[...(teams.data||[])].sort((a,b)=>Number(String(b.id)===globalID)-Number(String(a.id)===globalID));
  const active=ordered.find(team=>String(team.id)===viewID)||ordered[0];
- return <div className="space-y-5"><PageHeader title="Teams" description="Team auswählen und Mitglieder verwalten."/>
-   <nav aria-label="Teamauswahl" className="flex flex-wrap gap-2">{ordered.map(team=><Button key={team.id} variant={team===active?'default':'outline'} aria-pressed={team===active} onClick={()=>setViewID(String(team.id))}>{team.name}</Button>)}</nav>
-   <TeamDetails key={active?.id||'empty'} teams={teams} active={active} globalID={globalID}/>
+ return <div className="space-y-5"><PageHeader title="Teams" description="Team auswählen und Mitglieder verwalten.">
+    <select className="titan-select w-auto max-w-full" aria-label="Team anzeigen" value={active?.id||''} onChange={event=>{setViewID(event.target.value);setCreateOpen(false);}}>
+      {ordered.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}
+    </select>
+    <Button aria-expanded={createOpen} onClick={()=>setCreateOpen(open=>!open)}><Plus className="h-4 w-4"/>Team anlegen</Button>
+   </PageHeader>
+   <TeamDetails key={active?.id||'empty'} teams={teams} active={active} globalID={globalID} createOpen={createOpen} onCreated={team=>{setCreateOpen(false);if(team?.id)setViewID(String(team.id));}}/>
  </div>;
 }
-function TeamDetails({teams,active,globalID}){
+function TeamDetails({teams,active,globalID,createOpen,onCreated}){
  const cache=useQueryClient(),[name,setName]=useState(''),[titleName,setTitleName]=useState(''),[inviteUser,setInviteUser]=useState(''),[inviteBuilding,setInviteBuilding]=useState(''),[error,setError]=useState(''),[deleteTeam,setDeleteTeam]=useState(null),[deleteTitle,setDeleteTitle]=useState(null),[contactOpen,setContactOpen]=useState(''),[contactValues,setContactValues]=useState({});
  const members=useQuery({queryKey:['team-members',active?.id],queryFn:()=>request(`/teams/${active.id}/members`),enabled:!!active?.id});
  const titles=useQuery({queryKey:['team-titles',active?.id],queryFn:()=>request(`/teams/${active.id}/titles`),enabled:!!active?.id});
@@ -32,6 +37,7 @@ function TeamDetails({teams,active,globalID}){
  const activeBuilding=active?.buildings.find(item=>String(item.id)===inviteBuilding);
  const availableContacts=(contacts.data||[]).filter(contact=>contact.status==='accepted'&&!members.data?.some(member=>String(member.id)===String(contact.user_id)));
  return <div className="space-y-5">
+  {createOpen && <form className="surface p-5 flex flex-wrap items-end gap-2" onSubmit={event=>{event.preventDefault();mutate.mutate({path:'/teams',method:'POST',body:{name}},{onSuccess:team=>{setName('');onCreated(team);}})}}><label className="grid min-w-56 flex-1 gap-1 text-xs font-medium">Weiteres Team anlegen<Input value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="Teamname" required/></label><Button type="submit" disabled={!name.trim()||mutate.isPending}><Plus className="h-4 w-4"/>Team erstellen</Button></form>}
   {error&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
   {teams.isPending?<p className="text-sm text-muted-foreground">Teams werden geladen …</p>:<div className="grid gap-4">{orderedTeams.map(team=><section key={team.id} className={`surface space-y-4 p-5 ${String(active?.id)===String(team.id)?'ring-1 ring-primary/30':''}`}>
    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-heading text-lg font-semibold">{team.name}</h2><p className="text-xs text-muted-foreground">{team.is_owner?'Teamleitung':'Mitglied'} · {team.buildings.length} zugängliche Gebäude</p></div><div className="flex gap-2">{globalID!==String(team.id)&&<Button size="sm" variant="outline" onClick={()=>{localStorage.setItem('d21-selected-team',String(team.id));window.dispatchEvent(new Event('d21-team-change'));window.location.reload()}}>Als aktives Team verwenden</Button>}</div></div>
@@ -48,7 +54,7 @@ function TeamDetails({teams,active,globalID}){
    </section>
    {globalID===String(active.id) && <BuildingInvitations onBuildingsChanged={()=>cache.invalidateQueries({queryKey:['account-buildings']})}/>}
   </>}
-  <details className="surface p-5"><summary className="cursor-pointer font-semibold">Weiteres Team anlegen</summary><form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={event=>{event.preventDefault();mutate.mutate({path:'/teams',method:'POST',body:{name}},{onSuccess:()=>setName('')})}}><label className="grid min-w-56 flex-1 gap-1 text-xs font-medium">Weiteres Team anlegen<Input value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="Teamname" required/></label><Button type="submit" disabled={!name.trim()||mutate.isPending}><Plus className="h-4 w-4"/>Team erstellen</Button></form></details>
+
   <ConfirmDialog open={!!deleteTitle} onOpenChange={open=>{if(!open&&!mutate.isPending)setDeleteTitle(null)}} title={`Titel „${deleteTitle?.name||""}“ löschen?`} description="Der Titel wird aus diesem Team entfernt. Zugeordnete Mitglieder behalten ihre übrigen Team- und Gebäuderechte." confirmLabel="Titel löschen" busy={mutate.isPending} onConfirm={()=>deleteTitle&&mutate.mutate({path:`/teams/${active.id}/titles/${deleteTitle.id}`,method:"DELETE"},{onSuccess:()=>setDeleteTitle(null)})}/>
   <ConfirmDialog open={!!deleteTeam} onOpenChange={open=>{if(!open&&!mutate.isPending)setDeleteTeam(null)}} title={`Team „${deleteTeam?.name||''}“ unwiderruflich entfernen?`} description="Das Team, sein Logo, Design, Titel und Gebäudegruppen werden dauerhaft entfernt. Die Gebäude selbst bleiben erhalten und werden deinem Standardteam zugeordnet. Diese Aktion lässt sich nicht rückgängig machen." confirmLabel="Team unwiderruflich entfernen" busy={mutate.isPending} onConfirm={()=>deleteTeam&&mutate.mutate({path:`/teams/${deleteTeam.id}`,method:'DELETE'},{onSuccess:()=>{setDeleteTeam(null);localStorage.removeItem('d21-selected-team')}})}/>
  </div>
