@@ -646,6 +646,14 @@ struct AccountHomeView: View {
         case .locate(let id):
             guard let building = resolve(id) else { return }
             selectedTab = 0; locating = building
+        case .room(let id, let roomID):
+            // Nur Gebäude, auf die das Konto Zugriff hat; der Server prüft den Raum erneut.
+            guard let building = model.buildings.first(where: { $0.id == id }) else { model.error = tr("Dieses Gebäude ist für dein Konto nicht freigegeben."); return }
+            Task { await scope.reveal(building.id, account: model) }
+            selectedTab = 0; nextArea = "Raum:" + roomID; showAdd = false; showProfile = false
+            if path.isEmpty { path = [building]; return }
+            path = []
+            Task { try? await Task.sleep(for: .milliseconds(600)); path = [building] }
         case .nala(let id):
             if let building = resolve(id) { UserDefaults.standard.set(building.id, forKey: "nala.buildingID") }
             showAdd = false; showProfile = false; selectedTab = 5

@@ -285,9 +285,13 @@ struct BuildingDetailView: View {
     @State private var address = ""
     @State private var problem: String?
     @State private var saving = false
+    /// Raum aus einem QR-/Direktlink („Raum:<id>“ als Startbereich).
+    private let initialRoom: String?
     init(building: Building, model: AccountModel, initialSection: String = "Dashboard") {
         self.building = building; self.model = model
-        _section = State(initialValue: initialSection == "Übersicht" ? "Dashboard" : initialSection)
+        initialRoom = initialSection.hasPrefix("Raum:") ? String(initialSection.dropFirst(5)) : nil
+        let start = initialSection.hasPrefix("Raum:") ? "Räume" : initialSection
+        _section = State(initialValue: start == "Übersicht" ? "Dashboard" : start)
         _name = State(initialValue: building.name); _address = State(initialValue: building.address)
     }
     private var isOwner: Bool { model.buildings.first(where: { $0.id == building.id })?.is_owner == true || building.is_owner == true }
@@ -323,6 +327,7 @@ struct BuildingDetailView: View {
                 Menu {
                     Button("Gebäudeverwaltung", systemImage: "slider.horizontal.3") { managing = true }
                     Button("Mitglieder und Freigaben", systemImage: "person.badge.plus") { sharing = true }
+                    Button("Räume", systemImage: "door.left.hand.open") { open("Räume") }
                     Button("Dokumente", systemImage: "folder") { open("Dateien") }
                     Button("Issues und Mängel", systemImage: "exclamationmark.bubble") { open("Mängel") }
                     Menu("Betrieb", systemImage: "wrench.and.screwdriver") {
@@ -349,6 +354,7 @@ struct BuildingDetailView: View {
         switch section {
         case "Dateien": BuildingFilesView(building: building, model: model)
         case "Mängel": BuildingIssuesView(building: building, account: model, open: open)
+        case "Räume": BuildingRoomsView(building: model.buildings.first(where: { $0.id == building.id }) ?? building, account: model, open: open, initialRoom: initialRoom)
         case "Wartung": BuildingMaintenanceView(building: building, account: model)
         case "Technische Anlagen": BuildingTechnicalAssetsView(building: building, account: model)
         case "Automationen": BuildingAutomationsView(building: building, account: model)

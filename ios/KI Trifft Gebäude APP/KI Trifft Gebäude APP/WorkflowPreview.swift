@@ -144,6 +144,19 @@ final class WorkflowPreviewProtocol: URLProtocol {
         let json = object.compactMapValues { $0 as? String }
         var result: Any = [:], bytes: Data?, mime = "application/json", status = 200
         if let fixture = NativeTeamsPreview.response(path, method: method, object: object) { status = fixture.0; result = fixture.1 }
+        else if path.hasSuffix("/structure") {
+            result = ["floors":[["id":"f-eg","name":"Erdgeschoss"],["id":"f-og","name":"1. Obergeschoss"]],
+                      "rooms":[["id":"r-003","name":"Projektraum","room_code":"003","floor_id":"f-eg"],["id":"r-004","name":"Labor","room_code":"004","floor_id":"f-eg"],["id":"r-101","name":"Besprechung","room_code":"101","floor_id":"f-og"]]]
+        }
+        else if path.contains("/structure/rooms/") {
+            let id = String(path.split(separator: "/").last ?? "")
+            let names = ["r-003":("Projektraum","003","f-eg","Erdgeschoss"),"r-004":("Labor","004","f-eg","Erdgeschoss"),"r-101":("Besprechung","101","f-og","1. Obergeschoss")]
+            if let room = names[id] { result = ["building":["id":901,"name":"Gebäude D21"],"room":["id":id,"name":room.0,"room_code":room.1,"floor_id":room.2],"floor":["id":room.2,"name":room.3]] }
+            else { status = 404; result = ["error":"Raum nicht gefunden."] }
+        }
+        else if path.contains("/telemetry/rooms/") && path.hasSuffix("/latest") {
+            result = ["reading":["metric":"temperature","value":21.4,"unit":"°C","measured_at":ISO8601DateFormatter().string(from: Date().addingTimeInterval(-600)),"source":"real","sensor_code":"TEMP-01"]]
+        }
         else if path.hasSuffix("auth/me") { result = ["id":999999,"name":"Felix · Vorschau","email":"vorschau@example.invalid"] }
         else if path.hasSuffix("admin/me") { result = ["admin":true] }
         else if path.contains("/admin/users/") && path.hasSuffix("/limits") {

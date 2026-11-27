@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["95A5TC5H7R.de.kitrifftgebaeude.d21team1"],
+        "components": [
+          { "/": "/gebaeude", "?": { "karte": "1" }, "comment": "Raum-QR-Etikett öffnet die Raumkarte in der iPhone-App" }
+        ]
+      }
+    ]
+  }
+}
