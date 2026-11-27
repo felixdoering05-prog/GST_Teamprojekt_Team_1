@@ -50,6 +50,22 @@ import SwiftUI
 
     var isFiltered: Bool { value != "all" }
 
+    /// Teamfarbe als Akzent für die ganze App, wie `--primary` im Web.
+    var brandTint: Color? { team.map { teamColor($0.primary_color) } }
+
+    /// Optionaler Teamhintergrund. Er wird nur verwendet, wenn er zur gewählten
+    /// Hell/Dunkel-Darstellung passt, damit Texte lesbar bleiben.
+    func brandBackground(for scheme: ColorScheme) -> Color? {
+        guard let hex = team?.background_color, let value = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) else { return nil }
+        func channel(_ shift: UInt32) -> Double {
+            let c = Double((value >> shift) & 255) / 255
+            return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+        let fits = scheme == .dark ? luminance < 0.12 : luminance > 0.45
+        return fits ? teamColor(hex) : nil
+    }
+
     func filter(_ buildings: [Building]) -> [Building] {
         guard let ids = buildingIDs else { return buildings }
         return buildings.filter { ids.contains($0.id) }
@@ -60,12 +76,15 @@ import SwiftUI
         accountID = account.user?.id
         do {
             let list: [NativeTeam] = try await account.request("teams")
-            teams = list
             let stored = UserDefaults.standard.integer(forKey: teamKey)
             let chosen = list.first { $0.id == stored } ?? list.first
+            // Gruppen vor dem Umschalten laden, damit eine gemerkte Gruppe nicht kurz als „Alle Gebäude“ erscheint.
+            var loadedGroups: [NativeBuildingGroup] = []
+            if let chosen { loadedGroups = (try? await account.request("teams/\(chosen.id)/groups")) ?? [] }
+            teams = list
             teamID = chosen?.id
+            groups = loadedGroups
             selection = chosen.flatMap { UserDefaults.standard.string(forKey: scopeKey($0.id)) } ?? "all"
-            await loadGroups(account: account)
         } catch {
             teams = []; groups = []; teamID = nil; selection = "all"
         }
@@ -164,5 +183,24 @@ struct BuildingScopeBar: View {
             .accessibilityLabel("Gebäudeauswahl: \(scope.label)" + (scope.teams.count > 1 ? ", Team \(team.name)" : ""))
             .accessibilityHint("Team, Gebäudegruppe oder einzelnes Gebäude auswählen")
         }
+    }
+}
+
+/// Teamlogo oben links in der Gebäudeliste, sobald das Team eines hinterlegt hat.
+struct TeamLogoBadge: View {
+    @ObservedObject var scope: BuildingScopeModel
+    let account: AccountModel
+    var body: some View {
+        if let team = scope.team, team.has_logo {
+            NativeTeamMark(team: team, account: account, size: 38)
+                .accessibilityElement().accessibilityLabel("Logo von Team \(team.name)")
+        }
+    }
+}
+
+extension View {
+    /// Legt den optionalen Teamhintergrund hinter eine Liste; ohne Farbe bleibt alles wie gewohnt.
+    @ViewBuilder func teamBackground(_ color: Color?) -> some View {
+        if let color { scrollContentBackground(.hidden).background(color) } else { self }
     }
 }

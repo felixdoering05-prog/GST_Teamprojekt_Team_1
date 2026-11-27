@@ -107,6 +107,7 @@ enum WorkflowPreview {
                 ["id":903,"name":"Bürohaus Frankfurt","address":"Mainzer Landstraße 50"]
             ]
             NativeTeamsPreview.groups = [["id":1,"team_id":1,"name":"Campus Darmstadt","buildings":[["id":901,"name":"Gebäude D21"],["id":902,"name":"Technikum D12"]]]]
+            if ProcessInfo.processInfo.arguments.contains("-D21BrandPreview") { NativeTeamsPreview.primary = "#c2410c"; NativeTeamsPreview.background = "#fbeee4" }
         }
         if ProcessInfo.processInfo.arguments.contains("-D21IFCPreview") {
             buildings = [
