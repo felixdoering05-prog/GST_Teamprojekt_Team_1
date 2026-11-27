@@ -46,3 +46,5 @@ RADAR-003: [25.11.2026 · Ergänzender Null-/Nullwertvergleich in der Energie-Z�
 [26.11.2026 09:11 · IFC und Gebäude-KI: keine neue Empfehlung](berichte/2026-11-26-0911.md).
 
 RADAR-003: [26.11.2026 17:03 · Präsenzsensorik und Datenschutz](berichte/2026-11-26-1703.md) ergänzt den Fehlwerttest um veraltete Präsenzdaten; kein neuer Eintrag.
+
+RADAR-003: [27.11.2026 09:06 · Energiekurven und Datenlücken](berichte/2026-11-27-0906.md) ergänzt den bestehenden Fehlwerttest; Recharts-Majorwechsel nur beobachten, kein neuer Eintrag.
