@@ -175,6 +175,7 @@ async function initBuildingSchedules(db){
  await db.query(`ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'appointment',ADD COLUMN IF NOT EXISTS interval_days INTEGER,ADD COLUMN IF NOT EXISTS reminder_days INTEGER,ADD COLUMN IF NOT EXISTS room_id TEXT,ADD COLUMN IF NOT EXISTS sensor_id TEXT`);
  await db.query("ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal', ADD COLUMN IF NOT EXISTS room_ids TEXT[] DEFAULT '{}', ADD COLUMN IF NOT EXISTS floor_ids TEXT[] DEFAULT '{}'");
  await initAttachments(db, 'schedule');
+ await db.query("ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS title_ids INTEGER[] NOT NULL DEFAULT '{}', ADD COLUMN IF NOT EXISTS document_ids INTEGER[] NOT NULL DEFAULT '{}', ADD COLUMN IF NOT EXISTS group_file_refs TEXT[] NOT NULL DEFAULT '{}'");
  await db.query('ALTER TABLE app_building_schedules ADD COLUMN IF NOT EXISTS completed_due_at timestamptz, ADD COLUMN IF NOT EXISTS completed_by integer REFERENCES app_users(id) ON DELETE SET NULL');
  await db.query("UPDATE app_building_schedules SET ends_at=NULL WHERE kind='task' AND ends_at IS NOT NULL");
  await db.query(`DO $$ BEGIN
@@ -200,6 +201,41 @@ async function locations(db, body, existing, owner, building) {
  }
  return { rooms, floors, priority };
 }
+async function scheduleOptions(db,req,access){
+ const base=[req.params.buildingId,req.account.id];
+ const [titles,documents,groupFiles]=await Promise.all([
+  db.query(`SELECT t.id,t.name,(m.title_id IS NOT NULL) AS matching FROM app_buildings b JOIN app_team_titles t ON t.team_id=b.team_id
+    LEFT JOIN app_team_member_titles m ON m.team_id=t.team_id AND m.title_id=t.id AND m.user_id=$2 WHERE b.id=$1 ORDER BY t.name`,base),
+  can(access,'documents','read') ? db.query('SELECT id,name FROM app_documents WHERE building_id=$1 ORDER BY name,id',base.slice(0,1)) : {rows:[]},
+  db.query(`SELECT f.id,f.name,g.name AS group_name,g.id AS group_id,g.team_id,g.id::text||':'||f.id::text AS ref
+   FROM app_building_group_items i JOIN app_building_groups g ON g.id=i.group_id JOIN app_group_files f ON f.parent_id=g.id
+   JOIN app_buildings building ON building.id=i.building_id AND building.team_id=g.team_id
+   WHERE i.building_id=$1 AND NOT EXISTS(SELECT 1 FROM app_building_group_items all_items JOIN app_buildings b ON b.id=all_items.building_id
+    WHERE all_items.group_id=g.id AND b.user_id<>$2 AND NOT EXISTS(SELECT 1 FROM app_building_members m WHERE m.building_id=b.id AND m.user_id=$2 AND m.status='accepted'))
+   ORDER BY g.name,f.name`,base)
+ ]);
+ return {titles:titles.rows,documents:documents.rows,group_files:groupFiles.rows};
+}
+async function scheduleReferences(db,req,access,existing={}){
+ const options=await scheduleOptions(db,req,access);
+ const refs={};
+ for(const [field,rows,key] of [['title_ids',options.titles,'id'],['document_ids',options.documents,'id'],['group_file_refs',options.group_files,'ref']]){
+  const allowed=new Set(rows.map(row=>String(row[key])));
+  const values=req.body[field];
+  if(values===undefined){refs[field]=(existing[field]||[]);continue;}
+  if(!Array.isArray(values)||values.length>100||values.some(value=>!['string','number'].includes(typeof value)||!allowed.has(String(value))))return null;
+  refs[field]=[...new Set(values.map(String))];
+ }
+ return refs;
+}
+function scheduleTitles(row,options){
+ const ids=new Set((row.title_ids||[]).map(String));
+ const docs=new Set((row.document_ids||[]).map(String)), groupRefs=new Set(row.group_file_refs||[]);
+ return {...row,assigned_titles:options.titles.filter(title=>ids.has(String(title.id))),linked_documents:[
+  ...options.documents.filter(file=>docs.has(String(file.id))).map(file=>({name:file.name,path:'/documents/'+file.id})),
+  ...options.group_files.filter(file=>groupRefs.has(file.ref)).map(file=>({name:file.name,path:`/teams/${file.team_id}/groups/${file.group_id}/files/${file.id}`}))
+ ]};
+}
 function scheduleRouter(db,requireAccount){
  const r=express.Router();
  attachmentRoutes(r,db,requireAccount,'schedule','/buildings/:buildingId/schedules/:parentID/files',async(req,res,write)=>{
@@ -213,10 +249,11 @@ function scheduleRouter(db,requireAccount){
  r.get('/buildings/:buildingId/schedules/due-tasks',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res); if(!access)return;
   if(!can(access,'schedule','read'))return fail(res,403,'Kein Zugriff auf Aufgaben.');
-  const result=await db.query(`SELECT id,building_id,title,details,priority,${nextDue} AS due_at
+  const result=await db.query(`SELECT id,building_id,title,details,priority,title_ids,document_ids,group_file_refs,${nextDue} AS due_at
     FROM app_building_schedules WHERE building_id=$1 AND kind='task' AND ${nextDue}<=now()
     ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'low' THEN 2 ELSE 1 END,due_at,id`,[req.params.buildingId]);
-  res.set('Cache-Control','private, no-store').json(result.rows);
+  const options=await scheduleOptions(db,req,access);
+  res.set('Cache-Control','private, no-store').json(result.rows.map(row=>scheduleTitles(row,options)));
  }));
  r.post('/buildings/:buildingId/schedules/:scheduleId/complete',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res); if(!access)return;
@@ -230,15 +267,16 @@ function scheduleRouter(db,requireAccount){
  r.get('/buildings/:buildingId/schedules',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
   if(!can(access,'schedule','read'))return fail(res,403,'Du darfst Zeitpläne in diesem Gebäude nicht einsehen.');
-  const rows=(await db.query(`SELECT s.id,s.building_id,s.title,s.details,s.starts_at,s.ends_at,s.kind,s.priority,s.room_ids,s.floor_ids,s.interval_days,s.reminder_days,s.room_id,s.sensor_id,COALESCE(room.data->>'name',room.data->>'room_code') AS room_name,sensor.data->>'name' AS sensor_name,s.created_at,s.updated_at,u.name AS created_by_name FROM app_building_schedules s LEFT JOIN app_users u ON u.id=s.created_by LEFT JOIN app_twin_records room ON room.id=s.room_id AND room.entity='Room' LEFT JOIN app_twin_records sensor ON sensor.id=s.sensor_id AND sensor.entity='Sensor' WHERE s.building_id=$1 ORDER BY s.starts_at,s.id LIMIT 500`,[req.params.buildingId])).rows;
+  const rows=(await db.query(`SELECT s.id,s.building_id,s.title,s.details,s.starts_at,s.ends_at,s.kind,s.priority,s.title_ids,s.document_ids,s.group_file_refs,s.room_ids,s.floor_ids,s.interval_days,s.reminder_days,s.room_id,s.sensor_id,COALESCE(room.data->>'name',room.data->>'room_code') AS room_name,sensor.data->>'name' AS sensor_name,s.created_at,s.updated_at,u.name AS created_by_name FROM app_building_schedules s LEFT JOIN app_users u ON u.id=s.created_by LEFT JOIN app_twin_records room ON room.id=s.room_id AND room.entity='Room' LEFT JOIN app_twin_records sensor ON sensor.id=s.sensor_id AND sensor.entity='Sensor' WHERE s.building_id=$1 ORDER BY s.starts_at,s.id LIMIT 500`,[req.params.buildingId])).rows;
   const rooms=(await db.query(`SELECT id,COALESCE(data->>'name',data->>'room_code','Raum') AS name FROM app_twin_records WHERE user_id=$2 AND entity='Room' AND data->>'building_id'=$1 AND data->>'source' IS DISTINCT FROM 'demo' ORDER BY name,id LIMIT 500`,[String(req.params.buildingId),access.owner_id])).rows;
   const sensors=(await db.query(`SELECT id,COALESCE(data->>'name',data->>'sensor_code','Sensor') AS name FROM app_twin_records WHERE user_id=$2 AND entity='Sensor' AND data->>'building_id'=$1 AND data->>'source' IS DISTINCT FROM 'demo' ORDER BY name,id LIMIT 500`,[String(req.params.buildingId),access.owner_id])).rows;
-  res.set('Cache-Control','private, no-store').json({items:rows,rooms,floors:(await db.query("SELECT id,COALESCE(data->>'name','Geschoss') AS name FROM app_twin_records WHERE user_id=$1 AND entity='Floor' AND data->>'building_id'=$2 AND data->>'source' IS DISTINCT FROM 'demo' ORDER BY name,id",[access.owner_id,String(req.params.buildingId)])).rows,sensors,can_edit:can(access,'schedule','edit')});
+  const options=await scheduleOptions(db,req,access);
+  res.set('Cache-Control','private, no-store').json({...options,items:rows.map(row=>scheduleTitles(row,options)),rooms,floors:(await db.query("SELECT id,COALESCE(data->>'name','Geschoss') AS name FROM app_twin_records WHERE user_id=$1 AND entity='Floor' AND data->>'building_id'=$2 AND data->>'source' IS DISTINCT FROM 'demo' ORDER BY name,id",[access.owner_id,String(req.params.buildingId)])).rows,sensors,can_edit:can(access,'schedule','edit')});
  }));
  r.post('/buildings/:buildingId/schedules',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
   if(!can(access,'schedule','edit'))return fail(res,403,'Du darfst Zeitpläne in diesem Gebäude nicht bearbeiten.');
-  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids'].includes(key)))return fail(res,400,'Bitte Titel, Zeitraum und Wartungsangaben prüfen.');
+  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids','title_ids','document_ids','group_file_refs'].includes(key)))return fail(res,400,'Bitte Titel, Zeitraum und Wartungsangaben prüfen.');
   const title=typeof req.body?.title==='string'?req.body.title.trim():'';
   const details=typeof req.body?.details==='string'?req.body.details.trim():'';
   const starts=new Date(req.body?.starts_at),ends=req.body?.ends_at?new Date(req.body.ends_at):null;
@@ -247,25 +285,27 @@ function scheduleRouter(db,requireAccount){
   for(const [entity,id] of [['Room',room],['Sensor',sensor]])if(id!==null){if(!['string','number'].includes(typeof id)||!String(id).length||String(id).length>100||!(await db.query(`SELECT 1 FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3 AND data->>'building_id'=$4 AND data->>'source' IS DISTINCT FROM 'demo'`,[String(id),access.owner_id,entity,String(req.params.buildingId)])).rows.length)return fail(res,400,`${entity==='Room'?'Raum':'Sensor'} gehört nicht zu diesem Gebäude.`);}
   const links=await locations(db,req.body,{},access.owner_id,req.params.buildingId);
   if (!links) return fail(res,400,'Bitte Räume, Geschosse und Priorität prüfen.');
-  const row=(await db.query(`INSERT INTO app_building_schedules(building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_by,updated_by,priority,room_ids,floor_ids) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12,$13,$14) RETURNING id,building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_at,updated_at`,[req.params.buildingId,title,details,starts,ends,kind,interval,reminder,links.rooms[0]??null,sensor,req.account.id,links.priority,links.rooms,links.floors])).rows[0];
+  const refs=await scheduleReferences(db,req,access);if(!refs)return fail(res,400,'Titel oder Dokumente sind für dieses Gebäude nicht verfügbar.');
+  const row=(await db.query(`INSERT INTO app_building_schedules(building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_by,updated_by,priority,room_ids,floor_ids,title_ids,document_ids,group_file_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12,$13,$14,$15,$16,$17) RETURNING id,building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_at,updated_at`,[req.params.buildingId,title,details,starts,ends,kind,interval,reminder,links.rooms[0]??null,sensor,req.account.id,links.priority,links.rooms,links.floors,refs.title_ids,refs.document_ids,refs.group_file_refs])).rows[0];
   res.status(201).json(row);
  }));
  r.patch('/buildings/:buildingId/schedules/:scheduleId',requireAccount,wrap(async(req,res)=>{
   const access=await accessible(db,req,res);if(!access)return;
   if(!can(access,'schedule','edit'))return fail(res,403,'Du darfst Zeitpläne in diesem Gebäude nicht bearbeiten.');
   if(!idOK(req.params.scheduleId))return fail(res,400,'Ungültiger Zeitplaneintrag.');
-  const existing=(await db.query('SELECT kind,priority,room_ids,floor_ids,interval_days,reminder_days,room_id,sensor_id FROM app_building_schedules WHERE id=$1 AND building_id=$2',[req.params.scheduleId,req.params.buildingId])).rows[0];
+  const existing=(await db.query('SELECT kind,priority,title_ids,document_ids,group_file_refs,room_ids,floor_ids,interval_days,reminder_days,room_id,sensor_id FROM app_building_schedules WHERE id=$1 AND building_id=$2',[req.params.scheduleId,req.params.buildingId])).rows[0];
   if(!existing)return fail(res,404,'Zeitplaneintrag nicht gefunden.');
   const title=typeof req.body?.title==='string'?req.body.title.trim():'';
   const details=typeof req.body?.details==='string'?req.body.details.trim():'';
   const starts=new Date(req.body?.starts_at),ends=req.body?.ends_at?new Date(req.body.ends_at):null;
   const keep=key=>req.body?.[key]===undefined?existing[key]:req.body[key];
   const kind=keep('kind'),interval=keep('interval_days'),reminder=keep('reminder_days'),room=keep('room_id'),sensor=keep('sensor_id');
-  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids'].includes(key))||!idOK(req.params.scheduleId)||!title||title.length>120||details.length>2000||(kind==='task'&&ends!==null)||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
+  if(Object.keys(req.body||{}).some(key=>!['title','details','starts_at','ends_at','kind','interval_days','reminder_days','room_id','sensor_id','priority','room_ids','floor_ids','title_ids','document_ids','group_file_refs'].includes(key))||!idOK(req.params.scheduleId)||!title||title.length>120||details.length>2000||(kind==='task'&&ends!==null)||!['appointment','task','maintenance'].includes(kind)||!Number.isFinite(starts.getTime())||(ends&&!Number.isFinite(ends.getTime()))||(ends&&ends<starts)||(interval!==null&&(!Number.isInteger(interval)||interval<1||interval>3650))||(reminder!==null&&(!Number.isInteger(reminder)||reminder<0||reminder>365)))return fail(res,400,'Bitte Titel, Zeitraum und gültige Wartungsangaben prüfen.');
   for(const [entity,id] of [['Room',room],['Sensor',sensor]])if(id!==null){if(!['string','number'].includes(typeof id)||!String(id).length||String(id).length>100||!(await db.query(`SELECT 1 FROM app_twin_records WHERE id=$1 AND user_id=$2 AND entity=$3 AND data->>'building_id'=$4 AND data->>'source' IS DISTINCT FROM 'demo'`,[String(id),access.owner_id,entity,String(req.params.buildingId)])).rows.length)return fail(res,400,`${entity==='Room'?'Raum':'Sensor'} gehört nicht zu diesem Gebäude.`);}
   const links=await locations(db,req.body,existing,access.owner_id,req.params.buildingId);
   if (!links) return fail(res,400,'Bitte Räume, Geschosse und Priorität prüfen.');
-  const row=(await db.query(`UPDATE app_building_schedules SET title=$3,details=$4,starts_at=$5,ends_at=$6,kind=$7,interval_days=$8,reminder_days=$9,room_id=$10,sensor_id=$11,updated_by=$12,priority=$13,room_ids=$14,floor_ids=$15,updated_at=now() WHERE building_id=$1 AND id=$2 RETURNING id,building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_at,updated_at`,[req.params.buildingId,req.params.scheduleId,title,details,starts,ends,kind,interval,reminder,links.rooms[0]??null,sensor,req.account.id,links.priority,links.rooms,links.floors])).rows[0];
+  const refs=await scheduleReferences(db,req,access,existing);if(!refs)return fail(res,400,'Titel oder Dokumente sind für dieses Gebäude nicht verfügbar.');
+  const row=(await db.query(`UPDATE app_building_schedules SET title=$3,details=$4,starts_at=$5,ends_at=$6,kind=$7,interval_days=$8,reminder_days=$9,room_id=$10,sensor_id=$11,updated_by=$12,priority=$13,room_ids=$14,floor_ids=$15,title_ids=$16,document_ids=$17,group_file_refs=$18,updated_at=now() WHERE building_id=$1 AND id=$2 RETURNING id,building_id,title,details,starts_at,ends_at,kind,interval_days,reminder_days,room_id,sensor_id,created_at,updated_at`,[req.params.buildingId,req.params.scheduleId,title,details,starts,ends,kind,interval,reminder,links.rooms[0]??null,sensor,req.account.id,links.priority,links.rooms,links.floors,refs.title_ids,refs.document_ids,refs.group_file_refs])).rows[0];
   if(!row)return fail(res,404,'Zeitplaneintrag nicht gefunden.');res.json(row);
  }));
  r.delete('/buildings/:buildingId/schedules/:scheduleId',requireAccount,wrap(async(req,res)=>{

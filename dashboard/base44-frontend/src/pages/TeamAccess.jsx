@@ -20,7 +20,6 @@ import {
 import { request } from '@/api/base44Client';
 import GroupAccessPanel from '@/components/teams/GroupAccessPanel';
 import { useBuildingScope } from '@/hooks/useBuildingScope';
-import BuildingSectionSelect from '@/components/rooms/BuildingSectionSelect';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EmptyState from '@/components/EmptyState';
@@ -233,9 +232,12 @@ export default function TeamAccess() {
   const [removal, setRemoval] = useState(null);
   const [dragged, setDragged] = useState(null);
 
-  const selected = scope.buildings.length === 1 ? scope.buildings[0] : null;
+  const groupID = scope.value.startsWith('group:') ? scope.value.slice(6) : '';
+  const selected = groupID ? null : scope.building || (scope.buildings.length === 1 ? scope.buildings[0] : null);
+  const teamMembers = useQuery({queryKey:['team-members',scope.team?.id],queryFn:()=>request('/teams/'+scope.team.id+'/members'),enabled:!!scope.team?.id && !!selected});
+  const titles = useQuery({queryKey:['team-titles',scope.team?.id],queryFn:()=>request('/teams/'+scope.team.id+'/titles'),enabled:!!scope.team?.is_owner && !!selected});
   const selectedId = String(selected?.id ?? '');
-  const buildings = scope.building ? scope.team.buildings : scope.buildings;
+  const buildings = scope.team?.buildings || [];
 
   const team = useQuery({
     queryKey: teamKey(selectedId),
@@ -321,7 +323,17 @@ export default function TeamAccess() {
         title="Rechte"
         description="Gebäudebezogene Rollen, Teammitglieder und Berechtigungen verwalten."
       />
-      {buildings.length > 0 && <BuildingSectionSelect selection={{ building: selected, buildings, choose: scope.chooseBuilding }} />}
+      {(buildings.length > 0 || scope.groups.length > 0) && <label className="grid max-w-sm gap-1 text-sm font-medium">Gebäude oder Gebäudegruppe
+        <select className="titan-select" value={scope.value} onChange={event=>scope.choose(event.target.value)}>
+          <option value="all">Alle Gebäude</option>
+          <optgroup label="Gebäudegruppen">{scope.groups.map(group=><option key={group.id} value={'group:'+group.id}>{group.name}</option>)}</optgroup>
+          <optgroup label="Gebäude">{buildings.map(building=><option key={building.id} value={'building:'+building.id}>{building.name}</option>)}</optgroup>
+        </select>
+      </label>}
+      {!selected && scope.groups.length > 0 && <Tabs defaultValue="roles">
+        <TabsList><TabsTrigger value="roles">Rollen &amp; Rangfolge</TabsTrigger></TabsList>
+        <TabsContent value="roles"><GroupAccessPanel key={groupID} initialGroupID={groupID}/></TabsContent>
+      </Tabs>}
 
       {error && (
         <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive shadow-sm">
@@ -493,6 +505,8 @@ export default function TeamAccess() {
                 {members.map((member) => {
                   const editable = canEditMember(member) && canManageMembers;
                   const initials = getInitials(member.name);
+                  const title = teamMembers.data?.find(row=>String(row.id)===String(member.id))?.title || '';
+                  const titleID = titles.data?.find(row=>row.name===title)?.id || '';
                   const isCurrentOwner = member.status === 'owner';
                   const isPending = member.status === 'pending';
 
@@ -509,6 +523,10 @@ export default function TeamAccess() {
                           <p className="truncate text-sm font-semibold text-foreground">
                             {member.name}
                           </p>
+                          {scope.team?.is_owner && !isPending && !isCurrentOwner && titles.isSuccess ?
+                            <select className="mt-1 max-w-full rounded border bg-background p-1 text-xs" aria-label={`Titel für ${member.name}`} value={titleID} disabled={mutation.isPending} onChange={event=>mutation.mutate({path:`/teams/${scope.team.id}/members/${member.id}/title`,method:'PUT',body:{title_id:event.target.value||null}})}>
+                              <option value="">Kein Titel</option>{titles.data.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}
+                            </select> : title && <p className="text-xs text-muted-foreground">{title}</p>}
                           <div className="mt-0.5 flex flex-wrap items-center gap-2">
                             {isCurrentOwner ? (
                               <Badge variant="default" className="text-[10px]">
@@ -717,11 +735,11 @@ export default function TeamAccess() {
                 );
               })}
             </div>
+            <GroupAccessPanel />
           </TabsContent>
         </Tabs>
       )}
 
-      <GroupAccessPanel />
       <ConfirmDialog
         open={!!removal}
         onOpenChange={(open) => {

@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 const groupsKey = id => ['building-groups', String(id)];
 const accessKey = id => ['building-team-access', String(id)];
 
-export default function GroupAccessPanel() {
+export default function GroupAccessPanel({initialGroupID=''}) {
   const cache = useQueryClient();
-  const [groupID, setGroupID] = useState('');
+  const [groupID, setGroupID] = useState(initialGroupID);
   const [userID, setUserID] = useState('');
   const [roleID, setRoleID] = useState('');
   const teams = useQuery({ queryKey: ['teams'], queryFn: () => request('/teams') });

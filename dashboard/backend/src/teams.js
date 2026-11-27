@@ -217,6 +217,24 @@ function teamsRouter(db,requireAccount){
   res.status(201).json((await db.query(groupQuery,[team.id])).rows.find(g=>g.name===name));
  }));
  // Change a single membership without replacing concurrent changes to the group.
+ r.post('/teams/:teamID/building-groups/move',requireAccount,wrap(async(req,res)=>{
+  const team=await currentTeam(req,res);if(!team)return;
+  const {building_id:building,from_group:from,to_group:to}=req.body||{};
+  if(!idOK(building)||!((from===null||idOK(from))&&(to===null||idOK(to)))||String(from)===String(to))return res.status(400).json({error:'Ungültige Zuordnung.'});
+  const ids=[from,to].filter(id=>id!==null).map(Number);
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');
+   const groups=(await client.query('SELECT id FROM app_building_groups WHERE team_id=$1 AND id=ANY($2::integer[]) ORDER BY id FOR UPDATE',[team.id,ids])).rows;
+   if(groups.length!==ids.length){await client.query('ROLLBACK');return res.status(404).json({error:'Gruppe nicht gefunden.'});}
+   const members=(await client.query('SELECT group_id,building_id FROM app_building_group_items WHERE group_id=ANY($1::integer[])',[ids])).rows;
+   if(!team.is_owner && ids.some(id=>!members.some(row=>Number(row.group_id)===id))){await client.query('ROLLBACK');return res.status(403).json({error:'Nur die Teamleitung kann leere Gruppen verwalten.'});}
+   if(!await groupManage(req,res,team,[...new Set([Number(building),...members.map(row=>Number(row.building_id))])])){await client.query('ROLLBACK');return;}
+   if(from!==null)await client.query('DELETE FROM app_building_group_items WHERE group_id=$1 AND building_id=$2',[from,building]);
+   if(to!==null)await client.query('INSERT INTO app_building_group_items(group_id,building_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[to,building]);
+   await client.query('COMMIT');res.json({ok:true});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }));
  const changeMembership=wrap(async(req,res)=>{
   const team=await currentTeam(req,res);if(!team)return;
   const {groupID,buildingID}=req.params;

@@ -125,12 +125,12 @@ function SidebarBody({ onNavigate, scope, activeTeam, teams, teamID, onTeam }) {
 
   return (
     <div className="shell-sidebar-body flex h-full flex-col">
-      <div className={`flex px-5 pb-5 pt-6 ${activeTeam?.has_logo ? 'flex-col items-center gap-2' : 'items-center'}`}>
+      <div className={`flex px-5 pb-5 pt-6 ${activeTeam?.has_logo ? 'flex-col items-start gap-2' : 'items-center'}`}>
         <div className="flex min-w-0 items-center gap-3">
           <ProjectLogo className="h-10 w-10" />
           <div className="min-w-0">
             <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">Nala Solutions</p>
-            {!activeTeam?.has_logo && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>}
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">Hochschule Darmstadt</p>
           </div>
         </div>
         {activeTeam?.has_logo && <TeamLogo key={activeTeam.id} id={activeTeam.id} name={activeTeam.name} />}
@@ -262,7 +262,7 @@ export default function AppLayout() {
   const linkedAccess = linkedNavigation.data?.find(row => String(row.id) === linkedID);
   const linkedAllowed = !!linkedAccess && (current.module === 'teamRights'
     ? (linkedTeam.is_owner || linkedTeam.can_manage_groups)
-    : canUseBuilding(linkedAccess, current.module === 'issues' && params.get('ansicht') === 'aufgaben' && !params.has('issue') && !params.has('alert') ? 'schedule' : current.module));
+    : canUseBuilding(linkedAccess, current.module === 'issues' && ['aufgaben','erinnerungen'].includes(params.get('ansicht')) && !params.has('issue') && !params.has('alert') ? 'schedule' : current.module));
   const mayReadRoom = linkedAllowed && canUseBuilding(linkedAccess, 'structure');
   const lookupRoom = isRoomCard && mayReadRoom && /^[A-Za-z0-9_-]{1,100}$/.test(roomID || '');
   const roomCard = useQuery({

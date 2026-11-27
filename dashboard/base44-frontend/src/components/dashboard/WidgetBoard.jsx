@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAppearance } from '@/lib/Appearance';
 
 export const widgetTitles = {
+  tasks: 'Fällige Aufgaben',
   issues: 'Aktuelle Meldungen', 'issue-status': 'Meldungsstatus', priority: 'Meldungen nach Priorität',
   activity: 'Letzte Aktivitäten', buildings: 'Gebäudeübersicht', model: 'BIM-Modell',
   map: 'Campuskarte', climate: 'Raumklima', metadata: 'Gebäudedaten', metrics: 'Kennzahlen',

@@ -127,3 +127,32 @@ test('group workspace retains its files when removing and re-adding its last bui
  const row=(await call(path,undefined,alice.token)).body.find(g=>g.id===created.body.id);
  assert.deepEqual(row.buildings.map(b=>b.id),[building.id]);
 });
+
+test('schedule references are scoped to the selected building and its team',async()=>{
+ const teams=(await call('/teams',undefined,alice.token)).body;
+ const team=teams.find(row=>row.buildings.some(b=>String(b.id)===String(building.id)));
+ const label=(await call('/teams/'+team.id+'/titles',{name:'Bereitschaft'},alice.token)).body;
+ const upload=await fetch(url+'/buildings/'+building.id+'/documents',{method:'POST',
+  headers:{'Content-Type':'application/octet-stream','X-D21-Session':alice.token,'X-File-Name':'checkliste.pdf'},body:Buffer.from('%PDF-1.7\n test')});
+ assert.equal(upload.status,201);
+ const file=await upload.json(), path='/buildings/'+building.id+'/schedules';
+ const entry={title:'Dienst',kind:'task',starts_at:new Date(Date.now()-10000).toISOString(),title_ids:[label.id],document_ids:[file.id]};
+ const saved=await call(path,entry,alice.token);
+ assert.equal(saved.status,201,JSON.stringify(saved.body));
+ const found=(await call(path+'/due-tasks',undefined,alice.token)).body.find(row=>row.id===saved.body.id);
+ assert.deepEqual(found.assigned_titles.map(row=>row.name),['Bereitschaft']);
+ assert.deepEqual(found.linked_documents.map(row=>row.name),['checkliste.pdf']);
+ assert.equal((await call(path,{...entry,document_ids:[2147483647]},alice.token)).status,400);
+});
+
+test('moving a building updates both groups in one request',async()=>{
+ const team=(await call('/teams',undefined,alice.token)).body.find(row=>row.buildings.some(b=>String(b.id)===String(building.id)));
+ const root='/teams/'+team.id;
+ const group=async name=>(await call(root+'/groups',{name,building_ids:[building.id]},alice.token)).body;
+ const from=await group('Quelle'), to=await group('Ziel');
+ const moved=await call(root+'/building-groups/move',{building_id:building.id,from_group:from.id,to_group:to.id},alice.token);
+ assert.equal(moved.status,200,JSON.stringify(moved.body));
+ const groups=(await call(root+'/groups',undefined,alice.token)).body;
+ assert.equal(groups.find(row=>row.id===from.id).buildings.length,0);
+ assert.deepEqual(groups.find(row=>row.id===to.id).buildings.map(b=>b.id),[building.id]);
+});

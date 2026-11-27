@@ -1,3 +1,4 @@
+import DueTasks from '@/components/DueTasks';
 import { useState } from 'react';
 import { Activity, ArrowUpRight, BellRing, Building2, Database, Droplets, Gauge, Layers, Radio, RefreshCw, Thermometer, Wind } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -75,6 +76,7 @@ export default function Dashboard() {
   const hasReadings = Object.keys(latest).length > 0;
 
   const widgetRenderers = {
+    tasks: () => <section className="surface h-full space-y-3 p-4"><div className="flex justify-between gap-2"><h3 className="font-semibold">Fällige Aufgaben</h3><Link className="text-sm text-primary" to="/meldungen?ansicht=aufgaben">Öffnen</Link></div><DueTasks buildings={scope.readable('schedule')} compact/></section>,
     issues: item => <IssueWidget id={item.id} filter={item.filter} />,
     'issue-status': () => <IssueWidget id="issue-status" />,
     priority: () => <IssueWidget id="priority" />,
