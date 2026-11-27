@@ -145,8 +145,8 @@ function BuildingRooms() {
             </div>
           )}
           <BuildingGroups key={groupID||'list'} buildings={(buildings.data || []).filter(row => readableIDs.has(row.id) || ((params.get('all') === '1' || groupID) && scope.can(row.id, 'buildings')))}
-            groupID={groupID} section={params.get('bereich')||'overview'}
-            onOpenGroup={(id,bereich='overview')=>setParams({all:'1',gruppe:String(id),bereich})}
+            groupID={groupID} section={params.get('bereich')||'buildings'}
+            onOpenGroup={(id,bereich='buildings')=>setParams({all:'1',gruppe:String(id),bereich})}
             onBack={()=>setParams({all:'1'})} onCreateBuilding={()=>setSetupOpen(true)}
             onOpenBuilding={building => openBuilding(building)} createOpen={groupCreateOpen} onCloseCreate={() => setGroupCreateOpen(false)} />
         </>
