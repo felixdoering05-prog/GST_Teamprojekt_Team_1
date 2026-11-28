@@ -1,5 +1,19 @@
 # Wettbewerbsvergleich – KI trifft Gebäude
 
+## 28.11.2026, morgens – Know My Building, Metrikus und Spacewell
+
+Quellenabruf 28.11.2026; neu im geprüften Vergleich, keine heutige Markteinführung oder Preisänderung belegt. Anbieterangaben, keine eigenen Produkttests.
+
+- [Know My Building – Preisrechner](https://www.knowmybuilding.co.uk/pricing/): Gebäudebetreiber, insbesondere Schul-/Estate-Teams; digitale Gebäudeabbilder, Grundrisse, Anlagenregister und physische Asset-Tags. Einrichtung ab 3.500 GBP, Software ab 100 GBP je Gebäude/Monat, zehn Tags inklusive, weitere 10 GBP je Tag. Ein Gebäude/12 Monate rechnerisch ab 4.700 GBP ohne zusätzliche Modellvermessung; deren Preis ist flächenabhängig. Native IFC-/Revit-Funktionen, Live-GA und KI-Sprache nicht bestätigt. Keine Anbieter-Einsparprognosen übernommen.
+- [Metrikus API](https://www.metrikus.io/solutions/metrikus-api) und [Plattform](https://www.metrikus.io/why-metrikus): Workplace-Teams, Entwickler und Beratungen; vereinheitlichte Belegungs-, Raumklima-, Strom-, Gas- und Wasserdaten, KI-gestützte Erkenntnisse. Öffentlicher Preis und Lizenzumfang in diesen Quellen nicht bestätigt; IFC-/Revit-Viewer und Sprachsteuerung ebenfalls nicht bestätigt.
+- [Spacewell MCS](https://spacewell.com/company/news/spacewell-achieves-vision-of-bim-enabled-fm/) (Ankündigung 31.08.2020): OpenBIM, IoT, Bimplus-Integration und Arbeitsaufträge für FM. [Spacewell Energy im britischen G-Cloud-14-Katalog](https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/services/368612606860260): KI-Energieanalyse, Prognosen, Alarme, Baselines; 1.750–5.000 GBP je Lizenz/Monat, Bildungspreise verfügbar, Betrag nicht genannt. Kein deutscher Preis und kein Gesamtpreis für BIM plus Energie; Sprachsteuerung nicht bestätigt.
+
+**Nala-Abgleich:** [README/main](../README.md) (Stand 26.11., Blob f05c38f) und am 28.11. erneut direkt als gemergt geprüfte [#295](../../pull/295), [#299](../../pull/299), [#300](../../pull/300): mobile Raumkarten mit Messwertquelle/Zeitpunkt, QR-Link, Foto-Mängelmeldung und KI-Raumkontext; HA-Live-Energie, fällige Aufgaben und Rollen. Simulator-/Vorschautests laut PRs, nicht selbst wiederholt; echter Server-/Kameratest, gezielter iPhone-3D-Raumfokus, freigegebene D21-Livedaten und reproduzierbare Revit-Synchronisation nicht nachgewiesen. Keine belegte gleichwertige Energieprognose oder IPMVP-Einsparvalidierung.
+
+**Chance:** Hochschulpilot mit transparenten Einrichtungskosten und messbarer Zeit bis zum ersten realen Raum-Messwert; Vergleich von Modellpflege, Datenintegration, KI-Kosten und Support. **Risiko:** etablierte Anbieter decken BIM+IoT+FM bzw. KI-Energieanalyse bereits ab; kein exklusiver USP oder Preisvorteil nachgewiesen. Preise verschiedener Leistungsumfänge und Länder nicht direkt gleichsetzen.
+
+---
+
 ## 27.11.2026, abends – Mobile Betriebsprozesse und Live-Zwillinge
 
 Quellenabruf 27.11.2026; Anbieterangaben, keine eigenen Produkttests. FotoEstate ist neu im dokumentierten Vergleich, Dalux bereits seit 21.11. enthalten. Keine heutige Markteinführung oder Preisänderung bestätigt.
