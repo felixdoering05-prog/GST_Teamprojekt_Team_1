@@ -39,6 +39,10 @@ Nur Recherche und Dokumentation. Keine App-/Serveränderungen, keine Paketinstal
 
 ## Berichtsindex – neueste zuerst
 
+- [28.11.2026 08:58 · APNs und Betrieb: keine neue Empfehlung](berichte/2026-11-28-0858.md)
+
+- [27.11.2026 16:57 · BIM und Planimport: keine neue Empfehlung](berichte/2026-11-27-1657.md)
+
 - [27.11.2026 09:06 · Energiekurven und Datenlücken](berichte/2026-11-27-0906.md)
 
 - [26.11.2026 17:03 · Präsenzsensorik und Datenschutz](berichte/2026-11-26-1703.md)
